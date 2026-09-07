@@ -50,6 +50,7 @@ class NotificationHubService : NotificationListenerService() {
         HubStore.dismiss = { key -> dismiss(key) }
         val items = activeNotifications.mapNotNull { toItem(it) }
         HubStore.replace(items)
+        pruneIntents()
     }
 
     override fun onListenerDisconnected() {
@@ -61,6 +62,7 @@ class NotificationHubService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val item = toItem(sbn) ?: return
         HubStore.upsert(item)
+        pruneIntents()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
@@ -81,9 +83,14 @@ class NotificationHubService : NotificationListenerService() {
 
     private fun dismiss(key: String) {
         val item = HubStore.items.value.find { it.key == key } ?: return
-        runCatching { cancelNotification(item.packageName, item.tag, item.notifId) }
+        runCatching { cancelNotification(item.key) }
         intents.remove(key)
         HubStore.remove(key)
+    }
+
+    private fun pruneIntents() {
+        val keep = HubStore.items.value.map { it.key }.toSet()
+        intents.keys.retainAll(keep)
     }
 
     private fun toItem(sbn: StatusBarNotification): HubItem? {

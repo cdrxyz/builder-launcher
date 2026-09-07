@@ -75,7 +75,7 @@ class CommandExecutor(
         val matches = when (pick) {
             AppPick.Unpin -> {
                 val pinned = pins.packages().toSet()
-                apps.search(query).filter { it.packageName in pinned }.ifEmpty { apps.search(query) }
+                apps.search(query).filter { it.packageName in pinned }
             }
             else -> apps.search(query)
         }
