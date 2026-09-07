@@ -52,15 +52,15 @@ jobs:
           echo "ANDROID_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
 
       - name: Test and assemble
-        run: gradle :app:testDebugUnitTest :app:verifyPaparazziDebug :app:assembleRelease --no-daemon --stacktrace
+        run: gradle :app:testDebugUnitTest :app:recordPaparazziDebug :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Upload Paparazzi failures
-        if: failure()
+      - name: Upload Paparazzi goldens
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: paparazzi-failures
-          path: app/build/paparazzi
-          if-no-files-found: ignore
+          name: paparazzi-snapshots
+          path: app/src/test/snapshots
+          if-no-files-found: warn
 
       - name: Stage APK
         run: |

@@ -2,7 +2,7 @@
 
 A simple Android launcher for builders who want to be deliberate with their phone. Open it, do the work, put it down, get back to life off screen.
 
-The home screen is a command bar, not an icon grid. Inspired by Minimal OS on the Minimal Phone 2 (not affiliated with The Minimal Company). Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
+The home screen is a command bar, not an icon grid. Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
 
 AI stays optional and private: point `?` at your own Hermes instance, or paste a SuperGrok / xAI API key. Keys never leave the device except as a Bearer token to the URL you set.
 
@@ -62,7 +62,7 @@ Nothing is sent anywhere until you type `?`. No analytics.
 
 ## Keyboard phones
 
-Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite, Minimal Phone 2, and most BlackBerry-style Androids. The command bar sits next to the keys; the software keyboard stays out of the way.
+Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite and most BlackBerry-style Androids. The command bar sits next to the keys; the software keyboard stays out of the way.
 
 ## Releases and CI
 

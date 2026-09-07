@@ -431,7 +431,7 @@ private fun SettingsPage(
             },
         )
         Spacer(Modifier.height(24.dp))
-        Text("Keys never leave the device except as a Bearer token to the URL you set. Not affiliated with The Minimal Company.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Text("Keys never leave the device except as a Bearer token to the URL you set.", color = Dim, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
