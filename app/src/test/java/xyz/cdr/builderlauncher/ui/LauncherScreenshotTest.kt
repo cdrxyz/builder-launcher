@@ -88,6 +88,11 @@ class LauncherScreenshotTest {
                     hermes = "http://192.168.1.10:8642",
                     apiKey = "",
                     model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                    weatherSuggestions = listOf(
+                        "Kitchener, Ontario, Canada",
+                        "Kitchener, British Columbia, Canada",
+                    ),
                 )
             }
         }

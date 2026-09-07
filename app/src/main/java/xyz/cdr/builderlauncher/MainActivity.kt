@@ -30,11 +30,6 @@ class MainActivity : ComponentActivity() {
         ) {
             needed += Manifest.permission.READ_CONTACTS
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            needed += Manifest.permission.ACCESS_COARSE_LOCATION
-        }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
         }
@@ -44,7 +39,7 @@ class MainActivity : ComponentActivity() {
         val pins = PinnedApps(this)
         val llm = LlmClient(settings)
         val executor = CommandExecutor(this, apps, lists)
-        val weather = WeatherRepository(this)
+        val weather = WeatherRepository(this, settings)
         setContent {
             BuilderTheme {
                 BuilderRoot(

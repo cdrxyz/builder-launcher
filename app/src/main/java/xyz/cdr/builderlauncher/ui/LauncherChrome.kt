@@ -160,6 +160,8 @@ fun SettingsChrome(
     hermes: String,
     apiKey: String,
     model: String,
+    weatherPlace: String = "",
+    weatherSuggestions: List<String> = emptyList(),
 ) {
     Column(
         modifier = Modifier
@@ -208,6 +210,21 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        Field("Weather location", weatherPlace, "Kitchener, Ontario")
+        Text(
+            if (weatherPlace.isNotBlank() && weatherSuggestions.isEmpty()) {
+                "Weather uses this city. No GPS."
+            } else {
+                "Type a city. Pick a match. No GPS required."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        weatherSuggestions.forEach { label ->
+            Text(label, color = Paper, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+        }
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))

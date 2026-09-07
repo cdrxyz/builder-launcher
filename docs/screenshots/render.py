@@ -115,6 +115,13 @@ def settings() -> None:
     d.text((PAD_X, y + 36), "command bar sits at the bottom,", font=F_MED, fill=DIM)
     d.text((PAD_X, y + 72), "above the keys.", font=F_MED, fill=DIM)
     y += 140
+    d.text((PAD_X, y), "Weather location", font=F_SMALL, fill=DIM)
+    y += 36
+    d.text((PAD_X, y), "Kitchener, Ontario, Canada", font=F_MED, fill=PAPER)
+    d.line((PAD_X, y + 44, W - PAD_X, y + 44), fill=LINE, width=2)
+    y += 70
+    d.text((PAD_X, y), "Weather uses this city. No GPS.", font=F_MED, fill=DIM)
+    y += 56
     d.text((PAD_X, y), "Notification access (hub)", font=F_MED, fill=PAPER)
     y += 48
     d.text((PAD_X, y), "Set as default home app", font=F_MED, fill=PAPER)

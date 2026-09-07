@@ -3,7 +3,6 @@ package xyz.cdr.builderlauncher.weather
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Location
 import android.location.LocationManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +18,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import xyz.cdr.builderlauncher.data.SettingsRepository
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -36,6 +36,7 @@ data class WeatherSnapshot(
 
 class WeatherRepository(
     context: Context,
+    private val settings: SettingsRepository,
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
@@ -48,11 +49,11 @@ class WeatherRepository(
     val current: StateFlow<WeatherSnapshot?> = _current.asStateFlow()
 
     suspend fun refresh() = withContext(Dispatchers.IO) {
-        val loc = lastLocation() ?: return@withContext
+        val point = WeatherPointResolver.fromSettings(settings.settings.value) ?: gpsPoint() ?: return@withContext
         val unit = if (Locale.getDefault().country.equals("US", true)) "fahrenheit" else "celsius"
         val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl().newBuilder()
-            .addQueryParameter("latitude", loc.latitude.toString())
-            .addQueryParameter("longitude", loc.longitude.toString())
+            .addQueryParameter("latitude", point.latitude.toString())
+            .addQueryParameter("longitude", point.longitude.toString())
             .addQueryParameter("current", "temperature_2m,weather_code")
             .addQueryParameter("temperature_unit", unit)
             .build()
@@ -69,12 +70,30 @@ class WeatherRepository(
                         temperature = kotlin.math.round(temp).toInt(),
                         condition = WeatherCodes.label(code),
                         fetchedAt = System.currentTimeMillis(),
-                        latitude = loc.latitude,
-                        longitude = loc.longitude,
+                        latitude = point.latitude,
+                        longitude = point.longitude,
                     ),
                 )
             }
         }
+    }
+
+    suspend fun suggest(query: String): List<WeatherPlace> = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.length < 2) return@withContext emptyList()
+        val url = Geocoding.SEARCH_URL.toHttpUrl().newBuilder()
+            .addQueryParameter("name", q)
+            .addQueryParameter("count", "6")
+            .addQueryParameter("language", "en")
+            .addQueryParameter("format", "json")
+            .build()
+        val req = Request.Builder().url(url).get().build()
+        runCatching {
+            http.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@use emptyList()
+                Geocoding.parseSearch(resp.body?.string().orEmpty())
+            }
+        }.getOrDefault(emptyList())
     }
 
     private fun persist(next: WeatherSnapshot) {
@@ -87,7 +106,7 @@ class WeatherRepository(
         return runCatching { json.decodeFromString<WeatherSnapshot>(file.readText()) }.getOrNull()
     }
 
-    private fun lastLocation(): Location? {
+    private fun gpsPoint(): WeatherPoint? {
         if (ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_COARSE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -99,8 +118,9 @@ class WeatherRepository(
             LocationManager.PASSIVE_PROVIDER,
             LocationManager.GPS_PROVIDER,
         )
-        return providers.mapNotNull { provider ->
+        val loc = providers.mapNotNull { provider ->
             runCatching { lm.getLastKnownLocation(provider) }.getOrNull()
-        }.maxByOrNull { it.time }
+        }.maxByOrNull { it.time } ?: return null
+        return WeatherPoint(latitude = loc.latitude, longitude = loc.longitude, source = "gps")
     }
 }

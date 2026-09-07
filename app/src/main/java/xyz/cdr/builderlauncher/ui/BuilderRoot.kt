@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,6 +67,7 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.weather.WeatherPlace
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -103,12 +106,8 @@ fun BuilderRoot(
                 ctx.resources.configuration.keyboard == Configuration.KEYBOARD_QWERTY
         }
     }
-    LaunchedEffect(Unit) {
-        repeat(3) {
-            weather.refresh()
-            if (weather.current.value != null) return@LaunchedEffect
-            kotlinx.coroutines.delay(3_000)
-        }
+    LaunchedEffect(settings.weatherLat, settings.weatherLon) {
+        weather.refresh()
     }
     LaunchedEffect(Unit) {
         while (true) {
@@ -305,6 +304,7 @@ fun BuilderRoot(
                     hardware = hardware,
                     onBack = { page = Page.Home },
                     repo = settingsRepo,
+                    weather = weather,
                 )
             }
         }
@@ -467,12 +467,25 @@ private fun SettingsPage(
     hardware: Boolean,
     onBack: () -> Unit,
     repo: SettingsRepository,
+    weather: WeatherRepository,
 ) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var hermes by remember { mutableStateOf(settings.hermesBaseUrl) }
     var key by remember { mutableStateOf(settings.apiKey) }
     var model by remember { mutableStateOf(settings.model) }
-    Column(modifier = Modifier.fillMaxSize()) {
+    var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
+    var suggestions by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
+    LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
+        val q = placeQuery.trim()
+        if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(280)
+        suggestions = weather.suggest(q)
+    }
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("settings", color = Prompt)
             Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
@@ -533,6 +546,33 @@ private fun SettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        WeatherLocationField(
+            query = placeQuery,
+            locked = settings.weatherLat != null && placeQuery == settings.weatherPlace,
+            suggestions = suggestions,
+            onQuery = { next ->
+                placeQuery = next
+                if (next.isBlank()) {
+                    repo.update { s -> s.copy(weatherPlace = "", weatherLat = null, weatherLon = null) }
+                    suggestions = emptyList()
+                } else if (settings.weatherLat != null && next != settings.weatherPlace) {
+                    repo.update { s -> s.copy(weatherPlace = "", weatherLat = null, weatherLon = null) }
+                }
+            },
+            onPick = { place ->
+                placeQuery = place.label
+                suggestions = emptyList()
+                repo.update {
+                    it.copy(
+                        weatherPlace = place.label,
+                        weatherLat = place.latitude,
+                        weatherLon = place.longitude,
+                    )
+                }
+                scope.launch { weather.refresh() }
+            },
+        )
         Spacer(Modifier.height(20.dp))
         Text(
             "Notification access (hub)",
@@ -578,4 +618,51 @@ private fun LabeledField(label: String, value: String, placeholder: String, onCh
             .padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+private fun WeatherLocationField(
+    query: String,
+    locked: Boolean,
+    suggestions: List<WeatherPlace>,
+    onQuery: (String) -> Unit,
+    onPick: (WeatherPlace) -> Unit,
+) {
+    Text("Weather location", color = Dim, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 10.dp))
+    BasicTextField(
+        value = query,
+        onValueChange = onQuery,
+        singleLine = true,
+        cursorBrush = SolidColor(Prompt),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+        decorationBox = { inner ->
+            if (query.isEmpty()) Text("Kitchener, Ontario", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            inner()
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+    )
+    HorizontalDivider(color = Line)
+    Text(
+        if (locked) {
+            "Weather uses this city. No GPS."
+        } else {
+            "Type a city. Pick a match. No GPS required."
+        },
+        color = Dim,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(top = 6.dp),
+    )
+    suggestions.forEach { place ->
+        Text(
+            place.label,
+            color = Paper,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onPick(place) }
+                .padding(vertical = 8.dp),
+        )
+    }
 }

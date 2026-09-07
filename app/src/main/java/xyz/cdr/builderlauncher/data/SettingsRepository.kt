@@ -17,6 +17,9 @@ data class BuilderSettings(
     val model: String = "",
     val keyboardMode: KeyboardMode = KeyboardMode.AUTO,
     val commandBarBottom: Boolean? = null,
+    val weatherPlace: String = "",
+    val weatherLat: Double? = null,
+    val weatherLon: Double? = null,
 )
 
 enum class KeyboardMode { AUTO, HARDWARE, SOFTWARE }
@@ -35,6 +38,9 @@ class SettingsRepository(context: Context) {
             .putString(KEY_API, next.apiKey)
             .putString(KEY_MODEL, next.model)
             .putString(KEY_KB, next.keyboardMode.name)
+            .putString(KEY_WEATHER_PLACE, next.weatherPlace)
+            .putString(KEY_WEATHER_LAT, next.weatherLat?.toString() ?: "")
+            .putString(KEY_WEATHER_LON, next.weatherLon?.toString() ?: "")
             .apply()
         _settings.value = next
     }
@@ -69,6 +75,9 @@ class SettingsRepository(context: Context) {
             apiKey = prefs.getString(KEY_API, "") ?: "",
             model = prefs.getString(KEY_MODEL, "") ?: "",
             keyboardMode = kb,
+            weatherPlace = prefs.getString(KEY_WEATHER_PLACE, "") ?: "",
+            weatherLat = prefs.getString(KEY_WEATHER_LAT, "")?.toDoubleOrNull(),
+            weatherLon = prefs.getString(KEY_WEATHER_LON, "")?.toDoubleOrNull(),
         )
     }
 
@@ -80,6 +89,9 @@ class SettingsRepository(context: Context) {
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_KB = "keyboard"
+        private const val KEY_WEATHER_PLACE = "weather_place"
+        private const val KEY_WEATHER_LAT = "weather_lat"
+        private const val KEY_WEATHER_LON = "weather_lon"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {
