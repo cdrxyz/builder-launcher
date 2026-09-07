@@ -3,12 +3,15 @@
 package xyz.cdr.builderlauncher.ui
 
 import android.content.res.Configuration
+import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,8 +52,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.LlmClient
+import xyz.cdr.builderlauncher.ai.OAuthSpec
+import xyz.cdr.builderlauncher.ai.oauth.DevicePending
+import xyz.cdr.builderlauncher.ai.oauth.OAuthService
+import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.commands.AppPick
@@ -90,6 +100,7 @@ fun BuilderRoot(
     pins: PinnedApps,
     contacts: PhoneContacts,
     llm: LlmClient,
+    oauth: OAuthService,
     executor: CommandExecutor,
     weather: WeatherRepository,
     onRequestHome: () -> Unit = {},
@@ -444,6 +455,7 @@ fun BuilderRoot(
                     repo = settingsRepo,
                     weather = weather,
                     onRequestHome = onRequestHome,
+                    oauth = oauth,
                 )
             }
         }
@@ -611,14 +623,21 @@ private fun SettingsPage(
     repo: SettingsRepository,
     weather: WeatherRepository,
     onRequestHome: () -> Unit,
+    oauth: OAuthService,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val platform = AiPlatforms.of(settings.provider)
     var hermes by remember { mutableStateOf(settings.hermesBaseUrl) }
     var key by remember { mutableStateOf(settings.apiKey) }
     var model by remember { mutableStateOf(settings.model) }
     var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
     var suggestions by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
+    var paste by remember { mutableStateOf("") }
+    var oauthMsg by remember { mutableStateOf<String?>(null) }
+    var pending by remember { mutableStateOf<DevicePending?>(null) }
+    var pkce by remember { mutableStateOf<PkceSession?>(null) }
+    var pollJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
         val q = placeQuery.trim()
         if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
@@ -628,6 +647,22 @@ private fun SettingsPage(
         kotlinx.coroutines.delay(280)
         suggestions = weather.suggest(q)
     }
+
+    fun cancelAuth() {
+        pollJob?.cancel()
+        pollJob = null
+        pending = null
+        pkce = null
+        oauthMsg = null
+    }
+
+    fun openHttps(url: String) {
+        ctx.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("settings", color = Prompt)
@@ -636,20 +671,28 @@ private fun SettingsPage(
         Spacer(Modifier.height(16.dp))
         Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            Text(
-                "Hermes",
-                color = if (settings.provider == LlmProvider.HERMES) Prompt else Dim,
-                modifier = Modifier.clickable {
-                    repo.update { it.copy(provider = LlmProvider.HERMES) }
-                },
-            )
-            Text(
-                "xAI / SuperGrok",
-                color = if (settings.provider == LlmProvider.XAI) Prompt else Dim,
-                modifier = Modifier.clickable {
-                    repo.update { it.copy(provider = LlmProvider.XAI) }
-                },
-            )
+            AiPlatforms.all.take(2).forEach { item ->
+                Text(
+                    item.label,
+                    color = if (settings.provider == item.provider) Prompt else Dim,
+                    modifier = Modifier.clickable {
+                        cancelAuth()
+                        repo.setProvider(item.provider)
+                    },
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            AiPlatforms.all.drop(2).forEach { item ->
+                Text(
+                    item.label,
+                    color = if (settings.provider == item.provider) Prompt else Dim,
+                    modifier = Modifier.clickable {
+                        cancelAuth()
+                        repo.setProvider(item.provider)
+                    },
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         if (settings.provider == LlmProvider.HERMES) {
@@ -658,14 +701,76 @@ private fun SettingsPage(
                 repo.update { s -> s.copy(hermesBaseUrl = it) }
             }
         } else {
-            Text("Uses https://api.x.ai/v1 — paste a SuperGrok / xAI API key below.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${platform.apiBase} — sign in or paste an API key. Used only for ? questions.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Spacer(Modifier.height(8.dp))
+            OauthBlock(
+                settings = settings,
+                platformLabel = platform.label,
+                spec = platform.oauth,
+                pending = pending,
+                pkce = pkce,
+                paste = paste,
+                message = oauthMsg,
+                onPaste = { paste = it },
+                onSignIn = {
+                    val spec = platform.oauth ?: return@OauthBlock
+                    oauthMsg = null
+                    pollJob?.cancel()
+                    pollJob = scope.launch {
+                        try {
+                            when (spec) {
+                                is OAuthSpec.Device -> {
+                                    val next = oauth.beginDevice(settings.provider)
+                                    pending = next
+                                    pkce = null
+                                    oauth.browserUrl(next, settings.provider)?.let { openHttps(it) }
+                                    oauth.pollUntilAuthorized(settings.provider, next)
+                                    pending = null
+                                    oauthMsg = "Signed in"
+                                }
+                                is OAuthSpec.PkcePaste -> {
+                                    val session = oauth.beginPkce(settings.provider)
+                                    pkce = session
+                                    pending = null
+                                    openHttps(session.authorizeUrl)
+                                    oauthMsg = "Authorize, then paste the code or callback URL."
+                                }
+                            }
+                        } catch (_: CancellationException) {
+                        } catch (e: Exception) {
+                            oauthMsg = e.message ?: "Sign-in failed"
+                        }
+                    }
+                },
+                onCompletePaste = {
+                    val session = pkce ?: return@OauthBlock
+                    scope.launch {
+                        try {
+                            oauth.completePkce(settings.provider, session, paste)
+                            pkce = null
+                            paste = ""
+                            oauthMsg = "Signed in"
+                        } catch (e: Exception) {
+                            oauthMsg = e.message ?: "Could not finish sign-in"
+                        }
+                    }
+                },
+                onSignOut = {
+                    cancelAuth()
+                    oauth.signOut()
+                    oauthMsg = "Signed out"
+                },
+            )
         }
-        LabeledField("API key (stored on device)", key, "optional for local Hermes") {
+        LabeledField("API key (stored on device)", key, if (settings.provider == LlmProvider.HERMES) "optional for local Hermes" else "optional if signed in") {
             key = it
             repo.update { s -> s.copy(apiKey = it) }
         }
-        LabeledField("Model", model, if (settings.provider == LlmProvider.XAI) "grok-4.6" else "default") {
+        LabeledField("Model", model, platform.defaultModel) {
             model = it
             repo.update { s -> s.copy(model = it) }
         }
@@ -734,8 +839,57 @@ private fun SettingsPage(
             modifier = Modifier.clickable { onRequestHome() },
         )
         Spacer(Modifier.height(24.dp))
-        Text("Keys never leave the device except as a Bearer token to the URL you set.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Text("Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.", color = Dim, style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+@Composable
+private fun OauthBlock(
+    settings: BuilderSettings,
+    platformLabel: String,
+    spec: OAuthSpec?,
+    pending: DevicePending?,
+    pkce: PkceSession?,
+    paste: String,
+    message: String?,
+    onPaste: (String) -> Unit,
+    onSignIn: () -> Unit,
+    onCompletePaste: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    if (spec == null) return
+    val signInLabel = when (settings.provider) {
+        LlmProvider.XAI -> "Sign in with SuperGrok"
+        LlmProvider.OPENAI -> "Sign in with ChatGPT"
+        LlmProvider.ANTHROPIC -> "Sign in with Claude"
+        LlmProvider.HERMES -> "Sign in"
+    }
+    if (settings.signedIn) {
+        Text(
+            if (settings.oauthAccount.isNotBlank()) "Signed in as ${settings.oauthAccount}" else "Signed in with $platformLabel",
+            color = Paper,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text("Sign out", color = Prompt, modifier = Modifier.clickable { onSignOut() })
+    } else {
+        Text(signInLabel, color = Paper, modifier = Modifier.clickable { onSignIn() })
+    }
+    pending?.let {
+        Spacer(Modifier.height(8.dp))
+        Text("Enter this code in the browser", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(it.userCode, color = Prompt, style = MaterialTheme.typography.headlineSmall)
+        Text("Waiting for approval…", color = Dim, style = MaterialTheme.typography.bodyMedium)
+    }
+    if (pkce != null) {
+        LabeledField("Paste code or callback URL", paste, "code from the page") { onPaste(it) }
+        Text("Finish sign-in", color = Prompt, modifier = Modifier.clickable { onCompletePaste() }.padding(vertical = 8.dp))
+    }
+    message?.let {
+        Spacer(Modifier.height(6.dp))
+        Text(it, color = Dim, style = MaterialTheme.typography.bodyMedium)
+    }
+    Spacer(Modifier.height(8.dp))
 }
 
 @Composable

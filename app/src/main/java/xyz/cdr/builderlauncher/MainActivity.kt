@@ -11,6 +11,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import xyz.cdr.builderlauncher.ai.LlmClient
+import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
@@ -43,7 +44,8 @@ class MainActivity : ComponentActivity() {
         val pins = PinnedApps(this)
         val people = PhoneContacts(this)
         val sms = SmsSender(this)
-        val llm = LlmClient(settings)
+        val oauth = OAuthService(settings)
+        val llm = LlmClient(settings, oauth)
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         setContent {
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
                     pins = pins,
                     contacts = people,
                     llm = llm,
+                    oauth = oauth,
                     executor = executor,
                     weather = weather,
                     onRequestHome = { askToBeHome(fromSettings = true) },

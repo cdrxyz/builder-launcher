@@ -88,7 +88,10 @@ def settings() -> None:
     d.text((PAD_X, y), "AI provider", font=F_SMALL, fill=DIM)
     y += 40
     d.text((PAD_X, y), "Hermes", font=F_MED, fill=PROMPT)
-    d.text((PAD_X + 180, y), "xAI / SuperGrok", font=F_MED, fill=DIM)
+    d.text((PAD_X + 180, y), "xAI", font=F_MED, fill=DIM)
+    y += 44
+    d.text((PAD_X, y), "OpenAI", font=F_MED, fill=DIM)
+    d.text((PAD_X + 180, y), "Anthropic", font=F_MED, fill=DIM)
     y += 64
     d.text((PAD_X, y), "Hermes base URL", font=F_SMALL, fill=DIM)
     y += 36

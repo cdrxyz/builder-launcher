@@ -177,20 +177,37 @@ fun SettingsChrome(
         Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
             Text("Hermes", color = if (settings.provider == LlmProvider.HERMES) Prompt else Dim)
-            Text("xAI / SuperGrok", color = if (settings.provider == LlmProvider.XAI) Prompt else Dim)
+            Text("xAI", color = if (settings.provider == LlmProvider.XAI) Prompt else Dim)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            Text("OpenAI", color = if (settings.provider == LlmProvider.OPENAI) Prompt else Dim)
+            Text("Anthropic", color = if (settings.provider == LlmProvider.ANTHROPIC) Prompt else Dim)
         }
         if (settings.provider == LlmProvider.HERMES) {
             Field("Hermes base URL", hermes, "http://192.168.1.10:8642")
         } else {
             Text(
-                "Uses https://api.x.ai/v1 — paste a SuperGrok / xAI API key below.",
+                if (settings.provider == LlmProvider.XAI) {
+                    "Sign in with SuperGrok, or paste an API key. Used only for ? questions."
+                } else {
+                    "Paste an API key. Used only for ? questions."
+                },
                 color = Dim,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(8.dp))
+            if (settings.provider == LlmProvider.XAI) {
+                Text("Sign in with SuperGrok", color = Paper)
+                Spacer(Modifier.height(8.dp))
+            }
         }
-        Field("API key (stored on device)", apiKey, "optional for local Hermes")
-        Field("Model", model, if (settings.provider == LlmProvider.XAI) "grok-4.6" else "default")
+        Field("API key (stored on device)", apiKey, if (settings.provider == LlmProvider.HERMES) "optional for local Hermes" else "optional if signed in")
+        Field("Model", model, when (settings.provider) {
+            LlmProvider.XAI -> "grok-4.6"
+            LlmProvider.OPENAI -> "gpt-4o"
+            LlmProvider.ANTHROPIC -> "claude-sonnet-4-5"
+            LlmProvider.HERMES -> "default"
+        })
         Spacer(Modifier.height(16.dp))
         Text("Keyboard", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
@@ -231,7 +248,7 @@ fun SettingsChrome(
         Text("Set as default home app", color = Paper)
         Spacer(Modifier.height(24.dp))
         Text(
-            "Keys never leave the device except as a Bearer token to the URL you set.",
+            "Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
