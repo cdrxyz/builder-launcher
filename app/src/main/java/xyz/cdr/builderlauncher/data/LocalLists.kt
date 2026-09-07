@@ -1,0 +1,52 @@
+package xyz.cdr.builderlauncher.data
+
+import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.File
+
+@Serializable
+data class LocalItem(
+    val id: String,
+    val kind: String,
+    val text: String,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+class LocalLists(context: Context) {
+    private val file = File(context.filesDir, "lists.json")
+    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val _items = MutableStateFlow(load())
+    val items: StateFlow<List<LocalItem>> = _items.asStateFlow()
+
+    fun add(kind: String, text: String) {
+        val next = listOf(
+            LocalItem(
+                id = System.currentTimeMillis().toString(36),
+                kind = kind,
+                text = text,
+            ),
+        ) + _items.value
+        persist(next)
+    }
+
+    fun remove(id: String) {
+        persist(_items.value.filterNot { it.id == id })
+    }
+
+    private fun persist(next: List<LocalItem>) {
+        _items.value = next
+        file.writeText(json.encodeToString(next))
+    }
+
+    private fun load(): List<LocalItem> {
+        if (!file.exists()) return emptyList()
+        return runCatching {
+            json.decodeFromString<List<LocalItem>>(file.readText())
+        }.getOrDefault(emptyList())
+    }
+}
