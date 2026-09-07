@@ -6,6 +6,16 @@ The home screen is a command bar, not an icon grid. Inspired by Minimal OS on th
 
 AI stays optional and private: point `?` at your own Hermes instance, or paste a SuperGrok / xAI API key. Keys never leave the device except as a Bearer token to the URL you set.
 
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Home: clock, empty canvas, command bar" width="240" />
+  <img src="docs/screenshots/hub.png" alt="Hub: todos, notes, notifications" width="240" />
+  <img src="docs/screenshots/settings.png" alt="Settings: Hermes or xAI, keyboard mode" width="240" />
+</p>
+
+| Home | Hub | Settings |
+| --- | --- | --- |
+| Clock, command bar, no icon grid | Todos, notes, granted notifications | Hermes or SuperGrok, keyboard layout |
+
 ## Install with Obtainium
 
 1. Install [Obtainium](https://github.com/ImranR98/Obtainium/releases).
