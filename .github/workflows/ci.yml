@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Prepare keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          SECRET_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SECRET_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KS="$GITHUB_WORKSPACE/minimos.p12"
+          if [ -n "${ANDROID_KEYSTORE_B64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$KS"
+            echo "ANDROID_KEYSTORE_PASSWORD=${SECRET_STORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=${SECRET_KEY_PASSWORD}" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS:-minimos}" >> "$GITHUB_ENV"
+          else
+            keytool -genkeypair -keystore "$KS" -storetype PKCS12 \
+              -alias minimos -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass minimos-ci -keypass minimos-ci \
+              -dname "CN=minimos, OU=Cedar Labs, O=cdrxyz, C=CA"
+            echo "ANDROID_KEYSTORE_PASSWORD=minimos-ci" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=minimos-ci" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=minimos" >> "$GITHUB_ENV"
+          fi
+          echo "ANDROID_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
+
+      - name: Test and assemble
+        run: gradle :app:testDebugUnitTest :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Stage APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          cp "$APK" dist/builder-launcher-release.apk
+          ls -la dist/builder-launcher-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: builder-launcher-release
+          path: dist/builder-launcher-release.apk
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TAG="pr-${{ github.event.pull_request.number }}"
+            NOTES="PR #${{ github.event.pull_request.number }} (${GITHUB_SHA})"
+            TITLE="PR #${{ github.event.pull_request.number }}"
+            gh release delete "$TAG" --yes || true
+            git push origin ":refs/tags/$TAG" || true
+            gh release create "$TAG" dist/builder-launcher-release.apk --prerelease --title "$TITLE" --notes "$NOTES"
+          else
+            TAG="v0.1.${GITHUB_RUN_NUMBER}"
+            gh release create "$TAG" dist/builder-launcher-release.apk --latest --title "$TAG" --notes "master ${GITHUB_SHA}"
+          fi
