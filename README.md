@@ -74,9 +74,10 @@ Every pull request builds a signed APK and publishes a **prerelease** tagged `pr
 
 ## Build from source
 
-JDK 17, Android SDK 35.
+JDK 17 and Gradle 8.11.1 are pinned with Hermit (`bin/`). Android SDK 35.
 
 ```bash
+source bin/activate-hermit
 gradle :app:testDebugUnitTest :app:assembleRelease
 ```
 
