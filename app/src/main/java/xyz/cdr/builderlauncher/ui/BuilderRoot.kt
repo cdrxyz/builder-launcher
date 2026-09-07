@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package xyz.cdr.builderlauncher.ui
 
 import android.content.res.Configuration
@@ -5,6 +7,7 @@ import android.provider.Settings
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,6 +53,7 @@ import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
+import xyz.cdr.builderlauncher.commands.AppPick
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ExecResult
@@ -97,6 +101,8 @@ fun BuilderRoot(
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var todosExpanded by remember { mutableStateOf(false) }
+    var pick by remember { mutableStateOf(AppPick.Launch) }
+    val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     val hardware = remember(settings.keyboardMode) {
@@ -143,6 +149,7 @@ fun BuilderRoot(
             }
             is ExecResult.AppChoices -> {
                 choices = result.apps
+                pick = result.pick
                 help = false
             }
         }
@@ -188,9 +195,9 @@ fun BuilderRoot(
                     HelpBlock()
                     Spacer(Modifier.height(12.dp))
                 }
-                val pinned = remember(pins.list(), apps.all()) {
+                val pinned = remember(pinPkgs, apps.all()) {
                     val all = apps.all()
-                    pins.list().mapNotNull { pkg -> all.find { it.packageName == pkg } }
+                    pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
                 }
                 val shown = if (choices.isNotEmpty()) choices else pinned
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -227,15 +234,24 @@ fun BuilderRoot(
                                 color = Paper,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        if (choices.isNotEmpty()) {
-                                            apps.launch(app)
-                                            input = ""
-                                            choices = emptyList()
-                                        } else {
-                                            apps.launch(app)
-                                        }
-                                    }
+                                    .combinedClickable(
+                                        onClick = {
+                                            if (choices.isNotEmpty()) {
+                                                executor.applyPick(app, pick)
+                                                input = ""
+                                                choices = emptyList()
+                                            } else {
+                                                apps.launch(app)
+                                            }
+                                        },
+                                        onLongClick = {
+                                            if (pins.isPinned(app.packageName)) {
+                                                pins.unpin(app.packageName)
+                                            } else {
+                                                pins.pin(app.packageName)
+                                            }
+                                        },
+                                    )
                                     .padding(vertical = 6.dp),
                             )
                         }
@@ -283,16 +299,31 @@ fun BuilderRoot(
                         HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
                     }
                     items(hub, key = { it.key }) { item ->
-                        Column {
-                            Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
-                            Text(item.title, color = Paper)
-                            if (item.body.isNotBlank()) Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { HubStore.open(item.key) },
+                            ) {
+                                Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                Text(item.title, color = Paper)
+                                if (item.body.isNotBlank()) {
+                                    Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            Text(
+                                "dismiss",
+                                color = Dim,
+                                modifier = Modifier
+                                    .clickable { HubStore.dismiss(item.key) }
+                                    .padding(start = 12.dp),
+                            )
                         }
                     }
                     if (hub.isEmpty() && local.isEmpty()) {
                         item {
                             Text(
-                                "Grant notification access in settings to fill the hub. Todos and notes typed with - and + appear here.",
+                                "Grant notification access in settings to fill the hub. Todos and notes typed with - and + appear here. Hold a todo to remove it. Tap a notification to open it.",
                                 color = Dim,
                             )
                         }
@@ -455,8 +486,11 @@ private fun HelpBlock() {
         "-todo           save todo",
         "+note           save note",
         "?question       ask AI",
+        "pin Termux      pin an app",
+        "unpin Termux    unpin",
         "hub / settings",
         "type a name     launch app",
+        "hold an app     pin or unpin",
     )
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         lines.forEach { Text(it, color = Dim, style = MaterialTheme.typography.bodyMedium) }

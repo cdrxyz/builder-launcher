@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.hub
 
+import android.app.PendingIntent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,11 +13,20 @@ data class HubItem(
     val title: String,
     val body: String,
     val postedAt: Long,
+    val packageName: String,
+    val notifId: Int,
+    val tag: String?,
 )
 
 object HubStore {
     private val _items = MutableStateFlow<List<HubItem>>(emptyList())
     val items: StateFlow<List<HubItem>> = _items.asStateFlow()
+
+    @Volatile
+    var open: (String) -> Boolean = { false }
+
+    @Volatile
+    var dismiss: (String) -> Unit = {}
 
     fun upsert(item: HubItem) {
         val without = _items.value.filterNot { it.key == item.key }
@@ -33,18 +43,54 @@ object HubStore {
 }
 
 class NotificationHubService : NotificationListenerService() {
+    private val intents = mutableMapOf<String, PendingIntent?>()
+
     override fun onListenerConnected() {
+        HubStore.open = { key -> open(key) }
+        HubStore.dismiss = { key -> dismiss(key) }
         val items = activeNotifications.mapNotNull { toItem(it) }
         HubStore.replace(items)
+        pruneIntents()
+    }
+
+    override fun onListenerDisconnected() {
+        HubStore.open = { false }
+        HubStore.dismiss = {}
+        intents.clear()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val item = toItem(sbn) ?: return
         HubStore.upsert(item)
+        pruneIntents()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        HubStore.remove("${sbn.packageName}:${sbn.id}:${sbn.tag}")
+        val key = "${sbn.packageName}:${sbn.id}:${sbn.tag}"
+        intents.remove(key)
+        HubStore.remove(key)
+    }
+
+    private fun open(key: String): Boolean {
+        val intent = intents[key] ?: return false
+        return try {
+            intent.send()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun dismiss(key: String) {
+        val item = HubStore.items.value.find { it.key == key } ?: return
+        runCatching { cancelNotification(item.key) }
+        intents.remove(key)
+        HubStore.remove(key)
+    }
+
+    private fun pruneIntents() {
+        val keep = HubStore.items.value.map { it.key }.toSet()
+        intents.keys.retainAll(keep)
     }
 
     private fun toItem(sbn: StatusBarNotification): HubItem? {
@@ -60,12 +106,17 @@ class NotificationHubService : NotificationListenerService() {
         } catch (_: Exception) {
             sbn.packageName
         }
+        val key = "${sbn.packageName}:${sbn.id}:${sbn.tag}"
+        intents[key] = sbn.notification.contentIntent
         return HubItem(
-            key = "${sbn.packageName}:${sbn.id}:${sbn.tag}",
+            key = key,
             source = label,
             title = title.ifBlank { label },
             body = text,
             postedAt = sbn.postTime,
+            packageName = sbn.packageName,
+            notifId = sbn.id,
+            tag = sbn.tag,
         )
     }
 }

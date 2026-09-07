@@ -12,6 +12,8 @@ sealed class Command {
     data class Note(val text: String) : Command()
     data class Ask(val question: String) : Command()
     data class LaunchApp(val query: String) : Command()
+    data class Pin(val query: String) : Command()
+    data class Unpin(val query: String) : Command()
 }
 
 object CommandParser {
@@ -24,6 +26,16 @@ object CommandParser {
             "help", "/help", "?" -> return Command.Help
             "settings", "/settings" -> return Command.OpenSettings
             "hub", "/hub" -> return Command.OpenHub
+            "pin", "unpin" -> return Command.Help
+        }
+
+        if (lower.startsWith("pin ")) {
+            val query = line.drop(4).trim()
+            return if (query.isEmpty()) Command.Help else Command.Pin(query)
+        }
+        if (lower.startsWith("unpin ")) {
+            val query = line.drop(6).trim()
+            return if (query.isEmpty()) Command.Help else Command.Unpin(query)
         }
 
         return when (line.first()) {

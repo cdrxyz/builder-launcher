@@ -66,4 +66,12 @@ class CommandParserTest {
         assertEquals(Command.Help, CommandParser.parse("help"))
         assertEquals(Command.Help, CommandParser.parse("?"))
     }
+
+    @Test
+    fun pinAndUnpin() {
+        assertEquals(Command.Pin("Termux"), CommandParser.parse("pin Termux"))
+        assertEquals(Command.Unpin("Termux"), CommandParser.parse("unpin Termux"))
+        assertEquals(Command.Help, CommandParser.parse("pin"))
+        assertEquals(Command.Help, CommandParser.parse("unpin"))
+    }
 }

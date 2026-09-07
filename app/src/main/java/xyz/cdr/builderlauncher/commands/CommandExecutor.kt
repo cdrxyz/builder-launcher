@@ -10,11 +10,13 @@ import android.widget.Toast
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.data.LocalLists
+import xyz.cdr.builderlauncher.data.PinnedApps
 
 class CommandExecutor(
     private val context: Context,
     private val apps: InstalledApps,
     private val lists: LocalLists,
+    private val pins: PinnedApps,
 ) {
     fun execute(command: Command): ExecResult {
         return when (command) {
@@ -63,23 +65,51 @@ class CommandExecutor(
                 ExecResult.None
             }
             is Command.Ask -> ExecResult.Ask(command.question)
-            is Command.LaunchApp -> {
-                val matches = apps.search(command.query)
-                when {
-                    matches.size == 1 -> {
-                        apps.launch(matches.first())
-                        ExecResult.None
-                    }
-                    matches.isEmpty() && command.query.equals("timer", true) -> {
-                        val intent = Intent(AlarmClock.ACTION_SET_TIMER)
-                            .putExtra(AlarmClock.EXTRA_LENGTH, 300)
-                            .putExtra(AlarmClock.EXTRA_SKIP_UI, false)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        startOrToast(intent, "No clock app")
-                        ExecResult.None
-                    }
-                    else -> ExecResult.AppChoices(command.query, matches)
-                }
+            is Command.LaunchApp -> pickApp(command.query, AppPick.Launch)
+            is Command.Pin -> pickApp(command.query, AppPick.Pin)
+            is Command.Unpin -> pickApp(command.query, AppPick.Unpin)
+        }
+    }
+
+    private fun pickApp(query: String, pick: AppPick): ExecResult {
+        val matches = when (pick) {
+            AppPick.Unpin -> {
+                val pinned = pins.packages().toSet()
+                apps.search(query).filter { it.packageName in pinned }
+            }
+            else -> apps.search(query)
+        }
+        return when {
+            matches.size == 1 -> {
+                applyPick(matches.first(), pick)
+                ExecResult.None
+            }
+            matches.isEmpty() && pick == AppPick.Launch && query.equals("timer", true) -> {
+                val intent = Intent(AlarmClock.ACTION_SET_TIMER)
+                    .putExtra(AlarmClock.EXTRA_LENGTH, 300)
+                    .putExtra(AlarmClock.EXTRA_SKIP_UI, false)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startOrToast(intent, "No clock app")
+                ExecResult.None
+            }
+            matches.isEmpty() -> {
+                toast("No app matches")
+                ExecResult.None
+            }
+            else -> ExecResult.AppChoices(query, matches, pick)
+        }
+    }
+
+    fun applyPick(app: LaunchableApp, pick: AppPick) {
+        when (pick) {
+            AppPick.Launch -> apps.launch(app)
+            AppPick.Pin -> {
+                pins.pin(app.packageName)
+                toast("Pinned ${app.label}")
+            }
+            AppPick.Unpin -> {
+                pins.unpin(app.packageName)
+                toast("Unpinned ${app.label}")
             }
         }
     }
@@ -123,11 +153,13 @@ class CommandExecutor(
     }
 }
 
+enum class AppPick { Launch, Pin, Unpin }
+
 sealed class ExecResult {
     data object None : ExecResult()
     data object ShowHelp : ExecResult()
     data object NavigateSettings : ExecResult()
     data object NavigateHub : ExecResult()
     data class Ask(val question: String) : ExecResult()
-    data class AppChoices(val query: String, val apps: List<LaunchableApp>) : ExecResult()
+    data class AppChoices(val query: String, val apps: List<LaunchableApp>, val pick: AppPick = AppPick.Launch) : ExecResult()
 }

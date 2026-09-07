@@ -51,9 +51,10 @@ Type on the home screen, then Enter.
 | `+` | `+ship notes` | Save a note in the hub |
 | `?` | `?weather tomorrow` | Ask the configured LLM inline |
 | (none) | `Termux` | Search and launch apps |
+| | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
 | | `hub` / `settings` / `help` | Built-ins |
 
-Home always shows the clock, current weather, and the last 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. Finished todos sit in a separate list below, newest completed first. `…more todos` expands the full open list. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap the clock for settings.
+Home always shows the clock, current weather, and the last 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. Finished todos sit in a separate list below, newest completed first. `…more todos` expands the full open list. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. Tap the clock for settings.
 
 ## AI settings
 
