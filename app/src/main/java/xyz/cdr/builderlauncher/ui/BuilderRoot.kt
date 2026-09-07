@@ -84,6 +84,7 @@ fun BuilderRoot(
     llm: LlmClient,
     executor: CommandExecutor,
     weather: WeatherRepository,
+    onRequestHome: () -> Unit = {},
 ) {
     val settings by settingsRepo.settings.collectAsState()
     val hub by HubStore.items.collectAsState()
@@ -305,6 +306,7 @@ fun BuilderRoot(
                     onBack = { page = Page.Home },
                     repo = settingsRepo,
                     weather = weather,
+                    onRequestHome = onRequestHome,
                 )
             }
         }
@@ -468,6 +470,7 @@ private fun SettingsPage(
     onBack: () -> Unit,
     repo: SettingsRepository,
     weather: WeatherRepository,
+    onRequestHome: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -588,12 +591,7 @@ private fun SettingsPage(
         Text(
             "Set as default home app",
             color = Paper,
-            modifier = Modifier.clickable {
-                ctx.startActivity(
-                    android.content.Intent(Settings.ACTION_HOME_SETTINGS)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            },
+            modifier = Modifier.clickable { onRequestHome() },
         )
         Spacer(Modifier.height(24.dp))
         Text("Keys never leave the device except as a Bearer token to the URL you set.", color = Dim, style = MaterialTheme.typography.bodyMedium)
