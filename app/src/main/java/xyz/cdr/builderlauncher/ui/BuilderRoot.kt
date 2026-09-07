@@ -56,7 +56,10 @@ import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.commands.AppPick
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
+import xyz.cdr.builderlauncher.commands.ContactAction
 import xyz.cdr.builderlauncher.commands.ExecResult
+import xyz.cdr.builderlauncher.contacts.PhoneContact
+import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
@@ -85,6 +88,7 @@ fun BuilderRoot(
     apps: InstalledApps,
     lists: LocalLists,
     pins: PinnedApps,
+    contacts: PhoneContacts,
     llm: LlmClient,
     executor: CommandExecutor,
     weather: WeatherRepository,
@@ -101,6 +105,9 @@ fun BuilderRoot(
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var todosExpanded by remember { mutableStateOf(false) }
+    var people by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
+    var contactAction by remember { mutableStateOf<ContactAction?>(null) }
+    var contactBody by remember { mutableStateOf("") }
     var pick by remember { mutableStateOf(AppPick.Launch) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
@@ -123,12 +130,37 @@ fun BuilderRoot(
         }
     }
 
+    fun onInput(value: String) {
+        input = value
+        contactAction = null
+        if (value.isBlank()) {
+            choices = emptyList()
+            people = emptyList()
+            return
+        }
+        val first = value.first()
+        if (first == '@' || first == '#') {
+            // First token only — body after the name is the message, not a search.
+            val needle = value.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
+            people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
+            choices = emptyList()
+        } else if (first in "*-+?") {
+            people = emptyList()
+            choices = emptyList()
+        } else {
+            people = emptyList()
+            choices = apps.search(value).take(8)
+        }
+    }
+
     fun runCommand(line: String) {
         val result = executor.execute(CommandParser.parse(line))
         when (result) {
             ExecResult.None -> {
                 input = ""
                 choices = emptyList()
+                people = emptyList()
+                contactAction = null
                 help = false
             }
             ExecResult.ShowHelp -> {
@@ -150,6 +182,14 @@ fun BuilderRoot(
             is ExecResult.AppChoices -> {
                 choices = result.apps
                 pick = result.pick
+                people = emptyList()
+                help = false
+            }
+            is ExecResult.ContactChoices -> {
+                people = result.contacts
+                contactBody = result.body
+                contactAction = result.action
+                choices = emptyList()
                 help = false
             }
         }
@@ -201,7 +241,41 @@ fun BuilderRoot(
                 }
                 val shown = if (choices.isNotEmpty()) choices else pinned
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (todosExpanded) {
+                    if (people.isNotEmpty()) {
+                        items(people, key = { it.name + it.number }) { person ->
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val pending = contactAction
+                                        if (pending != null) {
+                                            executor.applyContact(person, contactBody, pending)
+                                            input = ""
+                                            people = emptyList()
+                                            contactAction = null
+                                        } else {
+                                            val prefix = if (input.startsWith("#")) "#" else "@"
+                                            val body = if (prefix == "@") {
+                                                input.drop(1).trim().split(Regex("\\s+"), limit = 2)
+                                                    .getOrElse(1) { "" }
+                                            } else {
+                                                ""
+                                            }
+                                            input = if (body.isBlank()) {
+                                                "$prefix${person.name} "
+                                            } else {
+                                                "$prefix${person.name} $body"
+                                            }
+                                            people = emptyList()
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                Text(person.name, color = Paper)
+                                Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    } else if (todosExpanded) {
                         items(openTodos, key = { "t" + it.id }) { item ->
                             TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
                         }
@@ -266,14 +340,7 @@ fun BuilderRoot(
                 CommandBar(
                     value = input,
                     hardware = hardware,
-                    onValue = {
-                        input = it
-                        choices = if (it.isBlank() || it.first() in "@#*-+?") {
-                            emptyList()
-                        } else {
-                            apps.search(it).take(8)
-                        }
-                    },
+                    onValue = { onInput(it) },
                     onSubmit = { runCommand(input) },
                     onHub = { page = Page.Hub },
                 )

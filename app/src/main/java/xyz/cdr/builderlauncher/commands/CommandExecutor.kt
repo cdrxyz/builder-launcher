@@ -5,10 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.CalendarContract
-import android.provider.ContactsContract
 import android.widget.Toast
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
+import xyz.cdr.builderlauncher.contacts.PhoneContact
+import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.PinnedApps
 
@@ -17,6 +18,7 @@ class CommandExecutor(
     private val apps: InstalledApps,
     private val lists: LocalLists,
     private val pins: PinnedApps,
+    private val contacts: PhoneContacts,
 ) {
     fun execute(command: Command): ExecResult {
         return when (command) {
@@ -24,22 +26,8 @@ class CommandExecutor(
             Command.Help -> ExecResult.ShowHelp
             Command.OpenSettings -> ExecResult.NavigateSettings
             Command.OpenHub -> ExecResult.NavigateHub
-            is Command.Message -> {
-                val dest = resolvePhone(command.target) ?: command.target
-                val uri = Uri.parse("smsto:$dest")
-                val intent = Intent(Intent.ACTION_SENDTO, uri)
-                    .putExtra("sms_body", command.body)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startOrToast(intent, "No messaging app")
-                ExecResult.None
-            }
-            is Command.Call -> {
-                val dest = resolvePhone(command.target) ?: command.target
-                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$dest"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startOrToast(intent, "Cannot dial")
-                ExecResult.None
-            }
+            is Command.Message -> contactAction(command.target, command.body, ContactAction.Message)
+            is Command.Call -> contactAction(command.target, "", ContactAction.Call)
             is Command.Event -> {
                 val start = EventWhen.millis(command.whenText)
                 val intent = Intent(Intent.ACTION_INSERT)
@@ -114,29 +102,40 @@ class CommandExecutor(
         }
     }
 
-    private fun resolvePhone(target: String): String? {
-        if (target.any { it.isDigit() } && target.none { it.isLetter() }) return target
-        val cr = context.contentResolver
-        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-        val projection = arrayOf(
-            ContactsContract.CommonDataKinds.Phone.NUMBER,
-            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-        )
-        return try {
-            cr.query(uri, projection, null, null, null)?.use { cursor ->
-                val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                val needle = target.lowercase()
-                while (cursor.moveToNext()) {
-                    val name = cursor.getString(nameIdx) ?: continue
-                    if (name.lowercase().contains(needle)) {
-                        return cursor.getString(numIdx)
-                    }
-                }
-                null
+    private fun contactAction(target: String, body: String, action: ContactAction): ExecResult {
+        val numeric = target.any { it.isDigit() } && target.none { it.isLetter() }
+        if (numeric) {
+            applyContact(PhoneContact(target, target), body, action)
+            return ExecResult.None
+        }
+        val matches = contacts.search(target)
+        return when {
+            matches.size == 1 -> {
+                applyContact(matches.first(), body, action)
+                ExecResult.None
             }
-        } catch (_: SecurityException) {
-            null
+            matches.isEmpty() -> {
+                toast("No contact matches")
+                ExecResult.None
+            }
+            else -> ExecResult.ContactChoices(matches, body, action)
+        }
+    }
+
+    fun applyContact(contact: PhoneContact, body: String, action: ContactAction) {
+        when (action) {
+            ContactAction.Message -> {
+                val uri = Uri.parse("smsto:${contact.number}")
+                val intent = Intent(Intent.ACTION_SENDTO, uri)
+                    .putExtra("sms_body", body)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startOrToast(intent, "No messaging app")
+            }
+            ContactAction.Call -> {
+                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${contact.number}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startOrToast(intent, "Cannot dial")
+            }
         }
     }
 
@@ -155,6 +154,8 @@ class CommandExecutor(
 
 enum class AppPick { Launch, Pin, Unpin }
 
+enum class ContactAction { Message, Call }
+
 sealed class ExecResult {
     data object None : ExecResult()
     data object ShowHelp : ExecResult()
@@ -162,4 +163,5 @@ sealed class ExecResult {
     data object NavigateHub : ExecResult()
     data class Ask(val question: String) : ExecResult()
     data class AppChoices(val query: String, val apps: List<LaunchableApp>, val pick: AppPick = AppPick.Launch) : ExecResult()
+    data class ContactChoices(val contacts: List<PhoneContact>, val body: String, val action: ContactAction) : ExecResult()
 }
