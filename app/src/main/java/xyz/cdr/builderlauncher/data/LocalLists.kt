@@ -15,7 +15,10 @@ data class LocalItem(
     val kind: String,
     val text: String,
     val createdAt: Long = System.currentTimeMillis(),
-)
+    val completedAt: Long? = null,
+) {
+    val done: Boolean get() = completedAt != null
+}
 
 class LocalLists(context: Context) {
     private val file = File(context.filesDir, "lists.json")
@@ -36,6 +39,16 @@ class LocalLists(context: Context) {
 
     fun remove(id: String) {
         persist(_items.value.filterNot { it.id == id })
+    }
+
+    fun toggleComplete(id: String, now: Long = System.currentTimeMillis()) {
+        persist(
+            _items.value.map { item ->
+                if (item.id != id) item
+                else if (item.completedAt != null) item.copy(completedAt = null)
+                else item.copy(completedAt = now)
+            },
+        )
     }
 
     private fun persist(next: List<LocalItem>) {

@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
@@ -38,6 +39,7 @@ fun HomeChrome(
     input: String,
     weather: String = "",
     todos: List<String> = emptyList(),
+    doneTodos: List<String> = emptyList(),
     moreTodos: Boolean = false,
     todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
@@ -62,7 +64,23 @@ fun HomeChrome(
             if (moreTodos) {
                 Text("…more todos", color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
             }
-            if (todos.isNotEmpty()) {
+            if (doneTodos.isNotEmpty()) {
+                Text(
+                    "done",
+                    color = Dim,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                )
+                doneTodos.forEach { text ->
+                    Text(
+                        text,
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    )
+                }
+            }
+            if (todos.isNotEmpty() || doneTodos.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
             }
         }
@@ -71,8 +89,24 @@ fun HomeChrome(
                 todos.forEach { text ->
                     Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
                 }
+                if (doneTodos.isNotEmpty()) {
+                    Text(
+                        "done",
+                        color = Dim,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                    )
+                    doneTodos.forEach { text ->
+                        Text(
+                            text,
+                            color = Dim,
+                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        )
+                    }
+                }
                 Text("show less", color = Dim, modifier = Modifier.padding(vertical = 6.dp))
-            } else if (apps.isEmpty() && input.isBlank() && todos.isEmpty()) {
+            } else if (apps.isEmpty() && input.isBlank() && todos.isEmpty() && doneTodos.isEmpty()) {
                 Text(hint, color = Dim)
             } else {
                 apps.forEach { label ->

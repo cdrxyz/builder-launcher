@@ -6,8 +6,14 @@ object HomeTodos {
     fun of(items: List<LocalItem>): List<LocalItem> =
         items.filter { it.kind.equals("todo", ignoreCase = true) }
 
-    fun visible(todos: List<LocalItem>, expanded: Boolean): List<LocalItem> =
-        if (expanded) todos else todos.take(PREVIEW)
+    fun open(todos: List<LocalItem>): List<LocalItem> =
+        todos.filter { !it.done }
 
-    fun hasMore(todos: List<LocalItem>): Boolean = todos.size > PREVIEW
+    fun completed(todos: List<LocalItem>): List<LocalItem> =
+        todos.filter { it.done }.sortedByDescending { it.completedAt ?: 0L }
+
+    fun visibleOpen(open: List<LocalItem>, expanded: Boolean): List<LocalItem> =
+        if (expanded) open else open.take(PREVIEW)
+
+    fun hasMore(open: List<LocalItem>): Boolean = open.size > PREVIEW
 }

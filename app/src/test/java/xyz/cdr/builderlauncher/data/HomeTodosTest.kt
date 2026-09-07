@@ -6,11 +6,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeTodosTest {
-    private fun todo(text: String, id: String = text) =
-        LocalItem(id = id, kind = "todo", text = text, createdAt = 0)
+    private fun todo(text: String, id: String = text, completedAt: Long? = null) =
+        LocalItem(id = id, kind = "todo", text = text, createdAt = 0, completedAt = completedAt)
 
     @Test
-    fun newestThreeWhenCollapsed() {
+    fun newestThreeOpenWhenCollapsed() {
         val items = listOf(
             todo("one"),
             LocalItem("n", "note", "ignore", 0),
@@ -19,22 +19,46 @@ class HomeTodosTest {
             todo("four"),
         )
         val todos = HomeTodos.of(items)
-        assertEquals(listOf("one", "two", "three", "four"), todos.map { it.text })
-        assertEquals(listOf("one", "two", "three"), HomeTodos.visible(todos, expanded = false).map { it.text })
-        assertTrue(HomeTodos.hasMore(todos))
+        val open = HomeTodos.open(todos)
+        assertEquals(listOf("one", "two", "three", "four"), open.map { it.text })
+        assertEquals(listOf("one", "two", "three"), HomeTodos.visibleOpen(open, expanded = false).map { it.text })
+        assertTrue(HomeTodos.hasMore(open))
     }
 
     @Test
-    fun allWhenExpanded() {
-        val todos = listOf(todo("one"), todo("two"), todo("three"), todo("four"))
-        assertEquals(todos, HomeTodos.visible(todos, expanded = true))
-        assertTrue(HomeTodos.hasMore(todos))
+    fun allOpenWhenExpanded() {
+        val open = listOf(todo("one"), todo("two"), todo("three"), todo("four"))
+        assertEquals(open, HomeTodos.visibleOpen(open, expanded = true))
+        assertTrue(HomeTodos.hasMore(open))
     }
 
     @Test
-    fun noMoreLinkWhenThreeOrFewer() {
-        val todos = listOf(todo("one"), todo("two"))
-        assertFalse(HomeTodos.hasMore(todos))
-        assertEquals(todos, HomeTodos.visible(todos, expanded = false))
+    fun noMoreLinkWhenThreeOrFewerOpen() {
+        val open = listOf(todo("one"), todo("two"))
+        assertFalse(HomeTodos.hasMore(open))
+        assertEquals(open, HomeTodos.visibleOpen(open, expanded = false))
+    }
+
+    @Test
+    fun completedSitBelowOpenNewestDoneFirst() {
+        val items = listOf(
+            todo("open-new"),
+            todo("done-old", completedAt = 10),
+            todo("open-older"),
+            todo("done-new", completedAt = 50),
+            todo("done-mid", completedAt = 30),
+        )
+        val todos = HomeTodos.of(items)
+        assertEquals(listOf("open-new", "open-older"), HomeTodos.open(todos).map { it.text })
+        assertEquals(listOf("done-new", "done-mid", "done-old"), HomeTodos.completed(todos).map { it.text })
+    }
+
+    @Test
+    fun completedDoNotCountTowardPreview() {
+        val open = listOf(todo("one"), todo("two"))
+        val done = listOf(todo("old", completedAt = 1), todo("older", completedAt = 2), todo("oldest", completedAt = 3))
+        assertFalse(HomeTodos.hasMore(open))
+        assertEquals(open, HomeTodos.visibleOpen(open, expanded = false))
+        assertEquals(listOf("oldest", "older", "old"), HomeTodos.completed(done).map { it.text })
     }
 }

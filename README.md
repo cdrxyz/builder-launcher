@@ -53,7 +53,7 @@ Type on the home screen, then Enter.
 | (none) | `Termux` | Search and launch apps |
 | | `hub` / `settings` / `help` | Built-ins |
 
-Home always shows the clock, current weather (coarse location), and the last 3 todos. `…more todos` expands the full list. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap the clock for settings.
+Home always shows the clock, current weather (coarse location), and the last 3 open todos. Tap a todo to strike it through; tap again to reopen it. Finished todos sit in a separate list below, newest completed first. `…more todos` expands the full open list. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap the clock for settings.
 
 ## AI settings
 

@@ -27,6 +27,7 @@ class LauncherScreenshotTest {
                     weather = "18° cloudy",
                     input = "?summarize this PR",
                     todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    doneTodos = listOf("pack charger"),
                     moreTodos = true,
                 )
             }
@@ -49,6 +50,7 @@ class LauncherScreenshotTest {
                         "pack charger",
                         "review PR after lunch",
                     ),
+                    doneTodos = listOf("mail keys"),
                     moreTodos = true,
                     todosExpanded = true,
                 )

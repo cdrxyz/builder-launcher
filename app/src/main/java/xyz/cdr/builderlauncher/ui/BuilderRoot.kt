@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.LlmClient
@@ -159,19 +160,22 @@ fun BuilderRoot(
         when (page) {
             Page.Home -> {
                 val todos = HomeTodos.of(local)
-                LaunchedEffect(todos.size, todosExpanded) {
-                    if (todosExpanded && todos.isEmpty()) todosExpanded = false
+                val openTodos = HomeTodos.open(todos)
+                val doneTodos = HomeTodos.completed(todos)
+                LaunchedEffect(openTodos.size, doneTodos.size, todosExpanded) {
+                    if (todosExpanded && openTodos.isEmpty() && doneTodos.isEmpty()) todosExpanded = false
                 }
                 ClockHeader(
                     weather = forecast?.line,
                     onOpenSettings = { page = Page.Settings },
                 )
                 Spacer(Modifier.height(8.dp))
-                if (!todosExpanded && todos.isNotEmpty()) {
+                if (!todosExpanded && (openTodos.isNotEmpty() || doneTodos.isNotEmpty())) {
                     TodoPreview(
-                        todos = HomeTodos.visible(todos, expanded = false),
-                        hasMore = HomeTodos.hasMore(todos),
-                        onComplete = { lists.remove(it) },
+                        open = HomeTodos.visibleOpen(openTodos, expanded = false),
+                        done = doneTodos,
+                        hasMore = HomeTodos.hasMore(openTodos),
+                        onToggle = { lists.toggleComplete(it) },
                         onMore = { todosExpanded = true },
                     )
                     Spacer(Modifier.height(8.dp))
@@ -191,15 +195,21 @@ fun BuilderRoot(
                 val shown = if (choices.isNotEmpty()) choices else pinned
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (todosExpanded) {
-                        items(todos, key = { "t" + it.id }) { item ->
-                            Text(
-                                item.text,
-                                color = Paper,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { lists.remove(item.id) }
-                                    .padding(vertical = 6.dp),
-                            )
+                        items(openTodos, key = { "t" + it.id }) { item ->
+                            TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        }
+                        if (doneTodos.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "done",
+                                    color = Dim,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                                )
+                            }
+                        }
+                        items(doneTodos, key = { "d" + it.id }) { item ->
+                            TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
                         }
                         item {
                             Text(
@@ -229,7 +239,7 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (shown.isEmpty() && input.isBlank() && todos.isEmpty()) {
+                        if (shown.isEmpty() && input.isBlank() && openTodos.isEmpty() && doneTodos.isEmpty()) {
                             item {
                                 Text("Type to work. help for commands. Then put it down.", color = Dim)
                             }
@@ -259,11 +269,18 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(local.take(20), key = { "l" + it.id }) { item ->
-                        Column(Modifier.clickable { lists.remove(item.id) }) {
-                            Text(item.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                            Text(item.text, color = Paper)
-                        }
+                    val hubTodos = HomeTodos.of(local)
+                    val hubOpen = HomeTodos.open(hubTodos)
+                    val hubDone = HomeTodos.completed(hubTodos)
+                    val notes = local.filter { !it.kind.equals("todo", ignoreCase = true) }
+                    items(hubOpen, key = { "l" + it.id }) { item ->
+                        HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
+                    }
+                    items(notes, key = { "n" + it.id }) { item ->
+                        HubLocalRow(item, onTap = { lists.remove(item.id) })
+                    }
+                    items(hubDone, key = { "ld" + it.id }) { item ->
+                        HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
                     }
                     items(hub, key = { it.key }) { item ->
                         Column {
@@ -316,21 +333,15 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
 
 @Composable
 private fun TodoPreview(
-    todos: List<LocalItem>,
+    open: List<LocalItem>,
+    done: List<LocalItem>,
     hasMore: Boolean,
-    onComplete: (String) -> Unit,
+    onToggle: (String) -> Unit,
     onMore: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        todos.forEach { item ->
-            Text(
-                item.text,
-                color = Paper,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onComplete(item.id) }
-                    .padding(vertical = 4.dp),
-            )
+        open.forEach { item ->
+            TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
         }
         if (hasMore) {
             Text(
@@ -341,6 +352,46 @@ private fun TodoPreview(
                     .padding(vertical = 4.dp),
             )
         }
+        if (done.isNotEmpty()) {
+            Text(
+                "done",
+                color = Dim,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+            )
+            done.forEach { item ->
+                TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodoLine(item: LocalItem, onToggle: () -> Unit, compact: Boolean = false) {
+    Text(
+        item.text,
+        color = if (item.done) Dim else Paper,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(vertical = if (compact) 4.dp else 6.dp),
+    )
+}
+
+@Composable
+private fun HubLocalRow(item: LocalItem, onTap: () -> Unit) {
+    Column(Modifier.clickable { onTap() }) {
+        Text(item.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            item.text,
+            color = if (item.done) Dim else Paper,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+            ),
+        )
     }
 }
 
