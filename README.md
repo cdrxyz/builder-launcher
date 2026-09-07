@@ -1,5 +1,9 @@
 # Builder Launcher
 
+<p align="center">
+  <img src="docs/logo/mark.svg" alt="Builder Launcher — B in a gear" width="120" />
+</p>
+
 A simple Android launcher for builders who want to be deliberate with their phone. Open it, do the work, put it down, get back to life off screen.
 
 The home screen is a command bar, not an icon grid. Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
