@@ -108,6 +108,7 @@ fun BuilderRoot(
     var people by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
     var contactAction by remember { mutableStateOf<ContactAction?>(null) }
     var contactBody by remember { mutableStateOf("") }
+    var smsDraft by remember { mutableStateOf<ExecResult.SmsDraft?>(null) }
     var pick by remember { mutableStateOf(AppPick.Launch) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
@@ -133,6 +134,9 @@ fun BuilderRoot(
     fun onInput(value: String) {
         input = value
         contactAction = null
+        if (value.isNotBlank() && !value.equals("send", ignoreCase = true)) {
+            smsDraft = null
+        }
         if (value.isBlank()) {
             choices = emptyList()
             people = emptyList()
@@ -154,6 +158,16 @@ fun BuilderRoot(
     }
 
     fun runCommand(line: String) {
+        val draft = smsDraft
+        if (draft != null) {
+            if (line.isBlank() || line.equals("send", ignoreCase = true)) {
+                executor.sendSms(draft.contact, draft.body)
+            }
+            smsDraft = null
+            input = ""
+            people = emptyList()
+            return
+        }
         val result = executor.execute(CommandParser.parse(line))
         when (result) {
             ExecResult.None -> {
@@ -161,6 +175,7 @@ fun BuilderRoot(
                 choices = emptyList()
                 people = emptyList()
                 contactAction = null
+                smsDraft = null
                 help = false
             }
             ExecResult.ShowHelp -> {
@@ -190,6 +205,13 @@ fun BuilderRoot(
                 contactBody = result.body
                 contactAction = result.action
                 choices = emptyList()
+                help = false
+            }
+            is ExecResult.SmsDraft -> {
+                smsDraft = result
+                input = ""
+                people = emptyList()
+                contactAction = null
                 help = false
             }
         }
@@ -231,6 +253,16 @@ fun BuilderRoot(
                     Text(if (aiBusy) "…" else aiText!!, color = Prompt, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
                 }
+                smsDraft?.let { draft ->
+                    Text(
+                        "Send to ${draft.contact.name} (${draft.contact.number})",
+                        color = Prompt,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(draft.body, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                    Text("Enter to send. Type anything else to cancel.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+                }
                 if (help) {
                     HelpBlock()
                     Spacer(Modifier.height(12.dp))
@@ -249,8 +281,15 @@ fun BuilderRoot(
                                     .clickable {
                                         val pending = contactAction
                                         if (pending != null) {
-                                            executor.applyContact(person, contactBody, pending)
-                                            input = ""
+                                            when (val result = executor.applyContact(person, contactBody, pending)) {
+                                                is ExecResult.SmsDraft -> {
+                                                    smsDraft = result
+                                                    input = ""
+                                                }
+                                                else -> {
+                                                    input = ""
+                                                }
+                                            }
                                             people = emptyList()
                                             contactAction = null
                                         } else {

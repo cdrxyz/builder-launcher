@@ -14,6 +14,7 @@ import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
+import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
@@ -31,12 +32,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
-        val needed = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            needed += Manifest.permission.READ_CONTACTS
-        }
+        val needed = listOf(Manifest.permission.READ_CONTACTS)
+            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
         }
@@ -45,8 +42,9 @@ class MainActivity : ComponentActivity() {
         val lists = LocalLists(this)
         val pins = PinnedApps(this)
         val people = PhoneContacts(this)
+        val sms = SmsSender(this)
         val llm = LlmClient(settings)
-        val executor = CommandExecutor(this, apps, lists, pins, people)
+        val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         setContent {
             BuilderTheme {

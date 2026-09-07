@@ -12,6 +12,7 @@ import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.PinnedApps
+import xyz.cdr.builderlauncher.sms.SmsSender
 
 class CommandExecutor(
     private val context: Context,
@@ -19,6 +20,7 @@ class CommandExecutor(
     private val lists: LocalLists,
     private val pins: PinnedApps,
     private val contacts: PhoneContacts,
+    private val sms: SmsSender,
 ) {
     fun execute(command: Command): ExecResult {
         return when (command) {
@@ -105,15 +107,11 @@ class CommandExecutor(
     private fun contactAction(target: String, body: String, action: ContactAction): ExecResult {
         val numeric = target.any { it.isDigit() } && target.none { it.isLetter() }
         if (numeric) {
-            applyContact(PhoneContact(target, target), body, action)
-            return ExecResult.None
+            return applyContact(PhoneContact(target, target), body, action)
         }
         val matches = contacts.search(target)
         return when {
-            matches.size == 1 -> {
-                applyContact(matches.first(), body, action)
-                ExecResult.None
-            }
+            matches.size == 1 -> applyContact(matches.first(), body, action)
             matches.isEmpty() -> {
                 toast("No contact matches")
                 ExecResult.None
@@ -122,20 +120,37 @@ class CommandExecutor(
         }
     }
 
-    fun applyContact(contact: PhoneContact, body: String, action: ContactAction) {
-        when (action) {
+    fun applyContact(contact: PhoneContact, body: String, action: ContactAction): ExecResult {
+        return when (action) {
             ContactAction.Message -> {
-                val uri = Uri.parse("smsto:${contact.number}")
-                val intent = Intent(Intent.ACTION_SENDTO, uri)
-                    .putExtra("sms_body", body)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startOrToast(intent, "No messaging app")
+                if (body.isBlank()) {
+                    toast("Add a message after the name")
+                    ExecResult.None
+                } else {
+                    ExecResult.SmsDraft(contact, body)
+                }
             }
             ContactAction.Call -> {
                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${contact.number}"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startOrToast(intent, "Cannot dial")
+                ExecResult.None
             }
+        }
+    }
+
+    fun sendSms(contact: PhoneContact, body: String): Boolean {
+        if (sms.hasPermission() && sms.send(contact.number, body)) {
+            toast("Sent to ${contact.name}")
+            return true
+        }
+        return try {
+            sms.composeFallback(contact, body)
+            toast("Opened Messages to send")
+            false
+        } catch (_: Exception) {
+            toast("Cannot send")
+            false
         }
     }
 
@@ -164,4 +179,5 @@ sealed class ExecResult {
     data class Ask(val question: String) : ExecResult()
     data class AppChoices(val query: String, val apps: List<LaunchableApp>, val pick: AppPick = AppPick.Launch) : ExecResult()
     data class ContactChoices(val contacts: List<PhoneContact>, val body: String, val action: ContactAction) : ExecResult()
+    data class SmsDraft(val contact: PhoneContact, val body: String) : ExecResult()
 }
