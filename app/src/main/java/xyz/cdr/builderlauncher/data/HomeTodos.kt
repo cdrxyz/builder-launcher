@@ -15,5 +15,10 @@ object HomeTodos {
     fun visibleOpen(open: List<LocalItem>, expanded: Boolean): List<LocalItem> =
         if (expanded) open else open.take(PREVIEW)
 
+    fun visibleDone(done: List<LocalItem>, expanded: Boolean): List<LocalItem> =
+        if (expanded) done else done.take(PREVIEW)
+
     fun hasMore(open: List<LocalItem>): Boolean = open.size > PREVIEW
+
+    fun hasMoreDone(done: List<LocalItem>): Boolean = done.size > PREVIEW
 }

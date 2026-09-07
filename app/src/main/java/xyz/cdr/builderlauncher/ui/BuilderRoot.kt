@@ -172,8 +172,8 @@ fun BuilderRoot(
                 if (!todosExpanded && (openTodos.isNotEmpty() || doneTodos.isNotEmpty())) {
                     TodoPreview(
                         open = HomeTodos.visibleOpen(openTodos, expanded = false),
-                        done = doneTodos,
-                        hasMore = HomeTodos.hasMore(openTodos),
+                        done = HomeTodos.visibleDone(doneTodos, expanded = false),
+                        hasMore = HomeTodos.hasMore(openTodos) || HomeTodos.hasMoreDone(doneTodos),
                         onToggle = { lists.toggleComplete(it) },
                         onMore = { todosExpanded = true },
                     )

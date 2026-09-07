@@ -61,4 +61,13 @@ class HomeTodosTest {
         assertEquals(open, HomeTodos.visibleOpen(open, expanded = false))
         assertEquals(listOf("oldest", "older", "old"), HomeTodos.completed(done).map { it.text })
     }
+
+    @Test
+    fun collapsedHomeCapsCompleted() {
+        val done = (1..8).map { todo("d$it", id = "$it", completedAt = it.toLong()) }
+        val completed = HomeTodos.completed(done)
+        assertEquals(3, HomeTodos.visibleDone(completed, expanded = false).size)
+        assertTrue(HomeTodos.hasMoreDone(completed))
+        assertEquals(8, HomeTodos.visibleDone(completed, expanded = true).size)
+    }
 }
