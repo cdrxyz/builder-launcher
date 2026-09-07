@@ -44,8 +44,12 @@ def home() -> None:
     im, d = phone()
     d.text((PAD_X, PAD_T), "15:42", font=F_TIME, fill=PAPER)
     d.text((PAD_X, PAD_T + 128), "Mon 7 Sep", font=F_MED, fill=DIM)
-    d.text((PAD_X, PAD_T + 220), "Type to work. help for commands.", font=F_MED, fill=DIM)
-    d.text((PAD_X, PAD_T + 258), "Then put it down.", font=F_MED, fill=DIM)
+    d.text((PAD_X, PAD_T + 168), "18° cloudy", font=F_MED, fill=DIM)
+    y = PAD_T + 230
+    for todo in ("buy milk", "ship builder-launcher CI", "call dentist"):
+        d.text((PAD_X, y), todo, font=F_BODY, fill=PAPER)
+        y += 48
+    d.text((PAD_X, y), "…more todos", font=F_BODY, fill=PROMPT)
     y = H - 160
     d.text((PAD_X, y), ">", font=F_BODY, fill=PROMPT)
     d.text((PAD_X + 36, y), "?summarize this PR", font=F_BODY, fill=PAPER)
@@ -108,8 +112,9 @@ def settings() -> None:
     d.text((PAD_X + 320, y), "software", font=F_MED, fill=DIM)
     y += 56
     d.text((PAD_X, y), "Hardware keyboard detected —", font=F_MED, fill=DIM)
-    d.text((PAD_X, y + 36), "command bar sits at the bottom.", font=F_MED, fill=DIM)
-    y += 110
+    d.text((PAD_X, y + 36), "command bar sits at the bottom,", font=F_MED, fill=DIM)
+    d.text((PAD_X, y + 72), "above the keys.", font=F_MED, fill=DIM)
+    y += 140
     d.text((PAD_X, y), "Notification access (hub)", font=F_MED, fill=PAPER)
     y += 48
     d.text((PAD_X, y), "Set as default home app", font=F_MED, fill=PAPER)

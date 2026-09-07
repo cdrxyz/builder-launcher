@@ -24,8 +24,33 @@ class LauncherScreenshotTest {
                 HomeChrome(
                     time = "15:42",
                     date = "Mon 7 Sep",
+                    weather = "18° cloudy",
                     input = "?summarize this PR",
-                    barAtBottom = true,
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    moreTodos = true,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeMoreTodos() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    todos = listOf(
+                        "buy milk",
+                        "ship builder-launcher CI",
+                        "call dentist",
+                        "pack charger",
+                        "review PR after lunch",
+                    ),
+                    moreTodos = true,
+                    todosExpanded = true,
                 )
             }
         }

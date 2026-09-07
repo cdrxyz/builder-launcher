@@ -50,8 +50,10 @@ import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ExecResult
+import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
@@ -62,6 +64,7 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -76,16 +79,19 @@ fun BuilderRoot(
     pins: PinnedApps,
     llm: LlmClient,
     executor: CommandExecutor,
+    weather: WeatherRepository,
 ) {
     val settings by settingsRepo.settings.collectAsState()
     val hub by HubStore.items.collectAsState()
     val local by lists.items.collectAsState()
+    val forecast by weather.current.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
     var aiText by remember { mutableStateOf<String?>(null) }
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
+    var todosExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     val hardware = remember(settings.keyboardMode) {
@@ -96,7 +102,19 @@ fun BuilderRoot(
                 ctx.resources.configuration.keyboard == Configuration.KEYBOARD_QWERTY
         }
     }
-    val barAtBottom = hardware
+    LaunchedEffect(Unit) {
+        repeat(3) {
+            weather.refresh()
+            if (weather.current.value != null) return@LaunchedEffect
+            kotlinx.coroutines.delay(3_000)
+        }
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(15 * 60 * 1000)
+            weather.refresh()
+        }
+    }
 
     fun runCommand(line: String) {
         val result = executor.execute(CommandParser.parse(line))
@@ -140,25 +158,24 @@ fun BuilderRoot(
     ) {
         when (page) {
             Page.Home -> {
-                if (!barAtBottom) {
-                    CommandBar(
-                        value = input,
-                        hardware = hardware,
-                        onValue = {
-                            input = it
-                            choices = if (it.isBlank() || it.first() in "@#*-+?") {
-                                emptyList()
-                            } else {
-                                apps.search(it).take(8)
-                            }
-                        },
-                        onSubmit = { runCommand(input) },
-                        onHub = { page = Page.Hub },
-                    )
-                    Spacer(Modifier.height(16.dp))
+                val todos = HomeTodos.of(local)
+                LaunchedEffect(todos.size, todosExpanded) {
+                    if (todosExpanded && todos.isEmpty()) todosExpanded = false
                 }
-                ClockHeader(onOpenSettings = { page = Page.Settings })
+                ClockHeader(
+                    weather = forecast?.line,
+                    onOpenSettings = { page = Page.Settings },
+                )
                 Spacer(Modifier.height(8.dp))
+                if (!todosExpanded && todos.isNotEmpty()) {
+                    TodoPreview(
+                        todos = HomeTodos.visible(todos, expanded = false),
+                        hasMore = HomeTodos.hasMore(todos),
+                        onComplete = { lists.remove(it) },
+                        onMore = { todosExpanded = true },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 if (aiText != null) {
                     Text(if (aiBusy) "…" else aiText!!, color = Prompt, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
@@ -173,47 +190,67 @@ fun BuilderRoot(
                 }
                 val shown = if (choices.isNotEmpty()) choices else pinned
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(shown, key = { it.packageName + it.activityName }) { app ->
-                        Text(
-                            app.label,
-                            color = Paper,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (choices.isNotEmpty()) {
-                                        apps.launch(app)
-                                        input = ""
-                                        choices = emptyList()
-                                    } else {
-                                        apps.launch(app)
-                                    }
-                                }
-                                .padding(vertical = 6.dp),
-                        )
-                    }
-                    if (shown.isEmpty() && input.isBlank()) {
+                    if (todosExpanded) {
+                        items(todos, key = { "t" + it.id }) { item ->
+                            Text(
+                                item.text,
+                                color = Paper,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { lists.remove(item.id) }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
                         item {
-                            Text("Type to work. help for commands. Then put it down.", color = Dim)
+                            Text(
+                                "show less",
+                                color = Dim,
+                                modifier = Modifier
+                                    .clickable { todosExpanded = false }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                    } else {
+                        items(shown, key = { it.packageName + it.activityName }) { app ->
+                            Text(
+                                app.label,
+                                color = Paper,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (choices.isNotEmpty()) {
+                                            apps.launch(app)
+                                            input = ""
+                                            choices = emptyList()
+                                        } else {
+                                            apps.launch(app)
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                        if (shown.isEmpty() && input.isBlank() && todos.isEmpty()) {
+                            item {
+                                Text("Type to work. help for commands. Then put it down.", color = Dim)
+                            }
                         }
                     }
                 }
-                if (barAtBottom) {
-                    Spacer(Modifier.height(8.dp))
-                    CommandBar(
-                        value = input,
-                        hardware = hardware,
-                        onValue = {
-                            input = it
-                            choices = if (it.isBlank() || it.first() in "@#*-+?") {
-                                emptyList()
-                            } else {
-                                apps.search(it).take(8)
-                            }
-                        },
-                        onSubmit = { runCommand(input) },
-                        onHub = { page = Page.Hub },
-                    )
-                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    value = input,
+                    hardware = hardware,
+                    onValue = {
+                        input = it
+                        choices = if (it.isBlank() || it.first() in "@#*-+?") {
+                            emptyList()
+                        } else {
+                            apps.search(it).take(8)
+                        }
+                    },
+                    onSubmit = { runCommand(input) },
+                    onHub = { page = Page.Hub },
+                )
             }
             Page.Hub -> {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -258,7 +295,7 @@ fun BuilderRoot(
 }
 
 @Composable
-private fun ClockHeader(onOpenSettings: () -> Unit) {
+private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -271,6 +308,39 @@ private fun ClockHeader(onOpenSettings: () -> Unit) {
     Column(Modifier.clickable { onOpenSettings() }) {
         Text(time, style = MaterialTheme.typography.headlineLarge)
         Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        if (!weather.isNullOrBlank()) {
+            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun TodoPreview(
+    todos: List<LocalItem>,
+    hasMore: Boolean,
+    onComplete: (String) -> Unit,
+    onMore: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        todos.forEach { item ->
+            Text(
+                item.text,
+                color = Paper,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onComplete(item.id) }
+                    .padding(vertical = 4.dp),
+            )
+        }
+        if (hasMore) {
+            Text(
+                "…more todos",
+                color = Prompt,
+                modifier = Modifier
+                    .clickable { onMore() }
+                    .padding(vertical = 4.dp),
+            )
+        }
     }
 }
 
@@ -404,7 +474,11 @@ private fun SettingsPage(
             }
         }
         Text(
-            if (hardware) "Hardware keyboard detected — command bar sits at the bottom." else "Slab mode — command bar at the top, software keyboard allowed.",
+            if (hardware) {
+                "Hardware keyboard detected — command bar sits at the bottom, above the keys."
+            } else {
+                "Slab mode — command bar sits at the bottom, just above the keyboard."
+            },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

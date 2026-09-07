@@ -36,7 +36,10 @@ fun HomeChrome(
     time: String,
     date: String,
     input: String,
-    barAtBottom: Boolean = true,
+    weather: String = "",
+    todos: List<String> = emptyList(),
+    moreTodos: Boolean = false,
+    todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
 ) {
@@ -46,25 +49,39 @@ fun HomeChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        if (!barAtBottom) {
-            CommandRow(input)
-            Spacer(Modifier.height(16.dp))
-        }
         Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
         Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
-        if (apps.isEmpty() && input.isBlank()) {
-            Text(hint, color = Dim)
+        if (weather.isNotBlank()) {
+            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            apps.forEach { label ->
-                Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        if (!todosExpanded) {
+            todos.take(3).forEach { text ->
+                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            }
+            if (moreTodos) {
+                Text("…more todos", color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+            }
+            if (todos.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
             }
         }
-        if (barAtBottom) {
-            Spacer(Modifier.height(8.dp))
-            CommandRow(input)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (todosExpanded) {
+                todos.forEach { text ->
+                    Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                }
+                Text("show less", color = Dim, modifier = Modifier.padding(vertical = 6.dp))
+            } else if (apps.isEmpty() && input.isBlank() && todos.isEmpty()) {
+                Text(hint, color = Dim)
+            } else {
+                apps.forEach { label ->
+                    Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                }
+            }
         }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input)
     }
 }
 
@@ -150,9 +167,9 @@ fun SettingsChrome(
         }
         Text(
             if (hardware) {
-                "Hardware keyboard detected — command bar sits at the bottom."
+                "Hardware keyboard detected — command bar sits at the bottom, above the keys."
             } else {
-                "Slab mode — command bar at the top, software keyboard allowed."
+                "Slab mode — command bar sits at the bottom, just above the keyboard."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
