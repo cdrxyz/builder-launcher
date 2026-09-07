@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ink">#0B0B0B</color>
+    <color name="paper">#E8E4D9</color>
+    <color name="prompt">#B7C9A8</color>
+</resources>
