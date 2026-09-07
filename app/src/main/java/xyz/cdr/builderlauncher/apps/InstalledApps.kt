@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.apps
+package xyz.cdr.builderlauncher.apps
 
 import android.content.Context
 import android.content.Intent

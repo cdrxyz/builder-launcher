@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.commands
+package xyz.cdr.builderlauncher.commands
 
 import android.content.Context
 import android.content.Intent
@@ -7,9 +7,9 @@ import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.provider.ContactsContract
 import android.widget.Toast
-import xyz.cdr.minimos.apps.InstalledApps
-import xyz.cdr.minimos.apps.LaunchableApp
-import xyz.cdr.minimos.data.LocalLists
+import xyz.cdr.builderlauncher.apps.InstalledApps
+import xyz.cdr.builderlauncher.apps.LaunchableApp
+import xyz.cdr.builderlauncher.data.LocalLists
 
 class CommandExecutor(
     private val context: Context,

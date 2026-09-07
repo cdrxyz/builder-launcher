@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "xyz.cdr.minimos"
+    namespace = "xyz.cdr.builderlauncher"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "xyz.cdr.minimos"
+        applicationId = "xyz.cdr.builderlauncher"
         minSdk = 26
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1)

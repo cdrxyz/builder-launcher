@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.commands
+package xyz.cdr.builderlauncher.commands
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

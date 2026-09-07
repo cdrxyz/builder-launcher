@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.ui
+package xyz.cdr.builderlauncher.ui
 
 import android.content.res.Configuration
 import android.provider.Settings
@@ -44,24 +44,24 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import xyz.cdr.minimos.ai.LlmClient
-import xyz.cdr.minimos.apps.InstalledApps
-import xyz.cdr.minimos.apps.LaunchableApp
-import xyz.cdr.minimos.commands.CommandExecutor
-import xyz.cdr.minimos.commands.CommandParser
-import xyz.cdr.minimos.commands.ExecResult
-import xyz.cdr.minimos.data.KeyboardMode
-import xyz.cdr.minimos.data.LlmProvider
-import xyz.cdr.minimos.data.LocalLists
-import xyz.cdr.minimos.data.MinimosSettings
-import xyz.cdr.minimos.data.PinnedApps
-import xyz.cdr.minimos.data.SettingsRepository
-import xyz.cdr.minimos.hub.HubStore
-import xyz.cdr.minimos.ui.theme.Dim
-import xyz.cdr.minimos.ui.theme.Ink
-import xyz.cdr.minimos.ui.theme.Line
-import xyz.cdr.minimos.ui.theme.Paper
-import xyz.cdr.minimos.ui.theme.Prompt
+import xyz.cdr.builderlauncher.ai.LlmClient
+import xyz.cdr.builderlauncher.apps.InstalledApps
+import xyz.cdr.builderlauncher.apps.LaunchableApp
+import xyz.cdr.builderlauncher.commands.CommandExecutor
+import xyz.cdr.builderlauncher.commands.CommandParser
+import xyz.cdr.builderlauncher.commands.ExecResult
+import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.LocalLists
+import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.PinnedApps
+import xyz.cdr.builderlauncher.data.SettingsRepository
+import xyz.cdr.builderlauncher.hub.HubStore
+import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Ink
+import xyz.cdr.builderlauncher.ui.theme.Line
+import xyz.cdr.builderlauncher.ui.theme.Paper
+import xyz.cdr.builderlauncher.ui.theme.Prompt
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,7 +69,7 @@ import java.util.Locale
 enum class Page { Home, Hub, Settings }
 
 @Composable
-fun MinimosRoot(
+fun BuilderRoot(
     settingsRepo: SettingsRepository,
     apps: InstalledApps,
     lists: LocalLists,
@@ -193,7 +193,7 @@ fun MinimosRoot(
                     }
                     if (shown.isEmpty() && input.isBlank()) {
                         item {
-                            Text("Type to search apps. help for commands.", color = Dim)
+                            Text("Type to work. help for commands. Then put it down.", color = Dim)
                         }
                     }
                 }
@@ -342,7 +342,7 @@ private fun HelpBlock() {
 
 @Composable
 private fun SettingsPage(
-    settings: MinimosSettings,
+    settings: BuilderSettings,
     hardware: Boolean,
     onBack: () -> Unit,
     repo: SettingsRepository,

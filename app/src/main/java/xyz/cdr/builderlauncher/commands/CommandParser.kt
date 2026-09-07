@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.commands
+package xyz.cdr.builderlauncher.commands
 
 sealed class Command {
     data object Empty : Command()

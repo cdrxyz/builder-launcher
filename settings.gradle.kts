@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "minimos"
+rootProject.name = "builder-launcher"
 include(":app")

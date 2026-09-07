@@ -1,4 +1,4 @@
-package xyz.cdr.minimos
+package xyz.cdr.builderlauncher
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -9,14 +9,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import xyz.cdr.minimos.ai.LlmClient
-import xyz.cdr.minimos.apps.InstalledApps
-import xyz.cdr.minimos.commands.CommandExecutor
-import xyz.cdr.minimos.data.LocalLists
-import xyz.cdr.minimos.data.PinnedApps
-import xyz.cdr.minimos.data.SettingsRepository
-import xyz.cdr.minimos.ui.MinimosRoot
-import xyz.cdr.minimos.ui.theme.MinimosTheme
+import xyz.cdr.builderlauncher.ai.LlmClient
+import xyz.cdr.builderlauncher.apps.InstalledApps
+import xyz.cdr.builderlauncher.commands.CommandExecutor
+import xyz.cdr.builderlauncher.data.LocalLists
+import xyz.cdr.builderlauncher.data.PinnedApps
+import xyz.cdr.builderlauncher.data.SettingsRepository
+import xyz.cdr.builderlauncher.ui.BuilderRoot
+import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,8 +35,8 @@ class MainActivity : ComponentActivity() {
         val llm = LlmClient(settings)
         val executor = CommandExecutor(this, apps, lists)
         setContent {
-            MinimosTheme {
-                MinimosRoot(
+            BuilderTheme {
+                BuilderRoot(
                     settingsRepo = settings,
                     apps = apps,
                     lists = lists,

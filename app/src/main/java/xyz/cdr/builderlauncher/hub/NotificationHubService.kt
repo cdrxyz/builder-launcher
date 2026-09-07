@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.hub
+package xyz.cdr.builderlauncher.hub
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification

@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.ui.theme
+package xyz.cdr.builderlauncher.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -55,7 +55,7 @@ private val Type = Typography(
 )
 
 @Composable
-fun MinimosTheme(content: @Composable () -> Unit) {
+fun BuilderTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = Colors,
         typography = Type,

@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.ai
+package xyz.cdr.builderlauncher.ai
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,7 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import xyz.cdr.minimos.data.SettingsRepository
+import xyz.cdr.builderlauncher.data.SettingsRepository
 import java.util.concurrent.TimeUnit
 
 class LlmClient(
@@ -32,7 +32,7 @@ class LlmClient(
             {
               "model": ${esc(settings.effectiveModel())},
               "messages": [
-                {"role":"system","content":"You are a concise assistant on a minimal phone. Answer in a few short sentences. No markdown."},
+                {"role":"system","content":"You are a concise assistant on a builder's phone. Answer in a few short sentences so they can get back to work. No markdown."},
                 {"role":"user","content":${esc(question)}}
               ],
               "max_tokens": 400,

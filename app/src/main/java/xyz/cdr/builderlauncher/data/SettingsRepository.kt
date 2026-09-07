@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.data
+package xyz.cdr.builderlauncher.data
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class LlmProvider { HERMES, XAI }
 
-data class MinimosSettings(
+data class BuilderSettings(
     val provider: LlmProvider = LlmProvider.HERMES,
     val hermesBaseUrl: String = "",
     val apiKey: String = "",
@@ -25,9 +25,9 @@ class SettingsRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs: SharedPreferences = createPrefs(appContext)
     private val _settings = MutableStateFlow(read())
-    val settings: StateFlow<MinimosSettings> = _settings.asStateFlow()
+    val settings: StateFlow<BuilderSettings> = _settings.asStateFlow()
 
-    fun update(transform: (MinimosSettings) -> MinimosSettings) {
+    fun update(transform: (BuilderSettings) -> BuilderSettings) {
         val next = transform(_settings.value)
         prefs.edit()
             .putString(KEY_PROVIDER, next.provider.name)
@@ -56,14 +56,14 @@ class SettingsRepository(context: Context) {
         }
     }
 
-    private fun read(): MinimosSettings {
+    private fun read(): BuilderSettings {
         val provider = runCatching {
             LlmProvider.valueOf(prefs.getString(KEY_PROVIDER, LlmProvider.HERMES.name)!!)
         }.getOrDefault(LlmProvider.HERMES)
         val kb = runCatching {
             KeyboardMode.valueOf(prefs.getString(KEY_KB, KeyboardMode.AUTO.name)!!)
         }.getOrDefault(KeyboardMode.AUTO)
-        return MinimosSettings(
+        return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
             apiKey = prefs.getString(KEY_API, "") ?: "",
@@ -74,13 +74,13 @@ class SettingsRepository(context: Context) {
 
     companion object {
         const val XAI_BASE = "https://api.x.ai/v1"
-        private const val PREFS = "minimos.secure"
+        private const val PREFS = "builder.secure"
         private const val KEY_PROVIDER = "provider"
         private const val KEY_HERMES = "hermes_base"
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_KB = "keyboard"
-        private const val FALLBACK = "minimos.prefs"
+        private const val FALLBACK = "builder.prefs"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {

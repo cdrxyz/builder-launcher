@@ -1,4 +1,4 @@
-package xyz.cdr.minimos.data
+package xyz.cdr.builderlauncher.data
 
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow

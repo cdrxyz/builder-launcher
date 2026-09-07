@@ -1,9 +1,9 @@
-package xyz.cdr.minimos.data
+package xyz.cdr.builderlauncher.data
 
 import android.content.Context
 
 class PinnedApps(context: Context) {
-    private val prefs = context.getSharedPreferences("minimos.pins", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("builder.pins", Context.MODE_PRIVATE)
 
     fun list(): List<String> =
         prefs.getString("pins", "")
