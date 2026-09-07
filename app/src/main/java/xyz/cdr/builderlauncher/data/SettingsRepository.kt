@@ -80,7 +80,6 @@ class SettingsRepository(context: Context) {
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_KB = "keyboard"
-        private const val FALLBACK = "builder.prefs"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {
@@ -95,8 +94,53 @@ class SettingsRepository(context: Context) {
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
                 )
             } catch (_: Exception) {
-                context.getSharedPreferences(FALLBACK, Context.MODE_PRIVATE)
+                MemoryPrefs()
             }
         }
     }
+}
+
+private class MemoryPrefs : SharedPreferences {
+    private val values = mutableMapOf<String, String>()
+
+    override fun getAll(): MutableMap<String, *> = values.toMutableMap()
+    override fun getString(key: String?, defValue: String?) = values[key] ?: defValue
+    override fun getStringSet(key: String?, defValues: MutableSet<String>?) = defValues
+    override fun getInt(key: String?, defValue: Int) = defValue
+    override fun getLong(key: String?, defValue: Long) = defValue
+    override fun getFloat(key: String?, defValue: Float) = defValue
+    override fun getBoolean(key: String?, defValue: Boolean) = defValue
+    override fun contains(key: String?) = values.containsKey(key)
+    override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
+        private val staged = mutableMapOf<String, String?>()
+        override fun putString(key: String?, value: String?): SharedPreferences.Editor {
+            if (key != null) staged[key] = value
+            return this
+        }
+        override fun putStringSet(key: String?, values: MutableSet<String>?) = this
+        override fun putInt(key: String?, value: Int) = this
+        override fun putLong(key: String?, value: Long) = this
+        override fun putFloat(key: String?, value: Float) = this
+        override fun putBoolean(key: String?, value: Boolean) = this
+        override fun remove(key: String?): SharedPreferences.Editor {
+            if (key != null) staged[key] = null
+            return this
+        }
+        override fun clear(): SharedPreferences.Editor {
+            values.clear()
+            return this
+        }
+        override fun commit(): Boolean {
+            apply()
+            return true
+        }
+        override fun apply() {
+            staged.forEach { (k, v) ->
+                if (v == null) values.remove(k) else values[k] = v
+            }
+            staged.clear()
+        }
+    }
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
 }

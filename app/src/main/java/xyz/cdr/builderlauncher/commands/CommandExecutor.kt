@@ -39,12 +39,16 @@ class CommandExecutor(
                 ExecResult.None
             }
             is Command.Event -> {
+                val start = EventWhen.millis(command.whenText)
                 val intent = Intent(Intent.ACTION_INSERT)
                     .setData(CalendarContract.Events.CONTENT_URI)
                     .putExtra(CalendarContract.Events.TITLE, command.title)
-                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, System.currentTimeMillis())
-                    .putExtra(Intent.EXTRA_TEXT, command.whenText)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (start != null) {
+                    intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+                } else if (command.whenText.isNotBlank()) {
+                    intent.putExtra(CalendarContract.Events.DESCRIPTION, command.whenText)
+                }
                 startOrToast(intent, "No calendar app")
                 ExecResult.None
             }

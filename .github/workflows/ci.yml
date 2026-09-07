@@ -34,21 +34,15 @@ jobs:
           SECRET_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          KS="$GITHUB_WORKSPACE/minimos.p12"
-          if [ -n "${ANDROID_KEYSTORE_B64:-}" ]; then
-            echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$KS"
-            echo "ANDROID_KEYSTORE_PASSWORD=${SECRET_STORE_PASSWORD}" >> "$GITHUB_ENV"
-            echo "ANDROID_KEY_PASSWORD=${SECRET_KEY_PASSWORD}" >> "$GITHUB_ENV"
-            echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS:-minimos}" >> "$GITHUB_ENV"
-          else
-            keytool -genkeypair -keystore "$KS" -storetype PKCS12 \
-              -alias minimos -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass minimos-ci -keypass minimos-ci \
-              -dname "CN=minimos, OU=Cedar Labs, O=cdrxyz, C=CA"
-            echo "ANDROID_KEYSTORE_PASSWORD=minimos-ci" >> "$GITHUB_ENV"
-            echo "ANDROID_KEY_PASSWORD=minimos-ci" >> "$GITHUB_ENV"
-            echo "ANDROID_KEY_ALIAS=minimos" >> "$GITHUB_ENV"
+          KS="$GITHUB_WORKSPACE/builder-launcher.p12"
+          if [ -z "${ANDROID_KEYSTORE_B64:-}" ]; then
+            echo "ANDROID_KEYSTORE_B64 secret is required; refusing a well-known CI keystore."
+            exit 1
           fi
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$KS"
+          echo "ANDROID_KEYSTORE_PASSWORD=${SECRET_STORE_PASSWORD}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_PASSWORD=${SECRET_KEY_PASSWORD}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS:-minimos}" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
 
       - name: Test and assemble

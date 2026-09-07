@@ -27,6 +27,9 @@ class LlmClient(
         if (base.isBlank()) {
             return@withContext "Set a Hermes URL or xAI key in settings."
         }
+        if (!EndpointPolicy.allowed(base)) {
+            return@withContext "HTTP is only allowed to private LAN hosts. Use HTTPS otherwise."
+        }
         val root = if (base.endsWith("/v1")) base else "$base/v1"
         val body = """
             {
