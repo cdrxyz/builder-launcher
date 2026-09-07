@@ -146,6 +146,7 @@ class CommandExecutor(
         }
         return try {
             sms.composeFallback(contact, body)
+            toast("Opened Messages to send")
             false
         } catch (_: Exception) {
             toast("Cannot send")

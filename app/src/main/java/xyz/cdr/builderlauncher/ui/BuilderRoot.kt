@@ -159,8 +159,10 @@ fun BuilderRoot(
 
     fun runCommand(line: String) {
         val draft = smsDraft
-        if (draft != null && (line.isBlank() || line.equals("send", ignoreCase = true))) {
-            executor.sendSms(draft.contact, draft.body)
+        if (draft != null) {
+            if (line.isBlank() || line.equals("send", ignoreCase = true)) {
+                executor.sendSms(draft.contact, draft.body)
+            }
             smsDraft = null
             input = ""
             people = emptyList()
