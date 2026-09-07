@@ -15,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: android-actions/setup-android@v3
+
       - uses: cashapp/activate-hermit@v1
         with:
           cache: "true"
-
-      - uses: android-actions/setup-android@v3
 
       - name: Prepare keystore
         env:
