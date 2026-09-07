@@ -34,7 +34,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or paste a
    - APK filter: `builder-launcher-release`
    - Include prereleases: off (on only if you want APKs from open pull requests)
 
-4. Add the app, install the APK, then set **Builder Launcher** as the default Home app.
+4. Add the app, install the APK, then open **Builder Launcher**. Android will ask to set it as the default Home app (once). Settings → Set as default home app asks again if you declined.
 
 Sideload without Obtainium: download `builder-launcher-release.apk` from [Releases](https://github.com/cdrxyz/builder-launcher/releases).
 
