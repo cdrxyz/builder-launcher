@@ -8,11 +8,23 @@
 - If there is no UI change, write `n/a` under Screenshots.
 - Do not commit keystores, API keys, or `*-ai.png` drafts.
 
+## Tooling
+
+JDK 17 and Gradle 8.11.1 are pinned with [Hermit](https://cashapp.github.io/hermit/). From the repo root:
+
+```bash
+source bin/activate-hermit
+gradle :app:testDebugUnitTest
+```
+
+`./bin/gradle` works without sourcing. Do not rely on a machine-wide JDK or Gradle.
+
 ## Screenshots
 
 UI regressions are locked with Paparazzi (`LauncherScreenshotTest`). After a visible change:
 
 ```bash
+source bin/activate-hermit
 gradle :app:recordPaparazziDebug
 ```
 
