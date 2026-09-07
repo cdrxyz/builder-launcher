@@ -13,6 +13,7 @@ import androidx.core.view.WindowCompat
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.commands.CommandExecutor
+import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
@@ -43,8 +44,9 @@ class MainActivity : ComponentActivity() {
         val apps = InstalledApps(this)
         val lists = LocalLists(this)
         val pins = PinnedApps(this)
+        val people = PhoneContacts(this)
         val llm = LlmClient(settings)
-        val executor = CommandExecutor(this, apps, lists, pins)
+        val executor = CommandExecutor(this, apps, lists, pins, people)
         val weather = WeatherRepository(this, settings)
         setContent {
             BuilderTheme {
@@ -53,6 +55,7 @@ class MainActivity : ComponentActivity() {
                     apps = apps,
                     lists = lists,
                     pins = pins,
+                    contacts = people,
                     llm = llm,
                     executor = executor,
                     weather = weather,
