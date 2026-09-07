@@ -44,7 +44,7 @@ Type on the home screen, then Enter.
 
 | Prefix | Example | Action |
 | --- | --- | --- |
-| `@` | `@jason on my way!` | Open SMS to that contact or number |
+| `@` | `@jason on my way!` | Draft an SMS in the launcher; Enter again to send |
 | `#` | `#lauren` | Dial |
 | `*` | `*dentist mar 24 9a` | Create a calendar event |
 | `-` | `-buy milk` | Save a todo in the hub |
