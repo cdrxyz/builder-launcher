@@ -8,7 +8,7 @@ A simple Android launcher for builders who want to be deliberate with their phon
 
 The home screen is a command bar, not an icon grid. Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
 
-AI stays optional and private: point `?` at your own Hermes instance, or paste a SuperGrok / xAI API key. Keys never leave the device except as a Bearer token to the URL you set.
+AI stays optional and private: point `?` at your own Hermes instance, or sign in to xAI / OpenAI / Anthropic (API key still works as a fallback). Tokens never leave the device except as a Bearer token to the provider you chose.
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="Home: clock, weather, todos, command bar" width="240" />
@@ -18,7 +18,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or paste a
 
 | Home | Hub | Settings |
 | --- | --- | --- |
-| Clock, weather, last 3 todos, command bar | Todos, notes, granted notifications | Hermes or SuperGrok, keyboard layout |
+| Clock, weather, last 3 todos, command bar | Todos, notes, granted notifications | Hermes, xAI, OpenAI, Anthropic |
 
 ## Install with Obtainium
 
@@ -61,7 +61,11 @@ Home always shows the clock, current weather, and the last 3 open todos. Set the
 Settings (tap the clock) → provider:
 
 - **Hermes** — Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
-- **xAI / SuperGrok** — `https://api.x.ai/v1` plus an API key from the xAI console. Default model `grok-4.6`.
+- **xAI** — Sign in with SuperGrok / X Premium+ (device-code OAuth at `auth.x.ai`) or paste an API key. Default model `grok-4.6`. Hits `https://api.x.ai/v1`.
+- **OpenAI** — Sign in with ChatGPT (browser + paste the code or callback URL) or paste an API key. Default model `gpt-4o`. Hits `https://api.openai.com/v1`.
+- **Anthropic** — Sign in with Claude (browser + paste the code) or paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic.com`.
+
+OAuth tokens are stored in encrypted prefs on the device and refreshed automatically. Sign out from settings. An API key remains as a fallback if OAuth is unavailable for your plan.
 
 Nothing is sent anywhere until you type `?`. No analytics.
 

@@ -7,8 +7,10 @@ import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import xyz.cdr.builderlauncher.ai.AiPlatforms
+import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
 
-enum class LlmProvider { HERMES, XAI }
+enum class LlmProvider { HERMES, XAI, OPENAI, ANTHROPIC }
 
 data class BuilderSettings(
     val provider: LlmProvider = LlmProvider.HERMES,
@@ -20,7 +22,20 @@ data class BuilderSettings(
     val weatherPlace: String = "",
     val weatherLat: Double? = null,
     val weatherLon: Double? = null,
-)
+    val oauthAccess: String = "",
+    val oauthRefresh: String = "",
+    val oauthExpiresAtEpochMs: Long = 0L,
+    val oauthAccount: String = "",
+) {
+    val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
+
+    fun clearedOAuth(): BuilderSettings = copy(
+        oauthAccess = "",
+        oauthRefresh = "",
+        oauthExpiresAtEpochMs = 0L,
+        oauthAccount = "",
+    )
+}
 
 enum class KeyboardMode { AUTO, HARDWARE, SOFTWARE }
 
@@ -32,34 +47,42 @@ class SettingsRepository(context: Context) {
 
     fun update(transform: (BuilderSettings) -> BuilderSettings) {
         val next = transform(_settings.value)
-        prefs.edit()
-            .putString(KEY_PROVIDER, next.provider.name)
-            .putString(KEY_HERMES, next.hermesBaseUrl)
-            .putString(KEY_API, next.apiKey)
-            .putString(KEY_MODEL, next.model)
-            .putString(KEY_KB, next.keyboardMode.name)
-            .putString(KEY_WEATHER_PLACE, next.weatherPlace)
-            .putString(KEY_WEATHER_LAT, next.weatherLat?.toString() ?: "")
-            .putString(KEY_WEATHER_LON, next.weatherLon?.toString() ?: "")
-            .apply()
+        write(next)
         _settings.value = next
+    }
+
+    fun saveOAuth(tokens: OAuthTokens) {
+        update { s ->
+            s.copy(
+                oauthAccess = tokens.accessToken,
+                oauthRefresh = tokens.refreshToken.ifBlank { s.oauthRefresh },
+                oauthExpiresAtEpochMs = tokens.expiresAtEpochMs,
+                oauthAccount = tokens.account.ifBlank { s.oauthAccount },
+            )
+        }
+    }
+
+    fun clearOAuth() {
+        update { it.clearedOAuth() }
+    }
+
+    fun setProvider(provider: LlmProvider) {
+        update { current ->
+            if (current.provider == provider) current
+            else current.copy(provider = provider).clearedOAuth()
+        }
     }
 
     fun effectiveBaseUrl(): String {
         val s = _settings.value
-        return when (s.provider) {
-            LlmProvider.XAI -> XAI_BASE
-            LlmProvider.HERMES -> s.hermesBaseUrl.trim().trimEnd('/')
-        }
+        val platform = AiPlatforms.of(s.provider)
+        return platform.apiBase ?: s.hermesBaseUrl.trim().trimEnd('/')
     }
 
     fun effectiveModel(): String {
         val s = _settings.value
         if (s.model.isNotBlank()) return s.model.trim()
-        return when (s.provider) {
-            LlmProvider.XAI -> "grok-4.6"
-            LlmProvider.HERMES -> "default"
-        }
+        return AiPlatforms.of(s.provider).defaultModel
     }
 
     private fun read(): BuilderSettings {
@@ -78,7 +101,28 @@ class SettingsRepository(context: Context) {
             weatherPlace = prefs.getString(KEY_WEATHER_PLACE, "") ?: "",
             weatherLat = prefs.getString(KEY_WEATHER_LAT, "")?.toDoubleOrNull(),
             weatherLon = prefs.getString(KEY_WEATHER_LON, "")?.toDoubleOrNull(),
+            oauthAccess = prefs.getString(KEY_OAUTH_ACCESS, "") ?: "",
+            oauthRefresh = prefs.getString(KEY_OAUTH_REFRESH, "") ?: "",
+            oauthExpiresAtEpochMs = prefs.getString(KEY_OAUTH_EXPIRES, "0")?.toLongOrNull() ?: 0L,
+            oauthAccount = prefs.getString(KEY_OAUTH_ACCOUNT, "") ?: "",
         )
+    }
+
+    private fun write(next: BuilderSettings) {
+        prefs.edit()
+            .putString(KEY_PROVIDER, next.provider.name)
+            .putString(KEY_HERMES, next.hermesBaseUrl)
+            .putString(KEY_API, next.apiKey)
+            .putString(KEY_MODEL, next.model)
+            .putString(KEY_KB, next.keyboardMode.name)
+            .putString(KEY_WEATHER_PLACE, next.weatherPlace)
+            .putString(KEY_WEATHER_LAT, next.weatherLat?.toString() ?: "")
+            .putString(KEY_WEATHER_LON, next.weatherLon?.toString() ?: "")
+            .putString(KEY_OAUTH_ACCESS, next.oauthAccess)
+            .putString(KEY_OAUTH_REFRESH, next.oauthRefresh)
+            .putString(KEY_OAUTH_EXPIRES, next.oauthExpiresAtEpochMs.toString())
+            .putString(KEY_OAUTH_ACCOUNT, next.oauthAccount)
+            .apply()
     }
 
     companion object {
@@ -92,6 +136,10 @@ class SettingsRepository(context: Context) {
         private const val KEY_WEATHER_PLACE = "weather_place"
         private const val KEY_WEATHER_LAT = "weather_lat"
         private const val KEY_WEATHER_LON = "weather_lon"
+        private const val KEY_OAUTH_ACCESS = "oauth_access"
+        private const val KEY_OAUTH_REFRESH = "oauth_refresh"
+        private const val KEY_OAUTH_EXPIRES = "oauth_expires"
+        private const val KEY_OAUTH_ACCOUNT = "oauth_account"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {
