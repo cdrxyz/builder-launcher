@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
         val lists = LocalLists(this)
         val pins = PinnedApps(this)
         val llm = LlmClient(settings)
-        val executor = CommandExecutor(this, apps, lists)
+        val executor = CommandExecutor(this, apps, lists, pins)
         val weather = WeatherRepository(this, settings)
         setContent {
             BuilderTheme {
