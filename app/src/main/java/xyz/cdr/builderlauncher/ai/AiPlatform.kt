@@ -75,14 +75,7 @@ object AiPlatforms {
             apiBase = "https://api.openai.com/v1",
             defaultModel = "gpt-4o",
             chatKind = ChatKind.OPENAI_CHAT,
-            oauth = OAuthSpec.PkcePaste(
-                clientId = "app_EMoamEEZ73f0CkXaXp7hrann",
-                authorizeUrl = "https://auth.openai.com/oauth/authorize",
-                tokenUrl = "https://auth.openai.com/oauth/token",
-                redirectUri = "http://localhost:1455/auth/callback",
-                scope = "openid profile email offline_access",
-                allowedHosts = setOf("auth.openai.com", "chatgpt.com"),
-            ),
+            oauth = null,
         ),
         AiPlatform(
             provider = LlmProvider.ANTHROPIC,
@@ -90,16 +83,7 @@ object AiPlatforms {
             apiBase = "https://api.anthropic.com",
             defaultModel = "claude-sonnet-4-5",
             chatKind = ChatKind.ANTHROPIC_MESSAGES,
-            oauth = OAuthSpec.PkcePaste(
-                clientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-                authorizeUrl = "https://claude.ai/oauth/authorize",
-                tokenUrl = "https://console.anthropic.com/v1/oauth/token",
-                redirectUri = "https://console.anthropic.com/oauth/code/callback",
-                scope = "org:create_api_key user:profile user:inference",
-                extraAuthorize = mapOf("code" to "true"),
-                headers = mapOf("User-Agent" to "BuilderLauncher/0.1 (Android)"),
-                allowedHosts = setOf("claude.ai", "console.anthropic.com"),
-            ),
+            oauth = null,
         ),
     )
 }

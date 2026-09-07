@@ -187,13 +187,19 @@ fun SettingsChrome(
             Field("Hermes base URL", hermes, "http://192.168.1.10:8642")
         } else {
             Text(
-                "Sign in or paste an API key. Used only for ? questions.",
+                if (settings.provider == LlmProvider.XAI) {
+                    "Sign in with SuperGrok, or paste an API key. Used only for ? questions."
+                } else {
+                    "Paste an API key. Used only for ? questions."
+                },
                 color = Dim,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(8.dp))
-            Text("Sign in with SuperGrok", color = Paper)
-            Spacer(Modifier.height(8.dp))
+            if (settings.provider == LlmProvider.XAI) {
+                Text("Sign in with SuperGrok", color = Paper)
+                Spacer(Modifier.height(8.dp))
+            }
         }
         Field("API key (stored on device)", apiKey, if (settings.provider == LlmProvider.HERMES) "optional for local Hermes" else "optional if signed in")
         Field("Model", model, when (settings.provider) {

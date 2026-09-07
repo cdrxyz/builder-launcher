@@ -75,6 +75,15 @@ class DeviceCodeFlowTest {
 }
 
 class PkcePasteFlowTest {
+    private val spec = OAuthSpec.PkcePaste(
+        clientId = "test-client",
+        authorizeUrl = "https://auth.example.com/oauth/authorize",
+        tokenUrl = "https://auth.example.com/oauth/token",
+        redirectUri = "http://localhost:1455/auth/callback",
+        scope = "openid",
+        allowedHosts = setOf("auth.example.com"),
+    )
+
     @Test
     fun extractBareCode() {
         assertEquals("abc", PkcePasteFlow.extractCode(" abc ").code)
@@ -98,16 +107,16 @@ class PkcePasteFlowTest {
 
     @Test
     fun beginBuildsAuthorizeUrl() {
-        val spec = AiPlatforms.of(LlmProvider.OPENAI).oauth as OAuthSpec.PkcePaste
+        val spec = this.spec
         val session = PkcePasteFlow.begin(spec)
-        assertTrue(session.authorizeUrl.startsWith("https://auth.openai.com/oauth/authorize?"))
+        assertTrue(session.authorizeUrl.startsWith("https://auth.example.com/oauth/authorize?"))
         assertTrue(session.authorizeUrl.contains("code_challenge_method=S256"))
         assertTrue(session.verifier.isNotBlank())
     }
 
     @Test
     fun completePostsCodeVerifier() {
-        val spec = AiPlatforms.of(LlmProvider.OPENAI).oauth as OAuthSpec.PkcePaste
+        val spec = this.spec
         val session = PkcePasteFlow.begin(spec)
         val poster = ScriptedPoster(
             FormResponse(200, """{"access_token":"a","refresh_token":"r","expires_in":60}"""),
@@ -117,6 +126,21 @@ class PkcePasteFlowTest {
         assertEquals("the-code", poster.lastFields["code"])
         assertEquals(session.verifier, poster.lastFields["code_verifier"])
         assertEquals("authorization_code", poster.lastFields["grant_type"])
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun completeRejectsMismatchedState() {
+        val session = PkcePasteFlow.begin(spec)
+        val poster = ScriptedPoster(
+            FormResponse(200, """{"access_token":"a"}"""),
+        )
+        PkcePasteFlow.complete(
+            poster,
+            spec,
+            session,
+            "http://localhost:1455/auth/callback?code=tok&state=other",
+            nowMs = 10L,
+        )
     }
 }
 

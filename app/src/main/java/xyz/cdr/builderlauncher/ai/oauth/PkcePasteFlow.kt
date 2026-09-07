@@ -53,9 +53,14 @@ object PkcePasteFlow {
         nowMs: Long,
     ): OAuthTokens {
         val extracted = extractCode(pasted)
+        val pastedState = extracted.state?.let { java.net.URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+        val code = java.net.URLDecoder.decode(extracted.code, StandardCharsets.UTF_8.name())
+        if (pastedState != null && pastedState != session.state) {
+            throw IllegalArgumentException("Sign-in state did not match. Start again.")
+        }
         val fields = linkedMapOf(
             "grant_type" to "authorization_code",
-            "code" to extracted.code,
+            "code" to code,
             "redirect_uri" to spec.redirectUri,
             "client_id" to spec.clientId,
             "code_verifier" to session.verifier,

@@ -68,7 +68,7 @@ class OAuthService(
     }
 
     fun bearer(): String? {
-        refreshIfNeeded()
+        runCatching { refreshIfNeeded() }
         return CredentialResolver.bearer(settings.settings.value, now())
     }
 

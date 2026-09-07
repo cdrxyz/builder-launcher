@@ -39,9 +39,7 @@ class LlmClient(
         if (!CredentialResolver.readyForAsk(s) && s.provider != LlmProvider.HERMES) {
             return@withContext missingCreds(s.provider)
         }
-        val bearer = runCatching { oauth.bearer() }.getOrElse {
-            return@withContext "Sign-in expired. Open settings and sign in again."
-        }
+        val bearer = runCatching { oauth.bearer() }.getOrNull()
         val current = settings.settings.value
         if (current.provider != LlmProvider.HERMES && bearer.isNullOrBlank()) {
             return@withContext missingCreds(current.provider)
