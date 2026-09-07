@@ -17,16 +17,21 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.weather.WeatherRepository
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        val needed = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_CONTACTS), 1)
+            needed += Manifest.permission.READ_CONTACTS
+        }
+        if (needed.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
         }
         val settings = SettingsRepository(this)
         val apps = InstalledApps(this)
@@ -34,6 +39,7 @@ class MainActivity : ComponentActivity() {
         val pins = PinnedApps(this)
         val llm = LlmClient(settings)
         val executor = CommandExecutor(this, apps, lists)
+        val weather = WeatherRepository(this, settings)
         setContent {
             BuilderTheme {
                 BuilderRoot(
@@ -43,6 +49,7 @@ class MainActivity : ComponentActivity() {
                     pins = pins,
                     llm = llm,
                     executor = executor,
+                    weather = weather,
                 )
             }
         }

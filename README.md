@@ -11,14 +11,14 @@ The home screen is a command bar, not an icon grid. Works on ordinary slab phone
 AI stays optional and private: point `?` at your own Hermes instance, or paste a SuperGrok / xAI API key. Keys never leave the device except as a Bearer token to the URL you set.
 
 <p align="center">
-  <img src="docs/screenshots/home.png" alt="Home: clock, empty canvas, command bar" width="240" />
+  <img src="docs/screenshots/home.png" alt="Home: clock, weather, todos, command bar" width="240" />
   <img src="docs/screenshots/hub.png" alt="Hub: todos, notes, notifications" width="240" />
   <img src="docs/screenshots/settings.png" alt="Settings: Hermes or xAI, keyboard mode" width="240" />
 </p>
 
 | Home | Hub | Settings |
 | --- | --- | --- |
-| Clock, command bar, no icon grid | Todos, notes, granted notifications | Hermes or SuperGrok, keyboard layout |
+| Clock, weather, last 3 todos, command bar | Todos, notes, granted notifications | Hermes or SuperGrok, keyboard layout |
 
 ## Install with Obtainium
 
@@ -53,7 +53,7 @@ Type on the home screen, then Enter.
 | (none) | `Termux` | Search and launch apps |
 | | `hub` / `settings` / `help` | Built-ins |
 
-D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap the clock for settings.
+Home always shows the clock, current weather, and the last 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. Finished todos sit in a separate list below, newest completed first. `…more todos` expands the full open list. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap the clock for settings.
 
 ## AI settings
 
@@ -66,7 +66,7 @@ Nothing is sent anywhere until you type `?`. No analytics.
 
 ## Keyboard phones
 
-Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite and most BlackBerry-style Androids. The command bar sits next to the keys; the software keyboard stays out of the way.
+Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite and most BlackBerry-style Androids. The command bar always sits at the bottom, just above the keyboard. On hardware-keyboard phones the software keyboard stays out of the way.
 
 ## Releases and CI
 

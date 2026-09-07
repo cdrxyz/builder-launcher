@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
@@ -36,7 +37,11 @@ fun HomeChrome(
     time: String,
     date: String,
     input: String,
-    barAtBottom: Boolean = true,
+    weather: String = "",
+    todos: List<String> = emptyList(),
+    doneTodos: List<String> = emptyList(),
+    moreTodos: Boolean = false,
+    todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
 ) {
@@ -46,25 +51,71 @@ fun HomeChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        if (!barAtBottom) {
-            CommandRow(input)
-            Spacer(Modifier.height(16.dp))
-        }
         Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
         Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
-        if (apps.isEmpty() && input.isBlank()) {
-            Text(hint, color = Dim)
+        if (weather.isNotBlank()) {
+            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            apps.forEach { label ->
-                Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        if (!todosExpanded) {
+            todos.take(3).forEach { text ->
+                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            }
+            if (moreTodos) {
+                Text("…more todos", color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+            }
+            if (doneTodos.isNotEmpty()) {
+                Text(
+                    "done",
+                    color = Dim,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                )
+                doneTodos.forEach { text ->
+                    Text(
+                        text,
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    )
+                }
+            }
+            if (todos.isNotEmpty() || doneTodos.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
             }
         }
-        if (barAtBottom) {
-            Spacer(Modifier.height(8.dp))
-            CommandRow(input)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (todosExpanded) {
+                todos.forEach { text ->
+                    Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                }
+                if (doneTodos.isNotEmpty()) {
+                    Text(
+                        "done",
+                        color = Dim,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                    )
+                    doneTodos.forEach { text ->
+                        Text(
+                            text,
+                            color = Dim,
+                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        )
+                    }
+                }
+                Text("show less", color = Dim, modifier = Modifier.padding(vertical = 6.dp))
+            } else if (apps.isEmpty() && input.isBlank() && todos.isEmpty() && doneTodos.isEmpty()) {
+                Text(hint, color = Dim)
+            } else {
+                apps.forEach { label ->
+                    Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                }
+            }
         }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input)
     }
 }
 
@@ -109,6 +160,8 @@ fun SettingsChrome(
     hermes: String,
     apiKey: String,
     model: String,
+    weatherPlace: String = "",
+    weatherSuggestions: List<String> = emptyList(),
 ) {
     Column(
         modifier = Modifier
@@ -150,13 +203,28 @@ fun SettingsChrome(
         }
         Text(
             if (hardware) {
-                "Hardware keyboard detected — command bar sits at the bottom."
+                "Hardware keyboard detected — command bar sits at the bottom, above the keys."
             } else {
-                "Slab mode — command bar at the top, software keyboard allowed."
+                "Slab mode — command bar sits at the bottom, just above the keyboard."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        Field("Weather location", weatherPlace, "Kitchener, Ontario")
+        Text(
+            if (weatherPlace.isNotBlank() && weatherSuggestions.isEmpty()) {
+                "Weather uses this city. No GPS."
+            } else {
+                "Type a city. Pick a match. No GPS required."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        weatherSuggestions.forEach { label ->
+            Text(label, color = Paper, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+        }
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))

@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.LlmClient
@@ -50,8 +53,10 @@ import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ExecResult
+import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
@@ -62,6 +67,8 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.weather.WeatherPlace
+import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -76,16 +83,19 @@ fun BuilderRoot(
     pins: PinnedApps,
     llm: LlmClient,
     executor: CommandExecutor,
+    weather: WeatherRepository,
 ) {
     val settings by settingsRepo.settings.collectAsState()
     val hub by HubStore.items.collectAsState()
     val local by lists.items.collectAsState()
+    val forecast by weather.current.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
     var aiText by remember { mutableStateOf<String?>(null) }
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
+    var todosExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     val hardware = remember(settings.keyboardMode) {
@@ -96,7 +106,15 @@ fun BuilderRoot(
                 ctx.resources.configuration.keyboard == Configuration.KEYBOARD_QWERTY
         }
     }
-    val barAtBottom = hardware
+    LaunchedEffect(settings.weatherLat, settings.weatherLon) {
+        weather.refresh()
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(15 * 60 * 1000)
+            weather.refresh()
+        }
+    }
 
     fun runCommand(line: String) {
         val result = executor.execute(CommandParser.parse(line))
@@ -140,25 +158,27 @@ fun BuilderRoot(
     ) {
         when (page) {
             Page.Home -> {
-                if (!barAtBottom) {
-                    CommandBar(
-                        value = input,
-                        hardware = hardware,
-                        onValue = {
-                            input = it
-                            choices = if (it.isBlank() || it.first() in "@#*-+?") {
-                                emptyList()
-                            } else {
-                                apps.search(it).take(8)
-                            }
-                        },
-                        onSubmit = { runCommand(input) },
-                        onHub = { page = Page.Hub },
-                    )
-                    Spacer(Modifier.height(16.dp))
+                val todos = HomeTodos.of(local)
+                val openTodos = HomeTodos.open(todos)
+                val doneTodos = HomeTodos.completed(todos)
+                LaunchedEffect(openTodos.size, doneTodos.size, todosExpanded) {
+                    if (todosExpanded && openTodos.isEmpty() && doneTodos.isEmpty()) todosExpanded = false
                 }
-                ClockHeader(onOpenSettings = { page = Page.Settings })
+                ClockHeader(
+                    weather = forecast?.line,
+                    onOpenSettings = { page = Page.Settings },
+                )
                 Spacer(Modifier.height(8.dp))
+                if (!todosExpanded && (openTodos.isNotEmpty() || doneTodos.isNotEmpty())) {
+                    TodoPreview(
+                        open = HomeTodos.visibleOpen(openTodos, expanded = false),
+                        done = HomeTodos.visibleDone(doneTodos, expanded = false),
+                        hasMore = HomeTodos.hasMore(openTodos) || HomeTodos.hasMoreDone(doneTodos),
+                        onToggle = { lists.toggleComplete(it) },
+                        onMore = { todosExpanded = true },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 if (aiText != null) {
                     Text(if (aiBusy) "…" else aiText!!, color = Prompt, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
@@ -173,47 +193,73 @@ fun BuilderRoot(
                 }
                 val shown = if (choices.isNotEmpty()) choices else pinned
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(shown, key = { it.packageName + it.activityName }) { app ->
-                        Text(
-                            app.label,
-                            color = Paper,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (choices.isNotEmpty()) {
-                                        apps.launch(app)
-                                        input = ""
-                                        choices = emptyList()
-                                    } else {
-                                        apps.launch(app)
-                                    }
-                                }
-                                .padding(vertical = 6.dp),
-                        )
-                    }
-                    if (shown.isEmpty() && input.isBlank()) {
+                    if (todosExpanded) {
+                        items(openTodos, key = { "t" + it.id }) { item ->
+                            TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        }
+                        if (doneTodos.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "done",
+                                    color = Dim,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                                )
+                            }
+                        }
+                        items(doneTodos, key = { "d" + it.id }) { item ->
+                            TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        }
                         item {
-                            Text("Type to work. help for commands. Then put it down.", color = Dim)
+                            Text(
+                                "show less",
+                                color = Dim,
+                                modifier = Modifier
+                                    .clickable { todosExpanded = false }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                    } else {
+                        items(shown, key = { it.packageName + it.activityName }) { app ->
+                            Text(
+                                app.label,
+                                color = Paper,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (choices.isNotEmpty()) {
+                                            apps.launch(app)
+                                            input = ""
+                                            choices = emptyList()
+                                        } else {
+                                            apps.launch(app)
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                        if (shown.isEmpty() && input.isBlank() && openTodos.isEmpty() && doneTodos.isEmpty()) {
+                            item {
+                                Text("Type to work. help for commands. Then put it down.", color = Dim)
+                            }
                         }
                     }
                 }
-                if (barAtBottom) {
-                    Spacer(Modifier.height(8.dp))
-                    CommandBar(
-                        value = input,
-                        hardware = hardware,
-                        onValue = {
-                            input = it
-                            choices = if (it.isBlank() || it.first() in "@#*-+?") {
-                                emptyList()
-                            } else {
-                                apps.search(it).take(8)
-                            }
-                        },
-                        onSubmit = { runCommand(input) },
-                        onHub = { page = Page.Hub },
-                    )
-                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    value = input,
+                    hardware = hardware,
+                    onValue = {
+                        input = it
+                        choices = if (it.isBlank() || it.first() in "@#*-+?") {
+                            emptyList()
+                        } else {
+                            apps.search(it).take(8)
+                        }
+                    },
+                    onSubmit = { runCommand(input) },
+                    onHub = { page = Page.Hub },
+                )
             }
             Page.Hub -> {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -222,11 +268,18 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(local.take(20), key = { "l" + it.id }) { item ->
-                        Column(Modifier.clickable { lists.remove(item.id) }) {
-                            Text(item.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                            Text(item.text, color = Paper)
-                        }
+                    val hubTodos = HomeTodos.of(local)
+                    val hubOpen = HomeTodos.open(hubTodos)
+                    val hubDone = HomeTodos.completed(hubTodos)
+                    val notes = local.filter { !it.kind.equals("todo", ignoreCase = true) }
+                    items(hubOpen, key = { "l" + it.id }) { item ->
+                        HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
+                    }
+                    items(notes, key = { "n" + it.id }) { item ->
+                        HubLocalRow(item, onTap = { lists.remove(item.id) })
+                    }
+                    items(hubDone, key = { "ld" + it.id }) { item ->
+                        HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
                     }
                     items(hub, key = { it.key }) { item ->
                         Column {
@@ -251,6 +304,7 @@ fun BuilderRoot(
                     hardware = hardware,
                     onBack = { page = Page.Home },
                     repo = settingsRepo,
+                    weather = weather,
                 )
             }
         }
@@ -258,7 +312,7 @@ fun BuilderRoot(
 }
 
 @Composable
-private fun ClockHeader(onOpenSettings: () -> Unit) {
+private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -271,6 +325,73 @@ private fun ClockHeader(onOpenSettings: () -> Unit) {
     Column(Modifier.clickable { onOpenSettings() }) {
         Text(time, style = MaterialTheme.typography.headlineLarge)
         Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        if (!weather.isNullOrBlank()) {
+            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun TodoPreview(
+    open: List<LocalItem>,
+    done: List<LocalItem>,
+    hasMore: Boolean,
+    onToggle: (String) -> Unit,
+    onMore: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        open.forEach { item ->
+            TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
+        }
+        if (hasMore) {
+            Text(
+                "…more todos",
+                color = Prompt,
+                modifier = Modifier
+                    .clickable { onMore() }
+                    .padding(vertical = 4.dp),
+            )
+        }
+        if (done.isNotEmpty()) {
+            Text(
+                "done",
+                color = Dim,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+            )
+            done.forEach { item ->
+                TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodoLine(item: LocalItem, onToggle: () -> Unit, compact: Boolean = false) {
+    Text(
+        item.text,
+        color = if (item.done) Dim else Paper,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(vertical = if (compact) 4.dp else 6.dp),
+    )
+}
+
+@Composable
+private fun HubLocalRow(item: LocalItem, onTap: () -> Unit) {
+    Column(Modifier.clickable { onTap() }) {
+        Text(item.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            item.text,
+            color = if (item.done) Dim else Paper,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+            ),
+        )
     }
 }
 
@@ -346,12 +467,25 @@ private fun SettingsPage(
     hardware: Boolean,
     onBack: () -> Unit,
     repo: SettingsRepository,
+    weather: WeatherRepository,
 ) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var hermes by remember { mutableStateOf(settings.hermesBaseUrl) }
     var key by remember { mutableStateOf(settings.apiKey) }
     var model by remember { mutableStateOf(settings.model) }
-    Column(modifier = Modifier.fillMaxSize()) {
+    var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
+    var suggestions by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
+    LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
+        val q = placeQuery.trim()
+        if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(280)
+        suggestions = weather.suggest(q)
+    }
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("settings", color = Prompt)
             Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
@@ -404,9 +538,40 @@ private fun SettingsPage(
             }
         }
         Text(
-            if (hardware) "Hardware keyboard detected — command bar sits at the bottom." else "Slab mode — command bar at the top, software keyboard allowed.",
+            if (hardware) {
+                "Hardware keyboard detected — command bar sits at the bottom, above the keys."
+            } else {
+                "Slab mode — command bar sits at the bottom, just above the keyboard."
+            },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        WeatherLocationField(
+            query = placeQuery,
+            locked = settings.weatherLat != null && placeQuery == settings.weatherPlace,
+            suggestions = suggestions,
+            onQuery = { next ->
+                placeQuery = next
+                if (next.isBlank()) {
+                    repo.update { s -> s.copy(weatherPlace = "", weatherLat = null, weatherLon = null) }
+                    suggestions = emptyList()
+                } else if (settings.weatherLat != null && next != settings.weatherPlace) {
+                    repo.update { s -> s.copy(weatherPlace = "", weatherLat = null, weatherLon = null) }
+                }
+            },
+            onPick = { place ->
+                placeQuery = place.label
+                suggestions = emptyList()
+                repo.update {
+                    it.copy(
+                        weatherPlace = place.label,
+                        weatherLat = place.latitude,
+                        weatherLon = place.longitude,
+                    )
+                }
+                scope.launch { weather.refresh() }
+            },
         )
         Spacer(Modifier.height(20.dp))
         Text(
@@ -453,4 +618,51 @@ private fun LabeledField(label: String, value: String, placeholder: String, onCh
             .padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+private fun WeatherLocationField(
+    query: String,
+    locked: Boolean,
+    suggestions: List<WeatherPlace>,
+    onQuery: (String) -> Unit,
+    onPick: (WeatherPlace) -> Unit,
+) {
+    Text("Weather location", color = Dim, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 10.dp))
+    BasicTextField(
+        value = query,
+        onValueChange = onQuery,
+        singleLine = true,
+        cursorBrush = SolidColor(Prompt),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+        decorationBox = { inner ->
+            if (query.isEmpty()) Text("Kitchener, Ontario", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            inner()
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+    )
+    HorizontalDivider(color = Line)
+    Text(
+        if (locked) {
+            "Weather uses this city. No GPS."
+        } else {
+            "Type a city. Pick a match. No GPS required."
+        },
+        color = Dim,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(top = 6.dp),
+    )
+    suggestions.forEach { place ->
+        Text(
+            place.label,
+            color = Paper,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onPick(place) }
+                .padding(vertical = 8.dp),
+        )
+    }
 }
