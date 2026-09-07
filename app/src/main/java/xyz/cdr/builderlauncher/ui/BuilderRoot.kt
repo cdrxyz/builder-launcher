@@ -140,6 +140,7 @@ fun BuilderRoot(
         }
         val first = value.first()
         if (first == '@' || first == '#') {
+            // First token only — body after the name is the message, not a search.
             val needle = value.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
             people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
             choices = emptyList()

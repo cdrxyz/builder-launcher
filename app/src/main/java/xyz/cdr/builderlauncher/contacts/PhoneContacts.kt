@@ -4,7 +4,28 @@ import android.content.Context
 import android.provider.ContactsContract
 
 class PhoneContacts(private val context: Context) {
+    @Volatile
+    private var cache: List<PhoneContact> = emptyList()
+
+    @Volatile
+    private var loadedAt: Long = 0L
+
     fun all(): List<PhoneContact> {
+        val now = System.currentTimeMillis()
+        if (loadedAt != 0L && now - loadedAt < 30_000) return cache
+        val next = load()
+        cache = next
+        loadedAt = now
+        return next
+    }
+
+    fun invalidate() {
+        loadedAt = 0L
+    }
+
+    fun search(query: String): List<PhoneContact> = ContactMatch.filter(all(), query)
+
+    private fun load(): List<PhoneContact> {
         val cr = context.contentResolver
         val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
         val projection = arrayOf(
@@ -28,17 +49,5 @@ class PhoneContacts(private val context: Context) {
         } catch (_: SecurityException) {
             emptyList()
         }
-    }
-
-    fun search(query: String): List<PhoneContact> = ContactMatch.filter(all(), query)
-
-    fun resolve(target: String): PhoneContact? {
-        val t = target.trim()
-        if (t.isEmpty()) return null
-        if (t.any { it.isDigit() } && t.none { it.isLetter() }) {
-            return PhoneContact(t, t)
-        }
-        val matches = search(t)
-        return matches.singleOrNull() ?: matches.firstOrNull()
     }
 }
