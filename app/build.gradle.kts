@@ -25,7 +25,8 @@ android {
             if (ks != null && file(ks).exists()) {
                 storeFile = file(ks)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "minimos"
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                    ?: error("ANDROID_KEY_ALIAS is required when ANDROID_KEYSTORE_PATH is set")
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
                 storeType = "PKCS12"
             }

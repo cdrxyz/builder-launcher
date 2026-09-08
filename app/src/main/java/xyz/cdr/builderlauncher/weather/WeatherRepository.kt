@@ -84,11 +84,11 @@ class WeatherRepository(
             )
             .addQueryParameter(
                 "hourly",
-                "temperature_2m,weather_code,precipitation_probability,uv_index",
+                "temperature_2m,weather_code,precipitation_probability,uv_index,is_day",
             )
             .addQueryParameter(
                 "daily",
-                "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max",
+                "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max",
             )
             .addQueryParameter("forecast_days", "7")
             .addQueryParameter("timezone", "auto")

@@ -18,7 +18,7 @@ Release signing uses PKCS12 env vars:
 | --- | --- |
 | `ANDROID_KEYSTORE_PATH` | Path to the `.p12` |
 | `ANDROID_KEYSTORE_PASSWORD` | Store password |
-| `ANDROID_KEY_ALIAS` | Key alias (CI default leftover `minimos` is not a product name) |
+| `ANDROID_KEY_ALIAS` | Key alias |
 | `ANDROID_KEY_PASSWORD` | Key password |
 
 CI (`.github/workflows/ci.yml`) runs unit tests, Paparazzi verify, and a signed assemble. Pull requests publish prerelease `pr-<number>`. Merges to `master` publish the latest GitHub Release.

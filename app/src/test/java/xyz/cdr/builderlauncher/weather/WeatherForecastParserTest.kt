@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.weather
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,11 +30,12 @@ class WeatherForecastParserTest {
             "dew_point_2m": 11.1
           },
           "hourly": {
-            "time": ["2026-09-08T12:00","2026-09-08T13:00"],
-            "temperature_2m": [18.2, 19.0],
-            "weather_code": [3, 61],
-            "precipitation_probability": [40, 70],
-            "uv_index": [4.2, 5.1]
+            "time": ["2026-09-08T12:00","2026-09-08T13:00","2026-09-08T22:00"],
+            "temperature_2m": [18.2, 19.0, 12.0],
+            "weather_code": [3, 61, 0],
+            "precipitation_probability": [40, 70, 5],
+            "uv_index": [4.2, 5.1, 0.0],
+            "is_day": [1, 1, 0]
           },
           "daily": {
             "time": ["2026-09-08","2026-09-09"],
@@ -41,6 +43,7 @@ class WeatherForecastParserTest {
             "temperature_2m_max": [22.1, 18.0],
             "temperature_2m_min": [11.0, 10.0],
             "precipitation_probability_max": [40, 80],
+            "precipitation_sum": [1.2, 8.4],
             "sunrise": ["2026-09-08T06:42","2026-09-09T06:43"],
             "sunset": ["2026-09-08T19:51","2026-09-09T19:49"],
             "uv_index_max": [5.4, 3.1]
@@ -63,8 +66,12 @@ class WeatherForecastParserTest {
         assertEquals(64, f.current.humidity)
         assertEquals(40, f.current.precipProb)
         assertEquals(270, f.current.windDir)
-        assertEquals(2, f.hourly.size)
+        assertEquals(3, f.hourly.size)
+        assertTrue(f.hourly[0].isDay)
+        assertFalse(f.hourly[2].isDay)
         assertEquals(2, f.daily.size)
+        assertEquals(1.2, f.daily[0].precipMm!!, 0.01)
+        assertEquals(8.4, f.daily[1].precipMm!!, 0.01)
         assertEquals("06:42", f.daily[0].sunrise)
         assertEquals(42, f.aqi)
         assertEquals("18° cloudy", f.snapshot().line(WeatherUnits.METRIC))
@@ -80,6 +87,32 @@ class WeatherForecastParserTest {
         assertTrue(WeatherFormat.pressure(1013.2, WeatherUnits.METRIC).contains("hPa"))
         assertEquals("cld", WeatherCodes.short(3))
         assertEquals("rain", WeatherCodes.short(61))
+        assertEquals("1.2 mm", WeatherFormat.precipAmount(1.2, WeatherUnits.METRIC))
+        assertEquals("0.33 in", WeatherFormat.precipAmount(8.4, WeatherUnits.IMPERIAL))
+        assertEquals(
+            "40% · 1.2 mm",
+            WeatherFormat.daySummary(WeatherDay("2026-09-08", 3, 22, 11, 40, precipMm = 1.2), WeatherUnits.METRIC),
+        )
+        assertEquals(
+            "80% · 8.4 mm",
+            WeatherFormat.daySummary(WeatherDay("2026-09-09", 61, 18, 10, 80, precipMm = 8.4), WeatherUnits.METRIC),
+        )
+        assertEquals(
+            "clear · UV 8",
+            WeatherFormat.daySummary(WeatherDay("2026-09-10", 0, 24, 12, 10, uv = 8.2, precipMm = 0.0), WeatherUnits.METRIC),
+        )
+        assertEquals(
+            "clear · UV 8",
+            WeatherFormat.daySummary(WeatherDay("2026-09-10", 0, 24, 12, 40, uv = 8.2, precipMm = 0.0), WeatherUnits.METRIC),
+        )
+        assertEquals(
+            "storms · 12 mm",
+            WeatherFormat.daySummary(WeatherDay("2026-09-13", 95, 17, 11, 70, precipMm = 12.0), WeatherUnits.METRIC),
+        )
+        assertEquals(
+            "fog",
+            WeatherFormat.daySummary(WeatherDay("2026-09-12", 45, 19, 12, 10, precipMm = 0.0), WeatherUnits.METRIC),
+        )
     }
 
     @Test

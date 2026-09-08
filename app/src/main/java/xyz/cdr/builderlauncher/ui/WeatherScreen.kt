@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import xyz.cdr.builderlauncher.data.WeatherUnits
@@ -121,8 +122,17 @@ fun WeatherBody(place: String, units: WeatherUnits, forecast: WeatherForecast) {
         forecast.hourly.forEach { hour ->
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(44.dp)) {
                 Text(WeatherFormat.hourLabel(hour.epochMs, forecast.timezone), color = Dim, style = MaterialTheme.typography.labelSmall)
+                WeatherCodes.kind(hour.code)?.let { kind ->
+                    WeatherGlyph(
+                        kind = kind,
+                        isDay = hour.isDay,
+                        color = Paper,
+                        size = 20.dp,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        contentDescription = WeatherCodes.label(hour.code),
+                    )
+                } ?: Spacer(Modifier.height(28.dp))
                 Text(WeatherFormat.temp(hour.temperatureC, units), color = Paper, style = MaterialTheme.typography.bodyMedium)
-                Text(WeatherCodes.short(hour.code), color = Dim, style = MaterialTheme.typography.labelSmall)
                 Text(WeatherFormat.precipChance(hour.precipProb), color = Dim, style = MaterialTheme.typography.labelSmall)
             }
         }
@@ -140,9 +150,25 @@ fun WeatherBody(place: String, units: WeatherUnits, forecast: WeatherForecast) {
             Text(
                 WeatherFormat.weekday(day.date, todayIso),
                 color = Paper,
-                modifier = Modifier.width(72.dp),
+                modifier = Modifier.width(56.dp),
             )
-            Text(WeatherCodes.label(day.code), color = Dim, modifier = Modifier.weight(1f))
+            WeatherCodes.kind(day.code)?.let { kind ->
+                WeatherGlyph(
+                    kind = kind,
+                    isDay = true,
+                    color = Paper,
+                    size = 22.dp,
+                    modifier = Modifier.padding(end = 10.dp),
+                    contentDescription = WeatherCodes.label(day.code),
+                )
+            } ?: Spacer(Modifier.width(32.dp))
+            Text(
+                WeatherFormat.daySummary(day, units),
+                color = Dim,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 "${WeatherFormat.temp(day.highC, units)}  ${WeatherFormat.temp(day.lowC, units)}",
                 color = Paper,

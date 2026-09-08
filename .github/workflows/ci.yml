@@ -34,10 +34,14 @@ jobs:
             echo "ANDROID_KEYSTORE_B64 secret is required; refusing a well-known CI keystore."
             exit 1
           fi
+          if [ -z "${SECRET_KEY_ALIAS:-}" ]; then
+            echo "ANDROID_KEY_ALIAS secret is required."
+            exit 1
+          fi
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$KS"
           echo "ANDROID_KEYSTORE_PASSWORD=${SECRET_STORE_PASSWORD}" >> "$GITHUB_ENV"
           echo "ANDROID_KEY_PASSWORD=${SECRET_KEY_PASSWORD}" >> "$GITHUB_ENV"
-          echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS:-minimos}" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS}" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
 
       - name: Test and assemble
