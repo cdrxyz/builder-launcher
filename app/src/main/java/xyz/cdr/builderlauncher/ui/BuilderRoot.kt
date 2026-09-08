@@ -104,6 +104,7 @@ import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.commands.AppPick
+import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.commands.Command
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
@@ -689,6 +690,12 @@ fun BuilderRoot(
             clearBar()
             people = emptyList()
             return
+        }
+        if (prompt == PrefixCommands.DEFAULT_PROMPT) {
+            Calculator.commit(line)?.let { result ->
+                applyMode(PrefixCommands.Mode(input = result))
+                return
+            }
         }
         val result = executor.execute(CommandParser.parse(line))
         when (result) {
@@ -2128,6 +2135,21 @@ private fun CommandBar(
                 },
             )
         }
+        val calc = if (prompt == PrefixCommands.DEFAULT_PROMPT && !menuOpen && !slashMode) {
+            Calculator.preview(value)
+        } else {
+            null
+        }
+        if (calc != null) {
+            Text(
+                "= $calc",
+                color = Accent,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+            )
+        }
         Row(
             verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
@@ -2306,6 +2328,7 @@ private fun HelpBlock() {
         "pin Termux      pin an app",
         "unpin Termux    unpin",
         "hub / notes / apps / stocks / clock / weather / settings",
+        "2+2             calculator",
         "type a name     launch app",
         "hold an app     pin or unpin",
         "hold a pin      drag to reorder",

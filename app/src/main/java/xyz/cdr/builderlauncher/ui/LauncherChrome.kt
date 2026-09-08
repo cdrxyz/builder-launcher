@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.apps.AppList
+import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
@@ -1024,6 +1025,15 @@ private fun CommandRow(
             SlashCommandMenu()
         } else if (commandsOpen) {
             CommandMenu()
+        }
+        val calc = if (prompt == ">" && !commandsOpen && !slashOpen) Calculator.preview(value) else null
+        if (calc != null) {
+            Text(
+                "= $calc",
+                color = Accent,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
         }
         Row(verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically) {
             Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp, top = if (wrap) 2.dp else 0.dp))
