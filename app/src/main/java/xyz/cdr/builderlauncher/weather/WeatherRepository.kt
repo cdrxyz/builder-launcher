@@ -62,36 +62,45 @@ class WeatherRepository(
 ) {
     private val app = context.applicationContext
     private val file = File(app.filesDir, "weather.json")
+    private val forecastFile = File(app.filesDir, "weather-forecast.json")
     private val json = Json { ignoreUnknownKeys = true }
     private val _current = MutableStateFlow(load())
     val current: StateFlow<WeatherSnapshot?> = _current.asStateFlow()
+    private val _forecast = MutableStateFlow(loadForecast())
+    val forecast: StateFlow<WeatherForecast?> = _forecast.asStateFlow()
 
     suspend fun refresh() = withContext(Dispatchers.IO) {
         val point = WeatherPointResolver.fromSettings(settings.settings.value) ?: gpsPoint() ?: return@withContext
         val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl().newBuilder()
             .addQueryParameter("latitude", point.latitude.toString())
             .addQueryParameter("longitude", point.longitude.toString())
-            .addQueryParameter("current", "temperature_2m,weather_code")
+            .addQueryParameter(
+                "current",
+                "temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,visibility,cloud_cover,is_day,dew_point_2m",
+            )
+            .addQueryParameter(
+                "hourly",
+                "temperature_2m,weather_code,precipitation_probability,uv_index",
+            )
+            .addQueryParameter(
+                "daily",
+                "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max",
+            )
+            .addQueryParameter("forecast_days", "7")
+            .addQueryParameter("timezone", "auto")
             .addQueryParameter("temperature_unit", "celsius")
+            .addQueryParameter("wind_speed_unit", "kmh")
+            .addQueryParameter("precipitation_unit", "mm")
             .build()
         val req = Request.Builder().url(url).get().build()
         runCatching {
             http.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return@use
                 val raw = resp.body?.string().orEmpty()
-                val current = json.parseToJsonElement(raw).jsonObject["current"]?.jsonObject ?: return@use
-                val temp = current["temperature_2m"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: return@use
-                val code = current["weather_code"]?.jsonPrimitive?.content?.toIntOrNull() ?: return@use
-                persist(
-                    WeatherSnapshot(
-                        temperature = kotlin.math.round(temp).toInt(),
-                        condition = WeatherCodes.label(code),
-                        fetchedAt = System.currentTimeMillis(),
-                        latitude = point.latitude,
-                        longitude = point.longitude,
-                        celsius = true,
-                    ),
-                )
+                val aqi = fetchAqi(point.latitude, point.longitude)
+                val parsed = WeatherForecastParser.parse(raw, fetchedAt = System.currentTimeMillis(), aqi = aqi)
+                    ?: return@use
+                persistForecast(parsed)
             }
         }
     }
@@ -114,9 +123,11 @@ class WeatherRepository(
         }.getOrDefault(emptyList())
     }
 
-    private fun persist(next: WeatherSnapshot) {
-        _current.value = next
-        file.writeText(WeatherCache.encode(next))
+    private fun persistForecast(next: WeatherForecast) {
+        _forecast.value = next
+        _current.value = next.snapshot()
+        file.writeText(WeatherCache.encode(next.snapshot()))
+        forecastFile.writeText(json.encodeToString(next))
     }
 
     private fun load(): WeatherSnapshot? {
@@ -124,6 +135,29 @@ class WeatherRepository(
         val snap = WeatherCache.parse(file.readText())
         if (snap == null) runCatching { file.delete() }
         return snap
+    }
+
+    private fun loadForecast(): WeatherForecast? {
+        if (!forecastFile.exists()) return null
+        return runCatching { json.decodeFromString<WeatherForecast>(forecastFile.readText()) }.getOrNull()
+    }
+
+    private fun fetchAqi(lat: Double, lon: Double): Int? {
+        val url = "https://air-quality-api.open-meteo.com/v1/air-quality".toHttpUrl().newBuilder()
+            .addQueryParameter("latitude", lat.toString())
+            .addQueryParameter("longitude", lon.toString())
+            .addQueryParameter("current", "us_aqi,european_aqi")
+            .build()
+        val req = Request.Builder().url(url).get().build()
+        return runCatching {
+            http.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@use null
+                val current = json.parseToJsonElement(resp.body?.string().orEmpty())
+                    .jsonObject["current"]?.jsonObject ?: return@use null
+                current["us_aqi"]?.jsonPrimitive?.content?.toIntOrNull()
+                    ?: current["european_aqi"]?.jsonPrimitive?.content?.toIntOrNull()
+            }
+        }.getOrNull()
     }
 
     private suspend fun gpsPoint(): WeatherPoint? {

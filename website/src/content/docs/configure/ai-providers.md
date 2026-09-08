@@ -5,7 +5,7 @@ description: Point ? at Hermes, xAI, OpenAI, or Anthropic. Keys never leave the 
 
 ![Settings showing Hermes selected with a LAN base URL](../../../assets/screenshots/settings.png)
 
-Tap the clock → **AI provider**.
+Type `settings` → **AI provider**.
 
 ## Hermes
 

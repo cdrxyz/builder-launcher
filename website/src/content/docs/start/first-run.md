@@ -7,7 +7,7 @@ description: What to do the first time Builder Launcher opens.
 
 1. **Allow contacts** if you want `@` and `#` to complete names. The launcher asks on first open.
 2. **Become Home** when Android offers. You can skip and do it later from settings.
-3. **Tap the clock** to open settings. Set a weather city (type a name, pick a match — no GPS required) and metric or imperial units.
+3. Type `settings`. Set a weather city (type a name, pick a match — no GPS required) and metric or imperial units.
 4. **Type `help`** or tap the `>` prompt to see commands.
 5. Optional: grant **notification access** so the hub fills with messages and calendar alerts.
 6. Optional: pick an AI provider before you use `?`. Nothing is sent until you ask.

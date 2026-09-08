@@ -36,5 +36,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `stock-detail.png` | `stockDetail` |
 | `hub.png` | `hub` |
 | `settings.png` | `settings` |
+| `clock.png` | `clock` |
+| `weather.png` | `weather` |
 
 PRs that change UI must include screenshots in the PR body (see `.github/pull_request_template.md`).

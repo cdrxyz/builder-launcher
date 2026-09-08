@@ -36,9 +36,16 @@ import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
+import xyz.cdr.builderlauncher.clock.Clock
+import xyz.cdr.builderlauncher.clock.ClockAlarm
+import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.weather.WeatherDay
+import xyz.cdr.builderlauncher.weather.WeatherForecast
+import xyz.cdr.builderlauncher.weather.WeatherHour
+import xyz.cdr.builderlauncher.weather.WeatherNow
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Gain
 import xyz.cdr.builderlauncher.ui.theme.Loss
@@ -739,6 +746,141 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+    }
+}
+
+@Composable
+fun ClockChrome(
+    tab: String = "Timer",
+    timer: String = "5:00",
+    alarms: List<ClockAlarm> = emptyList(),
+    zones: List<WorldClock> = emptyList(),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Clock.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("Timer", "Alarm", "Time Zones").forEach { label ->
+                Text(label, color = if (label == tab) Accent else Dim, modifier = Modifier.padding(vertical = 8.dp))
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Column(Modifier.weight(1f)) {
+            when (tab) {
+                "Alarm" -> {
+                    if (alarms.isEmpty()) {
+                        Text("Type 7:30 or 7:30am, then Enter.", color = Dim)
+                    } else {
+                        alarms.forEach { alarm ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(Clock.formatAlarm(alarm.hour, alarm.minute), color = Paper)
+                                    Text(if (alarm.enabled) "on" else "off", color = if (alarm.enabled) Accent else Dim)
+                                }
+                                DeleteIcon()
+                            }
+                        }
+                    }
+                }
+                "Time Zones" -> {
+                    if (zones.isEmpty()) {
+                        Text("Type a city, then Enter.", color = Dim)
+                    } else {
+                        zones.forEach { zone ->
+                            Column(Modifier.padding(vertical = 8.dp)) {
+                                Text("11:42", color = Paper)
+                                Text(zone.label, color = Dim)
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    Text(timer, color = Paper, style = MaterialTheme.typography.headlineLarge)
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Clock.PRESETS_MIN.forEach { min ->
+                            Text(min.toString(), color = if (min == 5) Accent else Dim)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Text("start", color = Accent)
+                        Text("reset", color = Dim)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow("")
+    }
+}
+
+fun sampleWeatherForecast(): WeatherForecast {
+    val start = 1_778_000_000_000L
+    return WeatherForecast(
+        fetchedAt = start,
+        latitude = 43.45,
+        longitude = -80.49,
+        timezone = "America/Toronto",
+        current = WeatherNow(
+            temperatureC = 18,
+            feelsC = 16,
+            code = 3,
+            humidity = 64,
+            precipProb = 40,
+            windKmh = 12.4,
+            windDir = 270,
+            gustKmh = 22.0,
+            pressureHpa = 1013.2,
+            visibilityM = 24100.0,
+            cloud = 80,
+            dewC = 11,
+            uv = 4.2,
+        ),
+        hourly = (0..7).map { i ->
+            WeatherHour(
+                epochMs = start + i * 3_600_000L,
+                temperatureC = 18 - i,
+                code = if (i < 3) 3 else 61,
+                precipProb = 40 + i * 5,
+            )
+        },
+        daily = listOf(
+            WeatherDay("2026-09-08", 3, 22, 11, 40, "06:42", "19:51", 5.4),
+            WeatherDay("2026-09-09", 61, 18, 10, 80, "06:43", "19:49", 3.1),
+            WeatherDay("2026-09-10", 0, 24, 12, 10, "06:44", "19:47", 6.0),
+            WeatherDay("2026-09-11", 2, 21, 13, 20, "06:45", "19:45", 5.8),
+            WeatherDay("2026-09-12", 3, 19, 12, 35, "06:46", "19:43", 4.2),
+            WeatherDay("2026-09-13", 61, 17, 11, 70, "06:47", "19:41", 2.8),
+            WeatherDay("2026-09-14", 1, 20, 10, 15, "06:48", "19:39", 5.1),
+        ),
+        aqi = 42,
+    )
+}
+
+@Composable
+fun WeatherChrome(
+    place: String = "Kitchener, Ontario, Canada",
+    units: WeatherUnits = WeatherUnits.METRIC,
+    forecast: WeatherForecast = sampleWeatherForecast(),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.weight(1f)) {
+            WeatherBody(place = place, units = units, forecast = forecast)
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow("")
     }
 }
 

@@ -51,6 +51,9 @@ enum class WeatherUnits {
 
     fun displayTemperature(celsius: Int): Int =
         if (this == IMPERIAL) kotlin.math.round(celsius * 9.0 / 5.0 + 32.0).toInt() else celsius
+
+    fun displayWind(kmh: Double): Int =
+        if (this == IMPERIAL) kotlin.math.round(kmh * 0.621371).toInt() else kotlin.math.round(kmh).toInt()
 }
 
 class SettingsRepository(context: Context) {

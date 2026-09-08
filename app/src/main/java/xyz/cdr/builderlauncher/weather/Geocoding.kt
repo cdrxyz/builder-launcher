@@ -12,6 +12,7 @@ data class WeatherPlace(
     val latitude: Double,
     val longitude: Double,
     val label: String,
+    val timezone: String? = null,
 )
 
 object Geocoding {
@@ -33,6 +34,7 @@ object Geocoding {
                 latitude = lat,
                 longitude = lon,
                 label = listOf(name, admin, country).filter { it.isNotBlank() }.distinct().joinToString(", "),
+                timezone = obj["timezone"]?.jsonPrimitive?.contentOrNull,
             )
         }.take(limit)
     }

@@ -91,7 +91,12 @@ import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
+import xyz.cdr.builderlauncher.clock.Clock
+import xyz.cdr.builderlauncher.clock.ClockScheduler
+import xyz.cdr.builderlauncher.clock.ClockStore
+import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.commands.AppPick
+import xyz.cdr.builderlauncher.commands.Command
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ContactAction
@@ -138,7 +143,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather }
 
 @Composable
 fun BuilderRoot(
@@ -153,6 +158,7 @@ fun BuilderRoot(
     executor: CommandExecutor,
     weather: WeatherRepository,
     stocks: StocksRepository,
+    clock: ClockStore,
     onRequestHome: () -> Unit = {},
 ) {
     val settings by settingsRepo.settings.collectAsState()
@@ -160,6 +166,8 @@ fun BuilderRoot(
     val local by lists.items.collectAsState()
     val chatThreads by chats.threads.collectAsState()
     val forecast by weather.current.collectAsState()
+    val weatherForecast by weather.forecast.collectAsState()
+    val clockState by clock.state.collectAsState()
     val watch by stocks.watch.collectAsState()
     val quotes by stocks.quotes.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
@@ -186,6 +194,8 @@ fun BuilderRoot(
     var stockHits by remember { mutableStateOf<List<StockHit>>(emptyList()) }
     var stockBusy by remember { mutableStateOf(false) }
     var stockChart by remember { mutableStateOf<StockChartData?>(null) }
+    var clockTab by remember { mutableStateOf(ClockTab.Timer) }
+    var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -328,6 +338,29 @@ fun BuilderRoot(
         page = Page.Stocks
     }
 
+    fun openClock() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        zoneHits = emptyList()
+        page = Page.Clock
+        ClockScheduler.sync(ctx, clock.snapshot())
+    }
+
+    fun openWeather() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Weather
+        scope.launch { weather.refresh() }
+    }
+
     fun openStockDetail(symbol: String) {
         stockSymbol = symbol
         stockRange = StockRange.default
@@ -439,6 +472,22 @@ fun BuilderRoot(
             appQuery = false
             return
         }
+        if (page == Page.Clock || page == Page.Weather) {
+            choices = emptyList()
+            people = emptyList()
+            appQuery = false
+            if (page == Page.Clock && clockTab == ClockTab.Zones) {
+                val q = line.trim()
+                if (q.length >= 2 && (line.isEmpty() || !PrefixCommands.isModePrompt(line.first()))) {
+                    scope.launch { zoneHits = weather.suggest(q) }
+                } else {
+                    zoneHits = emptyList()
+                }
+            } else {
+                zoneHits = emptyList()
+            }
+            return
+        }
         if (line.isBlank()) {
             choices = emptyList()
             people = emptyList()
@@ -469,6 +518,58 @@ fun BuilderRoot(
 
     fun taskMode() {
         applyMode(PrefixCommands.pick(PrefixCommands.Mode(), '-'))
+    }
+
+    fun addWorldClock(place: WeatherPlace) {
+        val zone = place.timezone
+        if (zone.isNullOrBlank()) {
+            Toast.makeText(ctx, "No timezone for ${place.name}", Toast.LENGTH_SHORT).show()
+            return
+        }
+        clock.addZone(place.name, zone)
+        zoneHits = emptyList()
+        clearBar()
+    }
+
+    fun handleClockInput(line: String): Boolean {
+        val parsed = CommandParser.parse(line)
+        if (parsed !is Command.LaunchApp && parsed !is Command.Empty) return false
+        val text = line.trim()
+        if (text.isEmpty()) {
+            clearBar()
+            return true
+        }
+        when (clockTab) {
+            ClockTab.Timer -> {
+                val ms = Clock.parseTimer(text) ?: return false
+                clock.setTimer(Clock.setDuration(clock.snapshot().timer, ms))
+                ClockScheduler.sync(ctx, clock.snapshot())
+                clearBar()
+                return true
+            }
+            ClockTab.Alarm -> {
+                val hm = Clock.parseAlarm(text) ?: return false
+                clock.addAlarm(hm.first, hm.second)
+                ClockScheduler.sync(ctx, clock.snapshot())
+                clearBar()
+                return true
+            }
+            ClockTab.Zones -> {
+                val hit = zoneHits.singleOrNull()
+                    ?: zoneHits.find { it.label.equals(text, true) || it.name.equals(text, true) }
+                if (hit != null) {
+                    addWorldClock(hit)
+                    return true
+                }
+                scope.launch {
+                    val hits = weather.suggest(text)
+                    zoneHits = hits
+                    val only = hits.singleOrNull()
+                    if (only != null) addWorldClock(only)
+                }
+                return true
+            }
+        }
     }
 
     fun runCommand(line: String = mode().line) {
@@ -503,6 +604,9 @@ fun BuilderRoot(
             sendAsk(q)
             return
         }
+        if (page == Page.Clock && handleClockInput(line)) {
+            return
+        }
         val draft = smsDraft
         if (draft != null) {
             if (line.isBlank() || line.equals("send", ignoreCase = true)) {
@@ -532,6 +636,8 @@ fun BuilderRoot(
             ExecResult.NavigateNotes -> openNotesList()
             ExecResult.NavigateApps -> openAppsList(keepQuery = false)
             ExecResult.NavigateStocks -> openStocksList()
+            ExecResult.NavigateClock -> openClock()
+            ExecResult.NavigateWeather -> openWeather()
             is ExecResult.AddStock -> {
                 openStocksList()
                 addTicker(result.query)
@@ -590,7 +696,8 @@ fun BuilderRoot(
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
-                    onOpenSettings = { page = Page.Settings },
+                    onOpenClock = { openClock() },
+                    onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
                 )
                 Spacer(Modifier.height(8.dp))
@@ -1227,6 +1334,77 @@ fun BuilderRoot(
                     }
                 }
             }
+            Page.Clock -> {
+                ClockScreen(
+                    snapshot = clockState,
+                    tab = clockTab,
+                    zoneHits = zoneHits,
+                    modifier = Modifier.weight(1f),
+                    onBack = { page = Page.Home },
+                    onTab = { clockTab = it; zoneHits = emptyList() },
+                    onPreset = { min ->
+                        clock.setTimer(Clock.setDuration(clock.snapshot().timer, min * 60_000L))
+                        ClockScheduler.sync(ctx, clock.snapshot())
+                    },
+                    onStartPause = {
+                        val next = if (clock.snapshot().timer.running) {
+                            Clock.pause(clock.snapshot().timer, System.currentTimeMillis())
+                        } else {
+                            Clock.start(clock.snapshot().timer, System.currentTimeMillis())
+                        }
+                        clock.setTimer(next)
+                        ClockScheduler.sync(ctx, clock.snapshot())
+                    },
+                    onReset = {
+                        clock.setTimer(Clock.reset(clock.snapshot().timer))
+                        ClockScheduler.sync(ctx, clock.snapshot())
+                    },
+                    onToggleAlarm = { id ->
+                        clock.toggleAlarm(id)
+                        ClockScheduler.sync(ctx, clock.snapshot())
+                    },
+                    onRemoveAlarm = { id ->
+                        clock.removeAlarm(id)
+                        ClockScheduler.sync(ctx, clock.snapshot())
+                    },
+                    onPickZone = { addWorldClock(it) },
+                    onRemoveZone = { clock.removeZone(it) },
+                )
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
+            Page.Weather -> {
+                WeatherScreen(
+                    place = settings.weatherPlace,
+                    units = settings.weatherUnits,
+                    forecast = weatherForecast,
+                    modifier = Modifier.weight(1f),
+                    onBack = { page = Page.Home },
+                    onOpenSettings = { page = Page.Settings },
+                )
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
             Page.Settings -> {
                 SettingsPage(
                     settings = settings,
@@ -1552,7 +1730,12 @@ fun BuilderRoot(
 }
 
 @Composable
-private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit, onOpenHub: () -> Unit) {
+private fun ClockHeader(
+    weather: String?,
+    onOpenClock: () -> Unit,
+    onOpenWeather: () -> Unit,
+    onOpenHub: () -> Unit,
+) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -1567,11 +1750,18 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit, onOpenHub:
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
     ) {
-        Column(Modifier.clickable { onOpenSettings() }.weight(1f)) {
-            Text(time, style = MaterialTheme.typography.headlineLarge)
-            Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Column(Modifier.weight(1f)) {
+            Column(Modifier.clickable { onOpenClock() }) {
+                Text(time, style = MaterialTheme.typography.headlineLarge)
+                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            }
             if (!weather.isNullOrBlank()) {
-                Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    weather,
+                    color = Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.clickable { onOpenWeather() }.padding(top = 2.dp),
+                )
             }
         }
         MessagesIcon(
@@ -1862,7 +2052,7 @@ private fun HelpBlock() {
         "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / apps / stocks / settings",
+        "hub / notes / apps / stocks / clock / weather / settings",
         "type a name     launch app",
         "hold an app     pin or unpin",
     )

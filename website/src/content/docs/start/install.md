@@ -29,4 +29,4 @@ Every pull request also publishes a **prerelease** tagged `pr-<number>` (replace
 
 ## Set as Home
 
-Android asks once to make Builder Launcher the default Home app. If you declined, open Settings (tap the clock) → **Set as default home app**. See [Default home app](../configure/default-home/).
+Android asks once to make Builder Launcher the default Home app. If you declined, type `settings` → **Set as default home app**. See [Default home app](../configure/default-home/).

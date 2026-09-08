@@ -47,6 +47,8 @@ export default defineConfig({
 						{ label: 'Calls', slug: 'use/calls' },
 						{ label: 'Calendar', slug: 'use/calendar' },
 						{ label: 'Todos', slug: 'use/todos' },
+						{ label: 'Clock', slug: 'use/clock' },
+						{ label: 'Weather', slug: 'use/weather' },
 						{ label: 'Notes', slug: 'use/notes' },
 						{ label: 'Stocks', slug: 'use/stocks' },
 						{ label: 'Hub', slug: 'use/hub' },

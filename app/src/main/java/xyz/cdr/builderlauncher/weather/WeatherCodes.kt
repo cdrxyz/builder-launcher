@@ -20,4 +20,16 @@ object WeatherCodes {
         code: Int,
         units: WeatherUnits = WeatherUnits.METRIC,
     ): String = "${units.displayTemperature(temperature)}° ${label(code)}"
+
+    fun short(code: Int): String = when (code) {
+        0 -> "clr"
+        1, 2 -> "fair"
+        3 -> "cld"
+        45, 48 -> "fog"
+        in 51..57 -> "drz"
+        in 61..67, in 80..82 -> "rain"
+        in 71..77, in 85..86 -> "snow"
+        in 95..99 -> "strm"
+        else -> "—"
+    }
 }
