@@ -7,6 +7,7 @@ import org.junit.Test
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 
 class LauncherScreenshotTest {
@@ -166,6 +167,63 @@ class LauncherScreenshotTest {
                         AppListRow("Contacts"),
                     ),
                     input = "c",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeStocksShortcut() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "stocks",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    apps = listOf("… all stocks >"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun stocks() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                StocksChrome(
+                    rows = listOf(
+                        StockListRow("AAPL", "Apple Inc.", "$319.97", "-2.51%", up = false),
+                        StockListRow("MSFT", "Microsoft Corporation", "$428.10", "+1.24%", up = true),
+                    ),
+                    input = "",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun stockDetail() {
+        val points = listOf(
+            328.0, 326.4, 324.1, 325.8, 323.0, 321.2, 322.5, 320.1, 319.97,
+        ).mapIndexed { i, close -> StockPoint(time = i.toLong(), close = close) }
+        paparazzi.snapshot {
+            BuilderTheme {
+                StockDetailChrome(
+                    symbol = "AAPL",
+                    name = "Apple Inc.",
+                    price = "$319.97",
+                    changeLine = "-8.24 (-2.51%)",
+                    up = false,
+                    points = points,
+                    range = xyz.cdr.builderlauncher.stocks.StockRange.D1,
+                    stats = listOf(
+                        StockStatRow("Open", "328.00", "High", "328.93"),
+                        StockStatRow("Low", "317.86", "Vol", "39.6M"),
+                        StockStatRow("Prev", "328.21", "52W H", "344.57"),
+                        StockStatRow("52W L", "225.95", "Chg", "-2.51%"),
+                    ),
                 )
             }
         }

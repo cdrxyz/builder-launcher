@@ -11,6 +11,7 @@ object PrefixCommands {
         PrefixCommand('*', "calendar"),
         PrefixCommand('-', "todo"),
         PrefixCommand('+', "note"),
+        PrefixCommand('$', "stock"),
         PrefixCommand('?', "ask AI"),
     )
 

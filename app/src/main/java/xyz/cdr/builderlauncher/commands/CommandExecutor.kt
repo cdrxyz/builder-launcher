@@ -30,6 +30,8 @@ class CommandExecutor(
             Command.OpenHub -> ExecResult.NavigateHub
             Command.OpenNotes -> ExecResult.NavigateNotes
             Command.OpenApps -> ExecResult.NavigateApps
+            Command.OpenStocks -> ExecResult.NavigateStocks
+            is Command.Stock -> ExecResult.AddStock(command.query)
             is Command.Message -> contactAction(command.target, command.body, ContactAction.Message)
             is Command.Call -> contactAction(command.target, "", ContactAction.Call)
             is Command.Event -> {
@@ -180,6 +182,8 @@ sealed class ExecResult {
     data object NavigateHub : ExecResult()
     data object NavigateNotes : ExecResult()
     data object NavigateApps : ExecResult()
+    data object NavigateStocks : ExecResult()
+    data class AddStock(val query: String) : ExecResult()
     data class Ask(val question: String) : ExecResult()
     data class AppChoices(val query: String, val apps: List<LaunchableApp>, val pick: AppPick = AppPick.Launch) : ExecResult()
     data class ContactChoices(val contacts: List<PhoneContact>, val body: String, val action: ContactAction) : ExecResult()

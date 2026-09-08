@@ -67,6 +67,11 @@ class CommandParserTest {
         assertEquals(Command.OpenNotes, CommandParser.parse("/notes"))
         assertEquals(Command.OpenApps, CommandParser.parse("apps"))
         assertEquals(Command.OpenApps, CommandParser.parse("/apps"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("stocks"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("/stocks"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("$"))
+        assertEquals(Command.Stock("AAPL"), CommandParser.parse("\$AAPL"))
+        assertEquals(Command.Stock("apple"), CommandParser.parse("\$ apple"))
         assertEquals(Command.Help, CommandParser.parse("help"))
         assertEquals(Command.Help, CommandParser.parse("?"))
     }
