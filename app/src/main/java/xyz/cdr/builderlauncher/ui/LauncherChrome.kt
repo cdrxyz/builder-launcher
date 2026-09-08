@@ -220,7 +220,7 @@ fun HomeChrome(
         Spacer(Modifier.height(8.dp))
         if (appIcons && pins.isNotEmpty() && apps.isEmpty()) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             ) {
                 pins.forEach { _ ->

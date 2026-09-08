@@ -3086,7 +3086,7 @@ private fun PinnedAppsRow(
     var cellWidth by remember { mutableFloatStateOf(0f) }
     val gap = with(LocalDensity.current) { 12.dp.toPx() }
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         modifier = Modifier.fillMaxWidth(),
     ) {
         itemsIndexed(apps, key = { _, it -> it.packageName + it.activityName }) { index, app ->
