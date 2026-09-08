@@ -119,7 +119,7 @@ fun WeatherBody(place: String, units: WeatherUnits, forecast: WeatherForecast) {
     HorizontalDivider(color = Line)
     Spacer(Modifier.height(8.dp))
     val todayIso = LocalDate.now().toString()
-    forecast.daily.forEach { day ->
+    forecast.daily.take(WeatherForecast.DAYS).forEach { day ->
         Row(
             Modifier.fillMaxWidth().padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

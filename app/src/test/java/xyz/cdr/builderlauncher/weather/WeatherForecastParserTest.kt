@@ -81,4 +81,29 @@ class WeatherForecastParserTest {
         assertEquals("cld", WeatherCodes.short(3))
         assertEquals("rain", WeatherCodes.short(61))
     }
+
+    @Test
+    fun keepsSevenDailyRows() {
+        val dates = (8..16).joinToString(",") { "\"2026-09-${it.toString().padStart(2, '0')}\"" }
+        val nums = (8..16).joinToString(",") { it.toString() }
+        val raw = """
+            {
+              "latitude": 43.45,
+              "longitude": -80.49,
+              "timezone": "America/Toronto",
+              "current": { "temperature_2m": 18, "weather_code": 3 },
+              "hourly": { "time": [], "temperature_2m": [], "weather_code": [] },
+              "daily": {
+                "time": [$dates],
+                "weather_code": [$nums],
+                "temperature_2m_max": [$nums],
+                "temperature_2m_min": [$nums]
+              }
+            }
+        """.trimIndent()
+        val forecast = WeatherForecastParser.parse(raw, fetchedAt = 0L)!!
+        assertEquals(WeatherForecast.DAYS, forecast.daily.size)
+        assertEquals("2026-09-08", forecast.daily.first().date)
+        assertEquals("2026-09-14", forecast.daily.last().date)
+    }
 }

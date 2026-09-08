@@ -68,6 +68,10 @@ data class WeatherForecast(
     val daily: List<WeatherDay> = emptyList(),
     val aqi: Int? = null,
 ) {
+    companion object {
+        const val DAYS = 7
+    }
+
     fun snapshot(): WeatherSnapshot = WeatherSnapshot(
         temperature = current.temperatureC,
         condition = WeatherCodes.label(current.code),
@@ -173,7 +177,7 @@ object WeatherForecastParser {
                 sunset = sunsets.getOrNull(i)?.let { clockOf(it) },
                 uv = uvs.getOrNull(i),
             )
-        }.take(7)
+        }.take(WeatherForecast.DAYS)
     }
 
     private fun parseLocal(raw: String, zone: ZoneId): Long? {
