@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -33,6 +37,7 @@ import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
+import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
@@ -1002,80 +1007,23 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
-    val accent = Accent
-    Canvas(modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val c = Offset(size.width / 2f, size.height / 2f)
-        val r = size.minDimension / 2f - stroke.width
-        when (provider) {
-            LlmProvider.XAI -> {
-                drawCircle(color = accent, radius = r, center = c, style = stroke)
-                drawLine(
-                    color = accent,
-                    start = Offset(c.x - r, c.y + r),
-                    end = Offset(c.x + r, c.y - r),
-                    strokeWidth = stroke.width,
-                    cap = StrokeCap.Round,
-                )
-            }
-            LlmProvider.OPENAI -> {
-                val path = Path()
-                for (i in 0 until 6) {
-                    val ang = Math.toRadians(-90.0 + i * 60.0)
-                    val p = Offset(
-                        c.x + (kotlin.math.cos(ang) * r).toFloat(),
-                        c.y + (kotlin.math.sin(ang) * r).toFloat(),
-                    )
-                    if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
-                }
-                path.close()
-                drawPath(path, color = accent, style = stroke)
-            }
-            LlmProvider.ANTHROPIC -> {
-                val short = r * 0.45f
-                drawLine(accent, Offset(c.x, c.y - r), Offset(c.x, c.y + r), stroke.width, StrokeCap.Round)
-                drawLine(accent, Offset(c.x - r, c.y), Offset(c.x + r, c.y), stroke.width, StrokeCap.Round)
-                drawLine(
-                    accent,
-                    Offset(c.x - short, c.y - short),
-                    Offset(c.x + short, c.y + short),
-                    stroke.width,
-                    StrokeCap.Round,
-                )
-                drawLine(
-                    accent,
-                    Offset(c.x + short, c.y - short),
-                    Offset(c.x - short, c.y + short),
-                    stroke.width,
-                    StrokeCap.Round,
-                )
-            }
-            LlmProvider.HERMES -> {
-                drawLine(
-                    accent,
-                    Offset(c.x, c.y - r),
-                    Offset(c.x, c.y + r),
-                    stroke.width,
-                    StrokeCap.Round,
-                )
-                drawCircle(color = accent, radius = r * 0.22f, center = Offset(c.x, c.y - r * 0.62f), style = stroke)
-                drawLine(
-                    accent,
-                    Offset(c.x, c.y - r * 0.18f),
-                    Offset(c.x - r * 0.72f, c.y - r * 0.55f),
-                    stroke.width,
-                    StrokeCap.Round,
-                )
-                drawLine(
-                    accent,
-                    Offset(c.x, c.y - r * 0.18f),
-                    Offset(c.x + r * 0.72f, c.y - r * 0.55f),
-                    stroke.width,
-                    StrokeCap.Round,
-                )
-            }
-        }
+    val res = when (provider) {
+        LlmProvider.XAI -> R.drawable.ic_logo_grok
+        LlmProvider.OPENAI -> R.drawable.ic_logo_openai
+        LlmProvider.ANTHROPIC -> R.drawable.ic_logo_claude
+        LlmProvider.HERMES -> R.drawable.ic_logo_hermes
     }
+    val tint = when (provider) {
+        LlmProvider.XAI, LlmProvider.OPENAI -> ColorFilter.tint(Accent)
+        else -> null
+    }
+    Image(
+        painter = painterResource(res),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        colorFilter = tint,
+        modifier = modifier.size(22.dp),
+    )
 }
 
 @Composable
