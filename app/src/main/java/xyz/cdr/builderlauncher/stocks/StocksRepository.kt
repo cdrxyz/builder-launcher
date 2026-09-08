@@ -44,6 +44,10 @@ class StocksRepository(
     val watch: StateFlow<List<WatchItem>> = _watch.asStateFlow()
     private val _quotes = MutableStateFlow<Map<String, StockQuote>>(emptyMap())
     val quotes: StateFlow<Map<String, StockQuote>> = _quotes.asStateFlow()
+    private val _details = MutableStateFlow<Map<String, StockDetails>>(emptyMap())
+    val details: StateFlow<Map<String, StockDetails>> = _details.asStateFlow()
+    @Volatile private var marketPoints: List<StockPoint> = emptyList()
+    @Volatile private var marketFetchedAt = 0L
 
     suspend fun search(query: String): List<StockHit> = withContext(Dispatchers.IO) {
         val q = query.trim()
@@ -160,6 +164,33 @@ class StocksRepository(
 
     suspend fun chart(symbol: String, range: StockRange): StockChartData? = fetchChart(symbol, range)
 
+    suspend fun details(symbol: String): StockDetails? = withContext(Dispatchers.IO) {
+        coroutineScope {
+            val longChart = async { fetchChart(symbol, "10y", "1wk") }
+            val volChart = async { fetchChart(symbol, "3mo", "1d") }
+            val stats = async { fetchTimeseries(symbol) }
+            val market = async { marketWeekly() }
+            val long = longChart.await()
+            val vol = volChart.await()
+            val fundamentals = stats.await()
+            val base = long?.quote ?: vol?.quote ?: return@coroutineScope null
+            val quote = base.copy(
+                pe = fundamentals.pe,
+                marketCap = fundamentals.marketCap,
+                dividendYield = fundamentals.dividendYield,
+                eps = fundamentals.eps,
+                beta = Stocks.beta(long?.points.orEmpty(), market.await()),
+                avgVolume = Stocks.avgVolume(vol?.volumes.orEmpty()),
+            )
+            val details = StockDetails(
+                quote = quote,
+                cagr = Stocks.performance(long?.points.orEmpty(), quote.price),
+            )
+            _details.value = _details.value + (quote.symbol to details)
+            details
+        }
+    }
+
     private suspend fun refreshOne(symbol: String) {
         val quote = fetchChart(symbol, StockRange.D1)?.quote ?: return
         _quotes.value = _quotes.value + (quote.symbol to quote)
@@ -178,11 +209,14 @@ class StocksRepository(
     }
 
     private suspend fun fetchChart(symbol: String, range: StockRange): StockChartData? =
+        fetchChart(symbol, range.yahooRange, range.interval)
+
+    private suspend fun fetchChart(symbol: String, range: String, interval: String): StockChartData? =
         withContext(Dispatchers.IO) {
             val url = YahooFinance.CHART_HOST.toHttpUrl().newBuilder()
                 .addPathSegment(symbol)
-                .addQueryParameter("range", range.yahooRange)
-                .addQueryParameter("interval", range.interval)
+                .addQueryParameter("range", range)
+                .addQueryParameter("interval", interval)
                 .build()
             runCatching {
                 http.newCall(request(url)).execute().use { resp ->
@@ -191,6 +225,36 @@ class StocksRepository(
                 }
             }.getOrNull()
         }
+
+    private suspend fun fetchTimeseries(symbol: String): StockFundamentals = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis() / 1000
+        val start = now - 400L * 86_400L
+        val url = YahooFinance.TIMESERIES_HOST.toHttpUrl().newBuilder()
+            .addPathSegment(symbol)
+            .addQueryParameter("symbol", symbol)
+            .addQueryParameter("type", YahooFinance.TIMESERIES_TYPES)
+            .addQueryParameter("period1", start.toString())
+            .addQueryParameter("period2", now.toString())
+            .build()
+        runCatching {
+            http.newCall(request(url)).execute().use { resp ->
+                if (!resp.isSuccessful) return@use StockFundamentals()
+                YahooFinance.parseTimeseries(resp.body?.string().orEmpty())
+            }
+        }.getOrDefault(StockFundamentals())
+    }
+
+    private suspend fun marketWeekly(): List<StockPoint> {
+        val now = System.currentTimeMillis()
+        if (marketPoints.size >= 30 && now - marketFetchedAt < 6 * 60 * 60 * 1000L) return marketPoints
+        val chart = fetchChart(YahooFinance.MARKET_SYMBOL, "10y", "1wk")
+        val points = chart?.points.orEmpty()
+        if (points.size >= 30) {
+            marketPoints = points
+            marketFetchedAt = now
+        }
+        return points
+    }
 
     private fun request(url: okhttp3.HttpUrl): Request =
         Request.Builder()

@@ -67,6 +67,62 @@ class StocksTest {
         assertEquals("39.6M", Stocks.formatVolume(39_600_000))
         assertEquals("—", Stocks.formatNumber(null))
         assertEquals("328.21", Stocks.formatNumber(328.21))
+        assertEquals("36.61", Stocks.formatRatio(36.61))
+        assertEquals("$4.7T", Stocks.formatMarketCap(4.67e12))
+        assertEquals("0.34%", Stocks.formatYield(0.0034))
+        assertEquals("—", Stocks.formatYield(null))
+        assertEquals("53.8M", Stocks.formatVolume(Stocks.avgVolume(listOf(50_000_000, 57_600_000))!!))
+    }
+
+    @Test
+    fun cagrAndPerformance() {
+        assertEquals(0.10, Stocks.cagr(100.0, 121.0, 2.0)!!, 0.0001)
+        assertNull(Stocks.cagr(0.0, 121.0, 2.0))
+        val year = (365.25 * 86_400).toLong()
+        val now = 1_800_000_000L
+        val points = listOf(
+            StockPoint(now - 10 * year, 46.65),
+            StockPoint(now - 5 * year, 75.13),
+            StockPoint(now - 3 * year, 90.96),
+            StockPoint(now - year, 110.0),
+            StockPoint(now, 121.0),
+        )
+        val cagr = Stocks.performance(points, 121.0, now)
+        assertEquals(10.0, cagr.y1!!, 0.2)
+        assertEquals(10.0, cagr.y10!!, 0.2)
+        val stats = Stocks.quoteStats(
+            StockQuote(
+                symbol = "AAPL",
+                name = "Apple",
+                price = 121.0,
+                previousClose = 110.0,
+                change = 11.0,
+                changePercent = 10.0,
+                pe = 36.61,
+                marketCap = 4.67e12,
+                dividendYield = 0.0034,
+                eps = 8.74,
+                beta = 1.09,
+                avgVolume = 53_800_000,
+            ),
+        )
+        assertEquals("P/E", stats[2].leftLabel)
+        assertEquals("36.61", stats[2].leftValue)
+        assertEquals("$4.7T", stats[2].rightValue)
+        assertEquals("0.34%", stats[3].rightValue)
+        assertEquals(listOf("1Y", "3Y"), Stocks.cagrStats(cagr).first().let { listOf(it.leftLabel, it.rightLabel) })
+    }
+
+    @Test
+    fun betaFollowsScaledMarket() {
+        val week = 7L * 86_400L
+        val now = 1_800_000_000L
+        val market = (0..40).map { i ->
+            StockPoint(now - (40 - i) * week, 100.0 + i)
+        }
+        val stock = market.map { StockPoint(it.time, it.close * 2) }
+        val beta = Stocks.beta(stock, market, now)!!
+        assertEquals(1.0, beta, 0.05)
     }
 
     @Test
@@ -156,6 +212,31 @@ class YahooFinanceTest {
         assertEquals(39606884L, chart.quote.volume)
         assertEquals(listOf(328.0, 322.5, 319.97), chart.points.map { it.close })
         assertEquals(listOf(1L, 2L, 4L), chart.points.map { it.time })
+        assertEquals(listOf(100L, 200L, 300L), chart.volumes)
+    }
+
+    @Test
+    fun parsesTimeseriesFundamentals() {
+        val raw = """
+            {"timeseries":{"result":[
+              {"meta":{"symbol":["AAPL"],"type":["trailingDividendYield"]},"trailingDividendYield":[{"dataValue":0.0033}]},
+              {"meta":{"symbol":["AAPL"],"type":["trailingMarketCap"]},"trailingMarketCap":[{"reportedValue":{"raw":4669700046848.0,"fmt":"4.67T"}}]},
+              {"meta":{"symbol":["AAPL"],"type":["trailingPeRatio"]},"trailingPeRatio":[{"reportedValue":{"raw":36.61,"fmt":"36.61"}}]},
+              {"meta":{"symbol":["AAPL"],"type":["trailingDilutedEPS"]},"trailingDilutedEPS":[{"reportedValue":{"raw":8.74,"fmt":"8.74"}}]}
+            ],"error":null}}
+        """.trimIndent()
+        val stats = YahooFinance.parseTimeseries(raw)
+        assertEquals(36.61, stats.pe!!, 0.001)
+        assertEquals(4669700046848.0, stats.marketCap!!, 1.0)
+        assertEquals(0.0033, stats.dividendYield!!, 0.00001)
+        assertEquals(8.74, stats.eps!!, 0.001)
+    }
+
+    @Test
+    fun timeseriesEmptyOnJunk() {
+        val empty = YahooFinance.parseTimeseries("not-json")
+        assertNull(empty.pe)
+        assertNull(empty.marketCap)
     }
 
     @Test

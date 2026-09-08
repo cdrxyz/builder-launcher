@@ -35,6 +35,12 @@ data class StockQuote(
     val volume: Long? = null,
     val week52High: Double? = null,
     val week52Low: Double? = null,
+    val pe: Double? = null,
+    val marketCap: Double? = null,
+    val dividendYield: Double? = null,
+    val eps: Double? = null,
+    val beta: Double? = null,
+    val avgVolume: Long? = null,
 ) {
     val up: Boolean get() = change >= 0
 }
@@ -42,12 +48,36 @@ data class StockQuote(
 data class StockChartData(
     val quote: StockQuote,
     val points: List<StockPoint>,
+    val volumes: List<Long> = emptyList(),
+)
+
+data class StockCagr(
+    val y1: Double? = null,
+    val y3: Double? = null,
+    val y5: Double? = null,
+    val y10: Double? = null,
+)
+
+data class StockDetails(
+    val quote: StockQuote,
+    val cagr: StockCagr = StockCagr(),
+)
+
+data class StockFundamentals(
+    val pe: Double? = null,
+    val marketCap: Double? = null,
+    val dividendYield: Double? = null,
+    val eps: Double? = null,
 )
 
 object YahooFinance {
     const val SEARCH_HOST = "https://query1.finance.yahoo.com/v1/finance/search"
     const val CHART_HOST = "https://query1.finance.yahoo.com/v8/finance/chart"
+    const val TIMESERIES_HOST = "https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries"
+    const val MARKET_SYMBOL = "SPY"
     const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 BuilderLauncher"
+    const val TIMESERIES_TYPES =
+        "trailingPeRatio,trailingMarketCap,trailingDividendYield,trailingDilutedEPS"
 
     fun parseSearch(raw: String, limit: Int = 8): List<StockHit> {
         val root = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull() ?: return emptyList()
@@ -109,7 +139,36 @@ object YahooFinance {
                 week52Low = meta.num("fiftyTwoWeekLow"),
             ),
             points = points,
+            volumes = volumes?.filterNotNull().orEmpty(),
         )
+    }
+
+    fun parseTimeseries(raw: String): StockFundamentals {
+        val root = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull() ?: return StockFundamentals()
+        val result = root["timeseries"]?.jsonObject?.get("result")?.jsonArray ?: return StockFundamentals()
+        val values = mutableMapOf<String, Double>()
+        result.forEach { el ->
+            val obj = runCatching { el.jsonObject }.getOrNull() ?: return@forEach
+            val type = obj["meta"]?.jsonObject?.get("type")?.jsonArray
+                ?.firstOrNull()?.jsonPrimitive?.contentOrNull
+                ?: obj.keys.firstOrNull { it != "meta" && it != "timestamp" }
+                ?: return@forEach
+            latestNumber(obj)?.let { values[type] = it }
+        }
+        return StockFundamentals(
+            pe = values["trailingPeRatio"],
+            marketCap = values["trailingMarketCap"],
+            dividendYield = values["trailingDividendYield"],
+            eps = values["trailingDilutedEPS"],
+        )
+    }
+
+    private fun latestNumber(obj: JsonObject): Double? {
+        val key = obj.keys.firstOrNull { it != "meta" && it != "timestamp" } ?: return null
+        val arr = obj[key]?.jsonArray ?: return null
+        val last = arr.lastOrNull()?.jsonObject ?: return null
+        val reported = last["reportedValue"]?.jsonObject
+        return reported?.num("raw") ?: last.num("dataValue") ?: last.num("raw")
     }
 
     private fun JsonObject.str(key: String): String? =

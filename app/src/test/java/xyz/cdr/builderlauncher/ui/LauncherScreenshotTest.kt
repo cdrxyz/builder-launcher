@@ -7,7 +7,10 @@ import org.junit.Test
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.stocks.StockCagr
 import xyz.cdr.builderlauncher.stocks.StockPoint
+import xyz.cdr.builderlauncher.stocks.StockQuote
+import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 
 class LauncherScreenshotTest {
@@ -244,12 +247,29 @@ class LauncherScreenshotTest {
                     up = false,
                     points = points,
                     range = xyz.cdr.builderlauncher.stocks.StockRange.D1,
-                    stats = listOf(
-                        StockStatRow("Open", "328.00", "High", "328.93"),
-                        StockStatRow("Low", "317.86", "Vol", "39.6M"),
-                        StockStatRow("Prev", "328.21", "52W H", "344.57"),
-                        StockStatRow("52W L", "225.95", "Chg", "-2.51%"),
+                    stats = Stocks.quoteStats(
+                        StockQuote(
+                            symbol = "AAPL",
+                            name = "Apple Inc.",
+                            price = 319.97,
+                            previousClose = 328.21,
+                            change = -8.24,
+                            changePercent = -2.51,
+                            open = 328.00,
+                            high = 328.93,
+                            low = 317.86,
+                            volume = 39_600_000,
+                            week52High = 344.57,
+                            week52Low = 225.95,
+                            pe = 36.61,
+                            marketCap = 4.67e12,
+                            dividendYield = 0.0034,
+                            eps = 8.74,
+                            beta = 1.09,
+                            avgVolume = 53_800_000,
+                        ),
                     ),
+                    cagr = Stocks.cagrStats(StockCagr(y1 = 12.40, y3 = 18.20, y5 = 16.10, y10 = 27.50)),
                 )
             }
         }
