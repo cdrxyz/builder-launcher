@@ -14,5 +14,7 @@ object PrefixCommands {
 
     fun fill(glyph: Char): String = "$glyph "
 
+    fun cursorAfterFill(glyph: Char): Int = fill(glyph).length
+
     fun find(glyph: Char): PrefixCommand? = all.find { it.glyph == glyph }
 }

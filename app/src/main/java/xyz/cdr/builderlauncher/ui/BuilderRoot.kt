@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +51,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -561,6 +564,12 @@ private fun CommandBar(
     val keyboard = LocalSoftwareKeyboardController.current
     var menuOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(0) }
+    var field by remember { mutableStateOf(TextFieldValue(value)) }
+    SideEffect {
+        if (value != field.text) {
+            field = TextFieldValue(value, TextRange(value.length))
+        }
+    }
     LaunchedEffect(hardware) {
         focus.requestFocus()
         if (hardware) keyboard?.hide()
@@ -569,7 +578,9 @@ private fun CommandBar(
         val cmd = PrefixCommands.all.getOrNull(index) ?: return
         menuOpen = false
         selected = 0
-        onValue(PrefixCommands.fill(cmd.glyph))
+        val text = PrefixCommands.fill(cmd.glyph)
+        field = TextFieldValue(text, TextRange(PrefixCommands.cursorAfterFill(cmd.glyph)))
+        onValue(text)
         focus.requestFocus()
     }
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -595,12 +606,13 @@ private fun CommandBar(
                     .padding(end = 10.dp),
             )
             BasicTextField(
-                value = value,
+                value = field,
                 onValueChange = {
                     if (menuOpen) {
                         menuOpen = false
                     } else {
-                        onValue(it)
+                        field = it
+                        onValue(it.text)
                     }
                 },
                 singleLine = true,

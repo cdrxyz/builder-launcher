@@ -13,6 +13,12 @@ class PrefixCommandsTest {
     }
 
     @Test
+    fun cursorSitsAfterGlyphAndSpace() {
+        assertEquals(2, PrefixCommands.cursorAfterFill('@'))
+        assertEquals(PrefixCommands.fill('#').length, PrefixCommands.cursorAfterFill('#'))
+    }
+
+    @Test
     fun findKnownGlyph() {
         assertEquals("text", PrefixCommands.find('@')?.label)
         assertEquals("ask AI", PrefixCommands.find('?')?.label)
