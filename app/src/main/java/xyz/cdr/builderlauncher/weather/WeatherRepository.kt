@@ -37,8 +37,12 @@ data class WeatherSnapshot(
     val latitude: Double,
     val longitude: Double,
     val celsius: Boolean = false,
+    val code: Int = -1,
+    val isDay: Boolean = true,
 ) {
     fun line(units: WeatherUnits): String = "${units.displayTemperature(temperature)}° $condition"
+
+    fun kind(): WeatherKind? = WeatherKind.ofCode(code) ?: WeatherKind.ofCondition(condition)
 }
 
 object WeatherCache {

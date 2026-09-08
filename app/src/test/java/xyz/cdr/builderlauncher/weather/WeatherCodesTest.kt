@@ -19,6 +19,26 @@ class WeatherCodesTest {
     }
 
     @Test
+    fun kindFromCode() {
+        assertEquals(WeatherKind.CLEAR, WeatherKind.ofCode(0))
+        assertEquals(WeatherKind.FAIR, WeatherKind.ofCode(2))
+        assertEquals(WeatherKind.CLOUDY, WeatherKind.ofCode(3))
+        assertEquals(WeatherKind.FOG, WeatherKind.ofCode(45))
+        assertEquals(WeatherKind.DRIZZLE, WeatherKind.ofCode(51))
+        assertEquals(WeatherKind.RAIN, WeatherKind.ofCode(80))
+        assertEquals(WeatherKind.SNOW, WeatherKind.ofCode(71))
+        assertEquals(WeatherKind.STORM, WeatherKind.ofCode(95))
+        assertEquals(null, WeatherKind.ofCode(1234))
+    }
+
+    @Test
+    fun kindFromHomeLine() {
+        assertEquals(WeatherKind.CLOUDY, WeatherKind.ofCondition("18° cloudy"))
+        assertEquals(WeatherKind.SNOW, WeatherKind.ofCondition("snow"))
+        assertEquals(null, WeatherKind.ofCondition("18° —"))
+    }
+
+    @Test
     fun lineFormat() {
         assertEquals("18° cloudy", WeatherCodes.line(18, 3))
         assertEquals("-2° snow", WeatherCodes.line(-2, 71))

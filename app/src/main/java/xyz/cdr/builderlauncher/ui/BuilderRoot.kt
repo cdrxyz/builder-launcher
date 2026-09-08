@@ -149,6 +149,7 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
@@ -767,6 +768,8 @@ fun BuilderRoot(
                 val ticker = HomeTicker.line(watch, quotes, tickerIndex)
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
+                    weatherKind = forecast?.kind(),
+                    isDay = forecast?.isDay ?: true,
                     ticker = ticker,
                     timer = clockState.timer,
                     onOpenClock = { openClock() },
@@ -1895,6 +1898,8 @@ fun BuilderRoot(
 @Composable
 private fun ClockHeader(
     weather: String?,
+    weatherKind: WeatherKind? = null,
+    isDay: Boolean = true,
     ticker: HomeTickerLine?,
     timer: TimerState,
     onOpenClock: () -> Unit,
@@ -1923,12 +1928,22 @@ private fun ClockHeader(
                 Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
             }
             if (!weather.isNullOrBlank()) {
-                Text(
-                    weather,
-                    color = Dim,
-                    style = MaterialTheme.typography.bodyMedium,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { onOpenWeather() }.padding(top = 2.dp),
-                )
+                ) {
+                    Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    weatherKind?.let { kind ->
+                        WeatherGlyph(
+                            kind = kind,
+                            isDay = isDay,
+                            color = Dim,
+                            size = 16.dp,
+                            modifier = Modifier.padding(start = 6.dp),
+                            contentDescription = kind.name.lowercase(),
+                        )
+                    }
+                }
             }
         }
         Row(verticalAlignment = Alignment.Top) {

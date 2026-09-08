@@ -15,7 +15,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit in a compact r
 | --- | --- |
 | Clock | Large time, weekday, date. While a timer is running, the time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
 | Ticker | To the right of the clock, between the time and the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
-| Weather | Current condition under the date. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
+| Weather | Current condition under the date, with a small weather icon to the right of the text. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
 | Pinned apps | Horizontal row of icons. Tap to launch. Hold and drag to reorder. See [apps](apps/). |

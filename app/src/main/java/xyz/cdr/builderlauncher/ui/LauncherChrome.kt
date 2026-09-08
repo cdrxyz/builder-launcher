@@ -53,6 +53,7 @@ import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.weather.WeatherDay
 import xyz.cdr.builderlauncher.weather.WeatherForecast
 import xyz.cdr.builderlauncher.weather.WeatherHour
+import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherNow
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Gain
@@ -140,7 +141,17 @@ fun HomeChrome(
                 Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
                 Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 if (weather.isNotBlank()) {
-                    Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        WeatherKind.ofCondition(weather)?.let { kind ->
+                            WeatherGlyph(
+                                kind = kind,
+                                modifier = Modifier.padding(start = 6.dp),
+                                color = Dim,
+                                size = 16.dp,
+                            )
+                        }
+                    }
                 }
             }
             Row(verticalAlignment = Alignment.Top) {

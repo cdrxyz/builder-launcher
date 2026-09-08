@@ -48,5 +48,22 @@ class WeatherUnitsTest {
         val snap = WeatherCache.parse(raw)!!
         assertEquals(18, snap.temperature)
         assertEquals("18° cloudy", snap.line(WeatherUnits.METRIC))
+        assertEquals(WeatherKind.CLOUDY, snap.kind())
+    }
+
+    @Test
+    fun snapshotKindPrefersCode() {
+        val snap = WeatherSnapshot(
+            temperature = 18,
+            condition = "cloudy",
+            fetchedAt = 0L,
+            latitude = 43.45,
+            longitude = -80.49,
+            celsius = true,
+            code = 61,
+            isDay = false,
+        )
+        assertEquals(WeatherKind.RAIN, snap.kind())
+        assertEquals(false, snap.isDay)
     }
 }
