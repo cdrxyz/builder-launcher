@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.data.BuilderSettings
@@ -861,40 +862,8 @@ fun SettingsChrome(
         AccentPicker(hex = settings.accentHex)
         Field("Hex", settings.accentHex, AccentColor.DEFAULT_HEX)
         Spacer(Modifier.height(16.dp))
-        Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            Text("Hermes", color = if (settings.provider == LlmProvider.HERMES) Accent else Dim)
-            Text("xAI", color = if (settings.provider == LlmProvider.XAI) Accent else Dim)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            Text("OpenAI", color = if (settings.provider == LlmProvider.OPENAI) Accent else Dim)
-            Text("Anthropic", color = if (settings.provider == LlmProvider.ANTHROPIC) Accent else Dim)
-        }
-        if (settings.provider == LlmProvider.HERMES) {
-            Field("Hermes base URL", hermes, "http://192.168.1.10:8642")
-        } else {
-            Text(
-                if (settings.provider == LlmProvider.XAI) {
-                    "Sign in with SuperGrok, or paste an API key. Used only for ? questions."
-                } else {
-                    "Paste an API key. Used only for ? questions."
-                },
-                color = Dim,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            if (settings.provider == LlmProvider.XAI) {
-                Text("Sign in with SuperGrok", color = Paper)
-                Spacer(Modifier.height(8.dp))
-            }
-        }
-        Field("API key (stored on device)", apiKey, if (settings.provider == LlmProvider.HERMES) "optional for local Hermes" else "optional if signed in")
-        Field("Model", model, when (settings.provider) {
-            LlmProvider.XAI -> "grok-4.6"
-            LlmProvider.OPENAI -> "gpt-4o"
-            LlmProvider.ANTHROPIC -> "claude-sonnet-4-5"
-            LlmProvider.HERMES -> "default"
-        })
+        CaretLink("… AI providers >", modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        Text(AiPlatforms.of(settings.provider).label, color = Dim, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
         Text("Keyboard", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
@@ -1010,6 +979,53 @@ fun SettingsChrome(
         Spacer(Modifier.height(24.dp))
         Text(
             "Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+fun AiProvidersChrome(
+    settings: BuilderSettings = BuilderSettings(provider = LlmProvider.HERMES, hermesBaseUrl = "http://192.168.1.10:8642"),
+) {
+    val platform = AiPlatforms.of(settings.provider)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("AI", color = Accent)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Provider", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Spacer(Modifier.height(8.dp))
+        AiPlatforms.all.chunked(2).forEach { row ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            ) {
+                row.forEach { item ->
+                    Text(
+                        item.label,
+                        color = if (settings.provider == item.provider) Accent else Dim,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        if (platform.needsBaseUrl) {
+            Field("Base URL", settings.hermesBaseUrl, platform.defaultLocalBase ?: "http://192.168.1.10:8642")
+        }
+        Field("API key (stored on device)", "", if (platform.keyOptional) "optional" else "optional if signed in")
+        Field("Model", settings.model, platform.defaultModel)
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "Each provider keeps its own sign-in. Tokens stay on the device and are sent only as a Bearer token.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -1445,9 +1461,11 @@ fun parseHomeClock(time: String): Pair<Int, Int> {
 fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
     val res = when (provider) {
         LlmProvider.XAI -> R.drawable.ic_logo_grok
-        LlmProvider.OPENAI -> R.drawable.ic_logo_openai
+        LlmProvider.OPENAI, LlmProvider.OPENROUTER, LlmProvider.GROQ, LlmProvider.DEEPSEEK,
+        LlmProvider.MISTRAL, LlmProvider.LMSTUDIO, LlmProvider.OLLAMA, LlmProvider.GENERIC,
+        -> R.drawable.ic_logo_openai
         LlmProvider.ANTHROPIC -> R.drawable.ic_logo_claude
-        LlmProvider.HERMES -> R.drawable.ic_logo_hermes
+        LlmProvider.HERMES, LlmProvider.GEMINI -> R.drawable.ic_logo_hermes
     }
     val tint = when (provider) {
         LlmProvider.XAI, LlmProvider.OPENAI -> ColorFilter.tint(Accent)

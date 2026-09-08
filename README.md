@@ -87,12 +87,18 @@ Home always shows a centered analog clock (digital time and date below; settings
 
 ## AI settings
 
-Settings (`settings` or `/settings`) → provider:
+Settings (`settings` or `/settings`) → **… AI providers >**:
 
 - **Hermes** — Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
 - **xAI** — Sign in with SuperGrok / X Premium+ (device-code OAuth at `auth.x.ai`) or paste an API key. Default model `grok-4.6`. Hits `https://api.x.ai/v1`.
-- **OpenAI** — Sign in with ChatGPT (browser + paste the code or callback URL) or paste an API key. Default model `gpt-4o`. Hits `https://api.openai.com/v1`.
-- **Anthropic** — Sign in with Claude (browser + paste the code) or paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic.com`.
+- **OpenAI** — Paste an API key. Default model `gpt-4o`. Hits `https://api.openai.com/v1`.
+- **Anthropic** — Paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic.com`.
+- **Gemini** — Google AI Studio key. Default `gemini-2.5-flash`.
+- **OpenRouter** — OpenRouter key. Default `openrouter/auto`.
+- **Groq / DeepSeek / Mistral** — Provider API keys.
+- **LM Studio** — Local server, default `http://127.0.0.1:1234/v1`.
+- **Ollama** — Local server, default `http://127.0.0.1:11434/v1`.
+- **OpenAI API** — Any OpenAI-compatible host: base URL + key.
 
 OAuth tokens are stored in encrypted prefs on the device and refreshed automatically. Each provider keeps its own sign-in. If Hermes is selected and unreachable, `?` falls back to a connected cloud account and notes that above the reply. Sign out from settings. An API key remains as a fallback if OAuth is unavailable for your plan.
 

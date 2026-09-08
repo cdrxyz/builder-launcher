@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.data
 
 import kotlinx.serialization.Serializable
+import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 
 @Serializable
@@ -11,6 +12,7 @@ data class ProviderAccount(
     val oauthExpiresAtEpochMs: Long = 0L,
     val oauthAccount: String = "",
     val model: String = "",
+    val baseUrl: String = "",
 ) {
     fun apply(base: BuilderSettings, provider: LlmProvider): BuilderSettings = base.copy(
         provider = provider,
@@ -20,6 +22,7 @@ data class ProviderAccount(
         oauthExpiresAtEpochMs = oauthExpiresAtEpochMs,
         oauthAccount = oauthAccount,
         model = model,
+        hermesBaseUrl = baseUrl,
     )
 
     companion object {
@@ -30,6 +33,7 @@ data class ProviderAccount(
             oauthExpiresAtEpochMs = settings.oauthExpiresAtEpochMs,
             oauthAccount = settings.oauthAccount,
             model = settings.model,
+            baseUrl = settings.hermesBaseUrl,
         )
     }
 }
@@ -50,7 +54,11 @@ object ProviderAccounts {
         return if (stored != null) {
             stored.apply(current, provider)
         } else {
-            current.copy(provider = provider).clearedOAuth().copy(apiKey = "", model = "")
+            current.copy(provider = provider).clearedOAuth().copy(
+                apiKey = "",
+                model = "",
+                hermesBaseUrl = AiPlatforms.of(provider).defaultLocalBase.orEmpty(),
+            )
         }
     }
 
@@ -60,6 +68,12 @@ object ProviderAccounts {
         nowMs: Long = System.currentTimeMillis(),
     ): List<LlmProvider> {
         return LlmProvider.entries.filter { provider ->
+            if (AiPlatforms.of(provider).needsBaseUrl &&
+                provider != current.provider &&
+                accounts[provider.name] == null
+            ) {
+                return@filter false
+            }
             CredentialResolver.readyForAsk(view(accounts, current, provider), nowMs)
         }
     }

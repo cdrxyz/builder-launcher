@@ -13,7 +13,9 @@ import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
 import xyz.cdr.builderlauncher.clock.ClockSound
 
-enum class LlmProvider { HERMES, XAI, OPENAI, ANTHROPIC }
+enum class LlmProvider {
+    HERMES, XAI, OPENAI, ANTHROPIC, GEMINI, OPENROUTER, GROQ, DEEPSEEK, MISTRAL, LMSTUDIO, OLLAMA, GENERIC,
+}
 
 data class BuilderSettings(
     val provider: LlmProvider = LlmProvider.HERMES,

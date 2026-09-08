@@ -12,11 +12,14 @@ class AiFallbackTest {
         assertEquals("Fell back to Grok.", AiFallback.notice(LlmProvider.XAI))
         assertEquals("Fell back to ChatGPT.", AiFallback.notice(LlmProvider.OPENAI))
         assertEquals("Fell back to Claude.", AiFallback.notice(LlmProvider.ANTHROPIC))
+        assertEquals("Fell back to Gemini.", AiFallback.notice(LlmProvider.GEMINI))
+        assertEquals("Fell back to OpenRouter.", AiFallback.notice(LlmProvider.OPENROUTER))
     }
 
     @Test
     fun failedDetectsHermesAndTransportErrors() {
         assertTrue(AiFallback.failed("Set a Hermes URL in settings."))
+        assertTrue(AiFallback.failed("Set a base URL in settings."))
         assertTrue(AiFallback.failed("Could not reach the model."))
         assertTrue(AiFallback.failed("LLM error 503: overloaded"))
         assertTrue(AiFallback.failed(""))
@@ -26,13 +29,14 @@ class AiFallbackTest {
 
     @Test
     fun orderTriesHermesThenCloudAccounts() {
-        assertEquals(
-            listOf(LlmProvider.HERMES, LlmProvider.XAI, LlmProvider.OPENAI, LlmProvider.ANTHROPIC),
-            AiFallback.order(LlmProvider.HERMES),
-        )
-        assertEquals(
-            listOf(LlmProvider.XAI, LlmProvider.OPENAI, LlmProvider.ANTHROPIC, LlmProvider.HERMES),
-            AiFallback.order(LlmProvider.XAI),
-        )
+        val fromHermes = AiFallback.order(LlmProvider.HERMES)
+        assertEquals(LlmProvider.HERMES, fromHermes.first())
+        assertEquals(LlmProvider.XAI, fromHermes[1])
+        assertTrue(fromHermes.contains(LlmProvider.GEMINI))
+        assertTrue(fromHermes.contains(LlmProvider.OPENROUTER))
+        val fromXai = AiFallback.order(LlmProvider.XAI)
+        assertEquals(LlmProvider.XAI, fromXai.first())
+        assertFalse(fromXai.contains(LlmProvider.XAI) && fromXai.indexOf(LlmProvider.XAI) != 0)
+        assertEquals(1, fromXai.count { it == LlmProvider.XAI })
     }
 }

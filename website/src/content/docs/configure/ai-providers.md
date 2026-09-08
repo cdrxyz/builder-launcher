@@ -1,11 +1,13 @@
 ---
 title: AI providers
-description: Point ? at Hermes, xAI, OpenAI, or Anthropic. Keys never leave the device except as Bearer tokens.
+description: Point ? at Hermes, xAI, OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek, Mistral, LM Studio, Ollama, or a generic OpenAI API. Keys never leave the device except as Bearer tokens.
 ---
 
-![Settings showing Hermes selected with a LAN base URL](../../../assets/screenshots/settings.png)
+![AI providers screen](../../../assets/screenshots/ai-providers.png)
 
-Type `settings` → **AI provider**.
+Type `settings` → **… AI providers >**.
+
+Each account stays on the device when you switch. If Hermes is selected and the instance is unreachable, `?` tries a connected cloud account and shows **Fell back to Grok** (or ChatGPT / Claude / Gemini / …) above the reply.
 
 ## Hermes
 
@@ -14,11 +16,6 @@ Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `
 ## xAI
 
 Sign in with SuperGrok / X Premium+ (device-code OAuth at `auth.x.ai`) or paste an API key.
-
-1. Tap **Sign in with SuperGrok**.
-2. The browser opens. Enter the code shown in the launcher.
-3. The launcher waits for approval (DNS blips during the wait are retried; you do not start over).
-4. **Sign out** from settings when you are done.
 
 Default model `grok-4.6`. Hits `https://api.x.ai/v1`.
 
@@ -30,10 +27,32 @@ Paste an API key. Default model `gpt-4o`. Hits `https://api.openai.com/v1`.
 
 Paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic.com`.
 
+## Gemini
+
+Paste a Google AI Studio key. Default model `gemini-2.5-flash`. Uses the OpenAI-compatible Gemini endpoint.
+
+## OpenRouter
+
+Paste an OpenRouter key. Default model `openrouter/auto`. Hits `https://openrouter.ai/api/v1`.
+
+## Groq / DeepSeek / Mistral
+
+Paste the provider API key. Defaults: `llama-3.3-70b-versatile`, `deepseek-chat`, `mistral-small-latest`.
+
+## LM Studio
+
+Local OpenAI-compatible server. Default URL `http://127.0.0.1:1234/v1`. Start the server in LM Studio (LM Studio Link / local server). Key optional.
+
+## Ollama
+
+Local OpenAI-compatible server. Default URL `http://127.0.0.1:11434/v1`. Key optional.
+
+## OpenAI API
+
+Any OpenAI-compatible host. Set the base URL and API key. HTTPS anywhere; HTTP only to private LAN hosts.
+
 ## Tokens
 
 OAuth tokens (xAI) are stored in encrypted prefs on the device and refreshed automatically. An API key remains as a fallback if OAuth is unavailable for your plan.
-
-Each provider keeps its own sign-in. Switching away from xAI/OpenAI/Anthropic no longer wipes that account. If Hermes is selected and the instance is unreachable, `?` tries a connected cloud account and shows **Fell back to Grok** (or ChatGPT / Claude) above the reply.
 
 See [Privacy](privacy/).

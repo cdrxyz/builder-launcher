@@ -1,19 +1,16 @@
 ---
 title: Settings
-description: Type settings. AI, keyboard, clock face, weather, clock sound, hub and usage access, default Home.
+description: Type settings. AI providers, keyboard, clock face, weather, clock sound, hub and usage access, default Home.
 ---
 
 Type `settings` or `/settings`.
 
-![Settings: AI provider, keyboard, weather city and units](../../../assets/screenshots/settings.png)
+![Settings: accent, AI providers link, keyboard, weather](../../../assets/screenshots/settings.png)
 
 | Block | What to set |
 | --- | --- |
-| AI provider | Hermes, xAI, OpenAI, Anthropic. [Details](ai-providers/). |
-| Hermes base URL | Only for Hermes. Example `http://192.168.1.10:8642`. |
-| Sign in / API key | xAI SuperGrok device login, or paste a key. Keys stay on device. |
-| Model | Blank uses the provider default. |
 | Accent | Color chips for the cursor, `>` prompt, selected chips, and the `>` on links like more tasks. Default cyberpunk green. |
+| AI providers | `… AI providers >` opens the dedicated screen. [Details](ai-providers/). |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
 | Home apps | `plaintext` (default) or `icons`. Names vs grayscale icons for pins and home search. All apps stays in color. |
 | Clock face | `analog` (default) or `digital`. Analog sits in the center of home with the time and date below. |
