@@ -82,6 +82,29 @@ class StocksRepository(
         return item
     }
 
+    fun importHits(hits: List<StockHit>): Int {
+        if (hits.isEmpty()) return 0
+        val current = _watch.value.toMutableList()
+        var added = 0
+        for (hit in hits) {
+            if (current.size >= Stocks.MAX) break
+            val symbol = hit.symbol.uppercase()
+            if (!Stocks.looksLikeSymbol(symbol)) continue
+            if (current.any { it.symbol.equals(symbol, ignoreCase = true) }) continue
+            current.add(
+                0,
+                WatchItem(
+                    symbol = symbol,
+                    name = hit.name.ifBlank { symbol },
+                    exchange = hit.exchange,
+                ),
+            )
+            added++
+        }
+        if (added > 0) persist(current)
+        return added
+    }
+
     fun remove(symbol: String) {
         persist(_watch.value.filterNot { it.symbol.equals(symbol, ignoreCase = true) })
         _quotes.value = _quotes.value - symbol.uppercase()

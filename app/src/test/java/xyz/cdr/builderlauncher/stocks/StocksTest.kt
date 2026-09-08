@@ -136,3 +136,67 @@ class YahooFinanceTest {
         assertNull(YahooFinance.parseChart("not-json"))
     }
 }
+
+class StocksCsvTest {
+    @Test
+    fun exportsExchangeTickerName() {
+        val csv = StocksCsv.export(
+            listOf(
+                WatchItem("AAPL", "Apple Inc.", exchange = "NASDAQ"),
+                WatchItem("MSFT", "Microsoft Corporation", exchange = "NASDAQ"),
+            ),
+        )
+        assertEquals(
+            """
+            Exchange,Ticker,Name
+            NASDAQ,AAPL,Apple Inc.
+            NASDAQ,MSFT,Microsoft Corporation
+            """.trimIndent(),
+            csv,
+        )
+    }
+
+    @Test
+    fun parsesOwnExport() {
+        val hits = StocksCsv.parse(
+            """
+            Exchange,Ticker,Name
+            NASDAQ,AAPL,Apple Inc.
+            NASDAQ,MSFT,Microsoft Corporation
+            """.trimIndent(),
+        )
+        assertEquals(listOf("AAPL", "MSFT"), hits.map { it.symbol })
+        assertEquals("NASDAQ", hits[0].exchange)
+        assertEquals("Apple Inc.", hits[0].name)
+    }
+
+    @Test
+    fun parsesAppleStocksExport() {
+        val hits = StocksCsv.parse(
+            """
+            Symbol,Name,Price,Change,Change%
+            AAPL,Apple Inc.,203.96,+1.23,+0.61%
+            MSFT,Microsoft Corporation,378.91,-1.45,-0.38%
+            """.trimIndent(),
+        )
+        assertEquals(listOf("AAPL", "MSFT"), hits.map { it.symbol })
+        assertEquals("Apple Inc.", hits[0].name)
+        assertEquals("", hits[0].exchange)
+    }
+
+    @Test
+    fun parsesTickerPerLine() {
+        val hits = StocksCsv.parse("aapl\nmsft\nnot a ticker")
+        assertEquals(listOf("AAPL", "MSFT"), hits.map { it.symbol })
+    }
+
+    @Test
+    fun quotesCompanyNamesWithCommas() {
+        val csv = StocksCsv.export(listOf(WatchItem("BRK.B", "Berkshire Hathaway, Inc.", exchange = "NYSE")))
+        assertTrue(csv.contains("\"Berkshire Hathaway, Inc.\""))
+        val hits = StocksCsv.parse(csv)
+        assertEquals("Berkshire Hathaway, Inc.", hits.single().name)
+        assertEquals("BRK.B", hits.single().symbol)
+    }
+}
+

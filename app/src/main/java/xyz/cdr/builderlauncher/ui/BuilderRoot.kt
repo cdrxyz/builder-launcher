@@ -106,6 +106,7 @@ import xyz.cdr.builderlauncher.stocks.StockHit
 import xyz.cdr.builderlauncher.stocks.StockQuote
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.stocks.WatchItem
 import xyz.cdr.builderlauncher.ui.theme.Dim
@@ -293,6 +294,34 @@ fun BuilderRoot(
         input = ""
     }
 
+    fun clipboardText(): String {
+        val clip = ctx.getSystemService(ClipboardManager::class.java)
+        val data = clip?.primaryClip ?: return ""
+        if (data.itemCount < 1) return ""
+        return data.getItemAt(0).coerceToText(ctx).toString()
+    }
+
+    fun importTickers(raw: String) {
+        val text = Stocks.queryFromInput(raw).ifBlank { raw }
+        val hits = StocksCsv.parse(text)
+        if (hits.isEmpty()) {
+            Toast.makeText(ctx, "No tickers in clipboard", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val added = stocks.importHits(hits)
+        Toast.makeText(
+            ctx,
+            if (added == 0) "Already on the list" else "Added $added",
+            Toast.LENGTH_SHORT,
+        ).show()
+        stockHits = emptyList()
+        prompt = '$'
+        input = ""
+        if (added > 0) {
+            scope.launch { stocks.refreshQuotes() }
+        }
+    }
+
     fun saveAndCloseNote() {
         val text = noteDraft.trim()
         if (text.isNotEmpty()) {
@@ -394,6 +423,10 @@ fun BuilderRoot(
             if (q.isEmpty()) {
                 prompt = '$'
                 input = ""
+                return
+            }
+            if (StocksCsv.looksLikeList(line) || StocksCsv.looksLikeList(q)) {
+                importTickers(line)
                 return
             }
             addTicker(q)
@@ -1026,6 +1059,22 @@ fun BuilderRoot(
                             }
                             .padding(vertical = 6.dp),
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "paste",
+                            color = Dim,
+                            modifier = Modifier
+                                .clickable { importTickers(clipboardText()) }
+                                .padding(vertical = 6.dp, horizontal = 8.dp),
+                        )
+                        CopyIcon(
+                            Modifier
+                                .clickable {
+                                    copyText("stocks", StocksCsv.export(watch))
+                                }
+                                .padding(vertical = 6.dp),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1055,7 +1104,7 @@ fun BuilderRoot(
                     } else {
                         if (watch.isEmpty()) {
                             item {
-                                Text("Type \$AAPL to add a ticker.", color = Dim)
+                                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
                             }
                         }
                         items(watch, key = { it.symbol }) { item ->
