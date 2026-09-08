@@ -13,6 +13,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
+import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.ChatMessage
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.SettingsRepository
@@ -28,43 +29,71 @@ class LlmClient(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun ask(question: String): String = ask(listOf(ChatMessage(role = "user", content = question)))
+    suspend fun ask(question: String): LlmAnswer = ask(listOf(ChatMessage(role = "user", content = question)))
 
     suspend fun ask(
         messages: List<ChatMessage>,
         onDelta: ((String) -> Unit)? = null,
-    ): String = withContext(Dispatchers.IO) {
-        val s = settings.settings.value
-        val platform = AiPlatforms.of(s.provider)
-        val base = settings.effectiveBaseUrl()
+    ): LlmAnswer = withContext(Dispatchers.IO) {
+        val turns = messages.filter { it.content.isNotBlank() && !it.isNotice }
+        val primary = settings.settings.value.provider
+        var last = askOne(settings.settings.value, turns, onDelta)
+        if (!AiFallback.failed(last.text) || primary != LlmProvider.HERMES) return@withContext last
+        for (provider in AiFallback.order(primary).drop(1)) {
+            if (provider !in settings.connectedProviders()) continue
+            val view = settings.viewAs(provider)
+            val next = askOne(view, turns, onDelta = null)
+            if (!AiFallback.failed(next.text)) {
+                emit(next.text, onDelta)
+                return@withContext next.copy(fallbackFrom = provider)
+            }
+            last = next
+        }
+        last
+    }
+
+    private suspend fun askOne(
+        snapshot: BuilderSettings,
+        turns: List<ChatMessage>,
+        onDelta: ((String) -> Unit)?,
+    ): LlmAnswer {
+        val platform = AiPlatforms.of(snapshot.provider)
+        val base = settings.effectiveBaseUrl(snapshot)
         if (base.isBlank()) {
-            return@withContext missingCreds(s.provider)
+            return LlmAnswer(missingCreds(snapshot.provider))
         }
         if (!EndpointPolicy.allowed(base)) {
-            return@withContext "HTTP is only allowed to private LAN hosts. Use HTTPS otherwise."
+            return LlmAnswer("HTTP is only allowed to private LAN hosts. Use HTTPS otherwise.")
         }
-        if (!CredentialResolver.readyForAsk(s) && s.provider != LlmProvider.HERMES) {
-            return@withContext missingCreds(s.provider)
+        if (!CredentialResolver.readyForAsk(snapshot) && snapshot.provider != LlmProvider.HERMES) {
+            return LlmAnswer(missingCreds(snapshot.provider))
         }
-        val bearer = runCatching { oauth.bearer() }.getOrNull()
-        val current = settings.settings.value
-        if (current.provider != LlmProvider.HERMES && bearer.isNullOrBlank()) {
-            return@withContext missingCreds(current.provider)
+        val bearer = if (snapshot.provider == settings.settings.value.provider) {
+            runCatching { oauth.bearer() }.getOrNull()
+        } else {
+            CredentialResolver.bearer(snapshot)
         }
-        val oauthLive = CredentialResolver.tokens(current)
+        if (snapshot.provider != LlmProvider.HERMES && bearer.isNullOrBlank()) {
+            return LlmAnswer(missingCreds(snapshot.provider))
+        }
+        val oauthLive = CredentialResolver.tokens(snapshot)
             ?.valid(System.currentTimeMillis()) == true
-        val turns = messages.filter { it.content.isNotBlank() }
-        when (platform.chatKind) {
-            ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(), turns, bearer, onDelta)
-            ChatKind.ANTHROPIC_MESSAGES -> anthropicMessages(
-                base,
-                settings.effectiveModel(),
-                turns,
-                bearer,
-                oauthLive,
-                onDelta,
-            )
+        val text = try {
+            when (platform.chatKind) {
+                ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(snapshot), turns, bearer, onDelta)
+                ChatKind.ANTHROPIC_MESSAGES -> anthropicMessages(
+                    base,
+                    settings.effectiveModel(snapshot),
+                    turns,
+                    bearer,
+                    oauthLive,
+                    onDelta,
+                )
+            }
+        } catch (_: Throwable) {
+            "Could not reach the model."
         }
+        return LlmAnswer(text)
     }
 
     private suspend fun openaiChat(

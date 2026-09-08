@@ -7,6 +7,8 @@ import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
 import xyz.cdr.builderlauncher.clock.ClockSound
@@ -67,8 +69,10 @@ enum class WeatherUnits {
 class SettingsRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs: SharedPreferences = createPrefs(appContext)
+    private val json = Json { ignoreUnknownKeys = true }
     private val _settings = MutableStateFlow(read())
     val settings: StateFlow<BuilderSettings> = _settings.asStateFlow()
+    private var accounts: Map<String, ProviderAccount> = readAccounts()
 
     fun update(transform: (BuilderSettings) -> BuilderSettings) {
         val next = transform(_settings.value)
@@ -94,20 +98,24 @@ class SettingsRepository(context: Context) {
     fun setProvider(provider: LlmProvider) {
         update { current ->
             if (current.provider == provider) current
-            else current.copy(provider = provider).clearedOAuth()
+            else ProviderAccounts.view(accounts, current, provider)
         }
     }
 
-    fun effectiveBaseUrl(): String {
-        val s = _settings.value
-        val platform = AiPlatforms.of(s.provider)
-        return platform.apiBase ?: s.hermesBaseUrl.trim().trimEnd('/')
+    fun viewAs(provider: LlmProvider): BuilderSettings =
+        ProviderAccounts.view(accounts, _settings.value, provider)
+
+    fun connectedProviders(nowMs: Long = System.currentTimeMillis()): List<LlmProvider> =
+        ProviderAccounts.connected(accounts, _settings.value, nowMs)
+
+    fun effectiveBaseUrl(snapshot: BuilderSettings = _settings.value): String {
+        val platform = AiPlatforms.of(snapshot.provider)
+        return platform.apiBase ?: snapshot.hermesBaseUrl.trim().trimEnd('/')
     }
 
-    fun effectiveModel(): String {
-        val s = _settings.value
-        if (s.model.isNotBlank()) return s.model.trim()
-        return AiPlatforms.of(s.provider).defaultModel
+    fun effectiveModel(snapshot: BuilderSettings = _settings.value): String {
+        if (snapshot.model.isNotBlank()) return snapshot.model.trim()
+        return AiPlatforms.of(snapshot.provider).defaultModel
     }
 
     private fun read(): BuilderSettings {
@@ -151,7 +159,19 @@ class SettingsRepository(context: Context) {
         )
     }
 
+    private fun readAccounts(): Map<String, ProviderAccount> {
+        val raw = prefs.getString(KEY_ACCOUNTS, "") ?: return emptyMap()
+        if (raw.isBlank()) {
+            val s = _settings.value
+            return mapOf(s.provider.name to ProviderAccount.of(s))
+        }
+        return runCatching {
+            json.decodeFromString<Map<String, ProviderAccount>>(raw)
+        }.getOrDefault(emptyMap())
+    }
+
     private fun write(next: BuilderSettings) {
+        accounts = ProviderAccounts.remember(accounts, next)
         prefs.edit()
             .putString(KEY_PROVIDER, next.provider.name)
             .putString(KEY_HERMES, next.hermesBaseUrl)
@@ -171,6 +191,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
             .putString(KEY_CLOCK_FACE, next.clockFace.name)
+            .putString(KEY_ACCOUNTS, json.encodeToString(accounts))
             .apply()
     }
 
@@ -195,6 +216,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_CLOCK_SOUND = "clock_sound"
         private const val KEY_APP_ICONS = "app_icons"
         private const val KEY_CLOCK_FACE = "clock_face"
+        private const val KEY_ACCOUNTS = "provider_accounts"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {

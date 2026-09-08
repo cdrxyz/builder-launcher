@@ -31,20 +31,69 @@ class UsageReader(private val context: Context) {
         zone: ZoneId = ZoneId.systemDefault(),
     ): UsageSnapshot {
         if (!granted()) {
-            return Usage.build(emptyList(), emptyMap(), period, granted = false)
+            return Usage.build(emptyList(), emptyMap(), period, granted = false, zone = zone)
         }
         val usm = context.getSystemService(UsageStatsManager::class.java)
-            ?: return Usage.build(emptyList(), emptyMap(), period, granted = false)
+            ?: return Usage.build(emptyList(), emptyMap(), period, granted = false, zone = zone)
         val today = InstantDay.start(nowMs, zone)
-        val days = (Usage.DAYS - 1 downTo 0).map { offset ->
-            val start = today - offset * DAY_MS
-            val end = (start + DAY_MS - 1).coerceAtMost(nowMs)
-            readDay(usm, start, end)
+        val overrides = store.overrides()
+        return when (period) {
+            UsagePeriod.TODAY -> {
+                val hours = (0 until Usage.HOURS).map { hour ->
+                    val start = today + hour * Usage.HOUR_MS
+                    val end = (start + Usage.HOUR_MS - 1).coerceAtMost(nowMs)
+                    if (start > nowMs) UsageRawDay(start, emptyList()) else readBucket(usm, start, end)
+                }
+                val yesterday = readBucket(usm, today - Usage.DAY_MS, today - 1)
+                Usage.build(
+                    rawDays = hours,
+                    overrides = overrides,
+                    period = period,
+                    granted = true,
+                    zone = zone,
+                    previousMs = Usage.totalOf(yesterday),
+                )
+            }
+            UsagePeriod.M1 -> Usage.build(
+                rawDays = buckets(usm, today, Usage.MONTH_DAYS, Usage.DAY_MS, nowMs),
+                overrides = overrides,
+                period = period,
+                granted = true,
+                zone = zone,
+            )
+            UsagePeriod.M3 -> Usage.build(
+                rawDays = buckets(usm, today, Usage.QUARTER_WEEKS, Usage.WEEK_MS, nowMs),
+                overrides = overrides,
+                period = period,
+                granted = true,
+                zone = zone,
+            )
+            UsagePeriod.M6 -> Usage.build(
+                rawDays = buckets(usm, today, Usage.HALF_WEEKS, Usage.WEEK_MS, nowMs),
+                overrides = overrides,
+                period = period,
+                granted = true,
+                zone = zone,
+            )
         }
-        return Usage.build(days, store.overrides(), period, granted = true)
     }
 
-    private fun readDay(usm: UsageStatsManager, start: Long, end: Long): UsageRawDay {
+    private fun buckets(
+        usm: UsageStatsManager,
+        todayStart: Long,
+        count: Int,
+        stepMs: Long,
+        nowMs: Long,
+    ): List<UsageRawDay> {
+        return (count - 1 downTo 0).map { offset ->
+            val start = todayStart - offset * stepMs
+            val end = (start + stepMs - 1).coerceAtMost(nowMs)
+            if (start > nowMs) UsageRawDay(start, emptyList()) else readBucket(usm, start, end)
+        }
+    }
+
+    private fun readBucket(usm: UsageStatsManager, start: Long, end: Long): UsageRawDay {
+        if (end < start) return UsageRawDay(start, emptyList())
         val stats = runCatching { usm.queryAndAggregateUsageStats(start, end) }.getOrDefault(emptyMap())
         val apps = stats.values.mapNotNull { row ->
             val pkg = row.packageName ?: return@mapNotNull null
@@ -81,9 +130,5 @@ class UsageReader(private val context: Context) {
                 .toInstant()
                 .toEpochMilli()
         }
-    }
-
-    companion object {
-        private const val DAY_MS = 86_400_000L
     }
 }

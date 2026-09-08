@@ -46,5 +46,6 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `clock-alarm-alert.png` | `clockAlarmAlert` |
 | `weather.png` | `weather` |
 | `usage.png` | `usage` |
+| `usage-scrub.png` | `usageScrub` |
 
 PRs that change UI must include screenshots in the PR body (see `.github/pull_request_template.md`).

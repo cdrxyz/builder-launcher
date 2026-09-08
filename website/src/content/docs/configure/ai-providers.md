@@ -34,6 +34,6 @@ Paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic
 
 OAuth tokens (xAI) are stored in encrypted prefs on the device and refreshed automatically. An API key remains as a fallback if OAuth is unavailable for your plan.
 
-Switching provider clears the stored OAuth session for the previous one.
+Each provider keeps its own sign-in. Switching away from xAI/OpenAI/Anthropic no longer wipes that account. If Hermes is selected and the instance is unreachable, `?` tries a connected cloud account and shows **Fell back to Grok** (or ChatGPT / Claude) above the reply.
 
 See [Privacy](privacy/).

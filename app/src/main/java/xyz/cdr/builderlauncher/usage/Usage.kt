@@ -23,7 +23,12 @@ enum class UsageKind {
     }
 }
 
-enum class UsagePeriod { TODAY, WEEK }
+enum class UsagePeriod(val label: String) {
+    TODAY("today"),
+    M1("1M"),
+    M3("3M"),
+    M6("6M"),
+}
 
 data class UsageApp(
     val packageName: String,
@@ -32,9 +37,10 @@ data class UsageApp(
     val kind: UsageKind,
 )
 
-data class UsageDay(
+data class UsageBar(
     val startMs: Long,
-    val weekday: String,
+    val label: String,
+    val detail: String,
     val productiveMs: Long,
     val distractingMs: Long,
     val otherMs: Long,
@@ -51,7 +57,7 @@ data class UsageSnapshot(
     val otherMs: Long,
     val vsYesterdayMs: Long?,
     val pickups: Int,
-    val days: List<UsageDay>,
+    val bars: List<UsageBar>,
     val apps: List<UsageApp>,
 ) {
     val otherShare: Int get() = Usage.percent(otherMs, totalMs)
@@ -75,13 +81,20 @@ object Usage {
     const val COMMAND = "usage"
     const val BACK = ">"
     const val DAYS = 7
+    const val MONTH_DAYS = 30
+    const val QUARTER_WEEKS = 13
+    const val HALF_WEEKS = 26
+    const val HOURS = 24
     const val TOP_APPS = 12
     const val MIN_MS = 1_000L
+    const val HOUR_MS = 3_600_000L
+    const val DAY_MS = 86_400_000L
+    const val WEEK_MS = 7 * DAY_MS
 
     fun formatDuration(ms: Long): String {
         val total = ms.coerceAtLeast(0L)
-        val hours = total / 3_600_000L
-        val minutes = (total % 3_600_000L) / 60_000L
+        val hours = total / HOUR_MS
+        val minutes = (total % HOUR_MS) / 60_000L
         val seconds = (total % 60_000L) / 1_000L
         return when {
             hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
@@ -126,10 +139,50 @@ object Usage {
         return overrides[packageName] ?: defaultKind(packageName)
     }
 
-    fun weekday(startMs: Long, zone: ZoneId = ZoneId.systemDefault()): String {
-        return DateTimeFormatter.ofPattern("EEEEE", Locale.US)
-            .withZone(zone)
-            .format(Instant.ofEpochMilli(startMs))
+    fun indexAt(x: Float, width: Float, count: Int): Int {
+        if (count <= 0 || width <= 0f) return 0
+        return (x / width * count).toInt().coerceIn(0, count - 1)
+    }
+
+    fun axisLabel(index: Int, count: Int, period: UsagePeriod): Boolean {
+        if (count <= 0) return false
+        val last = count - 1
+        return when (period) {
+            UsagePeriod.TODAY -> index == 0 || index == last || index % 6 == 0
+            UsagePeriod.M1 -> index == 0 || index == last || index % 5 == 0
+            UsagePeriod.M3 -> index == 0 || index == last || index % 2 == 0
+            UsagePeriod.M6 -> index == 0 || index == last || index % 4 == 0
+        }
+    }
+
+    fun barLabel(startMs: Long, period: UsagePeriod, zone: ZoneId): String {
+        val instant = Instant.ofEpochMilli(startMs)
+        return when (period) {
+            UsagePeriod.TODAY -> DateTimeFormatter.ofPattern("H", Locale.US).withZone(zone).format(instant)
+            UsagePeriod.M1 -> DateTimeFormatter.ofPattern("d", Locale.US).withZone(zone).format(instant)
+            UsagePeriod.M3, UsagePeriod.M6 ->
+                DateTimeFormatter.ofPattern("MMM d", Locale.US).withZone(zone).format(instant)
+        }
+    }
+
+    fun barDetail(startMs: Long, period: UsagePeriod, zone: ZoneId): String {
+        val instant = Instant.ofEpochMilli(startMs)
+        return when (period) {
+            UsagePeriod.TODAY -> DateTimeFormatter.ofPattern("EEE HH:mm", Locale.US).withZone(zone).format(instant)
+            UsagePeriod.M1 -> DateTimeFormatter.ofPattern("EEE d MMM", Locale.US).withZone(zone).format(instant)
+            UsagePeriod.M3, UsagePeriod.M6 -> {
+                val end = Instant.ofEpochMilli(startMs + WEEK_MS - 1)
+                val startText = DateTimeFormatter.ofPattern("d MMM", Locale.US).withZone(zone).format(instant)
+                val endText = DateTimeFormatter.ofPattern("d MMM", Locale.US).withZone(zone).format(end)
+                "$startText – $endText"
+            }
+        }
+    }
+
+    fun totalOf(raw: UsageRawDay): Long {
+        return raw.apps.sumOf { app ->
+            if (app.millis < MIN_MS || isNoise(app.packageName)) 0L else app.millis
+        }
     }
 
     fun build(
@@ -138,8 +191,9 @@ object Usage {
         period: UsagePeriod,
         granted: Boolean,
         zone: ZoneId = ZoneId.systemDefault(),
+        previousMs: Long? = null,
     ): UsageSnapshot {
-        val days = rawDays.map { raw ->
+        val bars = rawDays.map { raw ->
             var productive = 0L
             var distracting = 0L
             var other = 0L
@@ -151,36 +205,21 @@ object Usage {
                     UsageKind.OTHER -> other += app.millis
                 }
             }
-            UsageDay(
+            UsageBar(
                 startMs = raw.startMs,
-                weekday = weekday(raw.startMs, zone),
+                label = barLabel(raw.startMs, period, zone),
+                detail = barDetail(raw.startMs, period, zone),
                 productiveMs = productive,
                 distractingMs = distracting,
                 otherMs = other,
             )
         }
-        val today = days.lastOrNull()
-        val yesterday = days.getOrNull(days.size - 2)
-        val window = when (period) {
-            UsagePeriod.TODAY -> days.takeLast(1)
-            UsagePeriod.WEEK -> days
-        }
-        val apps = aggregateApps(
-            rawDays = when (period) {
-                UsagePeriod.TODAY -> rawDays.takeLast(1)
-                UsagePeriod.WEEK -> rawDays
-            },
-            overrides = overrides,
-        )
-        val total = window.sumOf { it.totalMs }
-        val productive = window.sumOf { it.productiveMs }
-        val distracting = window.sumOf { it.distractingMs }
-        val other = window.sumOf { it.otherMs }
-        val vs = if (period == UsagePeriod.TODAY && today != null && yesterday != null) {
-            today.totalMs - yesterday.totalMs
-        } else {
-            null
-        }
+        val apps = aggregateApps(rawDays, overrides)
+        val total = bars.sumOf { it.totalMs }
+        val productive = bars.sumOf { it.productiveMs }
+        val distracting = bars.sumOf { it.distractingMs }
+        val other = bars.sumOf { it.otherMs }
+        val vs = if (period == UsagePeriod.TODAY) previousMs?.let { total - it } else null
         return UsageSnapshot(
             granted = granted,
             period = period,
@@ -189,84 +228,105 @@ object Usage {
             distractingMs = distracting,
             otherMs = other,
             vsYesterdayMs = vs,
-            pickups = if (period == UsagePeriod.TODAY) rawDays.lastOrNull()?.pickups ?: 0 else rawDays.sumOf { it.pickups },
-            days = days,
+            pickups = rawDays.sumOf { it.pickups },
+            bars = bars,
             apps = apps,
         )
     }
 
-    fun sample(): UsageSnapshot {
-        val day = 86_400_000L
-        val start = 1_725_667_200_000L
-        val raw = listOf(
+    fun sample(period: UsagePeriod = UsagePeriod.TODAY): UsageSnapshot {
+        val zone = ZoneOffset.UTC
+        val dayStart = 1_725_667_200_000L
+        return when (period) {
+            UsagePeriod.TODAY -> build(
+                rawDays = sampleHours(dayStart + DAY_MS * 6),
+                overrides = emptyMap(),
+                period = period,
+                granted = true,
+                zone = zone,
+                previousMs = 3 * HOUR_MS + 35 * 60_000L,
+            )
+            UsagePeriod.M1 -> build(sampleDays(dayStart - DAY_MS * 23, MONTH_DAYS), emptyMap(), period, true, zone)
+            UsagePeriod.M3 -> build(sampleWeeks(dayStart - WEEK_MS * 6, QUARTER_WEEKS), emptyMap(), period, true, zone)
+            UsagePeriod.M6 -> build(sampleWeeks(dayStart - WEEK_MS * 19, HALF_WEEKS), emptyMap(), period, true, zone)
+        }
+    }
+
+    private fun sampleHours(dayStart: Long): List<UsageRawDay> {
+        return (0 until HOURS).map { hour ->
+            val weight = hourWeight(hour)
             UsageRawDay(
-                startMs = start,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 2 * 3_600_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 90 * 60_000L),
-                    UsageRawApp("org.mozilla.firefox", "Firefox", 40 * 60_000L),
-                ),
-                pickups = 18,
-            ),
-            UsageRawDay(
-                startMs = start + day,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 3 * 3_600_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 2 * 3_600_000L),
-                    UsageRawApp("org.mozilla.firefox", "Firefox", 50 * 60_000L),
-                ),
-                pickups = 24,
-            ),
-            UsageRawDay(
-                startMs = start + day * 2,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 80 * 60_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 3 * 3_600_000L),
-                    UsageRawApp("com.instagram.android", "Instagram", 70 * 60_000L),
-                ),
-                pickups = 31,
-            ),
-            UsageRawDay(
-                startMs = start + day * 3,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 4 * 3_600_000L),
-                    UsageRawApp("com.google.android.gm", "Gmail", 45 * 60_000L),
-                    UsageRawApp("org.mozilla.firefox", "Firefox", 55 * 60_000L),
-                ),
-                pickups = 16,
-            ),
-            UsageRawDay(
-                startMs = start + day * 4,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 90 * 60_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 80 * 60_000L),
-                    UsageRawApp("org.mozilla.firefox", "Firefox", 2 * 3_600_000L),
-                ),
-                pickups = 22,
-            ),
-            UsageRawDay(
-                startMs = start + day * 5,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 2 * 3_600_000L + 20 * 60_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 50 * 60_000L),
-                    UsageRawApp("com.instagram.android", "Instagram", 25 * 60_000L),
-                ),
-                pickups = 19,
-            ),
-            UsageRawDay(
-                startMs = start + day * 6,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 3 * 3_600_000L + 12 * 60_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 1 * 3_600_000L + 18 * 60_000L),
-                    UsageRawApp("org.mozilla.firefox", "Firefox", 42 * 60_000L),
-                    UsageRawApp("com.google.android.gm", "Gmail", 28 * 60_000L),
-                    UsageRawApp("com.instagram.android", "Instagram", 11 * 60_000L),
-                    UsageRawApp("com.slack", "Slack", 54 * 60_000L),
-                ),
-                pickups = 27,
-            ),
+                startMs = dayStart + hour * HOUR_MS,
+                apps = if (weight <= 0f) emptyList() else sampleApps(weight),
+                pickups = if (weight <= 0f) 0 else (weight * 3).roundToInt().coerceAtLeast(1),
+            )
+        }
+    }
+
+    private fun sampleDays(start: Long, count: Int): List<UsageRawDay> {
+        val days = listOf(
+            Triple(2.0, 1.5, 0.7),
+            Triple(3.0, 2.0, 0.8),
+            Triple(1.3, 3.0, 1.2),
+            Triple(4.0, 0.0, 1.7),
+            Triple(1.5, 1.3, 2.0),
+            Triple(2.3, 0.8, 0.4),
+            Triple(3.2, 1.3, 0.7),
         )
-        return build(raw, emptyMap(), UsagePeriod.TODAY, granted = true, zone = ZoneOffset.UTC)
+        return (0 until count).map { i ->
+            val (prodH, distH, otherH) = days[i % days.size]
+            val scale = if (i % 7 == 2) 1.15 else 1.0
+            UsageRawDay(
+                startMs = start + i * DAY_MS,
+                apps = listOf(
+                    UsageRawApp("com.termux", "Termux", (prodH * scale * HOUR_MS).toLong()),
+                    UsageRawApp("com.google.android.youtube", "YouTube", (distH * scale * HOUR_MS).toLong()),
+                    UsageRawApp("org.mozilla.firefox", "Firefox", (otherH * scale * HOUR_MS).toLong()),
+                    UsageRawApp("com.slack", "Slack", if (i % 3 == 0) (0.9 * HOUR_MS).toLong() else 0L),
+                    UsageRawApp("com.google.android.gm", "Gmail", if (i % 2 == 0) (0.4 * HOUR_MS).toLong() else 0L),
+                    UsageRawApp("com.instagram.android", "Instagram", if (i % 4 == 2) (0.5 * HOUR_MS).toLong() else 0L),
+                ).filter { it.millis >= MIN_MS },
+                pickups = 14 + (i % 9) * 2,
+            )
+        }
+    }
+
+    private fun sampleWeeks(start: Long, count: Int): List<UsageRawDay> {
+        return (0 until count).map { i ->
+            val scale = 4.5 + (i % 5) * 0.8
+            UsageRawDay(
+                startMs = start + i * WEEK_MS,
+                apps = listOf(
+                    UsageRawApp("com.termux", "Termux", (scale * 0.55 * HOUR_MS * 7).toLong()),
+                    UsageRawApp("com.google.android.youtube", "YouTube", (scale * 0.30 * HOUR_MS * 7).toLong()),
+                    UsageRawApp("org.mozilla.firefox", "Firefox", (scale * 0.15 * HOUR_MS * 7).toLong()),
+                ),
+                pickups = 80 + i * 3,
+            )
+        }
+    }
+
+    private fun hourWeight(hour: Int): Float = when (hour) {
+        in 0..6 -> 0f
+        7, 8 -> 0.25f
+        in 9..11 -> 0.85f
+        12 -> 0.35f
+        in 13..17 -> 1f
+        18, 19 -> 0.55f
+        20, 21 -> 0.9f
+        else -> 0.2f
+    }
+
+    private fun sampleApps(weight: Float): List<UsageRawApp> {
+        val unit = (weight * 20 * 60_000L).toLong()
+        return listOf(
+            UsageRawApp("com.termux", "Termux", unit * 3),
+            UsageRawApp("com.google.android.youtube", "YouTube", unit),
+            UsageRawApp("org.mozilla.firefox", "Firefox", (unit * 0.5).toLong()),
+            UsageRawApp("com.slack", "Slack", (unit * 0.7).toLong()),
+            UsageRawApp("com.google.android.gm", "Gmail", (unit * 0.3).toLong()),
+            UsageRawApp("com.instagram.android", "Instagram", (unit * 0.15).toLong()),
+        ).filter { it.millis >= MIN_MS }
     }
 
     private fun aggregateApps(

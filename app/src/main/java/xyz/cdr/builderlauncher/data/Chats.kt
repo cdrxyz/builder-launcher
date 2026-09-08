@@ -20,6 +20,7 @@ data class ChatMessage(
     val createdAt: Long = System.currentTimeMillis(),
 ) {
     val fromUser: Boolean get() = role.equals("user", ignoreCase = true)
+    val isNotice: Boolean get() = role.equals("notice", ignoreCase = true)
 }
 
 @Serializable
