@@ -123,9 +123,12 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.hub.HubStore
 import xyz.cdr.builderlauncher.stocks.StockChartData
+import xyz.cdr.builderlauncher.stocks.StockDetails
 import xyz.cdr.builderlauncher.stocks.StockHit
 import xyz.cdr.builderlauncher.stocks.StockQuote
 import xyz.cdr.builderlauncher.stocks.StockRange
+import xyz.cdr.builderlauncher.stocks.StockCagr
+import xyz.cdr.builderlauncher.stocks.StockStatLine
 import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
@@ -194,6 +197,7 @@ fun BuilderRoot(
     var stockHits by remember { mutableStateOf<List<StockHit>>(emptyList()) }
     var stockBusy by remember { mutableStateOf(false) }
     var stockChart by remember { mutableStateOf<StockChartData?>(null) }
+    var stockDetails by remember { mutableStateOf<StockDetails?>(null) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     val pinPkgs by pins.packages.collectAsState()
@@ -259,6 +263,14 @@ fun BuilderRoot(
             return@LaunchedEffect
         }
         stockChart = stocks.chart(symbol, stockRange)
+    }
+    LaunchedEffect(page, stockSymbol) {
+        val symbol = stockSymbol
+        if (page != Page.StockDetail || symbol.isNullOrBlank()) return@LaunchedEffect
+        if (!stockDetails?.quote?.symbol.equals(symbol, ignoreCase = true)) {
+            stockDetails = null
+        }
+        stockDetails = stocks.details(symbol)
     }
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
@@ -1577,7 +1589,16 @@ fun BuilderRoot(
             }
             Page.StockDetail -> {
                 val symbol = stockSymbol.orEmpty()
-                val quote = stockChart?.quote ?: quotes[symbol]
+                val day = stockChart?.quote ?: quotes[symbol]
+                val extra = stockDetails?.quote
+                val quote = day?.copy(
+                    pe = extra?.pe,
+                    marketCap = extra?.marketCap,
+                    dividendYield = extra?.dividendYield,
+                    eps = extra?.eps,
+                    beta = extra?.beta,
+                    avgVolume = extra?.avgVolume,
+                ) ?: extra
                 val item = watch.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
                 val name = quote?.name ?: item?.name ?: symbol
                 val price = quote?.price ?: item?.price
@@ -1636,10 +1657,13 @@ fun BuilderRoot(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                    StockStatPair("Open", Stocks.formatNumber(quote?.open), "High", Stocks.formatNumber(quote?.high))
-                    StockStatPair("Low", Stocks.formatNumber(quote?.low), "Vol", quote?.volume?.let { Stocks.formatVolume(it) } ?: "—")
-                    StockStatPair("Prev", Stocks.formatNumber(quote?.previousClose), "52W H", Stocks.formatNumber(quote?.week52High))
-                    StockStatPair("52W L", Stocks.formatNumber(quote?.week52Low), "Chg", if (percent != null) Stocks.formatPercent(percent) else "—")
+                    val statsQuote = quote
+                    if (statsQuote != null) {
+                        Stocks.quoteStats(statsQuote).forEach { StockStatPair(it) }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("CAGR", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Stocks.cagrStats(stockDetails?.cagr ?: StockCagr()).forEach { StockStatPair(it) }
                 }
             }
             Page.StockSettings -> {
@@ -1774,15 +1798,15 @@ private fun ClockHeader(
 }
 
 @Composable
-private fun StockStatPair(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
+private fun StockStatPair(row: StockStatLine) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Column(Modifier.weight(1f)) {
-            Text(leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
-            Text(leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+            Text(row.leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(row.leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
         }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-            Text(rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
-            Text(rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+            Text(row.rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(row.rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

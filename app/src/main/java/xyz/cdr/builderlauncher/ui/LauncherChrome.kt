@@ -41,6 +41,7 @@ import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
+import xyz.cdr.builderlauncher.stocks.StockStatLine
 import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.weather.WeatherDay
 import xyz.cdr.builderlauncher.weather.WeatherForecast
@@ -75,13 +76,6 @@ data class StockListRow(
     val price: String,
     val change: String,
     val up: Boolean,
-)
-
-data class StockStatRow(
-    val leftLabel: String,
-    val leftValue: String,
-    val rightLabel: String,
-    val rightValue: String,
 )
 
 @Composable
@@ -490,7 +484,8 @@ fun StockDetailChrome(
     up: Boolean,
     points: List<StockPoint>,
     range: StockRange = StockRange.D1,
-    stats: List<StockStatRow> = emptyList(),
+    stats: List<StockStatLine> = emptyList(),
+    cagr: List<StockStatLine> = emptyList(),
 ) {
     val tone = if (up) Gain else Loss
     Column(
@@ -507,7 +502,7 @@ fun StockDetailChrome(
         Text(price, color = Paper, style = MaterialTheme.typography.headlineLarge)
         Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
-        StockChart(points = points, up = up, modifier = Modifier.fillMaxWidth().height(180.dp))
+        StockChart(points = points, up = up, modifier = Modifier.fillMaxWidth().height(140.dp))
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             StockRange.entries.forEach { item ->
@@ -520,16 +515,28 @@ fun StockDetailChrome(
         }
         Spacer(Modifier.height(16.dp))
         stats.forEach { row ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text(row.leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
-                    Text(row.leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
-                }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                    Text(row.rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
-                    Text(row.rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
-                }
+            StockStatChrome(row)
+        }
+        if (cagr.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text("CAGR", color = Dim, style = MaterialTheme.typography.labelSmall)
+            cagr.forEach { row ->
+                StockStatChrome(row)
             }
+        }
+    }
+}
+
+@Composable
+private fun StockStatChrome(row: StockStatLine) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(row.leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(row.leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+        }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Text(row.rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(row.rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.stocks
 
+import kotlin.math.pow
 import xyz.cdr.builderlauncher.data.StockInsert
 
 object Stocks {
@@ -106,7 +107,119 @@ object Stocks {
             "%.2f".format(java.util.Locale.US, value)
         }
     }
+
+    fun formatRatio(value: Double?, decimals: Int = 2): String {
+        if (value == null) return "—"
+        return "%.${decimals}f".format(java.util.Locale.US, value)
+    }
+
+    fun formatCompact(value: Double?, prefix: String = ""): String {
+        if (value == null) return "—"
+        val abs = kotlin.math.abs(value)
+        val (scaled, suffix) = when {
+            abs >= 1_000_000_000_000 -> value / 1_000_000_000_000.0 to "T"
+            abs >= 1_000_000_000 -> value / 1_000_000_000.0 to "B"
+            abs >= 1_000_000 -> value / 1_000_000.0 to "M"
+            abs >= 1_000 -> value / 1_000.0 to "K"
+            else -> return prefix + formatNumber(value)
+        }
+        return prefix + "%.1f%s".format(java.util.Locale.US, scaled, suffix)
+    }
+
+    fun formatMarketCap(value: Double?): String = formatCompact(value, "$")
+
+    fun formatYield(ratio: Double?): String {
+        if (ratio == null) return "—"
+        val percent = if (kotlin.math.abs(ratio) <= 1.0) ratio * 100.0 else ratio
+        return "%.2f%%".format(java.util.Locale.US, percent)
+    }
+
+    fun cagr(start: Double, end: Double, years: Double): Double? {
+        if (start <= 0.0 || end <= 0.0 || years <= 0.0) return null
+        return (end / start).pow(1.0 / years) - 1.0
+    }
+
+    fun closeBefore(points: List<StockPoint>, target: Long, maxSkewSec: Long = 21L * 86_400L): StockPoint? {
+        val hit = points.filter { it.time <= target }.maxByOrNull { it.time } ?: return null
+        if (target - hit.time > maxSkewSec) return null
+        return hit
+    }
+
+    fun performance(points: List<StockPoint>, endPrice: Double, nowSec: Long = points.lastOrNull()?.time ?: 0L): StockCagr {
+        if (points.size < 2 || endPrice <= 0.0 || nowSec <= 0L) return StockCagr()
+        fun at(years: Double): Double? {
+            val target = nowSec - (years * YEAR_SEC).toLong()
+            val start = closeBefore(points, target) ?: return null
+            val actualYears = (nowSec - start.time) / YEAR_SEC
+            if (actualYears < years * 0.85) return null
+            return cagr(start.close, endPrice, actualYears)?.times(100.0)
+        }
+        return StockCagr(y1 = at(1.0), y3 = at(3.0), y5 = at(5.0), y10 = at(10.0))
+    }
+
+    fun beta(stock: List<StockPoint>, market: List<StockPoint>, nowSec: Long = stock.lastOrNull()?.time ?: 0L): Double? {
+        if (stock.size < 30 || market.size < 30 || nowSec <= 0L) return null
+        val cutoff = nowSec - (5.0 * YEAR_SEC).toLong()
+        val stockRet = weeklyReturns(stock.filter { it.time >= cutoff })
+        val marketRet = weeklyReturns(market.filter { it.time >= cutoff })
+        val keys = stockRet.keys.intersect(marketRet.keys).sorted()
+        if (keys.size < 26) return null
+        val xs = keys.map { marketRet.getValue(it) }
+        val ys = keys.map { stockRet.getValue(it) }
+        val xMean = xs.average()
+        val yMean = ys.average()
+        var cov = 0.0
+        var varX = 0.0
+        for (i in xs.indices) {
+            val dx = xs[i] - xMean
+            cov += dx * (ys[i] - yMean)
+            varX += dx * dx
+        }
+        if (varX == 0.0) return null
+        return cov / varX
+    }
+
+    fun avgVolume(volumes: List<Long>): Long? {
+        if (volumes.isEmpty()) return null
+        return volumes.average().toLong()
+    }
+
+    fun quoteStats(quote: StockQuote): List<StockStatLine> = listOf(
+        StockStatLine("Open", formatNumber(quote.open), "High", formatNumber(quote.high)),
+        StockStatLine("Low", formatNumber(quote.low), "Vol", quote.volume?.let { formatVolume(it) } ?: "—"),
+        StockStatLine("P/E", formatRatio(quote.pe), "Mkt Cap", formatMarketCap(quote.marketCap)),
+        StockStatLine("EPS", formatRatio(quote.eps), "Yield", formatYield(quote.dividendYield)),
+        StockStatLine("Beta", formatRatio(quote.beta), "Avg Vol", quote.avgVolume?.let { formatVolume(it) } ?: "—"),
+        StockStatLine("52W H", formatNumber(quote.week52High), "52W L", formatNumber(quote.week52Low)),
+    )
+
+    fun cagrStats(cagr: StockCagr): List<StockStatLine> = listOf(
+        StockStatLine("1Y", cagr.y1?.let { formatPercent(it) } ?: "—", "3Y", cagr.y3?.let { formatPercent(it) } ?: "—"),
+        StockStatLine("5Y", cagr.y5?.let { formatPercent(it) } ?: "—", "10Y", cagr.y10?.let { formatPercent(it) } ?: "—"),
+    )
+
+    private fun weeklyReturns(points: List<StockPoint>): Map<Long, Double> {
+        val sorted = points.sortedBy { it.time }
+        if (sorted.size < 2) return emptyMap()
+        val out = mutableMapOf<Long, Double>()
+        for (i in 1 until sorted.size) {
+            val prev = sorted[i - 1].close
+            val cur = sorted[i].close
+            if (prev > 0.0) out[sorted[i].time / WEEK_SEC] = cur / prev - 1.0
+        }
+        return out
+    }
+
+    private const val YEAR_SEC = 365.25 * 86_400.0
+    private const val WEEK_SEC = 7L * 86_400L
 }
+
+data class StockStatLine(
+    val leftLabel: String,
+    val leftValue: String,
+    val rightLabel: String,
+    val rightValue: String,
+)
 
 enum class StockRange(
     val label: String,
