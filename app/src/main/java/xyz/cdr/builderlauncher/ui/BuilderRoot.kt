@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -81,6 +82,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.LlmClient
@@ -179,6 +181,7 @@ fun BuilderRoot(
     var help by remember { mutableStateOf(false) }
     var chatId by remember { mutableStateOf<String?>(null) }
     var chatBusy by remember { mutableStateOf(false) }
+    var streamDraft by remember { mutableStateOf("") }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var appQuery by remember { mutableStateOf(false) }
     var appsEpoch by remember { mutableIntStateOf(0) }
@@ -294,20 +297,36 @@ fun BuilderRoot(
         prompt = '?'
         input = ""
         chatBusy = true
+        streamDraft = ""
         val snapshot = chats.get(thread.id) ?: thread
         scope.launch {
-            val reply = runCatching { llm.ask(snapshot.messages) }
-                .getOrElse { "Could not reach the model." }
-            if (chats.get(thread.id) != null) {
-                chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
+            try {
+                val reply = llm.ask(snapshot.messages) { streamed ->
+                    streamDraft = streamed
+                }.ifBlank { "Empty reply from the model." }
+                if (chats.get(thread.id) != null) {
+                    chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                if (chats.get(thread.id) != null) {
+                    chats.addMessage(
+                        thread.id,
+                        ChatMessage(role = "assistant", content = "Could not reach the model."),
+                    )
+                }
+            } finally {
+                streamDraft = ""
+                chatBusy = false
             }
-            chatBusy = false
         }
     }
 
     fun openAsk(question: String, id: String? = null) {
         chatId = id
         chatBusy = false
+        streamDraft = ""
         prompt = '?'
         input = ""
         choices = emptyList()
@@ -1061,7 +1080,7 @@ fun BuilderRoot(
                 val thread = chatId?.let { id -> chatThreads.find { it.id == id } }
                 val messages = thread?.messages.orEmpty()
                 val listState = rememberLazyListState()
-                LaunchedEffect(messages.size, chatBusy) {
+                LaunchedEffect(messages.size, chatBusy, streamDraft) {
                     val target = if (chatBusy) messages.size else messages.lastIndex
                     if (target >= 0) listState.scrollToItem(target)
                 }
@@ -1088,6 +1107,27 @@ fun BuilderRoot(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = '?',
+                    value = input,
+                    hardware = hardware,
+                    wrap = true,
+                    onValue = { typed ->
+                        input = if (typed.startsWith(Chats.PREFIX)) typed.drop(1) else typed
+                    },
+                    onPick = { glyph ->
+                        page = Page.Home
+                        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), glyph))
+                    },
+                    onClearMode = {
+                        page = Page.Home
+                        clearBar()
+                    },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+                Spacer(Modifier.height(8.dp))
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
@@ -1107,30 +1147,14 @@ fun BuilderRoot(
                     }
                     if (chatBusy) {
                         item {
-                            Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
+                            if (streamDraft.isNotEmpty()) {
+                                MarkdownDocument(streamDraft)
+                            } else {
+                                ThinkingDots()
+                            }
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                CommandBar(
-                    prompt = '?',
-                    value = input,
-                    hardware = hardware,
-                    onValue = { typed ->
-                        input = if (typed.startsWith(Chats.PREFIX)) typed.drop(1) else typed
-                    },
-                    onPick = { glyph ->
-                        page = Page.Home
-                        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), glyph))
-                    },
-                    onClearMode = {
-                        page = Page.Home
-                        clearBar()
-                    },
-                    onSubmit = { runCommand() },
-                    onSlash = { pickSlash(it) },
-                    onHub = { openHub() },
-                )
             }
             Page.ChatHistory -> {
                 val rows = Chats.of(chatThreads)
@@ -1869,6 +1893,7 @@ private fun CommandBar(
     prompt: Char,
     value: String,
     hardware: Boolean,
+    wrap: Boolean = false,
     onValue: (String) -> Unit,
     onPick: (Char) -> Unit,
     onClearMode: () -> Unit,
@@ -1925,7 +1950,10 @@ private fun CommandBar(
                 },
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(
                 prompt.toString(),
                 color = Accent,
@@ -1939,7 +1967,7 @@ private fun CommandBar(
                             if (menuOpen) selected = 0
                         }
                     }
-                    .padding(end = 10.dp),
+                    .padding(end = 10.dp, top = if (wrap) 2.dp else 0.dp),
             )
             BasicTextField(
                 value = value,
@@ -1950,7 +1978,8 @@ private fun CommandBar(
                         onValue(it)
                     }
                 },
-                singleLine = true,
+                singleLine = !wrap,
+                maxLines = if (wrap) 8 else 1,
                 cursorBrush = SolidColor(Accent),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                 keyboardOptions = KeyboardOptions(
@@ -1968,6 +1997,7 @@ private fun CommandBar(
                 ),
                 modifier = Modifier
                     .weight(1f)
+                    .then(if (wrap) Modifier.heightIn(max = 160.dp) else Modifier)
                     .focusRequester(focus)
                     .onPreviewKeyEvent { event ->
                         if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
@@ -2058,6 +2088,18 @@ private fun CommandBar(
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
     }
+}
+
+@Composable
+private fun ThinkingDots() {
+    var n by remember { mutableIntStateOf(1) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(420)
+            n = n % 3 + 1
+        }
+    }
+    Text(".".repeat(n), color = Dim, style = MaterialTheme.typography.bodyLarge)
 }
 
 @Composable

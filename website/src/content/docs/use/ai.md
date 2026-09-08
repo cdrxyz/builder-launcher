@@ -9,7 +9,8 @@ Nothing is sent anywhere until you submit a question. There is no analytics.
 
 1. Configure a provider in [AI providers](../configure/ai-providers/).
 2. Type `?` on home. The full-screen chat opens.
-3. Write the question in the bar and Enter. Follow-ups stay in the same thread.
+3. Write the question in the bar at the top. Long questions wrap. Enter sends. Follow-ups stay in the same thread.
+4. The reply streams in below. A short `…` shows until the first token arrives.
 
 ![Full-screen AI chat with a markdown table answer](../../../assets/screenshots/chat.png)
 

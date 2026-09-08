@@ -10,6 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.data.ChatMessage
@@ -29,7 +30,10 @@ class LlmClient(
 
     suspend fun ask(question: String): String = ask(listOf(ChatMessage(role = "user", content = question)))
 
-    suspend fun ask(messages: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+    suspend fun ask(
+        messages: List<ChatMessage>,
+        onDelta: ((String) -> Unit)? = null,
+    ): String = withContext(Dispatchers.IO) {
         val s = settings.settings.value
         val platform = AiPlatforms.of(s.provider)
         val base = settings.effectiveBaseUrl()
@@ -51,26 +55,28 @@ class LlmClient(
             ?.valid(System.currentTimeMillis()) == true
         val turns = messages.filter { it.content.isNotBlank() }
         when (platform.chatKind) {
-            ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(), turns, bearer)
+            ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(), turns, bearer, onDelta)
             ChatKind.ANTHROPIC_MESSAGES -> anthropicMessages(
                 base,
                 settings.effectiveModel(),
                 turns,
                 bearer,
                 oauthLive,
+                onDelta,
             )
         }
     }
 
-    private fun openaiChat(
+    private suspend fun openaiChat(
         base: String,
         model: String,
         messages: List<ChatMessage>,
         bearer: String?,
+        onDelta: ((String) -> Unit)?,
     ): String {
         val root = if (base.endsWith("/v1")) base else "$base/v1"
         val turns = messagesJson(messages)
-        val body = """
+        fun body(stream: Boolean) = """
             {
               "model": ${esc(model)},
               "messages": [
@@ -78,59 +84,127 @@ class LlmClient(
                 $turns
               ],
               "max_tokens": 2048,
-              "temperature": 0.4
+              "temperature": 0.4,
+              "stream": $stream
             }
         """.trimIndent()
-        val reqBuilder = Request.Builder()
-            .url("$root/chat/completions")
-            .post(body.toRequestBody(JSON))
-            .header("Content-Type", "application/json")
-        if (!bearer.isNullOrBlank()) {
-            reqBuilder.header("Authorization", "Bearer $bearer")
+        fun request(stream: Boolean): Request {
+            val reqBuilder = Request.Builder()
+                .url("$root/chat/completions")
+                .post(body(stream).toRequestBody(JSON))
+                .header("Content-Type", "application/json")
+            if (!bearer.isNullOrBlank()) {
+                reqBuilder.header("Authorization", "Bearer $bearer")
+            }
+            return reqBuilder.build()
         }
-        return http.newCall(reqBuilder.build()).execute().use { resp ->
-            val raw = resp.body?.string().orEmpty()
-            if (!resp.isSuccessful) return@use llmError(resp.code, raw)
-            extractOpenAi(raw) ?: raw.take(400)
+        return http.newCall(request(true)).execute().use { resp ->
+            if (shouldRetryWithoutStream(resp)) null else readStream(resp, onDelta, openai = true)
+        } ?: http.newCall(request(false)).execute().use { resp ->
+            readStream(resp, onDelta, openai = true)
         }
     }
 
-    private fun anthropicMessages(
+    private suspend fun anthropicMessages(
         base: String,
         model: String,
         messages: List<ChatMessage>,
         bearer: String?,
         oauth: Boolean,
+        onDelta: ((String) -> Unit)?,
     ): String {
         val root = base.trimEnd('/')
         val url = if (root.endsWith("/v1")) "$root/messages" else "$root/v1/messages"
         val turns = messagesJson(messages)
-        val body = """
+        fun body(stream: Boolean) = """
             {
               "model": ${esc(model)},
               "max_tokens": 2048,
+              "stream": $stream,
               "system": ${esc(SYSTEM)},
               "messages": [$turns]
             }
         """.trimIndent()
-        val reqBuilder = Request.Builder()
-            .url(url)
-            .post(body.toRequestBody(JSON))
-            .header("Content-Type", "application/json")
-            .header("anthropic-version", "2023-06-01")
-        if (!bearer.isNullOrBlank()) {
-            if (oauth) {
-                reqBuilder.header("Authorization", "Bearer $bearer")
-                reqBuilder.header("anthropic-beta", "oauth-2024-10-22")
-            } else {
-                reqBuilder.header("x-api-key", bearer)
+        fun request(stream: Boolean): Request {
+            val reqBuilder = Request.Builder()
+                .url(url)
+                .post(body(stream).toRequestBody(JSON))
+                .header("Content-Type", "application/json")
+                .header("anthropic-version", "2023-06-01")
+            if (!bearer.isNullOrBlank()) {
+                if (oauth) {
+                    reqBuilder.header("Authorization", "Bearer $bearer")
+                    reqBuilder.header("anthropic-beta", "oauth-2024-10-22")
+                } else {
+                    reqBuilder.header("x-api-key", bearer)
+                }
+            }
+            return reqBuilder.build()
+        }
+        return http.newCall(request(true)).execute().use { resp ->
+            if (shouldRetryWithoutStream(resp)) null else readStream(resp, onDelta, openai = false)
+        } ?: http.newCall(request(false)).execute().use { resp ->
+            readStream(resp, onDelta, openai = false)
+        }
+    }
+
+    private fun shouldRetryWithoutStream(resp: Response): Boolean {
+        if (resp.isSuccessful) return false
+        return resp.code in 400..499 && resp.code != 401 && resp.code != 403 && resp.code != 429
+    }
+
+    private suspend fun readStream(
+        resp: Response,
+        onDelta: ((String) -> Unit)?,
+        openai: Boolean,
+    ): String {
+        val body = resp.body ?: return if (resp.isSuccessful) EMPTY_REPLY else llmError(resp.code, "")
+        if (!resp.isSuccessful) return llmError(resp.code, body.string())
+        val source = body.source()
+        var first: String? = null
+        while (!source.exhausted()) {
+            val line = source.readUtf8Line() ?: break
+            if (line.isNotEmpty()) {
+                first = line
+                break
             }
         }
-        return http.newCall(reqBuilder.build()).execute().use { resp ->
-            val raw = resp.body?.string().orEmpty()
-            if (!resp.isSuccessful) return@use llmError(resp.code, raw)
-            extractAnthropic(raw) ?: raw.take(400)
+        val start = first ?: return EMPTY_REPLY
+        if (!ChatStream.looksLikeSse(start)) {
+            val rest = source.readUtf8()
+            val raw = if (rest.isEmpty()) start else start + "\n" + rest
+            val full = if (openai) extractOpenAi(raw) else extractAnthropic(raw)
+            val text = full ?: raw.take(400)
+            emit(text, onDelta)
+            return text.ifBlank { EMPTY_REPLY }
         }
+        val acc = StringBuilder()
+        val frame = StringBuilder()
+        suspend fun consume(line: String) {
+            if (line.isEmpty()) {
+                val data = ChatStream.sseData(frame.toString())
+                frame.clear()
+                val piece = if (openai) ChatStream.openaiDelta(data) else ChatStream.anthropicDelta(data)
+                if (!piece.isNullOrEmpty()) {
+                    acc.append(piece)
+                    emit(acc.toString(), onDelta)
+                }
+            } else {
+                frame.append(line).append('\n')
+            }
+        }
+        consume(start)
+        while (!source.exhausted()) {
+            val line = source.readUtf8Line() ?: break
+            consume(line)
+        }
+        if (frame.isNotEmpty()) consume("")
+        return acc.toString().ifBlank { EMPTY_REPLY }
+    }
+
+    private suspend fun emit(text: String, onDelta: ((String) -> Unit)?) {
+        if (onDelta == null || text.isEmpty()) return
+        withContext(Dispatchers.Main.immediate) { onDelta(text) }
     }
 
     private fun extractOpenAi(raw: String): String? {
@@ -192,6 +266,7 @@ class LlmClient(
 
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
+        private const val EMPTY_REPLY = "Empty reply from the model."
         private const val SYSTEM =
             "You are a concise assistant on a builder's phone. Prefer short answers they can act on. Use markdown when it helps: headings, lists, tables, and fenced code. Skip preamble."
     }
