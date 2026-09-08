@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.data.ListReorder
 import java.io.File
 
-class ClockStore(context: Context) {
+class ClockStore private constructor(context: Context) {
     private val file = File(context.applicationContext.filesDir, "clock.json")
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val _state = MutableStateFlow(load())
@@ -19,6 +19,18 @@ class ClockStore(context: Context) {
 
     fun setTimer(timer: TimerState) {
         persist(_state.value.copy(timer = timer))
+    }
+
+    fun setAlert(alert: ClockAlert?) {
+        persist(_state.value.copy(alert = alert))
+    }
+
+    fun replaceAlarm(alarm: ClockAlarm) {
+        persist(
+            _state.value.copy(
+                alarms = _state.value.alarms.map { if (it.id == alarm.id) alarm else it },
+            ),
+        )
     }
 
     fun addAlarm(hour: Int, minute: Int, label: String = ""): ClockAlarm {
@@ -73,5 +85,16 @@ class ClockStore(context: Context) {
     private fun load(): ClockSnapshot {
         if (!file.exists()) return ClockSnapshot()
         return runCatching { json.decodeFromString<ClockSnapshot>(file.readText()) }.getOrDefault(ClockSnapshot())
+    }
+
+    companion object {
+        @Volatile private var instance: ClockStore? = null
+
+        fun get(context: Context): ClockStore {
+            instance?.let { return it }
+            return synchronized(this) {
+                instance ?: ClockStore(context.applicationContext).also { instance = it }
+            }
+        }
     }
 }

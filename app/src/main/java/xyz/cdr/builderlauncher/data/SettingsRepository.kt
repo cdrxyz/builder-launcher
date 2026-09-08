@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
+import xyz.cdr.builderlauncher.clock.ClockSound
 
 enum class LlmProvider { HERMES, XAI, OPENAI, ANTHROPIC }
 
@@ -29,6 +30,7 @@ data class BuilderSettings(
     val oauthAccount: String = "",
     val accentHex: String = AccentColor.DEFAULT_HEX,
     val stockInsert: StockInsert = StockInsert.TOP,
+    val clockSound: ClockSound = ClockSound.PULSE,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -131,6 +133,7 @@ class SettingsRepository(context: Context) {
             oauthAccount = prefs.getString(KEY_OAUTH_ACCOUNT, "") ?: "",
             accentHex = AccentColor.normalize(prefs.getString(KEY_ACCENT, AccentColor.DEFAULT_HEX)),
             stockInsert = insert,
+            clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
         )
     }
 
@@ -151,6 +154,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_OAUTH_ACCOUNT, next.oauthAccount)
             .putString(KEY_ACCENT, AccentColor.normalize(next.accentHex))
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
+            .putString(KEY_CLOCK_SOUND, next.clockSound.name)
             .apply()
     }
 
@@ -172,6 +176,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_OAUTH_ACCOUNT = "oauth_account"
         private const val KEY_ACCENT = "accent"
         private const val KEY_STOCK_INSERT = "stock_insert"
+        private const val KEY_CLOCK_SOUND = "clock_sound"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {

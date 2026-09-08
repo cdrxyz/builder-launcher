@@ -17,6 +17,17 @@ Three tabs:
 
 While the timer is running, home replaces the large clock with the countdown. Tap it to return here.
 
-Alarms and the running timer fire a notification even if you leave the screen. `<` returns home.
+Alarms and the running timer play a calm sound and open a full-screen prompt, even if you leave the clock screen.
+
+![Timer is up: stop or run again](../../../assets/screenshots/clock-timer-alert.png)
+
+![Alarm: dismiss or snooze 8 min](../../../assets/screenshots/clock-alarm-alert.png)
+
+| When | Prompt |
+| --- | --- |
+| Timer | `stop` or `run again` (same duration). |
+| Alarm | `dismiss` or `snooze 8 min`. |
+
+The sound starts at silence and rises to 80% over 10 seconds. Pick `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off` in [settings](../../configure/settings/). `<` returns home.
 
 Settings stay on `settings` / `/settings` — the clock is no longer the settings shortcut.

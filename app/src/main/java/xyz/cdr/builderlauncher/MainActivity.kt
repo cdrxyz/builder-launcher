@@ -2,7 +2,9 @@ package xyz.cdr.builderlauncher
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +20,7 @@ import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockScheduler
+import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -57,8 +60,9 @@ class MainActivity : ComponentActivity() {
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         val stocks = StocksRepository(this)
-        val clock = ClockStore(this)
+        val clock = ClockStore.get(this)
         ClockScheduler.sync(this, clock.snapshot())
+        applyAlertWindow()
         setContent {
             val current by settings.settings.collectAsState()
             BuilderTheme(accent = accentColor(current.accentHex)) {
@@ -81,14 +85,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applyAlertWindow()
+    }
+
     override fun onResume() {
         super.onResume()
+        applyAlertWindow()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
             != PackageManager.PERMISSION_GRANTED
         ) {
             return
         }
         askToBeHome(fromSettings = false)
+    }
+
+    private fun applyAlertWindow() {
+        val alerting = ClockStore.get(this).snapshot().alert != null
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(alerting)
+            setTurnScreenOn(alerting)
+        }
+        if (alerting) ClockAlertService.start(this)
     }
 
     private fun askToBeHome(fromSettings: Boolean) {

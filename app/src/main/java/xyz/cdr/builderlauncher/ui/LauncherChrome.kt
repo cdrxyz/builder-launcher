@@ -45,6 +45,8 @@ import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
+import xyz.cdr.builderlauncher.clock.ClockAlert
+import xyz.cdr.builderlauncher.clock.ClockAlertKind
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
@@ -829,6 +831,23 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        Text("Clock sound", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            listOf("pulse", "chime", "bell").forEach { label ->
+                Text(label, color = if (label == "pulse") Accent else Dim)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            listOf("orthodox", "hum", "off").forEach { label ->
+                Text(label, color = Dim)
+            }
+        }
+        Text(
+            "Starts silent, then rises to 80% over 10 seconds.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))
@@ -910,6 +929,21 @@ fun ClockChrome(
         Spacer(Modifier.height(8.dp))
         CommandRow("")
     }
+}
+
+@Composable
+fun ClockAlertChrome(
+    kind: String = "timer",
+    time: String = "5:00",
+    label: String = "Time is up",
+) {
+    ClockAlertScreen(
+        alert = if (kind == "alarm") {
+            ClockAlert(kind = ClockAlertKind.ALARM, hour = 6, minute = 30, label = label)
+        } else {
+            ClockAlert(kind = ClockAlertKind.TIMER, durationMs = 5 * 60_000L)
+        },
+    )
 }
 
 fun sampleWeatherForecast(): WeatherForecast {

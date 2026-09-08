@@ -80,4 +80,56 @@ class ClockTest {
         assertEquals("16:42", Clock.formatZoneTime("UTC", now))
         assertEquals("12:42", Clock.formatZoneTime("America/New_York", now))
     }
+
+    @Test
+    fun fadeGainRisesFromSilentToPeak() {
+        assertEquals(0f, Clock.fadeGain(0), 0.0001f)
+        assertEquals(0f, Clock.fadeGain(-1), 0.0001f)
+        assertEquals(0.4f, Clock.fadeGain(5_000), 0.0001f)
+        assertEquals(0.8f, Clock.fadeGain(10_000), 0.0001f)
+        assertEquals(0.8f, Clock.fadeGain(30_000), 0.0001f)
+    }
+
+    @Test
+    fun timerFireStopsAndKeepsDurationForRunAgain() {
+        val now = 2_000_000L
+        val running = Clock.start(TimerState(durationMs = 90_000, remainingMs = 90_000), now)
+        val fired = Clock.fireTimer(running)
+        assertFalse(fired.timer.running)
+        assertEquals(90_000L, fired.timer.remainingMs)
+        assertEquals(ClockAlertKind.TIMER, fired.alert.kind)
+        assertEquals(90_000L, fired.alert.durationMs)
+        val again = Clock.runAgain(fired.alert, now + 5_000)
+        assertTrue(again.running)
+        assertEquals(now + 5_000 + 90_000, again.endsAt)
+    }
+
+    @Test
+    fun alarmSnoozeIsEightMinutes() {
+        val now = 3_000_000L
+        val alarm = ClockAlarm(id = "a1", hour = 6, minute = 30, label = "up")
+        val fired = Clock.fireAlarm(alarm)
+        assertEquals(ClockAlertKind.ALARM, fired.alert.kind)
+        assertEquals("a1", fired.alert.alarmId)
+        assertNull(fired.alarm.snoozeUntil)
+        val snoozed = Clock.snooze(fired.alarm, now)
+        assertEquals(now + Clock.SNOOZE_MS, snoozed.snoozeUntil)
+        assertTrue(snoozed.enabled)
+        assertEquals(now + Clock.SNOOZE_MS, Clock.nextFireAt(snoozed, now))
+        assertTrue(Clock.nextFireAt(fired.alarm, now) > now)
+        assertEquals(now, Clock.nextFireAt(snoozed.copy(snoozeUntil = now), now))
+        assertEquals(now, Clock.nextFireAt(snoozed.copy(snoozeUntil = now - 1), now))
+    }
+
+    @Test
+    fun clockSoundLabelsAndDefault() {
+        assertEquals(listOf("pulse", "chime", "bell", "orthodox", "hum", "off"), ClockSound.entries.map { it.label })
+        assertEquals(ClockSound.PULSE, ClockSound.parse(null))
+        assertEquals(ClockSound.CHIME, ClockSound.parse("chime"))
+        assertEquals(ClockSound.PULSE, ClockSound.parse("nope"))
+        assertFalse(ClockSound.PULSE.silent)
+        assertTrue(ClockSound.OFF.silent)
+        assertTrue(ClockTone.pcm(ClockSound.ORTHODOX).isNotEmpty())
+        assertTrue(ClockTone.pcm(ClockSound.OFF).isEmpty())
+    }
 }

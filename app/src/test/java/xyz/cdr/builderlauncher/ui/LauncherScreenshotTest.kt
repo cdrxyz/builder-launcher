@@ -437,6 +437,24 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun clockTimerAlert() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockAlertChrome()
+            }
+        }
+    }
+
+    @Test
+    fun clockAlarmAlert() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockAlertChrome(kind = "alarm", label = "Alarm")
+            }
+        }
+    }
+
+    @Test
     fun clockAlarm() {
         paparazzi.snapshot {
             BuilderTheme {
