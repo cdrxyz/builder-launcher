@@ -155,7 +155,17 @@ fun TodosChrome(
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             todos.forEach { text ->
-                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text,
+                        color = Paper,
+                        modifier = Modifier.weight(1f).padding(vertical = 6.dp),
+                    )
+                    DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                }
             }
             if (doneTodos.isNotEmpty()) {
                 Text(
@@ -165,12 +175,18 @@ fun TodosChrome(
                     modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
                 )
                 doneTodos.forEach { text ->
-                    Text(
-                        text,
-                        color = Dim,
-                        style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text,
+                            color = Dim,
+                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                            modifier = Modifier.weight(1f).padding(vertical = 6.dp),
+                        )
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                    }
                 }
             }
         }
