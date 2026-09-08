@@ -20,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -70,10 +73,19 @@ fun HomeChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
-        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        if (weather.isNotBlank()) {
-            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                if (weather.isNotBlank()) {
+                    Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         todos.take(HomeTodos.PREVIEW).forEach { text ->
@@ -257,17 +269,24 @@ fun HubChrome(rows: List<HubRow>) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (rows.isEmpty()) {
                 Text(
-                    "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
+                    "Grant notification access in settings to fill the hub with messages you can reply to.",
                     color = Dim,
                 )
             } else {
                 rows.forEach { row ->
-                    Column {
-                        Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                        Text(row.title, color = Paper)
-                        if (row.body.isNotBlank()) {
-                            Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+                            Text(row.title, color = Paper)
+                            if (row.body.isNotBlank()) {
+                                Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
+                        ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                     }
                 }
             }
@@ -427,6 +446,67 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun ReplyIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val w = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.12f
+        val tip = Offset(pad, size.height * 0.28f)
+        val shaft = Path().apply {
+            moveTo(size.width - pad, size.height - pad)
+            lineTo(size.width * 0.46f, size.height - pad)
+            quadraticTo(pad, size.height - pad, pad, size.height * 0.48f)
+            lineTo(tip.x, tip.y)
+        }
+        drawPath(shaft, color = accent, style = w)
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(pad + size.width * 0.30f, pad),
+            strokeWidth = w.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(pad + size.width * 0.30f, tip.y + size.height * 0.22f),
+            strokeWidth = w.width,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+fun MessagesIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val pad = size.minDimension * 0.08f
+        val bodyH = size.height * 0.70f
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(pad, pad),
+            size = Size(size.width - pad * 2f, bodyH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
+        val tail = size.width * 0.30f
+        drawLine(
+            color = accent,
+            start = Offset(tail, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+        drawLine(
+            color = accent,
+            start = Offset(tail + size.width * 0.20f, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+    }
 }
 
 @Composable

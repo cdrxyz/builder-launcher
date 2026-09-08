@@ -148,6 +148,8 @@ fun BuilderRoot(
     var noteId by remember { mutableStateOf<String?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     var noteFromList by remember { mutableStateOf(false) }
+    var replyKey by remember { mutableStateOf<String?>(null) }
+    var replyText by remember { mutableStateOf("") }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -225,6 +227,20 @@ fun BuilderRoot(
         val clip = ctx.getSystemService(ClipboardManager::class.java)
         clip?.setPrimaryClip(ClipData.newPlainText(label, value))
         Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+    }
+
+    fun openHub() {
+        replyKey = null
+        replyText = ""
+        page = Page.Hub
+    }
+
+    fun sendHubReply(key: String) {
+        val text = replyText.trim()
+        if (text.isEmpty()) return
+        HubStore.reply(key, text)
+        replyKey = null
+        replyText = ""
     }
 
     fun mode() = PrefixCommands.Mode(prompt, input)
@@ -313,7 +329,7 @@ fun BuilderRoot(
                 aiText = null
             }
             ExecResult.NavigateSettings -> page = Page.Settings
-            ExecResult.NavigateHub -> page = Page.Hub
+            ExecResult.NavigateHub -> openHub()
             ExecResult.NavigateNotes -> openNotesList()
             ExecResult.NavigateApps -> openAppsList(keepQuery = false)
             is ExecResult.Ask -> {
@@ -360,7 +376,14 @@ fun BuilderRoot(
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .then(
+                when (page) {
+                    Page.Home -> Modifier.horizontalSwipe(page, onRight = { openHub() })
+                    Page.Hub -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
+                    else -> Modifier
+                },
+            ),
     ) {
         when (page) {
             Page.Home -> {
@@ -368,6 +391,7 @@ fun BuilderRoot(
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
                     onOpenSettings = { page = Page.Settings },
+                    onOpenHub = { openHub() },
                 )
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
@@ -544,7 +568,7 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
-                    onHub = { page = Page.Hub },
+                    onHub = { openHub() },
                 )
             }
             Page.Todos -> {
@@ -607,7 +631,7 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
-                    onHub = { page = Page.Hub },
+                    onHub = { openHub() },
                 )
             }
             Page.Notes -> {
@@ -777,7 +801,7 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
-                    onHub = { page = Page.Hub },
+                    onHub = { openHub() },
                 )
             }
             Page.Hub -> {
@@ -788,31 +812,70 @@ fun BuilderRoot(
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(hub, key = { it.key }) { item ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(
-                                Modifier
-                                    .weight(1f)
-                                    .clickable { HubStore.open(item.key) },
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
-                                Text(item.title, color = Paper)
-                                if (item.body.isNotBlank()) {
-                                    Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .clickable { HubStore.open(item.key) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                    Text(item.title, color = Paper)
+                                    if (item.body.isNotBlank()) {
+                                        Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                    }
                                 }
+                                ReplyIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "reply" }
+                                        .clickable {
+                                            if (item.canInlineReply) {
+                                                replyKey = item.key
+                                                replyText = ""
+                                            } else {
+                                                HubStore.open(item.key)
+                                            }
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                                DeleteIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "dismiss" }
+                                        .clickable {
+                                            replyKey = null
+                                            replyText = ""
+                                            HubStore.dismiss(item.key)
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
                             }
-                            Text(
-                                "dismiss",
-                                color = Dim,
-                                modifier = Modifier
-                                    .clickable { HubStore.dismiss(item.key) }
-                                    .padding(start = 12.dp),
-                            )
+                            if (replyKey == item.key && item.canInlineReply) {
+                                Spacer(Modifier.height(4.dp))
+                                BasicTextField(
+                                    value = replyText,
+                                    onValueChange = { replyText = it },
+                                    singleLine = true,
+                                    cursorBrush = SolidColor(Accent),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+                                    keyboardOptions = KeyboardOptions(
+                                        capitalization = KeyboardCapitalization.Sentences,
+                                        imeAction = ImeAction.Send,
+                                    ),
+                                    keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+                            }
                         }
                     }
                     if (hub.isEmpty()) {
                         item {
                             Text(
-                                "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
+                                "Grant notification access in settings to fill the hub with messages you can reply to.",
                                 color = Dim,
                             )
                         }
@@ -835,7 +898,7 @@ fun BuilderRoot(
 }
 
 @Composable
-private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
+private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit, onOpenHub: () -> Unit) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -845,12 +908,24 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
     }
     val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
-    Column(Modifier.clickable { onOpenSettings() }) {
-        Text(time, style = MaterialTheme.typography.headlineLarge)
-        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        if (!weather.isNullOrBlank()) {
-            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(Modifier.clickable { onOpenSettings() }.weight(1f)) {
+            Text(time, style = MaterialTheme.typography.headlineLarge)
+            Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            if (!weather.isNullOrBlank()) {
+                Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            }
         }
+        MessagesIcon(
+            Modifier
+                .semantics { contentDescription = "messages" }
+                .clickable { onOpenHub() }
+                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+        )
     }
 }
 

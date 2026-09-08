@@ -45,6 +45,10 @@ def home() -> None:
     d.text((PAD_X, PAD_T), "15:42", font=F_TIME, fill=PAPER)
     d.text((PAD_X, PAD_T + 128), "Mon 7 Sep", font=F_MED, fill=DIM)
     d.text((PAD_X, PAD_T + 168), "18° cloudy", font=F_MED, fill=DIM)
+    bubble_x, bubble_y = W - PAD_X - 36, PAD_T + 12
+    d.rounded_rectangle((bubble_x, bubble_y, bubble_x + 36, bubble_y + 24), radius=4, outline=PROMPT, width=2)
+    d.line((bubble_x + 10, bubble_y + 24, bubble_x + 4, bubble_y + 34), fill=PROMPT, width=2)
+    d.line((bubble_x + 18, bubble_y + 24, bubble_x + 4, bubble_y + 34), fill=PROMPT, width=2)
     y = PAD_T + 230
     for todo in ("buy milk", "ship builder-launcher CI", "call dentist"):
         d.text((PAD_X, y), todo, font=F_BODY, fill=PAPER)
@@ -63,20 +67,25 @@ def hub() -> None:
     d.text((PAD_X, PAD_T), "hub", font=F_BODY, fill=PROMPT)
     d.text((W - PAD_X - 80, PAD_T), "home", font=F_SMALL, fill=DIM)
     items = [
-        ("todo", "ship builder-launcher CI", None),
-        ("note", "review PR after lunch", None),
         ("Messages", "Jason", "on my way"),
-        ("Calendar", "dentist", "Tue 9:00"),
+        ("Signal", "Lauren", "running late"),
     ]
     y = PAD_T + 80
     for src, title, body in items:
         d.text((PAD_X, y), src, font=F_SMALL, fill=DIM)
         d.text((PAD_X, y + 32), title, font=F_BODY, fill=PAPER)
-        y += 78
         if body:
-            d.text((PAD_X, y - 8), body, font=F_MED, fill=DIM)
-            y += 28
-        y += 18
+            d.text((PAD_X, y + 70), body, font=F_MED, fill=DIM)
+        ix, iy = W - PAD_X - 78, y + 26
+        d.line((ix + 22, iy + 22, ix + 10, iy + 22), fill=PROMPT, width=2)
+        d.arc((ix, iy + 6, ix + 20, iy + 22), start=90, end=90, fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 12, ix + 2, iy + 4), fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 4, ix + 10, iy), fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 4, ix + 10, iy + 8), fill=PROMPT, width=2)
+        xx, xy = W - PAD_X - 28, y + 30
+        d.line((xx, xy, xx + 16, xy + 16), fill=DIM, width=2)
+        d.line((xx + 16, xy, xx, xy + 16), fill=DIM, width=2)
+        y += 128
     save(im, "hub.png")
 
 
