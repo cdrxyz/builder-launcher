@@ -21,4 +21,4 @@ Android keeps the totals. Builder Launcher does not upload them. Grant **Usage a
 
 YouTube, Instagram, and similar apps start as distracting. Termux, Slack, Gmail, calendars, and maps start as productive. Everything else starts as other, including this launcher and browsers.
 
-Swipe right, `<`, or Back returns home.
+`usage` sits top left in the accent color. Swipe right, `>` (top right), or Back returns home.

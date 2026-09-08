@@ -1454,9 +1454,19 @@ fun BuilderRoot(
                 )
             }
             Page.Hub -> {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "<",
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable { page = Page.Home }
+                            .padding(vertical = 6.dp),
+                    )
                     Text("hub", color = Accent)
-                    Text("home", color = Dim, modifier = Modifier.clickable { page = Page.Home })
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {

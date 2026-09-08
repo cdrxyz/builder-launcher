@@ -786,9 +786,13 @@ fun HubChrome(rows: List<HubRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             Text("hub", color = Accent)
-            Text("home", color = Dim)
         }
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -1168,8 +1172,15 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("usage", color = Accent)
+            Text(Usage.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f)) {
             UsageBody(snapshot = snapshot)
         }
