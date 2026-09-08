@@ -6,6 +6,13 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# One in-flight run per ref. A newer master push cancels an older
+# release so GITHUB_RUN_NUMBER / --latest cannot invert (newer commit,
+# older version).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   actions: write
