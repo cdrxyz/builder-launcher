@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
@@ -44,6 +45,10 @@ data class HubRow(
 data class NoteListRow(
     val title: String,
     val edited: String,
+)
+
+data class AppListRow(
+    val label: String,
 )
 
 @Composable
@@ -81,7 +86,7 @@ fun HomeChrome(
                 apps.forEach { label ->
                     Text(
                         label,
-                        color = if (label == Notes.MORE) Prompt else Paper,
+                        color = if (label == Notes.MORE || label == AppList.MORE) Prompt else Paper,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     )
                 }
@@ -167,6 +172,48 @@ fun NotesChrome(rows: List<NoteListRow>) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun AllAppsChrome(
+    rows: List<AppListRow>,
+    input: String = "",
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(AppList.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (rows.isEmpty()) {
+                Text("No apps match.", color = Dim)
+            } else {
+                rows.forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppMark(Modifier.padding(end = 12.dp))
+                        Text(
+                            row.label,
+                            color = Paper,
+                            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                        )
+                        InfoIcon(Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
+                        DeleteIcon(Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input)
     }
 }
 
@@ -415,6 +462,33 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
             start = Offset(size.width - inset, inset),
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun InfoIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val r = size.minDimension / 2f - stroke.width
+        drawCircle(color = Dim, radius = r, style = stroke)
+        val cx = size.width / 2f
+        drawCircle(color = Dim, radius = 1.3.dp.toPx(), center = Offset(cx, size.height * 0.32f))
+        drawLine(
+            color = Dim,
+            start = Offset(cx, size.height * 0.46f),
+            end = Offset(cx, size.height * 0.72f),
+            strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun AppMark(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(28.dp)) {
+        drawRoundRect(
+            color = Line,
+            cornerRadius = CornerRadius(5.dp.toPx()),
         )
     }
 }
