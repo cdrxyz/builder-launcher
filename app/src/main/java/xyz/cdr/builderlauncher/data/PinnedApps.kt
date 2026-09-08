@@ -24,6 +24,10 @@ class PinnedApps(context: Context) {
         persist(ListReorder.move(_packages.value, from, to))
     }
 
+    fun moveVisible(visible: List<String>, from: Int, to: Int) {
+        persist(orderAfterMove(_packages.value, visible, from, to))
+    }
+
     fun isPinned(packageName: String): Boolean = packageName in _packages.value
 
     private fun persist(next: List<String>) {
@@ -37,4 +41,13 @@ class PinnedApps(context: Context) {
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
             ?: emptyList()
+
+    companion object {
+        fun orderAfterMove(stored: List<String>, visible: List<String>, from: Int, to: Int): List<String> {
+            val nextVisible = ListReorder.move(visible, from, to)
+            if (nextVisible === visible) return stored
+            val leftover = stored.filter { it !in nextVisible }
+            return nextVisible + leftover
+        }
+    }
 }

@@ -32,4 +32,13 @@ class ListReorderTest {
         assertEquals(50f, ListReorder.neighborOffset(1, 4, 1, 50f))
         assertEquals(0f, ListReorder.neighborOffset(0, 4, 1, 50f))
     }
+
+    @Test
+    fun liveIndexIgnoresStaleSlotAfterMove() {
+        val before = listOf("A", "B", "C")
+        val after = ListReorder.move(before, 2, 0)
+        assertEquals(2, ListReorder.liveIndex(before) { it == "C" })
+        assertEquals(0, ListReorder.liveIndex(after) { it == "C" })
+        assertEquals(-1, ListReorder.liveIndex(after) { it == "Z" })
+    }
 }

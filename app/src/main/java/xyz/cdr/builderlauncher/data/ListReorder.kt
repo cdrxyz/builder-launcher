@@ -22,4 +22,6 @@ object ListReorder {
             from > to && index in to until from -> step
             else -> 0f
         }
+
+    fun <T> liveIndex(items: List<T>, match: (T) -> Boolean): Int = items.indexOfFirst(match)
 }
