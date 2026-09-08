@@ -78,6 +78,7 @@ import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -300,7 +301,7 @@ fun BuilderRoot(
             Page.Home -> {
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
                 ClockHeader(
-                    weather = forecast?.line,
+                    weather = forecast?.line(settings.weatherUnits),
                     onOpenSettings = { page = Page.Settings },
                 )
                 Spacer(Modifier.height(8.dp))
@@ -1038,6 +1039,26 @@ private fun SettingsPage(
                 }
                 scope.launch { weather.refresh() }
             },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Weather units", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            WeatherUnits.entries.forEach { units ->
+                Text(
+                    units.name.lowercase(),
+                    color = if (settings.weatherUnits == units) Prompt else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(weatherUnits = units) } },
+                )
+            }
+        }
+        Text(
+            if (settings.weatherUnits == WeatherUnits.IMPERIAL) {
+                "Home weather in Fahrenheit."
+            } else {
+                "Home weather in Celsius."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(20.dp))
         Text(

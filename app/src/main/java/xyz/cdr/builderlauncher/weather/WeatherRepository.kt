@@ -24,8 +24,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import xyz.cdr.builderlauncher.data.SettingsRepository
+import xyz.cdr.builderlauncher.data.WeatherUnits
 import java.io.File
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
@@ -36,8 +36,20 @@ data class WeatherSnapshot(
     val fetchedAt: Long,
     val latitude: Double,
     val longitude: Double,
+    val celsius: Boolean = false,
 ) {
-    val line: String get() = "$temperature° $condition"
+    fun line(units: WeatherUnits): String = "${units.displayTemperature(temperature)}° $condition"
+}
+
+object WeatherCache {
+    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+
+    fun parse(raw: String): WeatherSnapshot? {
+        val snap = runCatching { json.decodeFromString<WeatherSnapshot>(raw) }.getOrNull() ?: return null
+        return snap.takeIf { it.celsius }
+    }
+
+    fun encode(snap: WeatherSnapshot): String = json.encodeToString(snap)
 }
 
 class WeatherRepository(
@@ -50,18 +62,17 @@ class WeatherRepository(
 ) {
     private val app = context.applicationContext
     private val file = File(app.filesDir, "weather.json")
-    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val json = Json { ignoreUnknownKeys = true }
     private val _current = MutableStateFlow(load())
     val current: StateFlow<WeatherSnapshot?> = _current.asStateFlow()
 
     suspend fun refresh() = withContext(Dispatchers.IO) {
         val point = WeatherPointResolver.fromSettings(settings.settings.value) ?: gpsPoint() ?: return@withContext
-        val unit = if (Locale.getDefault().country.equals("US", true)) "fahrenheit" else "celsius"
         val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl().newBuilder()
             .addQueryParameter("latitude", point.latitude.toString())
             .addQueryParameter("longitude", point.longitude.toString())
             .addQueryParameter("current", "temperature_2m,weather_code")
-            .addQueryParameter("temperature_unit", unit)
+            .addQueryParameter("temperature_unit", "celsius")
             .build()
         val req = Request.Builder().url(url).get().build()
         runCatching {
@@ -78,6 +89,7 @@ class WeatherRepository(
                         fetchedAt = System.currentTimeMillis(),
                         latitude = point.latitude,
                         longitude = point.longitude,
+                        celsius = true,
                     ),
                 )
             }
@@ -104,12 +116,14 @@ class WeatherRepository(
 
     private fun persist(next: WeatherSnapshot) {
         _current.value = next
-        file.writeText(json.encodeToString(next))
+        file.writeText(WeatherCache.encode(next))
     }
 
     private fun load(): WeatherSnapshot? {
         if (!file.exists()) return null
-        return runCatching { json.decodeFromString<WeatherSnapshot>(file.readText()) }.getOrNull()
+        val snap = WeatherCache.parse(file.readText())
+        if (snap == null) runCatching { file.delete() }
+        return snap
     }
 
     private suspend fun gpsPoint(): WeatherPoint? {
