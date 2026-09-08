@@ -526,6 +526,8 @@ fun StockDetailChrome(
     range: StockRange = StockRange.D1,
     stats: List<StockStatLine> = emptyList(),
     cagr: List<StockStatLine> = emptyList(),
+    extendedLine: String = "",
+    extendedUp: Boolean = true,
 ) {
     val tone = if (up) Gain else Loss
     Column(
@@ -541,6 +543,13 @@ fun StockDetailChrome(
         Spacer(Modifier.height(12.dp))
         Text(price, color = Paper, style = MaterialTheme.typography.headlineLarge)
         Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+        if (extendedLine.isNotBlank()) {
+            Text(
+                extendedLine,
+                color = if (extendedUp) Gain else Loss,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Spacer(Modifier.height(16.dp))
         StockChart(points = points, up = up, modifier = Modifier.fillMaxWidth().height(140.dp))
         Spacer(Modifier.height(12.dp))

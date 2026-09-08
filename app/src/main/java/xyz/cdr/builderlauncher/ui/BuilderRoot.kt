@@ -1665,6 +1665,7 @@ fun BuilderRoot(
                 val symbol = stockSymbol.orEmpty()
                 val day = stockChart?.quote ?: quotes[symbol]
                 val extra = stockDetails?.quote
+                val live = quotes[symbol]
                 val quote = day?.copy(
                     pe = extra?.pe,
                     marketCap = extra?.marketCap,
@@ -1672,6 +1673,10 @@ fun BuilderRoot(
                     eps = extra?.eps,
                     beta = extra?.beta,
                     avgVolume = extra?.avgVolume,
+                    extendedLabel = live?.extendedLabel ?: day.extendedLabel ?: extra?.extendedLabel,
+                    extendedPrice = live?.extendedPrice ?: day.extendedPrice ?: extra?.extendedPrice,
+                    extendedChange = live?.extendedChange ?: day.extendedChange ?: extra?.extendedChange,
+                    extendedPercent = live?.extendedPercent ?: day.extendedPercent ?: extra?.extendedPercent,
                 ) ?: extra
                 val item = watch.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
                 val name = quote?.name ?: item?.name ?: symbol
@@ -1710,6 +1715,15 @@ fun BuilderRoot(
                     )
                     if (changeLine.isNotBlank()) {
                         Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    val extendedLine = quote?.let { Stocks.formatExtended(it) }.orEmpty()
+                    if (extendedLine.isNotBlank()) {
+                        val extendedUp = (quote?.extendedChange ?: 0.0) >= 0.0
+                        Text(
+                            extendedLine,
+                            color = if (extendedUp) Gain else Loss,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                     Spacer(Modifier.height(16.dp))
                     StockChart(

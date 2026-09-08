@@ -213,6 +213,74 @@ class YahooFinanceTest {
         assertEquals(listOf(328.0, 322.5, 319.97), chart.points.map { it.close })
         assertEquals(listOf(1L, 2L, 4L), chart.points.map { it.time })
         assertEquals(listOf(100L, 200L, 300L), chart.volumes)
+        assertNull(chart.quote.extendedLabel)
+        assertNull(chart.quote.extendedPrice)
+    }
+
+    @Test
+    fun parsesPreMarketWhenAvailable() {
+        val raw = """
+            {"chart":{"result":[{
+              "meta":{
+                "currency":"USD",
+                "symbol":"AAPL",
+                "shortName":"Apple Inc.",
+                "regularMarketPrice":319.97,
+                "chartPreviousClose":328.21,
+                "hasPrePostMarketData":true,
+                "fulldayPrice":318.55,
+                "fulldayChange":-1.42,
+                "fulldayChangePercent":-0.444,
+                "currentTradingPeriod":{
+                  "pre":{"start":100,"end":200},
+                  "regular":{"start":200,"end":300},
+                  "post":{"start":300,"end":400}
+                }
+              },
+              "timestamp":[1,2],
+              "indicators":{"quote":[{"close":[319.97, 318.55]}]}
+            }],"error":null}}
+        """.trimIndent()
+        val pre = YahooFinance.parseChart(raw, nowSec = 150)!!.quote
+        assertEquals("Pre-Market", pre.extendedLabel)
+        assertEquals(318.55, pre.extendedPrice!!, 0.001)
+        assertEquals(-1.42, pre.extendedChange!!, 0.001)
+        assertEquals("Pre-Market $318.55 -1.42 (-0.44%)", Stocks.formatExtended(pre))
+        val after = YahooFinance.parseChart(raw, nowSec = 350)!!.quote
+        assertEquals("After Hours", after.extendedLabel)
+        assertEquals("After Hours $318.55 -1.42 (-0.44%)", Stocks.formatExtended(after))
+        val regular = YahooFinance.parseChart(raw, nowSec = 250)!!.quote
+        assertNull(regular.extendedLabel)
+        assertNull(Stocks.formatExtended(regular))
+    }
+
+    @Test
+    fun skipsExtendedWhenFeedHasNone() {
+        val raw = """
+            {"chart":{"result":[{
+              "meta":{
+                "currency":"GBp",
+                "symbol":"SHEL.L",
+                "shortName":"Shell PLC",
+                "regularMarketPrice":3494.5,
+                "chartPreviousClose":3483.0,
+                "hasPrePostMarketData":false,
+                "fulldayPrice":3494.5,
+                "fulldayChange":11.5,
+                "fulldayChangePercent":0.33,
+                "currentTradingPeriod":{
+                  "pre":{"start":100,"end":200},
+                  "regular":{"start":200,"end":300},
+                  "post":{"start":300,"end":400}
+                }
+              },
+              "timestamp":[1],
+              "indicators":{"quote":[{"close":[3494.5]}]}
+            }],"error":null}}
+        """.trimIndent()
+        val quote = YahooFinance.parseChart(raw, nowSec = 150)!!.quote
+        assertNull(quote.extendedLabel)
+        assertNull(Stocks.formatExtended(quote))
     }
 
     @Test

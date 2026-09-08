@@ -38,7 +38,7 @@ App search that looks like "stocks" shows `… all stocks >`.
 
 ![Ticker detail with 1D chart, timeframes, and stats](../../../assets/screenshots/stock-detail.png)
 
-Timeframes: **1D / 1W / 1M / 3M / 1Y / 5Y**. Stats: open, high, low, volume, P/E, market cap, EPS, yield, beta, average volume, 52-week high/low. CAGR for 1Y / 3Y / 5Y / 10Y sits under the stats.
+Timeframes: **1D / 1W / 1M / 3M / 1Y / 5Y**. Under the regular close, **Pre-Market** or **After Hours** shows when Yahoo has it (US names usually; LSE, TSX, crypto usually not). Stats: open, high, low, volume, P/E, market cap, EPS, yield, beta, average volume, 52-week high/low. CAGR for 1Y / 3Y / 5Y / 10Y sits under the stats.
 
 Quotes, search, charts, and fundamentals come from Yahoo Finance. Home also refreshes quotes when the watchlist is not empty. Search and charts wait until you open stocks or pick a ticker.
 
