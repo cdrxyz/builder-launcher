@@ -43,6 +43,7 @@ data class WeatherHour(
     val code: Int,
     val precipProb: Int? = null,
     val uv: Double? = null,
+    val isDay: Boolean = true,
 )
 
 @Serializable
@@ -55,6 +56,7 @@ data class WeatherDay(
     val sunrise: String? = null,
     val sunset: String? = null,
     val uv: Double? = null,
+    val precipMm: Double? = null,
 )
 
 @Serializable
@@ -135,6 +137,7 @@ object WeatherForecastParser {
         val codes = obj.ints("weather_code")
         val probs = obj.ints("precipitation_probability")
         val uvs = obj.nums("uv_index")
+        val days = obj.ints("is_day")
         val zone = runCatching { ZoneId.of(tz) }.getOrDefault(ZoneId.of("UTC"))
         val out = ArrayList<WeatherHour>(24)
         for (i in times.indices) {
@@ -148,6 +151,7 @@ object WeatherForecastParser {
                 code = code,
                 precipProb = probs.getOrNull(i),
                 uv = uvs.getOrNull(i),
+                isDay = (days.getOrNull(i) ?: 1) == 1,
             )
             if (out.size >= 24) break
         }
@@ -164,6 +168,7 @@ object WeatherForecastParser {
         val sunrises = obj.strings("sunrise")
         val sunsets = obj.strings("sunset")
         val uvs = obj.nums("uv_index_max")
+        val precip = obj.nums("precipitation_sum")
         return dates.indices.mapNotNull { i ->
             val date = dates.getOrNull(i) ?: return@mapNotNull null
             val code = codes.getOrNull(i) ?: return@mapNotNull null
@@ -178,6 +183,7 @@ object WeatherForecastParser {
                 sunrise = sunrises.getOrNull(i)?.let { clockOf(it) },
                 sunset = sunsets.getOrNull(i)?.let { clockOf(it) },
                 uv = uvs.getOrNull(i),
+                precipMm = precip.getOrNull(i),
             )
         }.take(WeatherForecast.DAYS)
     }
@@ -264,6 +270,39 @@ object WeatherFormat {
     }
 
     fun precipChance(prob: Int?): String = if (prob == null) "—" else "$prob%"
+
+    fun precipAmount(mm: Double?, units: WeatherUnits): String? {
+        if (mm == null || mm < 0.5) return null
+        return if (units == WeatherUnits.IMPERIAL) {
+            val inches = mm / 25.4
+            if (inches < 0.05) return null
+            val shown = if (inches < 1.0) "%.2f".format(Locale.US, inches) else "%.1f".format(Locale.US, inches)
+            "$shown in"
+        } else {
+            val shown = if (mm < 10) "%.1f".format(Locale.US, mm) else "${mm.roundToInt()}"
+            "$shown mm"
+        }
+    }
+
+    fun daySummary(day: WeatherDay, units: WeatherUnits): String {
+        val kind = WeatherKind.ofCode(day.code)
+        val chance = day.precipProb?.takeIf { it >= 20 }?.let { "$it%" }
+        val amount = precipAmount(day.precipMm, units)
+        val uv = day.uv?.roundToInt()?.takeIf { it >= 8 }?.let { "UV $it" }
+            ?.takeIf { kind == WeatherKind.CLEAR || kind == WeatherKind.FAIR }
+        val label = WeatherCodes.label(day.code)
+        val bits = when (kind) {
+            WeatherKind.STORM -> listOfNotNull("storms", amount ?: chance)
+            WeatherKind.FOG -> listOfNotNull("fog", amount ?: chance)
+            WeatherKind.SNOW, WeatherKind.RAIN, WeatherKind.DRIZZLE ->
+                listOfNotNull(chance, amount).ifEmpty { listOf(label) }
+            WeatherKind.CLEAR, WeatherKind.FAIR ->
+                listOfNotNull(label.takeIf { amount == null }, chance.takeIf { amount == null && uv == null }, amount, uv)
+            WeatherKind.CLOUDY, null ->
+                listOfNotNull(label.takeIf { amount == null }, chance, amount)
+        }
+        return bits.joinToString(" · ").ifBlank { label }
+    }
 
     fun humidity(value: Int?): String = if (value == null) "—" else "$value%"
 
