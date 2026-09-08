@@ -221,6 +221,15 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun stocksSettings() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                StocksSettingsChrome(insert = xyz.cdr.builderlauncher.data.StockInsert.TOP, count = 2)
+            }
+        }
+    }
+
+    @Test
     fun stockDetail() {
         val points = listOf(
             328.0, 326.4, 324.1, 325.8, 323.0, 321.2, 322.5, 320.1, 319.97,

@@ -26,11 +26,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -45,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,15 +61,20 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -98,6 +107,7 @@ import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
@@ -128,7 +138,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, Chat, ChatHistory }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory }
 
 @Composable
 fun BuilderRoot(
@@ -327,7 +337,7 @@ fun BuilderRoot(
 
     fun addTicker(query: String) {
         scope.launch {
-            val item = stocks.add(query)
+            val item = stocks.add(query, settings.stockInsert)
             if (item == null) {
                 Toast.makeText(ctx, "No ticker matches", Toast.LENGTH_SHORT).show()
             }
@@ -344,23 +354,27 @@ fun BuilderRoot(
         return data.getItemAt(0).coerceToText(ctx).toString()
     }
 
-    fun importTickers(raw: String) {
+    fun importTickers(raw: String, replace: Boolean = false) {
         val text = Stocks.queryFromInput(raw).ifBlank { raw }
         val hits = StocksCsv.parse(text)
         if (hits.isEmpty()) {
             Toast.makeText(ctx, "No tickers in clipboard", Toast.LENGTH_SHORT).show()
             return
         }
-        val added = stocks.importHits(hits)
+        val count = if (replace) stocks.replaceHits(hits) else stocks.importHits(hits, settings.stockInsert)
         Toast.makeText(
             ctx,
-            if (added == 0) "Already on the list" else "Added $added",
+            when {
+                replace -> "Loaded $count"
+                count == 0 -> "Already on the list"
+                else -> "Added $count"
+            },
             Toast.LENGTH_SHORT,
         ).show()
         stockHits = emptyList()
         prompt = '$'
         input = ""
-        if (added > 0) {
+        if (count > 0) {
             scope.launch { stocks.refreshQuotes() }
         }
     }
@@ -1246,24 +1260,18 @@ fun BuilderRoot(
                             }
                             .padding(vertical = 6.dp),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "paste",
-                            color = Dim,
-                            modifier = Modifier
-                                .clickable { importTickers(clipboardText()) }
-                                .padding(vertical = 6.dp, horizontal = 8.dp),
-                        )
-                        CopyIcon(
-                            Modifier
-                                .clickable {
-                                    copyText("stocks", StocksCsv.export(watch))
-                                }
-                                .padding(vertical = 6.dp),
-                        )
-                    }
+                    GearIcon(
+                        Modifier
+                            .semantics { contentDescription = "stocks settings" }
+                            .clickable { page = Page.StockSettings }
+                            .padding(vertical = 6.dp),
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
+                var dragFrom by remember { mutableStateOf<Int?>(null) }
+                var dragY by remember { mutableFloatStateOf(0f) }
+                var rowHeight by remember { mutableFloatStateOf(0f) }
+                val gap = with(LocalDensity.current) { 10.dp.toPx() }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (searching) {
                         if (stockHits.isEmpty()) {
@@ -1291,50 +1299,84 @@ fun BuilderRoot(
                     } else {
                         if (watch.isEmpty()) {
                             item {
-                                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
+                                Text("Type \$AAPL to add a ticker.", color = Dim)
                             }
                         }
-                        items(watch, key = { it.symbol }) { item ->
+                        itemsIndexed(watch, key = { _, it -> it.symbol }) { index, item ->
                             val quote = quotes[item.symbol]
                             val price = quote?.price ?: item.price
                             val percent = quote?.changePercent ?: item.changePercent
                             val up = (percent ?: 0.0) >= 0.0
                             val tone = if (up) Gain else Loss
+                            val lifting = dragFrom == index
                             Row(
-                                Modifier.fillMaxWidth(),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(if (lifting) 1f else 0f)
+                                    .offset { IntOffset(0, if (lifting) dragY.toInt() else 0) }
+                                    .onSizeChanged { rowHeight = it.height.toFloat() }
+                                    .animateItem(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(
+                                Row(
                                     Modifier
                                         .weight(1f)
+                                        .pointerInput(index, watch.size) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = {
+                                                    dragFrom = index
+                                                    dragY = 0f
+                                                },
+                                                onDragEnd = {
+                                                    dragFrom = null
+                                                    dragY = 0f
+                                                },
+                                                onDragCancel = {
+                                                    dragFrom = null
+                                                    dragY = 0f
+                                                },
+                                                onDrag = { change, amount ->
+                                                    change.consume()
+                                                    dragY += amount.y
+                                                    val from = dragFrom ?: return@detectDragGesturesAfterLongPress
+                                                    val step = (rowHeight + gap).takeIf { it > 1f } ?: return@detectDragGesturesAfterLongPress
+                                                    val shift = kotlin.math.round(dragY / step).toInt()
+                                                    val to = (from + shift).coerceIn(0, watch.lastIndex)
+                                                    if (to != from) {
+                                                        stocks.move(from, to)
+                                                        dragFrom = to
+                                                        dragY -= (to - from) * step
+                                                    }
+                                                },
+                                            )
+                                        }
                                         .clickable { openStockDetail(item.symbol) }
                                         .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(item.symbol, color = Paper)
-                                    Text(
-                                        quote?.name ?: item.name,
-                                        color = Dim,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                                Column(
-                                    horizontalAlignment = Alignment.End,
-                                    modifier = Modifier
-                                        .clickable { openStockDetail(item.symbol) }
-                                        .padding(vertical = 6.dp),
-                                ) {
-                                    Text(
-                                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item.currency) else "—",
-                                        color = Paper,
-                                    )
-                                    Text(
-                                        if (percent != null) Stocks.formatPercent(percent) else "—",
-                                        color = if (percent == null) Dim else tone,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(item.symbol, color = Paper)
+                                        Text(
+                                            quote?.name ?: item.name,
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            if (price != null) Stocks.formatPrice(price, quote?.currency ?: item.currency) else "—",
+                                            color = Paper,
+                                        )
+                                        Text(
+                                            if (percent != null) Stocks.formatPercent(percent) else "—",
+                                            color = if (percent == null) Dim else tone,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
                                 }
                                 DeleteIcon(
                                     Modifier
+                                        .semantics { contentDescription = "delete stock" }
                                         .clickable { stocks.remove(item.symbol) }
                                         .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
                                 )
@@ -1420,6 +1462,89 @@ fun BuilderRoot(
                     StockStatPair("Low", Stocks.formatNumber(quote?.low), "Vol", quote?.volume?.let { Stocks.formatVolume(it) } ?: "—")
                     StockStatPair("Prev", Stocks.formatNumber(quote?.previousClose), "52W H", Stocks.formatNumber(quote?.week52High))
                     StockStatPair("52W L", Stocks.formatNumber(quote?.week52Low), "Chg", if (percent != null) Stocks.formatPercent(percent) else "—")
+                }
+            }
+            Page.StockSettings -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            Stocks.BACK,
+                            color = Accent,
+                            modifier = Modifier
+                                .clickable { page = Page.Stocks }
+                                .padding(vertical = 6.dp),
+                        )
+                        Text("stocks", color = Dim)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                        StockInsert.entries.forEach { insert ->
+                            Text(
+                                insert.name.lowercase(),
+                                color = if (settings.stockInsert == insert) Accent else Dim,
+                                modifier = Modifier.clickable { settingsRepo.update { it.copy(stockInsert = insert) } },
+                            )
+                        }
+                    }
+                    Text(
+                        if (settings.stockInsert == StockInsert.BOTTOM) {
+                            "New tickers go to the bottom of the list."
+                        } else {
+                            "New tickers go to the top of the list."
+                        },
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Text("Import / export", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "${watch.size} of ${Stocks.MAX} tickers",
+                        color = Paper,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                    )
+                    Text(
+                        "copy list",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { copyText("stocks", StocksCsv.export(watch)) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Text(
+                        "paste (add)",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { importTickers(clipboardText()) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Text(
+                        "replace list",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { importTickers(clipboardText(), replace = true) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Copy writes Exchange,Ticker,Name. Paste adds tickers from the clipboard and skips ones already on the list. Replace swaps the whole list for the clipboard. New tickers from paste follow the top/bottom setting.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Accepted: our CSV, an Apple Stocks Symbol,Name export, or one ticker per line. Cap is ${Stocks.MAX}.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
         }

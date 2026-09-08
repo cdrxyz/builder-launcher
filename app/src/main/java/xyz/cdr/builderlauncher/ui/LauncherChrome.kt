@@ -31,6 +31,7 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -391,16 +392,13 @@ fun StocksChrome(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("paste", color = Dim, modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp))
-                CopyIcon(Modifier.padding(vertical = 6.dp))
-            }
+            GearIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val shown = if (hits.isNotEmpty()) hits else rows
             if (shown.isEmpty()) {
-                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
+                Text("Type \$AAPL to add a ticker.", color = Dim)
             } else {
                 shown.forEach { row ->
                     StockRowChrome(row)
@@ -409,6 +407,70 @@ fun StocksChrome(
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input, prompt = "$")
+    }
+}
+
+@Composable
+fun StocksSettingsChrome(
+    insert: StockInsert = StockInsert.TOP,
+    count: Int = 2,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("stocks", color = Dim)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            StockInsert.entries.forEach { item ->
+                Text(
+                    item.name.lowercase(),
+                    color = if (item == insert) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (insert == StockInsert.BOTTOM) {
+                "New tickers go to the bottom of the list."
+            } else {
+                "New tickers go to the top of the list."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(20.dp))
+        Text("Import / export", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            "$count of ${Stocks.MAX} tickers",
+            color = Paper,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+        )
+        Text("copy list", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("paste (add)", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("replace list", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Copy writes Exchange,Ticker,Name. Paste adds tickers from the clipboard and skips ones already on the list. Replace swaps the whole list for the clipboard. New tickers from paste follow the top/bottom setting.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Accepted: our CSV, an Apple Stocks Symbol,Name export, or one ticker per line. Cap is ${Stocks.MAX}.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -511,6 +573,7 @@ private fun StockRowChrome(row: StockListRow) {
             Text(row.price, color = Paper)
             Text(row.change, color = tone, style = MaterialTheme.typography.bodyMedium)
         }
+        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
     }
 }
 
@@ -820,6 +883,45 @@ fun CopyIcon(modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke,
         )
+    }
+}
+
+@Composable
+fun GearIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(
+            width = 1.6.dp.toPx(),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round,
+        )
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val hole = size.minDimension * 0.16f
+        val valley = size.minDimension * 0.30f
+        val tip = size.minDimension * 0.46f
+        val teeth = 8
+        val step = (Math.PI * 2.0 / teeth).toFloat()
+        val half = step * 0.28f
+        val path = Path()
+        for (i in 0 until teeth) {
+            val a = i * step - (Math.PI / 2.0).toFloat()
+            val angles = floatArrayOf(
+                a - step / 2f + half,
+                a - half,
+                a + half,
+                a + step / 2f - half,
+            )
+            val radii = floatArrayOf(valley, tip, tip, valley)
+            for (k in 0 until 4) {
+                val x = cx + kotlin.math.cos(angles[k]) * radii[k]
+                val y = cy + kotlin.math.sin(angles[k]) * radii[k]
+                if (i == 0 && k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+        }
+        path.close()
+        drawPath(path, color = accent, style = stroke)
+        drawCircle(color = accent, radius = hole, center = Offset(cx, cy), style = stroke)
     }
 }
 

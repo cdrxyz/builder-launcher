@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import xyz.cdr.builderlauncher.data.StockInsert
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -61,7 +62,7 @@ class StocksRepository(
         }.getOrDefault(emptyList())
     }
 
-    suspend fun add(query: String): WatchItem? {
+    suspend fun add(query: String, insert: StockInsert = StockInsert.TOP): WatchItem? {
         val q = query.trim()
         if (q.isBlank()) return null
         val current = _watch.value
@@ -77,32 +78,50 @@ class StocksRepository(
             return current.first { it.symbol.equals(symbol, ignoreCase = true) }
         }
         val item = WatchItem(symbol = symbol, name = hit?.name ?: symbol, exchange = hit?.exchange.orEmpty())
-        persist(listOf(item) + current)
+        persist(Stocks.place(current, item, insert))
         refreshOne(symbol)
         return item
     }
 
-    fun importHits(hits: List<StockHit>): Int {
+    fun importHits(hits: List<StockHit>, insert: StockInsert = StockInsert.TOP): Int {
         if (hits.isEmpty()) return 0
-        val current = _watch.value.toMutableList()
-        var added = 0
+        val current = _watch.value
+        val added = mutableListOf<WatchItem>()
         for (hit in hits) {
-            if (current.size >= Stocks.MAX) break
+            if (current.size + added.size >= Stocks.MAX) break
             val symbol = hit.symbol.uppercase()
             if (!Stocks.looksLikeSymbol(symbol)) continue
             if (current.any { it.symbol.equals(symbol, ignoreCase = true) }) continue
-            current.add(
-                0,
-                WatchItem(
-                    symbol = symbol,
-                    name = hit.name.ifBlank { symbol },
-                    exchange = hit.exchange,
-                ),
+            if (added.any { it.symbol.equals(symbol, ignoreCase = true) }) continue
+            added += WatchItem(
+                symbol = symbol,
+                name = hit.name.ifBlank { symbol },
+                exchange = hit.exchange,
             )
-            added++
         }
-        if (added > 0) persist(current)
-        return added
+        if (added.isEmpty()) return 0
+        persist(Stocks.placeAll(current, added, insert))
+        return added.size
+    }
+
+    fun move(from: Int, to: Int) {
+        persist(Stocks.move(_watch.value, from, to))
+    }
+
+    fun replaceHits(hits: List<StockHit>): Int {
+        val next = hits.mapNotNull { hit ->
+            val symbol = hit.symbol.uppercase()
+            if (!Stocks.looksLikeSymbol(symbol)) null
+            else WatchItem(
+                symbol = symbol,
+                name = hit.name.ifBlank { symbol },
+                exchange = hit.exchange,
+            )
+        }.distinctBy { it.symbol }.take(Stocks.MAX)
+        persist(next)
+        val keep = next.map { it.symbol }.toSet()
+        _quotes.value = _quotes.value.filterKeys { it in keep }
+        return next.size
     }
 
     fun remove(symbol: String) {

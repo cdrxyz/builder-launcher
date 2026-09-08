@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import xyz.cdr.builderlauncher.data.StockInsert
 
 class StocksTest {
     @Test
@@ -66,6 +67,33 @@ class StocksTest {
         assertEquals("39.6M", Stocks.formatVolume(39_600_000))
         assertEquals("—", Stocks.formatNumber(null))
         assertEquals("328.21", Stocks.formatNumber(328.21))
+    }
+
+    @Test
+    fun placePutsNewAtTopOrBottom() {
+        val a = WatchItem("AAPL", "Apple")
+        val b = WatchItem("MSFT", "Microsoft")
+        val c = WatchItem("GOOG", "Alphabet")
+        assertEquals(listOf("GOOG", "AAPL", "MSFT"), Stocks.place(listOf(a, b), c, StockInsert.TOP).map { it.symbol })
+        assertEquals(listOf("AAPL", "MSFT", "GOOG"), Stocks.place(listOf(a, b), c, StockInsert.BOTTOM).map { it.symbol })
+        assertEquals(
+            listOf("NVDA", "AMD", "AAPL"),
+            Stocks.placeAll(listOf(a), listOf(WatchItem("NVDA", "n"), WatchItem("AMD", "a")), StockInsert.TOP).map { it.symbol },
+        )
+        assertEquals(
+            listOf("AAPL", "NVDA", "AMD"),
+            Stocks.placeAll(listOf(a), listOf(WatchItem("NVDA", "n"), WatchItem("AMD", "a")), StockInsert.BOTTOM).map { it.symbol },
+        )
+    }
+
+    @Test
+    fun moveReordersAndIgnoresOutOfRange() {
+        val items = listOf(WatchItem("A", "a"), WatchItem("B", "b"), WatchItem("C", "c"))
+        assertEquals(listOf("B", "A", "C"), Stocks.move(items, 0, 1).map { it.symbol })
+        assertEquals(listOf("C", "A", "B"), Stocks.move(items, 2, 0).map { it.symbol })
+        assertEquals(listOf("A", "B", "C"), Stocks.move(items, 1, 1).map { it.symbol })
+        assertEquals(listOf("A", "B", "C"), Stocks.move(items, -1, 0).map { it.symbol })
+        assertEquals(listOf("A", "B", "C"), Stocks.move(items, 0, 9).map { it.symbol })
     }
 }
 
