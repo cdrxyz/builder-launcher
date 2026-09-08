@@ -303,6 +303,7 @@ fun ChatChrome(
     messages: List<ChatBubble>,
     input: String = "",
     busy: Boolean = false,
+    provider: LlmProvider = LlmProvider.XAI,
 ) {
     Column(
         modifier = Modifier
@@ -316,7 +317,13 @@ fun ChatChrome(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            HistoryIcon(Modifier.padding(vertical = 6.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ProviderIcon(provider, Modifier.padding(vertical = 6.dp))
+                HistoryIcon(Modifier.padding(vertical = 6.dp))
+            }
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input, prompt = "?", wrap = true)
@@ -990,6 +997,89 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
             end = Offset(tail - size.width * 0.14f, size.height - pad),
             strokeWidth = stroke.width,
         )
+    }
+}
+
+@Composable
+fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val c = Offset(size.width / 2f, size.height / 2f)
+        val r = size.minDimension / 2f - stroke.width
+        when (provider) {
+            LlmProvider.XAI -> {
+                val path = Path()
+                val inner = r * 0.32f
+                for (i in 0 until 8) {
+                    val ang = Math.toRadians(-90.0 + i * 45.0)
+                    val rad = if (i % 2 == 0) r else inner
+                    val p = Offset(
+                        c.x + (kotlin.math.cos(ang) * rad).toFloat(),
+                        c.y + (kotlin.math.sin(ang) * rad).toFloat(),
+                    )
+                    if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+                }
+                path.close()
+                drawPath(path, color = accent, style = stroke)
+            }
+            LlmProvider.OPENAI -> {
+                val path = Path()
+                for (i in 0 until 6) {
+                    val ang = Math.toRadians(-90.0 + i * 60.0)
+                    val p = Offset(
+                        c.x + (kotlin.math.cos(ang) * r).toFloat(),
+                        c.y + (kotlin.math.sin(ang) * r).toFloat(),
+                    )
+                    if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+                }
+                path.close()
+                drawPath(path, color = accent, style = stroke)
+            }
+            LlmProvider.ANTHROPIC -> {
+                val short = r * 0.45f
+                drawLine(accent, Offset(c.x, c.y - r), Offset(c.x, c.y + r), stroke.width, StrokeCap.Round)
+                drawLine(accent, Offset(c.x - r, c.y), Offset(c.x + r, c.y), stroke.width, StrokeCap.Round)
+                drawLine(
+                    accent,
+                    Offset(c.x - short, c.y - short),
+                    Offset(c.x + short, c.y + short),
+                    stroke.width,
+                    StrokeCap.Round,
+                )
+                drawLine(
+                    accent,
+                    Offset(c.x + short, c.y - short),
+                    Offset(c.x - short, c.y + short),
+                    stroke.width,
+                    StrokeCap.Round,
+                )
+            }
+            LlmProvider.HERMES -> {
+                drawLine(
+                    accent,
+                    Offset(c.x, c.y - r),
+                    Offset(c.x, c.y + r),
+                    stroke.width,
+                    StrokeCap.Round,
+                )
+                drawCircle(color = accent, radius = r * 0.22f, center = Offset(c.x, c.y - r * 0.62f), style = stroke)
+                drawLine(
+                    accent,
+                    Offset(c.x, c.y - r * 0.18f),
+                    Offset(c.x - r * 0.72f, c.y - r * 0.55f),
+                    stroke.width,
+                    StrokeCap.Round,
+                )
+                drawLine(
+                    accent,
+                    Offset(c.x, c.y - r * 0.18f),
+                    Offset(c.x + r * 0.72f, c.y - r * 0.55f),
+                    stroke.width,
+                    StrokeCap.Round,
+                )
+            }
+        }
     }
 }
 
