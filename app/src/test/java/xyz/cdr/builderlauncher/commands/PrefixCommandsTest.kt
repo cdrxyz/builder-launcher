@@ -116,4 +116,49 @@ class PrefixCommandsTest {
         assertTrue(send.hasTypedText)
         assertFalse(send.cancelsDraft)
     }
+
+    @Test
+    fun stockPromptUsesRawSymbolKeyboard() {
+        assertTrue(PrefixCommands.usesRawSymbolKeyboard('$'))
+        assertFalse(PrefixCommands.usesRawSymbolKeyboard('>'))
+        assertFalse(PrefixCommands.usesRawSymbolKeyboard('?'))
+        assertFalse(PrefixCommands.usesRawSymbolKeyboard('-'))
+    }
+
+    @Test
+    fun typeInStockModeDropsAutoSpaceAfterPeriod() {
+        val inStock = PrefixCommands.Mode(prompt = '$', input = "OBE.")
+        val typed = PrefixCommands.type(inStock, "OBE. TO")
+        assertEquals('$', typed.prompt)
+        assertEquals("OBE.TO", typed.input)
+    }
+
+    @Test
+    fun typeLeadingStockGlyphAlsoDropsAutoSpace() {
+        val typed = PrefixCommands.type(PrefixCommands.Mode(), "\$OBE. TO")
+        assertEquals('$', typed.prompt)
+        assertEquals("OBE.TO", typed.input)
+    }
+
+    @Test
+    fun typeInStockModeKeepsSpacesThatAreNotAfterAPeriod() {
+        val inStock = PrefixCommands.Mode(prompt = '$', input = "app")
+        val typed = PrefixCommands.type(inStock, "apple inc")
+        assertEquals("apple inc", typed.input)
+    }
+
+    @Test
+    fun typeInStockModeKeepsCsvNewlinesAfterAPeriod() {
+        val inStock = PrefixCommands.Mode(prompt = '$', input = "")
+        val csv = "AAPL,Apple Inc.\nMSFT,Microsoft"
+        val typed = PrefixCommands.type(inStock, csv)
+        assertEquals(csv, typed.input)
+    }
+
+    @Test
+    fun typeInOtherModesKeepsSpaceAfterPeriod() {
+        val inTodo = PrefixCommands.Mode(prompt = '-', input = "Dr.")
+        val typed = PrefixCommands.type(inTodo, "Dr. Smith")
+        assertEquals("Dr. Smith", typed.input)
+    }
 }

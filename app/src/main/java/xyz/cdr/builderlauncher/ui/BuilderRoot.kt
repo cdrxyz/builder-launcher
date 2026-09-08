@@ -73,6 +73,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -2112,10 +2113,19 @@ private fun CommandBar(
                 maxLines = if (wrap) 8 else 1,
                 cursorBrush = SolidColor(Accent),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.None,
-                    imeAction = ImeAction.Go,
-                ),
+                keyboardOptions = if (PrefixCommands.usesRawSymbolKeyboard(prompt)) {
+                    KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Go,
+                    )
+                } else {
+                    KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        imeAction = ImeAction.Go,
+                    )
+                },
                 keyboardActions = KeyboardActions(
                     onGo = {
                         if (slashMode && slashMatches.isNotEmpty()) {
