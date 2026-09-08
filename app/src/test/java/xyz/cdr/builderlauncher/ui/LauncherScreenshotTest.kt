@@ -59,6 +59,22 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeCommandMenu() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    commandsOpen = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun hub() {
         paparazzi.snapshot {
             BuilderTheme {

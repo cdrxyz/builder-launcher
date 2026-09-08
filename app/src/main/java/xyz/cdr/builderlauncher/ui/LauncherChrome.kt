@@ -44,6 +44,7 @@ fun HomeChrome(
     todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
+    commandsOpen: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -115,7 +116,7 @@ fun HomeChrome(
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input)
+        CommandRow(input, commandsOpen = commandsOpen)
     }
 }
 
@@ -256,8 +257,11 @@ fun SettingsChrome(
 }
 
 @Composable
-private fun CommandRow(value: String) {
+private fun CommandRow(value: String, commandsOpen: Boolean = false) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        if (commandsOpen) {
+            CommandMenu()
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(">", color = Prompt, modifier = Modifier.padding(end = 10.dp))
             Text(
