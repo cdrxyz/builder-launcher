@@ -583,19 +583,6 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    val hubTodos = HomeTodos.of(local)
-                    val hubOpen = HomeTodos.open(hubTodos)
-                    val hubDone = HomeTodos.completed(hubTodos)
-                    val notes = local.filter { !it.kind.equals("todo", ignoreCase = true) }
-                    items(hubOpen, key = { "l" + it.id }) { item ->
-                        HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
-                    }
-                    items(notes, key = { "n" + it.id }) { item ->
-                        HubLocalRow(item, onTap = { openNoteEditor(item.id, item.text, fromList = false) })
-                    }
-                    items(hubDone, key = { "ld" + it.id }) { item ->
-                        HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
-                    }
                     items(hub, key = { it.key }) { item ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(
@@ -618,10 +605,10 @@ fun BuilderRoot(
                             )
                         }
                     }
-                    if (hub.isEmpty() && local.isEmpty()) {
+                    if (hub.isEmpty()) {
                         item {
                             Text(
-                                "Grant notification access in settings to fill the hub. Todos and notes typed with - and + appear here. Hold a todo to remove it. Tap a notification to open it.",
+                                "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
                                 color = Dim,
                             )
                         }
@@ -696,20 +683,6 @@ private fun TodoLine(item: LocalItem, onToggle: () -> Unit, compact: Boolean = f
             .clickable { onToggle() }
             .padding(vertical = if (compact) 4.dp else 6.dp),
     )
-}
-
-@Composable
-private fun HubLocalRow(item: LocalItem, onTap: () -> Unit) {
-    Column(Modifier.clickable { onTap() }) {
-        Text(item.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-        Text(
-            item.text,
-            color = if (item.done) Dim else Paper,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
-            ),
-        )
-    }
 }
 
 @Composable

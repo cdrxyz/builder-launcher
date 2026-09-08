@@ -123,8 +123,6 @@ class LauncherScreenshotTest {
             BuilderTheme {
                 HubChrome(
                     rows = listOf(
-                        HubRow("todo", "ship builder-launcher CI"),
-                        HubRow("note", "review PR after lunch"),
                         HubRow("Messages", "Jason", "on my way"),
                         HubRow("Calendar", "dentist", "Tue 9:00"),
                     ),
