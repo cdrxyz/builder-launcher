@@ -87,6 +87,8 @@ import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ContactAction
 import xyz.cdr.builderlauncher.commands.ExecResult
 import xyz.cdr.builderlauncher.commands.PrefixCommands
+import xyz.cdr.builderlauncher.commands.SlashCommand
+import xyz.cdr.builderlauncher.commands.SlashCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.AccentColor
@@ -391,7 +393,7 @@ fun BuilderRoot(
             people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
             choices = emptyList()
             appQuery = false
-        } else if (PrefixCommands.find(first) != null) {
+        } else if (PrefixCommands.isModePrompt(first)) {
             people = emptyList()
             choices = emptyList()
             appQuery = false
@@ -501,6 +503,11 @@ fun BuilderRoot(
         if (page == Page.Todos && input.isBlank()) {
             taskMode()
         }
+    }
+
+    fun pickSlash(cmd: SlashCommand) {
+        applyMode(PrefixCommands.Mode(SlashCommands.PROMPT, cmd.name))
+        runCommand()
     }
 
     Column(
@@ -712,6 +719,7 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
                     onHub = { openHub() },
                 )
             }
@@ -783,6 +791,7 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
                     onHub = { openHub() },
                 )
             }
@@ -953,6 +962,7 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
                     onHub = { openHub() },
                 )
             }
@@ -1172,7 +1182,8 @@ fun BuilderRoot(
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
                     onSubmit = { runCommand() },
-                    onHub = { page = Page.Hub },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
                 )
             }
             Page.StockDetail -> {
@@ -1354,15 +1365,26 @@ private fun CommandBar(
     onPick: (Char) -> Unit,
     onClearMode: () -> Unit,
     onSubmit: () -> Unit,
+    onSlash: (SlashCommand) -> Unit,
     onHub: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     var menuOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(0) }
+    var slashSelected by remember { mutableStateOf(0) }
+    val slashMode = prompt == SlashCommands.PROMPT
+    val slashMatches = if (slashMode) SlashCommands.matches(value) else emptyList()
     LaunchedEffect(hardware) {
         focus.requestFocus()
         if (hardware) keyboard?.hide()
+    }
+    LaunchedEffect(prompt) {
+        slashSelected = 0
+        if (slashMode) menuOpen = false
+    }
+    LaunchedEffect(slashMatches.size, value) {
+        if (slashSelected >= slashMatches.size) slashSelected = 0
     }
     fun pick(index: Int) {
         val cmd = PrefixCommands.all.getOrNull(index) ?: return
@@ -1371,8 +1393,22 @@ private fun CommandBar(
         onPick(cmd.glyph)
         focus.requestFocus()
     }
+    fun pickSlash(index: Int) {
+        val cmd = slashMatches.getOrNull(index) ?: return
+        onSlash(cmd)
+        focus.requestFocus()
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (menuOpen) {
+        if (slashMode) {
+            SlashCommandMenu(
+                commands = slashMatches,
+                selected = slashSelected,
+                onSelect = { cmd ->
+                    val index = slashMatches.indexOf(cmd)
+                    if (index >= 0) pickSlash(index)
+                },
+            )
+        } else if (menuOpen) {
             CommandMenu(
                 selected = selected,
                 onSelect = { cmd ->
@@ -1388,8 +1424,12 @@ private fun CommandBar(
                 modifier = Modifier
                     .semantics { contentDescription = "commands" }
                     .clickable {
-                        menuOpen = !menuOpen
-                        if (menuOpen) selected = 0
+                        if (slashMode) {
+                            onClearMode()
+                        } else {
+                            menuOpen = !menuOpen
+                            if (menuOpen) selected = 0
+                        }
                     }
                     .padding(end = 10.dp),
             )
@@ -1409,7 +1449,15 @@ private fun CommandBar(
                     capitalization = KeyboardCapitalization.None,
                     imeAction = ImeAction.Go,
                 ),
-                keyboardActions = KeyboardActions(onGo = { onSubmit() }),
+                keyboardActions = KeyboardActions(
+                    onGo = {
+                        if (slashMode && slashMatches.isNotEmpty()) {
+                            pickSlash(slashSelected)
+                        } else {
+                            onSubmit()
+                        }
+                    },
+                ),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focus)
@@ -1417,7 +1465,35 @@ private fun CommandBar(
                         if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
                         val code = event.nativeKeyEvent.keyCode
                         val ch = event.nativeKeyEvent.unicodeChar.toChar()
-                        if (menuOpen) {
+                        if (slashMode) {
+                            when (code) {
+                                KeyEvent.KEYCODE_DPAD_UP -> {
+                                    if (slashMatches.isNotEmpty()) {
+                                        slashSelected = (slashSelected - 1).mod(slashMatches.size)
+                                    }
+                                    true
+                                }
+                                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                    if (slashMatches.isNotEmpty()) {
+                                        slashSelected = (slashSelected + 1).mod(slashMatches.size)
+                                    }
+                                    true
+                                }
+                                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                                    if (slashMatches.isNotEmpty()) pickSlash(slashSelected) else onSubmit()
+                                    true
+                                }
+                                KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> {
+                                    if (value.isEmpty()) {
+                                        onClearMode()
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                                else -> false
+                            }
+                        } else if (menuOpen) {
                             when (code) {
                                 KeyEvent.KEYCODE_DPAD_UP -> {
                                     selected = (selected - 1).mod(PrefixCommands.all.size)
@@ -1451,7 +1527,7 @@ private fun CommandBar(
                                     true
                                 }
                                 KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> {
-                                    if (value.isEmpty() && PrefixCommands.find(prompt) != null) {
+                                    if (value.isEmpty() && PrefixCommands.isModePrompt(prompt)) {
                                         onClearMode()
                                         true
                                     } else {
@@ -1489,6 +1565,7 @@ private fun HelpBlock() {
         "\$ticker         add a stock",
         "stocks          all stocks",
         "?question       ask AI",
+        "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
         "hub / notes / apps / stocks / settings",

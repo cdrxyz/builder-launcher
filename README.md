@@ -67,6 +67,7 @@ Type on the home screen, then Enter.
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the stocks list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | `?` | `?weather tomorrow` | Ask the configured LLM inline |
+| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, help, hub, notes, settings, stocks) |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
 | | `hub` / `notes` / `apps` / `stocks` / `settings` / `help` | Built-ins |

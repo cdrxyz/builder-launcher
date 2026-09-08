@@ -20,7 +20,7 @@ object PrefixCommands {
         val input: String = "",
     ) {
         val line: String
-            get() = if (find(prompt) != null) "$prompt$input" else input
+            get() = if (isModePrompt(prompt)) "$prompt$input" else input
 
         val hasTypedText: Boolean
             get() = input.isNotBlank()
@@ -31,11 +31,14 @@ object PrefixCommands {
 
     fun find(glyph: Char): PrefixCommand? = all.find { it.glyph == glyph }
 
+    fun isModePrompt(glyph: Char): Boolean =
+        find(glyph) != null || glyph == SlashCommands.PROMPT
+
     fun pick(current: Mode, glyph: Char): Mode = current.copy(prompt = glyph)
 
     fun type(current: Mode, newInput: String): Mode {
         val first = newInput.firstOrNull()
-        return if (first != null && find(first) != null) {
+        return if (first != null && isModePrompt(first)) {
             Mode(prompt = first, input = newInput.drop(1))
         } else {
             current.copy(input = newInput)
@@ -43,5 +46,5 @@ object PrefixCommands {
     }
 
     fun clearMode(current: Mode): Mode =
-        if (find(current.prompt) != null) Mode(input = current.input) else current
+        if (isModePrompt(current.prompt)) Mode(input = current.input) else current
 }
