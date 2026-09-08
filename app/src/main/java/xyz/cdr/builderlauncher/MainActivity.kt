@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -22,6 +24,7 @@ import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 
 class MainActivity : ComponentActivity() {
@@ -49,7 +52,8 @@ class MainActivity : ComponentActivity() {
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         setContent {
-            BuilderTheme {
+            val current by settings.settings.collectAsState()
+            BuilderTheme(accent = accentColor(current.accentHex)) {
                 BuilderRoot(
                     settingsRepo = settings,
                     apps = apps,
