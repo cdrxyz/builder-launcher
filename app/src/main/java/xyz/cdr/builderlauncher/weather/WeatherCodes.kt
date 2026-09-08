@@ -54,6 +54,11 @@ object WeatherCodes {
         units: WeatherUnits = WeatherUnits.METRIC,
     ): String = "${units.displayTemperature(temperature)}° ${label(code)}"
 
+    fun homeTemperature(line: String): String {
+        val i = line.indexOf('°')
+        return if (i >= 0) line.take(i + 1).trim() else line.trim()
+    }
+
     fun short(code: Int): String = when (code) {
         0 -> "clr"
         1, 2 -> "fair"
