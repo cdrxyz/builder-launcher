@@ -79,6 +79,28 @@ data class StockListRow(
 )
 
 @Composable
+fun HomeTickerMark(
+    symbol: String?,
+    change: String? = null,
+    up: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    if (symbol.isNullOrBlank()) return
+    val unknown = change.isNullOrBlank() || change == "—"
+    Column(
+        modifier = modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 8.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        Text(symbol, color = Paper, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            change ?: "—",
+            color = if (unknown) Dim else if (up) Gain else Loss,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
 fun HomeChrome(
     time: String,
     date: String,
@@ -113,19 +135,7 @@ fun HomeChrome(
                 }
             }
             Row(verticalAlignment = Alignment.Top) {
-                if (!ticker.isNullOrBlank()) {
-                    Column(
-                        modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 8.dp),
-                        horizontalAlignment = Alignment.End,
-                    ) {
-                        Text(ticker, color = Paper, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            tickerChange ?: "—",
-                            color = if (tickerChange.isNullOrBlank()) Dim else if (tickerUp) Gain else Loss,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
+                HomeTickerMark(ticker, tickerChange, tickerUp)
                 MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
             }
         }

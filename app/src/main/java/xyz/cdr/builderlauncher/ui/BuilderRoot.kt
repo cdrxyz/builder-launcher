@@ -235,13 +235,10 @@ fun BuilderRoot(
         }
     }
     LaunchedEffect(page, watch.size) {
-        val quotesOnHome = page == Page.Home && watch.isNotEmpty()
-        if (quotesOnHome || page == Page.Stocks || page == Page.StockDetail) {
-            stocks.refreshQuotes()
-        }
-    }
-    LaunchedEffect(page) {
-        if (page != Page.Home && page != Page.Stocks && page != Page.StockDetail) return@LaunchedEffect
+        val needQuotes = (page == Page.Home && watch.isNotEmpty()) ||
+            page == Page.Stocks || page == Page.StockDetail
+        if (!needQuotes) return@LaunchedEffect
+        stocks.refreshQuotes()
         while (true) {
             kotlinx.coroutines.delay(60_000)
             stocks.refreshQuotes()
@@ -1834,20 +1831,14 @@ private fun ClockHeader(
         }
         Row(verticalAlignment = Alignment.Top) {
             if (ticker != null) {
-                Column(
+                HomeTickerMark(
+                    symbol = ticker.symbol,
+                    change = ticker.change,
+                    up = ticker.up,
                     modifier = Modifier
                         .semantics { contentDescription = "${ticker.symbol} ${ticker.change}" }
-                        .clickable { onOpenTicker() }
-                        .padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 8.dp),
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    Text(ticker.symbol, color = Paper, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        ticker.change,
-                        color = if (ticker.percent == null) Dim else if (ticker.up) Gain else Loss,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                        .clickable { onOpenTicker() },
+                )
             }
             MessagesIcon(
                 Modifier
