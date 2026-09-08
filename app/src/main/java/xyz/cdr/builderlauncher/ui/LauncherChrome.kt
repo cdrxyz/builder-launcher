@@ -1028,21 +1028,30 @@ fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
 @Composable
 fun SendIcon(modifier: Modifier = Modifier) {
     val accent = Accent
-    Canvas(modifier.size(22.dp)) {
+    Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val pad = size.minDimension * 0.12f
-        val nose = Offset(size.width - pad, pad)
-        val left = Offset(pad, size.height * 0.40f)
-        val tail = Offset(size.width * 0.36f, size.height - pad)
-        val fold = Offset(size.width * 0.44f, size.height * 0.56f)
-        drawLine(color = accent, start = left, end = nose, strokeWidth = stroke.width, cap = StrokeCap.Round)
-        drawLine(color = accent, start = nose, end = tail, strokeWidth = stroke.width, cap = StrokeCap.Round)
-        drawLine(color = accent, start = left, end = fold, strokeWidth = stroke.width, cap = StrokeCap.Round)
-        drawLine(color = accent, start = fold, end = tail, strokeWidth = stroke.width, cap = StrokeCap.Round)
+        val pad = size.minDimension * 0.16f
+        val midY = size.height / 2f
+        val tip = Offset(size.width - pad, midY)
         drawLine(
             color = accent,
-            start = fold,
-            end = Offset(size.width * 0.70f, size.height * 0.28f),
+            start = Offset(pad, midY),
+            end = tip,
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        val ah = size.minDimension * 0.28f
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(tip.x - ah, tip.y - ah * 0.9f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(tip.x - ah, tip.y + ah * 0.9f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
