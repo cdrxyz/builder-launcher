@@ -15,6 +15,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; history lists past chats with a date and delete |
+| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, settings, stocks, weather). Also in the [command menu](command-bar/) |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin. Pins show as icons on home |
 | | `hub` / `notes` / `apps` / `stocks` / `clock` / `weather` / `settings` / `help` | Built-ins |

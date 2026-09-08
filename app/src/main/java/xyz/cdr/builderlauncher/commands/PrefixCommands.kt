@@ -13,6 +13,7 @@ object PrefixCommands {
         PrefixCommand('+', "note"),
         PrefixCommand('$', "stock"),
         PrefixCommand('?', "ask AI"),
+        PrefixCommand('/', "slash"),
     )
 
     data class Mode(
@@ -31,8 +32,7 @@ object PrefixCommands {
 
     fun find(glyph: Char): PrefixCommand? = all.find { it.glyph == glyph }
 
-    fun isModePrompt(glyph: Char): Boolean =
-        find(glyph) != null || glyph == SlashCommands.PROMPT
+    fun isModePrompt(glyph: Char): Boolean = find(glyph) != null
 
     fun pick(current: Mode, glyph: Char): Mode = current.copy(prompt = glyph)
 

@@ -11,13 +11,13 @@ class PrefixCommandsTest {
     fun findKnownGlyph() {
         assertEquals("text", PrefixCommands.find('@')?.label)
         assertEquals("ask AI", PrefixCommands.find('?')?.label)
+        assertEquals("slash", PrefixCommands.find('/')?.label)
         assertNull(PrefixCommands.find('>'))
     }
 
     @Test
     fun catalogCoversPrefixCommands() {
-        assertEquals(listOf('@', '#', '*', '-', '+', '$', '?'), PrefixCommands.all.map { it.glyph })
-        assertNull(PrefixCommands.find('/'))
+        assertEquals(listOf('@', '#', '*', '-', '+', '$', '?', '/'), PrefixCommands.all.map { it.glyph })
         assertTrue(PrefixCommands.isModePrompt('/'))
         assertFalse(PrefixCommands.isModePrompt('>'))
     }

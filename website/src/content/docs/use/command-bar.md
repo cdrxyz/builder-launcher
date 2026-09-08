@@ -23,7 +23,8 @@ The prompt is always at the bottom, just above the keyboard (or the hardware key
 | `+` | note |
 | `$` | stock |
 | `?` | ask AI |
+| `/` | slash |
 
-Picking a row sets the prompt glyph. Type the rest of the command in the field.
+Picking a row sets the prompt glyph. Type the rest of the command in the field. Pick **slash** to list slash commands above the bar.
 
 On hardware QWERTY, auto mode hides the software keyboard so the bar sits next to the keys. See [Keyboard](../configure/keyboard/).
