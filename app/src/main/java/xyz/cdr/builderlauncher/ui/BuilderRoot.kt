@@ -57,6 +57,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1032,13 +1033,13 @@ fun BuilderRoot(
                                 apps = pinned,
                                 icon = { apps.icon(it) },
                                 onLaunch = { apps.launch(it) },
-                                onMove = { from, to -> pins.move(from, to) },
+                                onMove = { from, to -> pins.moveVisible(pinned.map { it.packageName }, from, to) },
                             )
                         } else {
                             PinnedAppsTextList(
                                 apps = pinned,
                                 onLaunch = { apps.launch(it) },
-                                onMove = { from, to -> pins.move(from, to) },
+                                onMove = { from, to -> pins.moveVisible(pinned.map { it.packageName }, from, to) },
                             )
                         }
                         Spacer(Modifier.height(8.dp))
@@ -3233,6 +3234,7 @@ private fun PinnedAppsTextList(
     var dragY by remember { mutableFloatStateOf(0f) }
     var rowHeight by remember { mutableFloatStateOf(0f) }
     val gap = with(LocalDensity.current) { 6.dp.toPx() }
+    val liveApps = rememberUpdatedState(apps)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         apps.forEachIndexed { index, app ->
             val lifting = dragFrom == index
@@ -3254,8 +3256,12 @@ private fun PinnedAppsTextList(
                     .pointerInput(app.packageName, app.activityName) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
-                                dragFrom = index
-                                dragTo = index
+                                val i = liveApps.value.indexOfFirst {
+                                    it.packageName == app.packageName && it.activityName == app.activityName
+                                }
+                                if (i < 0) return@detectDragGesturesAfterLongPress
+                                dragFrom = i
+                                dragTo = i
                                 dragY = 0f
                             },
                             onDragEnd = {
@@ -3277,7 +3283,7 @@ private fun PinnedAppsTextList(
                                 val from = dragFrom ?: return@detectDragGesturesAfterLongPress
                                 val step = (rowHeight + gap).takeIf { it > 1f }
                                     ?: return@detectDragGesturesAfterLongPress
-                                dragTo = ListReorder.targetIndex(from, dragY, step, apps.lastIndex)
+                                dragTo = ListReorder.targetIndex(from, dragY, step, liveApps.value.lastIndex)
                             },
                         )
                     }
@@ -3300,6 +3306,7 @@ private fun PinnedAppsRow(
     var dragX by remember { mutableFloatStateOf(0f) }
     var cellWidth by remember { mutableFloatStateOf(0f) }
     val gap = with(LocalDensity.current) { 12.dp.toPx() }
+    val liveApps = rememberUpdatedState(apps)
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         modifier = Modifier.fillMaxWidth(),
@@ -3325,8 +3332,12 @@ private fun PinnedAppsRow(
                     .pointerInput(app.packageName, app.activityName) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
-                                dragFrom = index
-                                dragTo = index
+                                val i = liveApps.value.indexOfFirst {
+                                    it.packageName == app.packageName && it.activityName == app.activityName
+                                }
+                                if (i < 0) return@detectDragGesturesAfterLongPress
+                                dragFrom = i
+                                dragTo = i
                                 dragX = 0f
                             },
                             onDragEnd = {
@@ -3348,7 +3359,7 @@ private fun PinnedAppsRow(
                                 val from = dragFrom ?: return@detectDragGesturesAfterLongPress
                                 val step = (cellWidth + gap).takeIf { it > 1f }
                                     ?: return@detectDragGesturesAfterLongPress
-                                dragTo = ListReorder.targetIndex(from, dragX, step, apps.lastIndex)
+                                dragTo = ListReorder.targetIndex(from, dragX, step, liveApps.value.lastIndex)
                             },
                         )
                     }
