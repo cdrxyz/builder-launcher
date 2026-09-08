@@ -125,6 +125,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun todosEdit() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                TodosChrome(
+                    todos = listOf(
+                        "buy milk",
+                        "ship builder-launcher CI",
+                        "call dentist",
+                    ),
+                    input = "buy oat milk",
+                    confirm = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeCommandMenu() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -572,7 +589,7 @@ class LauncherScreenshotTest {
     fun usageScrub() {
         paparazzi.snapshot {
             BuilderTheme {
-                UsageChrome(selectedIndex = 14)
+                UsageChrome(selectedIndex = 3)
             }
         }
     }

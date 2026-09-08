@@ -10,6 +10,8 @@ object HomeStrip {
 
     fun contains(page: Page): Boolean = page == Page.Home || page == Page.Hub || page == Page.Usage
 
+    fun coversPager(page: Page): Boolean = !contains(page)
+
     fun indexOf(page: Page): Int? = when (page) {
         Page.Usage -> USAGE
         Page.Home -> HOME
@@ -18,4 +20,18 @@ object HomeStrip {
     }
 
     fun pageAt(index: Int): Page = pages.getOrElse(index) { Page.Home }
+
+    fun homeAfterOverlay(): Page = Page.Home
+
+    fun followSettled(
+        page: Page,
+        settledIndex: Int,
+        currentIndex: Int,
+        scrolling: Boolean,
+    ): Page? {
+        if (scrolling || currentIndex != settledIndex) return null
+        if (!contains(page)) return null
+        val next = pageAt(settledIndex)
+        return next.takeIf { it != page }
+    }
 }

@@ -38,38 +38,19 @@ class UsageReader(private val context: Context) {
         val today = InstantDay.start(nowMs, zone)
         val overrides = store.overrides()
         return when (period) {
-            UsagePeriod.TODAY -> {
-                val hours = (0 until Usage.HOURS).map { hour ->
-                    val start = today + hour * Usage.HOUR_MS
-                    val end = (start + Usage.HOUR_MS - 1).coerceAtMost(nowMs)
-                    if (start > nowMs) UsageRawDay(start, emptyList()) else readBucket(usm, start, end)
-                }
-                val yesterday = readBucket(usm, today - Usage.DAY_MS, today - 1)
+            UsagePeriod.W1 -> {
+                val previous = readBucket(usm, today - Usage.WEEK_MS, today - 1)
                 Usage.build(
-                    rawDays = hours,
+                    rawDays = buckets(usm, today, Usage.DAYS, Usage.DAY_MS, nowMs),
                     overrides = overrides,
                     period = period,
                     granted = true,
                     zone = zone,
-                    previousMs = Usage.totalOf(yesterday),
+                    previousMs = Usage.totalOf(previous),
                 )
             }
             UsagePeriod.M1 -> Usage.build(
                 rawDays = buckets(usm, today, Usage.MONTH_DAYS, Usage.DAY_MS, nowMs),
-                overrides = overrides,
-                period = period,
-                granted = true,
-                zone = zone,
-            )
-            UsagePeriod.M3 -> Usage.build(
-                rawDays = buckets(usm, today, Usage.QUARTER_WEEKS, Usage.WEEK_MS, nowMs),
-                overrides = overrides,
-                period = period,
-                granted = true,
-                zone = zone,
-            )
-            UsagePeriod.M6 -> Usage.build(
-                rawDays = buckets(usm, today, Usage.HALF_WEEKS, Usage.WEEK_MS, nowMs),
                 overrides = overrides,
                 period = period,
                 granted = true,

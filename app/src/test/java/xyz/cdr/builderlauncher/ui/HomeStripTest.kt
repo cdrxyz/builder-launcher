@@ -18,4 +18,37 @@ class HomeStripTest {
         assertEquals(Page.Hub, HomeStrip.pageAt(2))
         assertEquals(Page.Home, HomeStrip.pageAt(9))
     }
+
+    @Test
+    fun leavingTodosDoesNotLandOnUsage() {
+        assertTrue(HomeStrip.coversPager(Page.Todos))
+        assertFalse(HomeStrip.contains(Page.Todos))
+        assertEquals(Page.Home, HomeStrip.homeAfterOverlay())
+        assertEquals(Page.Usage, HomeStrip.pageAt(HomeStrip.USAGE))
+        assertEquals(Page.Home, HomeStrip.pageAt(HomeStrip.HOME))
+    }
+
+    @Test
+    fun homePressDoesNotFollowStaleUsagePage() {
+        assertEquals(
+            null,
+            HomeStrip.followSettled(Page.Home, settledIndex = 0, currentIndex = 1, scrolling = false),
+        )
+        assertEquals(
+            null,
+            HomeStrip.followSettled(Page.Todos, settledIndex = 0, currentIndex = 0, scrolling = false),
+        )
+        assertEquals(
+            null,
+            HomeStrip.followSettled(Page.Home, settledIndex = 0, currentIndex = 0, scrolling = true),
+        )
+        assertEquals(
+            Page.Usage,
+            HomeStrip.followSettled(Page.Home, settledIndex = 0, currentIndex = 0, scrolling = false),
+        )
+        assertEquals(
+            null,
+            HomeStrip.followSettled(Page.Home, settledIndex = 1, currentIndex = 1, scrolling = false),
+        )
+    }
 }

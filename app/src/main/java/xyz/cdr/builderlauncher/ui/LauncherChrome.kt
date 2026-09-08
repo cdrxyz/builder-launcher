@@ -274,6 +274,7 @@ fun TodosChrome(
     doneTodos: List<String> = emptyList(),
     input: String = "",
     prompt: String = HomeTodos.TASK_PREFIX,
+    confirm: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -330,7 +331,7 @@ fun TodosChrome(
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input, prompt = prompt)
+        CommandRow(input, prompt = prompt, confirm = confirm)
     }
 }
 
@@ -1216,6 +1217,7 @@ private fun CommandRow(
     slashOpen: Boolean = false,
     prompt: String = ">",
     wrap: Boolean = false,
+    confirm: Boolean = false,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         if (slashOpen) {
@@ -1252,6 +1254,9 @@ private fun CommandRow(
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f),
             )
+            if (confirm) {
+                CheckIcon(Modifier.padding(start = 12.dp, top = if (wrap) 2.dp else 0.dp))
+            }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
     }
@@ -1592,26 +1597,64 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
 @Composable
 fun EditIcon(modifier: Modifier = Modifier) {
     Canvas(modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
-        val inset = size.minDimension * 0.22f
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val s = size.minDimension
+        val body = Path().apply {
+            moveTo(s * 0.18f, s * 0.82f)
+            lineTo(s * 0.24f, s * 0.60f)
+            lineTo(s * 0.60f, s * 0.24f)
+            lineTo(s * 0.76f, s * 0.40f)
+            lineTo(s * 0.40f, s * 0.76f)
+            close()
+        }
+        drawPath(path = body, color = Dim, style = stroke)
         drawLine(
             color = Dim,
-            start = Offset(inset, size.height - inset),
-            end = Offset(size.width * 0.58f, size.height * 0.40f),
+            start = Offset(s * 0.30f, s * 0.66f),
+            end = Offset(s * 0.38f, s * 0.74f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = Dim,
-            start = Offset(size.width * 0.58f, size.height * 0.40f),
-            end = Offset(size.width - inset, inset),
+            start = Offset(s * 0.56f, s * 0.18f),
+            end = Offset(s * 0.82f, s * 0.44f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = Dim,
-            start = Offset(size.width * 0.50f, size.height * 0.28f),
-            end = Offset(size.width * 0.72f, size.height * 0.50f),
+            start = Offset(s * 0.56f, s * 0.18f),
+            end = Offset(s * 0.60f, s * 0.24f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = Dim,
+            start = Offset(s * 0.82f, s * 0.44f),
+            end = Offset(s * 0.76f, s * 0.40f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+fun CheckIcon(modifier: Modifier = Modifier) {
+    val color = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.18f, size.height * 0.52f),
+            end = Offset(size.width * 0.40f, size.height * 0.74f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.40f, size.height * 0.74f),
+            end = Offset(size.width * 0.84f, size.height * 0.26f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
