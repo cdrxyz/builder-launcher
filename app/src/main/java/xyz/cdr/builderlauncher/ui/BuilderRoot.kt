@@ -1265,6 +1265,7 @@ fun BuilderRoot(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
+                        autoCorrectEnabled = true,
                         imeAction = ImeAction.Default,
                     ),
                     modifier = Modifier
@@ -2406,6 +2407,7 @@ private fun CommandBar(
                 } else {
                     KeyboardOptions(
                         capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = PrefixCommands.usesAutocorrect(prompt),
                         imeAction = ImeAction.Go,
                     )
                 },
