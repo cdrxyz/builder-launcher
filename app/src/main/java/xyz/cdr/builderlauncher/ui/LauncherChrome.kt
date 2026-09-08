@@ -285,12 +285,22 @@ fun StocksChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("paste", color = Dim, modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp))
+                CopyIcon(Modifier.padding(vertical = 6.dp))
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val shown = if (hits.isNotEmpty()) hits else rows
             if (shown.isEmpty()) {
-                Text("Type \$AAPL to add a ticker.", color = Dim)
+                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
             } else {
                 shown.forEach { row ->
                     StockRowChrome(row)
