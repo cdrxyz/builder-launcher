@@ -93,6 +93,15 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun noteEditorH1() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                NoteEditorChrome(body = "# ")
+            }
+        }
+    }
+
+    @Test
     fun homeNotesShortcut() {
         paparazzi.snapshot {
             BuilderTheme {

@@ -31,6 +31,14 @@ object Notes {
         return value.drop(1).trimStart()
     }
 
+    fun headingDraft(text: String): String {
+        val first = text.lineSequence().firstOrNull().orEmpty()
+        if (first.trimStart().startsWith("#")) return text
+        val rest = text.lineSequence().drop(1).joinToString("\n")
+        val heading = if (first.isBlank()) "# " else "# ${first.trimStart()}"
+        return if (rest.isEmpty()) heading else "$heading\n$rest"
+    }
+
     fun editedLabel(
         millis: Long,
         locale: Locale = Locale.getDefault(),
