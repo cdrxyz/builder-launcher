@@ -25,25 +25,15 @@ object CommandParser {
         val line = raw.trim()
         if (line.isEmpty()) return Command.Empty
 
-        val lower = line.lowercase()
-        when (lower) {
-            "help", "/help", "?" -> return Command.Help
-            "settings", "/settings" -> return Command.OpenSettings
-            "hub", "/hub" -> return Command.OpenHub
-            "notes", "/notes" -> return Command.OpenNotes
-            "apps", "/apps" -> return Command.OpenApps
-            "stocks", "/stocks", "stock", "/stock", "$" -> return Command.OpenStocks
-            "pin", "unpin" -> return Command.Help
+        if (line.startsWith("/")) {
+            val rest = line.drop(1).trim()
+            if (rest.isEmpty()) return Command.Empty
+            SlashCommands.resolve(rest)?.let { return it.command }
+            return parseNamed(rest) ?: Command.Empty
         }
 
-        if (lower.startsWith("pin ")) {
-            val query = line.drop(4).trim()
-            return if (query.isEmpty()) Command.Help else Command.Pin(query)
-        }
-        if (lower.startsWith("unpin ")) {
-            val query = line.drop(6).trim()
-            return if (query.isEmpty()) Command.Help else Command.Unpin(query)
-        }
+        if (line == "?") return Command.Help
+        parseNamed(line)?.let { return it }
 
         return when (line.first()) {
             '@' -> {
@@ -79,6 +69,25 @@ object CommandParser {
             }
             else -> Command.LaunchApp(line)
         }
+    }
+
+    private fun parseNamed(raw: String): Command? {
+        val trimmed = raw.trim()
+        val lower = trimmed.lowercase()
+        SlashCommands.exact(lower)?.let { return it.command }
+        when (lower) {
+            "stock" -> return Command.OpenStocks
+            "pin", "unpin" -> return Command.Help
+        }
+        if (lower.startsWith("pin ")) {
+            val query = trimmed.drop(4).trim()
+            return if (query.isEmpty()) Command.Help else Command.Pin(query)
+        }
+        if (lower.startsWith("unpin ")) {
+            val query = trimmed.drop(6).trim()
+            return if (query.isEmpty()) Command.Help else Command.Unpin(query)
+        }
+        return null
     }
 
     private fun splitEvent(rest: String): Command.Event {

@@ -17,6 +17,9 @@ class PrefixCommandsTest {
     @Test
     fun catalogCoversPrefixCommands() {
         assertEquals(listOf('@', '#', '*', '-', '+', '$', '?'), PrefixCommands.all.map { it.glyph })
+        assertNull(PrefixCommands.find('/'))
+        assertTrue(PrefixCommands.isModePrompt('/'))
+        assertFalse(PrefixCommands.isModePrompt('>'))
     }
 
     @Test
@@ -42,6 +45,23 @@ class PrefixCommandsTest {
         assertEquals('-', typed.prompt)
         assertEquals("buy milk", typed.input)
         assertEquals("-buy milk", typed.line)
+    }
+
+    @Test
+    fun typeMovesSlashOntoThePrompt() {
+        val typed = PrefixCommands.type(PrefixCommands.Mode(), "/help")
+        assertEquals('/', typed.prompt)
+        assertEquals("help", typed.input)
+        assertEquals("/help", typed.line)
+        assertTrue(typed.hasTypedText)
+    }
+
+    @Test
+    fun emptySlashPromptDoesNotCountAsTypedText() {
+        val empty = PrefixCommands.Mode(prompt = '/', input = "")
+        assertEquals("/", empty.line)
+        assertFalse(empty.hasTypedText)
+        assertEquals(PrefixCommands.Mode(), PrefixCommands.clearMode(empty))
     }
 
     @Test

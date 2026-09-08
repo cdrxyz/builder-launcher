@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.commands.PrefixCommand
 import xyz.cdr.builderlauncher.commands.PrefixCommands
+import xyz.cdr.builderlauncher.commands.SlashCommand
+import xyz.cdr.builderlauncher.commands.SlashCommands
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
@@ -37,6 +39,40 @@ fun CommandMenu(
             ) {
                 Text(
                     cmd.glyph.toString(),
+                    color = Accent,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(end = 10.dp),
+                )
+                Text(
+                    cmd.label,
+                    color = if (index == selected) Paper else Dim,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SlashCommandMenu(
+    commands: List<SlashCommand> = SlashCommands.all,
+    selected: Int = -1,
+    onSelect: (SlashCommand) -> Unit = {},
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        commands.forEachIndexed { index, cmd ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(cmd) }
+                    .padding(vertical = 6.dp),
+            ) {
+                Text(
+                    cmd.name,
                     color = Accent,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(end = 10.dp),

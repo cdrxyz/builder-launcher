@@ -70,6 +70,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeSlashCommands() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    prompt = "/",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    slashOpen = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun notes() {
         paparazzi.snapshot {
             BuilderTheme {

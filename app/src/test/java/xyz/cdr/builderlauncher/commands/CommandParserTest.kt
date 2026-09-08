@@ -77,6 +77,18 @@ class CommandParserTest {
     }
 
     @Test
+    fun slashMode() {
+        assertEquals(Command.Empty, CommandParser.parse("/"))
+        assertEquals(Command.Help, CommandParser.parse("/help"))
+        assertEquals(Command.OpenSettings, CommandParser.parse("/set"))
+        assertEquals(Command.Empty, CommandParser.parse("/h"))
+        assertEquals(Command.Empty, CommandParser.parse("/unknown"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("/stocks"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("/stock"))
+        assertEquals(Command.Pin("Termux"), CommandParser.parse("/pin Termux"))
+    }
+
+    @Test
     fun pinAndUnpin() {
         assertEquals(Command.Pin("Termux"), CommandParser.parse("pin Termux"))
         assertEquals(Command.Unpin("Termux"), CommandParser.parse("unpin Termux"))
