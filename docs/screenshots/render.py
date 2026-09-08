@@ -49,7 +49,7 @@ def home() -> None:
     for todo in ("buy milk", "ship builder-launcher CI", "call dentist"):
         d.text((PAD_X, y), todo, font=F_BODY, fill=PAPER)
         y += 48
-    d.text((PAD_X, y), "…more tasks >", font=F_BODY, fill=PROMPT)
+    d.text((PAD_X, y), "… more tasks >", font=F_BODY, fill=PROMPT)
     y = H - 160
     d.text((PAD_X, y), ">", font=F_BODY, fill=PROMPT)
     d.text((PAD_X + 36, y), "?summarize this PR", font=F_BODY, fill=PAPER)
