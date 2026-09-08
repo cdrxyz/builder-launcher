@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
@@ -87,9 +93,13 @@ fun TodosChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
-            Text(HomeTodos.SHARE, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            CopyIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -282,4 +292,27 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun CopyIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val gap = size.minDimension * 0.28f
+        val box = Size(size.width - gap, size.height - gap)
+        drawRoundRect(
+            color = Prompt,
+            topLeft = Offset(gap, 0f),
+            size = box,
+            cornerRadius = CornerRadius(2.dp.toPx()),
+            style = stroke,
+        )
+        drawRoundRect(
+            color = Prompt,
+            topLeft = Offset(0f, gap),
+            size = box,
+            cornerRadius = CornerRadius(2.dp.toPx()),
+            style = stroke,
+        )
+    }
 }

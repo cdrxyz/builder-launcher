@@ -382,7 +382,11 @@ fun BuilderRoot(
                 val todos = HomeTodos.of(local)
                 val openTodos = HomeTodos.open(todos)
                 val doneTodos = HomeTodos.completed(todos)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         HomeTodos.BACK,
                         color = Prompt,
@@ -393,10 +397,8 @@ fun BuilderRoot(
                             }
                             .padding(vertical = 6.dp),
                     )
-                    Text(
-                        HomeTodos.SHARE,
-                        color = Prompt,
-                        modifier = Modifier
+                    CopyIcon(
+                        Modifier
                             .clickable {
                                 val clip = ctx.getSystemService(ClipboardManager::class.java)
                                 clip?.setPrimaryClip(

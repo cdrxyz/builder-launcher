@@ -54,7 +54,7 @@ Type on the home screen, then Enter.
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
 | | `hub` / `settings` / `help` | Built-ins |
 
-Home always shows the clock, current weather, and up to 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. `…more tasks >` is always on home and opens the full todos list (no clock; `<` returns home). The command bar there starts in `-` task mode. `↗` copies open todos as a markdown checklist dated `YYYY-MM-DD`. Finished items sit below open ones, newest completed first. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. `@` and `#` complete contacts as you type. Tap the clock for settings.
+Home always shows the clock, current weather, and up to 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. `…more tasks >` is always on home and opens the full todos list (no clock; `<` returns home). The command bar there starts in `-` task mode. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet). Finished items sit below open ones, newest completed first. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. `@` and `#` complete contacts as you type. Tap the clock for settings.
 
 ## AI settings
 
