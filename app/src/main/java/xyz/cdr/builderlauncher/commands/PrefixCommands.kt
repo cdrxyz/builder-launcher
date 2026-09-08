@@ -36,15 +36,27 @@ object PrefixCommands {
 
     fun pick(current: Mode, glyph: Char): Mode = current.copy(prompt = glyph)
 
+    fun usesRawSymbolKeyboard(glyph: Char): Boolean = glyph == '$'
+
     fun type(current: Mode, newInput: String): Mode {
         val first = newInput.firstOrNull()
-        return if (first != null && isModePrompt(first)) {
+        val next = if (first != null && isModePrompt(first)) {
             Mode(prompt = first, input = newInput.drop(1))
         } else {
             current.copy(input = newInput)
         }
+        return if (usesRawSymbolKeyboard(next.prompt)) {
+            next.copy(input = collapsePeriodSpaces(next.input))
+        } else {
+            next
+        }
     }
+
+    internal fun collapsePeriodSpaces(input: String): String =
+        PERIOD_THEN_SPACES.replace(input, ".")
 
     fun clearMode(current: Mode): Mode =
         if (isModePrompt(current.prompt)) Mode(input = current.input) else current
+
+    private val PERIOD_THEN_SPACES = Regex("""\. +""")
 }
