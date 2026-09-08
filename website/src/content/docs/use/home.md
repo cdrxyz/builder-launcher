@@ -1,13 +1,13 @@
 ---
 title: Home
-description: Clock, weather, rotating watchlist ticker, three open todos, and the command bar — no icon grid.
+description: Clock, weather, rotating watchlist ticker, three open todos, pinned app icons, and the command bar.
 ---
 
 ![Home with clock, weather, last three todos, and the command bar](../../../assets/screenshots/home.png)
 
 ![Home with a watchlist ticker between the clock and the hub icon](../../../assets/screenshots/home-ticker.png)
 
-Home is empty on purpose. There is no icon grid.
+Home is empty on purpose. There is no icon grid. Apps you pin sit in a compact row of icons.
 
 | Piece | What it does |
 | --- | --- |
@@ -16,6 +16,7 @@ Home is empty on purpose. There is no icon grid.
 | Weather | Current condition under the date. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
+| Pinned apps | Horizontal row of icons. Tap to launch. Hold and drag to reorder. See [apps](apps/). |
 | Command bar | Bottom of the screen. Type, then Enter. |
 
 Finished todos do **not** sit on home. They live on the tasks list under open items, newest completed first.

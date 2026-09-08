@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.data.BuilderSettings
@@ -113,6 +114,7 @@ fun HomeChrome(
     weather: String = "",
     todos: List<String> = emptyList(),
     apps: List<String> = emptyList(),
+    pins: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
     slashOpen: Boolean = false,
@@ -150,8 +152,19 @@ fun HomeChrome(
         }
         Text(HomeTodos.MORE_TASKS, color = Accent, modifier = Modifier.padding(vertical = 4.dp))
         Spacer(Modifier.height(8.dp))
+        if (pins.isNotEmpty() && apps.isEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                pins.forEach { _ ->
+                    AppMark(size = 48.dp)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (apps.isEmpty() && input.isBlank()) {
+            if (apps.isEmpty() && input.isBlank() && pins.isEmpty()) {
                 Text(hint, color = Dim)
             } else {
                 apps.forEach { label ->
@@ -1180,8 +1193,8 @@ fun InfoIcon(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun AppMark(modifier: Modifier = Modifier) {
-    Canvas(modifier.size(28.dp)) {
+fun AppMark(modifier: Modifier = Modifier, size: Dp = 28.dp) {
+    Canvas(modifier.size(size)) {
         drawRoundRect(
             color = Line,
             cornerRadius = CornerRadius(5.dp.toPx()),

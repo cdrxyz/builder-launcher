@@ -20,6 +20,10 @@ class PinnedApps(context: Context) {
         persist(_packages.value.filterNot { it == packageName })
     }
 
+    fun move(from: Int, to: Int) {
+        persist(ListReorder.move(_packages.value, from, to))
+    }
+
     fun isPinned(packageName: String): Boolean = packageName in _packages.value
 
     private fun persist(next: List<String>) {
