@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.ui.theme.Dim
@@ -40,7 +41,6 @@ fun HomeChrome(
     weather: String = "",
     todos: List<String> = emptyList(),
     doneTodos: List<String> = emptyList(),
-    moreTodos: Boolean = false,
     todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
@@ -59,31 +59,11 @@ fun HomeChrome(
         }
         Spacer(Modifier.height(8.dp))
         if (!todosExpanded) {
-            todos.take(3).forEach { text ->
+            todos.take(HomeTodos.PREVIEW).forEach { text ->
                 Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
             }
-            if (moreTodos) {
-                Text("…more todos", color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
-            }
-            if (doneTodos.isNotEmpty()) {
-                Text(
-                    "done",
-                    color = Dim,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                )
-                doneTodos.forEach { text ->
-                    Text(
-                        text,
-                        color = Dim,
-                        style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    )
-                }
-            }
-            if (todos.isNotEmpty() || doneTodos.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-            }
+            Text(HomeTodos.MORE_TASKS, color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+            Spacer(Modifier.height(8.dp))
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (todosExpanded) {
@@ -107,7 +87,7 @@ fun HomeChrome(
                     }
                 }
                 Text("show less", color = Dim, modifier = Modifier.padding(vertical = 6.dp))
-            } else if (apps.isEmpty() && input.isBlank() && todos.isEmpty() && doneTodos.isEmpty()) {
+            } else if (apps.isEmpty() && input.isBlank()) {
                 Text(hint, color = Dim)
             } else {
                 apps.forEach { label ->

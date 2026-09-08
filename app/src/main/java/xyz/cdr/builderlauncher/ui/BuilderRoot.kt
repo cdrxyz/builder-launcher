@@ -245,19 +245,15 @@ fun BuilderRoot(
                 val todos = HomeTodos.of(local)
                 val openTodos = HomeTodos.open(todos)
                 val doneTodos = HomeTodos.completed(todos)
-                LaunchedEffect(openTodos.size, doneTodos.size, todosExpanded) {
-                    if (todosExpanded && openTodos.isEmpty() && doneTodos.isEmpty()) todosExpanded = false
-                }
+                val previewTodos = HomeTodos.preview(todos)
                 ClockHeader(
                     weather = forecast?.line,
                     onOpenSettings = { page = Page.Settings },
                 )
                 Spacer(Modifier.height(8.dp))
-                if (!todosExpanded && (openTodos.isNotEmpty() || doneTodos.isNotEmpty())) {
+                if (!todosExpanded) {
                     TodoPreview(
-                        open = HomeTodos.visibleOpen(openTodos, expanded = false),
-                        done = HomeTodos.visibleDone(doneTodos, expanded = false),
-                        hasMore = HomeTodos.hasMore(openTodos) || HomeTodos.hasMoreDone(doneTodos),
+                        open = previewTodos,
                         onToggle = { lists.toggleComplete(it) },
                         onMore = { todosExpanded = true },
                     )
@@ -382,7 +378,7 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (shown.isEmpty() && input.isBlank() && openTodos.isEmpty() && doneTodos.isEmpty()) {
+                        if (shown.isEmpty() && input.isBlank()) {
                             item {
                                 Text("Type to work. help for commands. Then put it down.", color = Dim)
                             }
@@ -488,8 +484,6 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
 @Composable
 private fun TodoPreview(
     open: List<LocalItem>,
-    done: List<LocalItem>,
-    hasMore: Boolean,
     onToggle: (String) -> Unit,
     onMore: () -> Unit,
 ) {
@@ -497,26 +491,13 @@ private fun TodoPreview(
         open.forEach { item ->
             TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
         }
-        if (hasMore) {
-            Text(
-                "…more todos",
-                color = Prompt,
-                modifier = Modifier
-                    .clickable { onMore() }
-                    .padding(vertical = 4.dp),
-            )
-        }
-        if (done.isNotEmpty()) {
-            Text(
-                "done",
-                color = Dim,
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-            )
-            done.forEach { item ->
-                TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
-            }
-        }
+        Text(
+            HomeTodos.MORE_TASKS,
+            color = Prompt,
+            modifier = Modifier
+                .clickable { onMore() }
+                .padding(vertical = 4.dp),
+        )
     }
 }
 
