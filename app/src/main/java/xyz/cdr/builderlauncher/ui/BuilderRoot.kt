@@ -1169,37 +1169,37 @@ fun BuilderRoot(
                                 .zIndex(if (lifting) 1f else 0f)
                                 .graphicsLayer { translationY = shift }
                                 .onSizeChanged { rowHeight = it.height.toFloat() }
-                                .then(if (dragFrom == null) Modifier.animateItem() else Modifier)
-                                .pointerInput(item.id, index, openTodos.size) {
-                                    detectTapOrLongDrag(
-                                        onTap = { lists.toggleComplete(item.id) },
-                                        onDragStart = {
-                                            dragFrom = index
-                                            dragTo = index
-                                            dragY = 0f
-                                        },
-                                        onDrag = { amount ->
-                                            dragY += amount
-                                            val from = dragFrom ?: return@detectTapOrLongDrag
-                                            val step = (rowHeight + gap).takeIf { it > 1f }
-                                                ?: return@detectTapOrLongDrag
-                                            dragTo = ListReorder.targetIndex(from, dragY, step, openTodos.lastIndex)
-                                        },
-                                        onDragEnd = {
-                                            val from = dragFrom
-                                            val to = dragTo
-                                            dragFrom = null
-                                            dragTo = null
-                                            dragY = 0f
-                                            if (from != null && to != null) lists.moveOpen(from, to)
-                                        },
-                                        onDragCancel = {
-                                            dragFrom = null
-                                            dragTo = null
-                                            dragY = 0f
-                                        },
-                                    )
-                                },
+                                .then(if (dragFrom == null) Modifier.animateItem() else Modifier),
+                            textModifier = Modifier.pointerInput(item.id, index, openTodos.size) {
+                                detectTapOrLongDrag(
+                                    onTap = { lists.toggleComplete(item.id) },
+                                    onDragStart = {
+                                        dragFrom = index
+                                        dragTo = index
+                                        dragY = 0f
+                                    },
+                                    onDrag = { amount ->
+                                        dragY += amount
+                                        val from = dragFrom ?: return@detectTapOrLongDrag
+                                        val step = (rowHeight + gap).takeIf { it > 1f }
+                                            ?: return@detectTapOrLongDrag
+                                        dragTo = ListReorder.targetIndex(from, dragY, step, openTodos.lastIndex)
+                                    },
+                                    onDragEnd = {
+                                        val from = dragFrom
+                                        val to = dragTo
+                                        dragFrom = null
+                                        dragTo = null
+                                        dragY = 0f
+                                        if (from != null && to != null && from != to) lists.moveOpen(from, to)
+                                    },
+                                    onDragCancel = {
+                                        dragFrom = null
+                                        dragTo = null
+                                        dragY = 0f
+                                    },
+                                )
+                            },
                         )
                     }
                     if (doneTodos.isNotEmpty()) {
@@ -2327,7 +2327,7 @@ private fun TodoLine(
             ),
             modifier = textModifier
                 .weight(1f)
-                .then(if (onEdit == null) Modifier.clickable { onToggle() } else Modifier)
+                .then(if (item.done || onEdit == null) Modifier.clickable { onToggle() } else Modifier)
                 .padding(vertical = if (compact) 4.dp else 6.dp),
         )
         if (onEdit != null) {

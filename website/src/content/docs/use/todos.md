@@ -9,7 +9,7 @@ Prefix `-`. Example: `-buy milk`.
 
 - Saved locally on the device (not in a cloud todo app).
 - Home shows up to 3 **open** todos.
-- Tap a line to complete it (strikethrough). Tap again to reopen.
+- Tap a line to complete it (strikethrough). Tap again to reopen, including on the full list under **done**.
 - `… more tasks >` is always on home and opens the full list.
 
 ![Full tasks page with open and completed items](../../../assets/screenshots/todos.png)
