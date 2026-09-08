@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,15 +10,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.ui.theme.Dim
@@ -39,9 +46,6 @@ fun HomeChrome(
     input: String,
     weather: String = "",
     todos: List<String> = emptyList(),
-    doneTodos: List<String> = emptyList(),
-    moreTodos: Boolean = false,
-    todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
@@ -58,12 +62,49 @@ fun HomeChrome(
             Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
         Spacer(Modifier.height(8.dp))
-        if (!todosExpanded) {
-            todos.take(3).forEach { text ->
-                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+        todos.take(HomeTodos.PREVIEW).forEach { text ->
+            Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+        }
+        Text(HomeTodos.MORE_TASKS, color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (apps.isEmpty() && input.isBlank()) {
+                Text(hint, color = Dim)
+            } else {
+                apps.forEach { label ->
+                    Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                }
             }
-            if (moreTodos) {
-                Text("…more todos", color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, commandsOpen = commandsOpen)
+    }
+}
+
+@Composable
+fun TodosChrome(
+    todos: List<String> = emptyList(),
+    doneTodos: List<String> = emptyList(),
+    input: String = HomeTodos.TASK_PREFIX,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            CopyIcon(Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            todos.forEach { text ->
+                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
             }
             if (doneTodos.isNotEmpty()) {
                 Text(
@@ -77,46 +118,13 @@ fun HomeChrome(
                         text,
                         color = Dim,
                         style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     )
-                }
-            }
-            if (todos.isNotEmpty() || doneTodos.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-            }
-        }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (todosExpanded) {
-                todos.forEach { text ->
-                    Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
-                }
-                if (doneTodos.isNotEmpty()) {
-                    Text(
-                        "done",
-                        color = Dim,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                    )
-                    doneTodos.forEach { text ->
-                        Text(
-                            text,
-                            color = Dim,
-                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                        )
-                    }
-                }
-                Text("show less", color = Dim, modifier = Modifier.padding(vertical = 6.dp))
-            } else if (apps.isEmpty() && input.isBlank() && todos.isEmpty() && doneTodos.isEmpty()) {
-                Text(hint, color = Dim)
-            } else {
-                apps.forEach { label ->
-                    Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input, commandsOpen = commandsOpen)
+        CommandRow(input)
     }
 }
 
@@ -284,4 +292,27 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun CopyIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val gap = size.minDimension * 0.28f
+        val box = Size(size.width - gap, size.height - gap)
+        drawRoundRect(
+            color = Prompt,
+            topLeft = Offset(gap, 0f),
+            size = box,
+            cornerRadius = CornerRadius(2.dp.toPx()),
+            style = stroke,
+        )
+        drawRoundRect(
+            color = Prompt,
+            topLeft = Offset(0f, gap),
+            size = box,
+            cornerRadius = CornerRadius(2.dp.toPx()),
+            style = stroke,
+        )
+    }
 }

@@ -2,10 +2,13 @@
 
 package xyz.cdr.builderlauncher.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -93,7 +96,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Hub, Settings }
+enum class Page { Home, Todos, Hub, Settings }
 
 @Composable
 fun BuilderRoot(
@@ -118,7 +121,6 @@ fun BuilderRoot(
     var aiText by remember { mutableStateOf<String?>(null) }
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
-    var todosExpanded by remember { mutableStateOf(false) }
     var people by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
     var contactAction by remember { mutableStateOf<ContactAction?>(null) }
     var contactBody by remember { mutableStateOf("") }
@@ -172,6 +174,13 @@ fun BuilderRoot(
     }
 
     fun runCommand(line: String) {
+        if (page == Page.Todos) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed == HomeTodos.TASK_PREFIX) {
+                input = HomeTodos.enterDraft()
+                return
+            }
+        }
         val draft = smsDraft
         if (draft != null) {
             if (line.isBlank() || line.equals("send", ignoreCase = true)) {
@@ -229,6 +238,9 @@ fun BuilderRoot(
                 help = false
             }
         }
+        if (page == Page.Todos && input.isBlank()) {
+            input = HomeTodos.keepDraft(input)
+        }
     }
 
     Column(
@@ -242,27 +254,21 @@ fun BuilderRoot(
     ) {
         when (page) {
             Page.Home -> {
-                val todos = HomeTodos.of(local)
-                val openTodos = HomeTodos.open(todos)
-                val doneTodos = HomeTodos.completed(todos)
-                LaunchedEffect(openTodos.size, doneTodos.size, todosExpanded) {
-                    if (todosExpanded && openTodos.isEmpty() && doneTodos.isEmpty()) todosExpanded = false
-                }
+                val previewTodos = HomeTodos.preview(HomeTodos.of(local))
                 ClockHeader(
                     weather = forecast?.line,
                     onOpenSettings = { page = Page.Settings },
                 )
                 Spacer(Modifier.height(8.dp))
-                if (!todosExpanded && (openTodos.isNotEmpty() || doneTodos.isNotEmpty())) {
-                    TodoPreview(
-                        open = HomeTodos.visibleOpen(openTodos, expanded = false),
-                        done = HomeTodos.visibleDone(doneTodos, expanded = false),
-                        hasMore = HomeTodos.hasMore(openTodos) || HomeTodos.hasMoreDone(doneTodos),
-                        onToggle = { lists.toggleComplete(it) },
-                        onMore = { todosExpanded = true },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
+                TodoPreview(
+                    open = previewTodos,
+                    onToggle = { lists.toggleComplete(it) },
+                    onMore = {
+                        input = HomeTodos.enterDraft()
+                        page = Page.Todos
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
                 if (aiText != null) {
                     Text(if (aiBusy) "…" else aiText!!, color = Prompt, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
@@ -328,32 +334,6 @@ fun BuilderRoot(
                                 Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
-                    } else if (todosExpanded) {
-                        items(openTodos, key = { "t" + it.id }) { item ->
-                            TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
-                        }
-                        if (doneTodos.isNotEmpty()) {
-                            item {
-                                Text(
-                                    "done",
-                                    color = Dim,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                                )
-                            }
-                        }
-                        items(doneTodos, key = { "d" + it.id }) { item ->
-                            TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
-                        }
-                        item {
-                            Text(
-                                "show less",
-                                color = Dim,
-                                modifier = Modifier
-                                    .clickable { todosExpanded = false }
-                                    .padding(vertical = 6.dp),
-                            )
-                        }
                     } else {
                         items(shown, key = { it.packageName + it.activityName }) { app ->
                             Text(
@@ -382,11 +362,70 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (shown.isEmpty() && input.isBlank() && openTodos.isEmpty() && doneTodos.isEmpty()) {
+                        if (shown.isEmpty() && input.isBlank()) {
                             item {
                                 Text("Type to work. help for commands. Then put it down.", color = Dim)
                             }
                         }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    value = input,
+                    hardware = hardware,
+                    onValue = { onInput(it) },
+                    onSubmit = { runCommand(input) },
+                    onHub = { page = Page.Hub },
+                )
+            }
+            Page.Todos -> {
+                val todos = HomeTodos.of(local)
+                val openTodos = HomeTodos.open(todos)
+                val doneTodos = HomeTodos.completed(todos)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        HomeTodos.BACK,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable {
+                                input = HomeTodos.leaveDraft(input)
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    CopyIcon(
+                        Modifier
+                            .clickable {
+                                val clip = ctx.getSystemService(ClipboardManager::class.java)
+                                clip?.setPrimaryClip(
+                                    ClipData.newPlainText("todos", HomeTodos.shareMarkdown(todos)),
+                                )
+                                Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(openTodos, key = { "t" + it.id }) { item ->
+                        TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                    }
+                    if (doneTodos.isNotEmpty()) {
+                        item {
+                            Text(
+                                "done",
+                                color = Dim,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                            )
+                        }
+                    }
+                    items(doneTodos, key = { "d" + it.id }) { item ->
+                        TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -488,8 +527,6 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
 @Composable
 private fun TodoPreview(
     open: List<LocalItem>,
-    done: List<LocalItem>,
-    hasMore: Boolean,
     onToggle: (String) -> Unit,
     onMore: () -> Unit,
 ) {
@@ -497,26 +534,13 @@ private fun TodoPreview(
         open.forEach { item ->
             TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
         }
-        if (hasMore) {
-            Text(
-                "…more todos",
-                color = Prompt,
-                modifier = Modifier
-                    .clickable { onMore() }
-                    .padding(vertical = 4.dp),
-            )
-        }
-        if (done.isNotEmpty()) {
-            Text(
-                "done",
-                color = Dim,
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-            )
-            done.forEach { item ->
-                TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
-            }
-        }
+        Text(
+            HomeTodos.MORE_TASKS,
+            color = Prompt,
+            modifier = Modifier
+                .clickable { onMore() }
+                .padding(vertical = 4.dp),
+        )
     }
 }
 
