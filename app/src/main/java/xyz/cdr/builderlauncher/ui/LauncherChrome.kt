@@ -3,6 +3,8 @@ package xyz.cdr.builderlauncher.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,8 +18,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -557,6 +561,8 @@ fun StockDetailChrome(
     cagr: List<StockStatLine> = emptyList(),
     extendedLine: String = "",
     extendedUp: Boolean = true,
+    dateLine: String = "",
+    selectedIndex: Int? = null,
 ) {
     val tone = if (up) Gain else Loss
     Column(
@@ -572,6 +578,9 @@ fun StockDetailChrome(
         Spacer(Modifier.height(12.dp))
         Text(price, color = Paper, style = MaterialTheme.typography.headlineLarge)
         Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+        if (dateLine.isNotBlank()) {
+            Text(dateLine, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
         if (extendedLine.isNotBlank()) {
             Text(
                 extendedLine,
@@ -580,7 +589,12 @@ fun StockDetailChrome(
             )
         }
         Spacer(Modifier.height(16.dp))
-        StockChart(points = points, up = up, modifier = Modifier.fillMaxWidth().height(140.dp))
+        StockChart(
+            points = points,
+            up = up,
+            selectedIndex = selectedIndex,
+            modifier = Modifier.fillMaxWidth().height(140.dp),
+        )
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             StockRange.entries.forEach { item ->
@@ -624,19 +638,43 @@ fun StockChart(
     points: List<StockPoint>,
     up: Boolean,
     modifier: Modifier = Modifier,
+    selectedIndex: Int? = null,
+    onSelect: (Int?) -> Unit = {},
 ) {
     val tone = if (up) Gain else Loss
-    Canvas(modifier) {
+    val select = rememberUpdatedState(onSelect)
+    Canvas(
+        modifier.pointerInput(points) {
+            if (points.isEmpty()) return@pointerInput
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                select.value(Stocks.indexAt(down.position.x, size.width.toFloat(), points.size))
+                down.consume()
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull() ?: break
+                    if (!change.pressed) {
+                        select.value(null)
+                        break
+                    }
+                    change.consume()
+                    select.value(Stocks.indexAt(change.position.x, size.width.toFloat(), points.size))
+                }
+            }
+        },
+    ) {
         if (points.size < 2) return@Canvas
         val ys = points.map { it.close }
         val min = ys.min()
         val max = ys.max()
         val span = (max - min).takeIf { it > 0.0 } ?: 1.0
         val dx = size.width / (points.lastIndex)
+        fun yOf(close: Double): Float =
+            (size.height - ((close - min) / span * size.height).toFloat()).coerceIn(0f, size.height)
         val line = Path()
         points.forEachIndexed { i, point ->
             val x = i * dx
-            val y = (size.height - ((point.close - min) / span * size.height).toFloat()).coerceIn(0f, size.height)
+            val y = yOf(point.close)
             if (i == 0) line.moveTo(x, y) else line.lineTo(x, y)
         }
         val fill = Path().apply {
@@ -647,6 +685,13 @@ fun StockChart(
         }
         drawPath(fill, tone.copy(alpha = 0.18f))
         drawPath(line, tone, style = Stroke(width = 2.dp.toPx()))
+        val mark = selectedIndex?.coerceIn(0, points.lastIndex)
+        if (mark != null) {
+            val x = mark * dx
+            val y = yOf(points[mark].close)
+            drawLine(Paper, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
+            drawCircle(Paper, radius = 4.dp.toPx(), center = Offset(x, y))
+        }
     }
 }
 

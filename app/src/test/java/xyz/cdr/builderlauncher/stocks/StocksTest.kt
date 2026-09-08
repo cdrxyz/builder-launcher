@@ -75,6 +75,28 @@ class StocksTest {
     }
 
     @Test
+    fun chartScrubMapsXDateAndBaseline() {
+        val points = listOf(
+            StockPoint(1_700_000_000L, 100.0),
+            StockPoint(1_700_000_300L, 110.0),
+            StockPoint(1_700_000_600L, 90.0),
+        )
+        assertEquals(0, Stocks.indexAt(0f, 100f, 3))
+        assertEquals(1, Stocks.indexAt(50f, 100f, 3))
+        assertEquals(2, Stocks.indexAt(100f, 100f, 3))
+        assertEquals(0, Stocks.indexAt(-10f, 100f, 3))
+        assertEquals(2, Stocks.indexAt(999f, 100f, 3))
+        assertEquals(0, Stocks.indexAt(0f, 0f, 3))
+        assertEquals(100.0, Stocks.scrubBaseline(points, StockRange.M1, previousClose = 95.0))
+        assertEquals(95.0, Stocks.scrubBaseline(points, StockRange.D1, previousClose = 95.0))
+        val utc = java.util.TimeZone.getTimeZone("UTC")
+        assertEquals("10:13 PM", Stocks.formatChartTime(1_700_000_000L, StockRange.D1, zone = utc))
+        assertEquals("Tue 10:13 PM", Stocks.formatChartTime(1_700_000_000L, StockRange.W1, zone = utc))
+        assertEquals("Nov 14", Stocks.formatChartTime(1_700_000_000L, StockRange.M1, zone = utc))
+        assertEquals("Nov 14, 2023", Stocks.formatChartTime(1_700_000_000L, StockRange.Y1, zone = utc))
+    }
+
+    @Test
     fun cagrAndPerformance() {
         assertEquals(0.10, Stocks.cagr(100.0, 121.0, 2.0)!!, 0.0001)
         assertNull(Stocks.cagr(0.0, 121.0, 2.0))

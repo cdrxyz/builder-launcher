@@ -31,6 +31,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 <p align="center">
   <img src="docs/screenshots/stocks.png" alt="Stocks watchlist with price and percent change" width="240" />
   <img src="docs/screenshots/stock-detail.png" alt="Ticker detail with chart, timeframes, and stats" width="240" />
+  <img src="docs/screenshots/stock-detail-scrub.png" alt="Dragging across a ticker chart updates price, date, and percent" width="240" />
   <img src="docs/screenshots/stocks-settings.png" alt="Stocks settings: new tickers, copy, paste, replace" width="240" />
   <img src="docs/screenshots/chat.png" alt="Full-screen AI chat with a markdown table answer" width="240" />
   <img src="docs/screenshots/chat-history.png" alt="Past AI conversations with dates and delete" width="240" />

@@ -361,6 +361,28 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun stockDetailScrub() {
+        val points = listOf(
+            328.0, 326.4, 324.1, 325.8, 323.0, 321.2, 322.5, 320.1, 319.97,
+        ).mapIndexed { i, close -> StockPoint(time = 1_700_000_000L + i * 300L, close = close) }
+        paparazzi.snapshot {
+            BuilderTheme {
+                StockDetailChrome(
+                    symbol = "AAPL",
+                    name = "Apple Inc.",
+                    price = "$325.80",
+                    changeLine = "-2.41 (-0.73%)",
+                    up = false,
+                    dateLine = "10:28 PM",
+                    selectedIndex = 3,
+                    points = points,
+                    range = xyz.cdr.builderlauncher.stocks.StockRange.D1,
+                )
+            }
+        }
+    }
+
+    @Test
     fun chat() {
         paparazzi.snapshot {
             BuilderTheme {
