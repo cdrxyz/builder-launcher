@@ -25,6 +25,8 @@ Finished todos do **not** sit on home. They live on the tasks list under open it
 
 Swipe up to Home (or the Home button) while already in Builder Launcher returns to this home screen — tasks, hub, notes, settings, and the rest. Home from another app restores the last launcher page instead: leave from tasks, come back on tasks.
 
+Back is not Home. From tasks, hub, notes, and the rest it returns to this home screen. On home it stays put. It does not finish the launcher or reload the page you were on.
+
 ## Tasks list
 
 ![Full todos list with more-tasks command bar in dash mode](../../../assets/screenshots/todos.png)

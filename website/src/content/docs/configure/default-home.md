@@ -11,4 +11,4 @@ Builder Launcher is a Home app (`ROLE_HOME`).
 
 Until it is default Home, the system launcher still owns the Home button. Install still works; you just open Builder Launcher like any other app.
 
-Once it is default Home: swipe up to Home while already in the launcher goes to the home screen. Swipe up to Home from another app restores the last launcher page (for example tasks).
+Once it is default Home: swipe up to Home while already in the launcher goes to the home screen. Swipe up to Home from another app restores the last launcher page (for example tasks). The Back button returns to the home screen from an inner page and stays on home; it does not reload the current page.
