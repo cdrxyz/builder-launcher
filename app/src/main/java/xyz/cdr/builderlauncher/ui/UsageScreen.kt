@@ -52,7 +52,10 @@ fun UsageScreen(
             Text(
                 Usage.BACK,
                 color = Accent,
-                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+                modifier = Modifier
+                    .semantics { contentDescription = "back" }
+                    .clickable { onBack() }
+                    .padding(vertical = 6.dp),
             )
         }
         Spacer(Modifier.height(12.dp))

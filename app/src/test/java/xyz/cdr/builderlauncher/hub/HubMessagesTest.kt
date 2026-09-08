@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.hub
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -98,5 +99,10 @@ class HubMessagesTest {
     @Test
     fun signalInPackageNameCounts() {
         assertTrue(HubMessages.isKnownMessenger("org.signal.nightly"))
+    }
+
+    @Test
+    fun backMatchesOtherScreens() {
+        assertEquals("<", HubMessages.BACK)
     }
 }

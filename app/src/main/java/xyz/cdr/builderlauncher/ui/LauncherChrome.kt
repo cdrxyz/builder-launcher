@@ -55,6 +55,7 @@ import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
+import xyz.cdr.builderlauncher.hub.HubMessages
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlert
@@ -791,7 +792,7 @@ fun HubChrome(rows: List<HubRow>) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text(HubMessages.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             Text("hub", color = Accent)
         }
         Spacer(Modifier.height(12.dp))

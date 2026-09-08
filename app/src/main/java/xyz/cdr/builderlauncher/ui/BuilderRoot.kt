@@ -141,6 +141,7 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.BackPress
 import xyz.cdr.builderlauncher.home.BackResult
+import xyz.cdr.builderlauncher.hub.HubMessages
 import xyz.cdr.builderlauncher.hub.HubStore
 import xyz.cdr.builderlauncher.stocks.HomeTicker
 import xyz.cdr.builderlauncher.stocks.HomeTickerLine
@@ -1460,9 +1461,10 @@ fun BuilderRoot(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "<",
+                        HubMessages.BACK,
                         color = Accent,
                         modifier = Modifier
+                            .semantics { contentDescription = "back" }
                             .clickable { page = Page.Home }
                             .padding(vertical = 6.dp),
                     )
