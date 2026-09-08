@@ -26,11 +26,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -45,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,15 +61,20 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -98,6 +107,7 @@ import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
@@ -327,7 +337,7 @@ fun BuilderRoot(
 
     fun addTicker(query: String) {
         scope.launch {
-            val item = stocks.add(query)
+            val item = stocks.add(query, settings.stockInsert)
             if (item == null) {
                 Toast.makeText(ctx, "No ticker matches", Toast.LENGTH_SHORT).show()
             }
@@ -351,7 +361,7 @@ fun BuilderRoot(
             Toast.makeText(ctx, "No tickers in clipboard", Toast.LENGTH_SHORT).show()
             return
         }
-        val added = stocks.importHits(hits)
+        val added = stocks.importHits(hits, settings.stockInsert)
         Toast.makeText(
             ctx,
             if (added == 0) "Already on the list" else "Added $added",
@@ -1264,6 +1274,10 @@ fun BuilderRoot(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                var dragFrom by remember { mutableStateOf<Int?>(null) }
+                var dragY by remember { mutableFloatStateOf(0f) }
+                var rowHeight by remember { mutableFloatStateOf(0f) }
+                val gap = with(LocalDensity.current) { 10.dp.toPx() }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (searching) {
                         if (stockHits.isEmpty()) {
@@ -1294,16 +1308,56 @@ fun BuilderRoot(
                                 Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
                             }
                         }
-                        items(watch, key = { it.symbol }) { item ->
+                        itemsIndexed(watch, key = { _, it -> it.symbol }) { index, item ->
                             val quote = quotes[item.symbol]
                             val price = quote?.price ?: item.price
                             val percent = quote?.changePercent ?: item.changePercent
                             val up = (percent ?: 0.0) >= 0.0
                             val tone = if (up) Gain else Loss
+                            val lifting = dragFrom == index
                             Row(
-                                Modifier.fillMaxWidth(),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(if (lifting) 1f else 0f)
+                                    .offset { IntOffset(0, if (lifting) dragY.toInt() else 0) }
+                                    .onSizeChanged { rowHeight = it.height.toFloat() }
+                                    .animateItem(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                GripIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "reorder" }
+                                        .pointerInput(index, watch.size) {
+                                            detectDragGestures(
+                                                onDragStart = {
+                                                    dragFrom = index
+                                                    dragY = 0f
+                                                },
+                                                onDragEnd = {
+                                                    dragFrom = null
+                                                    dragY = 0f
+                                                },
+                                                onDragCancel = {
+                                                    dragFrom = null
+                                                    dragY = 0f
+                                                },
+                                                onDrag = { change, amount ->
+                                                    change.consume()
+                                                    dragY += amount.y
+                                                    val from = dragFrom ?: return@detectDragGestures
+                                                    val step = (rowHeight + gap).takeIf { it > 1f } ?: return@detectDragGestures
+                                                    val shift = kotlin.math.round(dragY / step).toInt()
+                                                    val to = (from + shift).coerceIn(0, watch.lastIndex)
+                                                    if (to != from) {
+                                                        stocks.move(from, to)
+                                                        dragFrom = to
+                                                        dragY -= (to - from) * step
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        .padding(end = 10.dp, top = 6.dp, bottom = 6.dp),
+                                )
                                 Column(
                                     Modifier
                                         .weight(1f)
@@ -1990,6 +2044,26 @@ private fun SettingsPage(
                 "Home weather in Fahrenheit."
             } else {
                 "Home weather in Celsius."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            StockInsert.entries.forEach { insert ->
+                Text(
+                    insert.name.lowercase(),
+                    color = if (settings.stockInsert == insert) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(stockInsert = insert) } },
+                )
+            }
+        }
+        Text(
+            if (settings.stockInsert == StockInsert.BOTTOM) {
+                "New tickers go to the bottom of the list."
+            } else {
+                "New tickers go to the top of the list."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,

@@ -31,6 +31,7 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -503,6 +504,7 @@ private fun StockRowChrome(row: StockListRow) {
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        GripIcon(Modifier.padding(end = 10.dp, top = 6.dp, bottom = 6.dp))
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(row.symbol, color = Paper)
             Text(row.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -666,6 +668,25 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            StockInsert.entries.forEach { insert ->
+                Text(
+                    insert.name.lowercase(),
+                    color = if (settings.stockInsert == insert) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.stockInsert == StockInsert.BOTTOM) {
+                "New tickers go to the bottom of the list."
+            } else {
+                "New tickers go to the top of the list."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))
@@ -818,6 +839,20 @@ fun CopyIcon(modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke,
         )
+    }
+}
+
+@Composable
+fun GripIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val r = 1.4.dp.toPx()
+        val xs = listOf(size.width * 0.35f, size.width * 0.65f)
+        val ys = listOf(size.height * 0.28f, size.height * 0.50f, size.height * 0.72f)
+        xs.forEach { x ->
+            ys.forEach { y ->
+                drawCircle(color = Dim, radius = r, center = Offset(x, y))
+            }
+        }
     }
 }
 

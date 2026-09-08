@@ -1,5 +1,7 @@
 package xyz.cdr.builderlauncher.stocks
 
+import xyz.cdr.builderlauncher.data.StockInsert
+
 object Stocks {
     const val MORE = "… all stocks >"
     const val BACK = "<"
@@ -69,6 +71,31 @@ object Stocks {
             abs >= 1_000 -> "%.1fK".format(java.util.Locale.US, volume / 1_000.0)
             else -> volume.toString()
         }
+    }
+
+    fun place(items: List<WatchItem>, item: WatchItem, insert: StockInsert): List<WatchItem> =
+        when (insert) {
+            StockInsert.TOP -> listOf(item) + items
+            StockInsert.BOTTOM -> items + item
+        }
+
+    fun placeAll(
+        items: List<WatchItem>,
+        added: List<WatchItem>,
+        insert: StockInsert,
+    ): List<WatchItem> =
+        when (insert) {
+            StockInsert.TOP -> added + items
+            StockInsert.BOTTOM -> items + added
+        }
+
+    fun move(items: List<WatchItem>, from: Int, to: Int): List<WatchItem> {
+        if (from == to) return items
+        if (from !in items.indices || to !in items.indices) return items
+        val next = items.toMutableList()
+        val item = next.removeAt(from)
+        next.add(to, item)
+        return next
     }
 
     fun formatNumber(value: Double?): String {

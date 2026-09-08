@@ -28,6 +28,7 @@ data class BuilderSettings(
     val oauthExpiresAtEpochMs: Long = 0L,
     val oauthAccount: String = "",
     val accentHex: String = AccentColor.DEFAULT_HEX,
+    val stockInsert: StockInsert = StockInsert.TOP,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -40,6 +41,8 @@ data class BuilderSettings(
 }
 
 enum class KeyboardMode { AUTO, HARDWARE, SOFTWARE }
+
+enum class StockInsert { TOP, BOTTOM }
 
 enum class WeatherUnits {
     METRIC,
@@ -106,6 +109,9 @@ class SettingsRepository(context: Context) {
         val units = runCatching {
             WeatherUnits.valueOf(prefs.getString(KEY_WEATHER_UNITS, WeatherUnits.METRIC.name)!!)
         }.getOrDefault(WeatherUnits.METRIC)
+        val insert = runCatching {
+            StockInsert.valueOf(prefs.getString(KEY_STOCK_INSERT, StockInsert.TOP.name)!!)
+        }.getOrDefault(StockInsert.TOP)
         return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
@@ -121,6 +127,7 @@ class SettingsRepository(context: Context) {
             oauthExpiresAtEpochMs = prefs.getString(KEY_OAUTH_EXPIRES, "0")?.toLongOrNull() ?: 0L,
             oauthAccount = prefs.getString(KEY_OAUTH_ACCOUNT, "") ?: "",
             accentHex = AccentColor.normalize(prefs.getString(KEY_ACCENT, AccentColor.DEFAULT_HEX)),
+            stockInsert = insert,
         )
     }
 
@@ -140,6 +147,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_OAUTH_EXPIRES, next.oauthExpiresAtEpochMs.toString())
             .putString(KEY_OAUTH_ACCOUNT, next.oauthAccount)
             .putString(KEY_ACCENT, AccentColor.normalize(next.accentHex))
+            .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .apply()
     }
 
@@ -160,6 +168,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_OAUTH_EXPIRES = "oauth_expires"
         private const val KEY_OAUTH_ACCOUNT = "oauth_account"
         private const val KEY_ACCENT = "accent"
+        private const val KEY_STOCK_INSERT = "stock_insert"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {
