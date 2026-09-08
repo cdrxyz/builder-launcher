@@ -44,16 +44,19 @@ suspend fun PointerInputScope.detectTapOrLongDrag(
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
+        val slop = viewConfiguration.touchSlop
         val longPress = awaitLongPressOrCancellation(down.id)
-        if (longPress == null) {
-            onTap()
+        if (longPress != null) {
+            onDragStart()
+            val released = drag(longPress.id) { change ->
+                onDrag(change.positionChange().y)
+                change.consume()
+            }
+            if (released) onDragEnd() else onDragCancel()
             return@awaitEachGesture
         }
-        onDragStart()
-        val released = drag(longPress.id) { change ->
-            onDrag(change.positionChange().y)
-            change.consume()
-        }
-        if (released) onDragEnd() else onDragCancel()
+        val up = currentEvent.changes.firstOrNull { it.id == down.id }
+        val moved = up?.let { (it.position - down.position).getDistance() } ?: slop
+        if (up != null && !up.pressed && moved < slop) onTap()
     }
 }
