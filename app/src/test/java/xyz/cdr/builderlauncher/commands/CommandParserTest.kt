@@ -65,8 +65,27 @@ class CommandParserTest {
         assertEquals(Command.OpenHub, CommandParser.parse("hub"))
         assertEquals(Command.OpenNotes, CommandParser.parse("notes"))
         assertEquals(Command.OpenNotes, CommandParser.parse("/notes"))
+        assertEquals(Command.OpenApps, CommandParser.parse("apps"))
+        assertEquals(Command.OpenApps, CommandParser.parse("/apps"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("stocks"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("/stocks"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("$"))
+        assertEquals(Command.Stock("AAPL"), CommandParser.parse("\$AAPL"))
+        assertEquals(Command.Stock("apple"), CommandParser.parse("\$ apple"))
         assertEquals(Command.Help, CommandParser.parse("help"))
         assertEquals(Command.Help, CommandParser.parse("?"))
+    }
+
+    @Test
+    fun slashMode() {
+        assertEquals(Command.Empty, CommandParser.parse("/"))
+        assertEquals(Command.Help, CommandParser.parse("/help"))
+        assertEquals(Command.OpenSettings, CommandParser.parse("/set"))
+        assertEquals(Command.Empty, CommandParser.parse("/h"))
+        assertEquals(Command.Empty, CommandParser.parse("/unknown"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("/stocks"))
+        assertEquals(Command.OpenStocks, CommandParser.parse("/stock"))
+        assertEquals(Command.Pin("Termux"), CommandParser.parse("/pin Termux"))
     }
 
     @Test

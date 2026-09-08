@@ -5,14 +5,17 @@ package xyz.cdr.builderlauncher.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.Configuration
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
@@ -24,9 +27,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -36,9 +41,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +55,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -57,6 +66,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -66,6 +79,7 @@ import xyz.cdr.builderlauncher.ai.OAuthSpec
 import xyz.cdr.builderlauncher.ai.oauth.DevicePending
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.ai.oauth.PkceSession
+import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.commands.AppPick
@@ -74,10 +88,17 @@ import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ContactAction
 import xyz.cdr.builderlauncher.commands.ExecResult
 import xyz.cdr.builderlauncher.commands.PrefixCommands
+import xyz.cdr.builderlauncher.commands.SlashCommand
+import xyz.cdr.builderlauncher.commands.SlashCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
+import xyz.cdr.builderlauncher.data.AccentColor
+import xyz.cdr.builderlauncher.data.ChatMessage
+import xyz.cdr.builderlauncher.data.ChatStore
+import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -86,42 +107,60 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.hub.HubStore
+import xyz.cdr.builderlauncher.stocks.StockChartData
+import xyz.cdr.builderlauncher.stocks.StockHit
+import xyz.cdr.builderlauncher.stocks.StockQuote
+import xyz.cdr.builderlauncher.stocks.StockRange
+import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.stocks.StocksCsv
+import xyz.cdr.builderlauncher.stocks.StocksRepository
+import xyz.cdr.builderlauncher.stocks.WatchItem
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Gain
+import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
-import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, Chat, ChatHistory }
 
 @Composable
 fun BuilderRoot(
     settingsRepo: SettingsRepository,
     apps: InstalledApps,
     lists: LocalLists,
+    chats: ChatStore,
     pins: PinnedApps,
     contacts: PhoneContacts,
     llm: LlmClient,
     oauth: OAuthService,
     executor: CommandExecutor,
     weather: WeatherRepository,
+    stocks: StocksRepository,
     onRequestHome: () -> Unit = {},
 ) {
     val settings by settingsRepo.settings.collectAsState()
     val hub by HubStore.items.collectAsState()
     val local by lists.items.collectAsState()
+    val chatThreads by chats.threads.collectAsState()
     val forecast by weather.current.collectAsState()
+    val watch by stocks.watch.collectAsState()
+    val quotes by stocks.quotes.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
+    var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
-    var aiText by remember { mutableStateOf<String?>(null) }
-    var aiBusy by remember { mutableStateOf(false) }
+    var chatId by remember { mutableStateOf<String?>(null) }
+    var chatBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
+    var appQuery by remember { mutableStateOf(false) }
+    var appsEpoch by remember { mutableIntStateOf(0) }
     var people by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
     var contactAction by remember { mutableStateOf<ContactAction?>(null) }
     var contactBody by remember { mutableStateOf("") }
@@ -130,9 +169,24 @@ fun BuilderRoot(
     var noteId by remember { mutableStateOf<String?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     var noteFromList by remember { mutableStateOf(false) }
+    var replyKey by remember { mutableStateOf<String?>(null) }
+    var replyText by remember { mutableStateOf("") }
+    var stockSymbol by remember { mutableStateOf<String?>(null) }
+    var stockRange by remember { mutableStateOf(StockRange.default) }
+    var stockHits by remember { mutableStateOf<List<StockHit>>(emptyList()) }
+    var stockBusy by remember { mutableStateOf(false) }
+    var stockChart by remember { mutableStateOf<StockChartData?>(null) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) appsEpoch++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val hardware = remember(settings.keyboardMode) {
         when (settings.keyboardMode) {
             KeyboardMode.HARDWARE -> true
@@ -150,22 +204,165 @@ fun BuilderRoot(
             weather.refresh()
         }
     }
+    LaunchedEffect(page) {
+        if (page == Page.Stocks || page == Page.StockDetail) {
+            stocks.refreshQuotes()
+        }
+    }
+    LaunchedEffect(page) {
+        if (page != Page.Stocks && page != Page.StockDetail) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(60_000)
+            stocks.refreshQuotes()
+        }
+    }
+    LaunchedEffect(page, input) {
+        if (page != Page.Stocks) {
+            stockHits = emptyList()
+            return@LaunchedEffect
+        }
+        val q = Stocks.queryFromInput(input)
+        if (q.isEmpty()) {
+            stockHits = emptyList()
+            stockBusy = false
+            return@LaunchedEffect
+        }
+        stockBusy = true
+        kotlinx.coroutines.delay(280)
+        stockHits = stocks.search(q)
+        stockBusy = false
+    }
+    LaunchedEffect(page, stockSymbol, stockRange) {
+        val symbol = stockSymbol
+        if (page != Page.StockDetail || symbol.isNullOrBlank()) {
+            stockChart = null
+            return@LaunchedEffect
+        }
+        stockChart = stocks.chart(symbol, stockRange)
+    }
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
         noteId = id
         noteDraft = if (id == null) Notes.headingDraft(draft) else draft
         noteFromList = fromList
+        prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
         choices = emptyList()
         people = emptyList()
+        appQuery = false
         page = Page.NoteEditor
     }
 
-    fun openNotesList() {
+    fun sendAsk(question: String) {
+        val q = question.trim()
+        if (q.isEmpty() || chatBusy) return
+        val user = ChatMessage(role = "user", content = q)
+        val thread = chats.addMessage(chatId, user)
+        chatId = thread.id
+        prompt = '?'
+        input = ""
+        chatBusy = true
+        val snapshot = chats.get(thread.id) ?: thread
+        scope.launch {
+            val reply = runCatching { llm.ask(snapshot.messages) }
+                .getOrElse { "Could not reach the model." }
+            if (chats.get(thread.id) != null) {
+                chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
+            }
+            chatBusy = false
+        }
+    }
+
+    fun openAsk(question: String, id: String? = null) {
+        chatId = id
+        chatBusy = false
+        prompt = '?'
         input = ""
         choices = emptyList()
         people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Chat
+        if (id == null && question.isNotBlank()) {
+            sendAsk(question)
+        }
+    }
+
+    fun openNotesList() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        appQuery = false
         page = Page.Notes
+    }
+
+    fun openAppsList(keepQuery: Boolean) {
+        if (!keepQuery) {
+            prompt = PrefixCommands.DEFAULT_PROMPT
+            input = ""
+        }
+        choices = emptyList()
+        people = emptyList()
+        appQuery = false
+        page = Page.Apps
+    }
+
+    fun openStocksList(draft: String = "") {
+        prompt = '$'
+        input = Stocks.queryFromInput(draft)
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Stocks
+    }
+
+    fun openStockDetail(symbol: String) {
+        stockSymbol = symbol
+        stockRange = StockRange.default
+        stockChart = null
+        page = Page.StockDetail
+    }
+
+    fun addTicker(query: String) {
+        scope.launch {
+            val item = stocks.add(query)
+            if (item == null) {
+                Toast.makeText(ctx, "No ticker matches", Toast.LENGTH_SHORT).show()
+            }
+            stockHits = emptyList()
+        }
+        prompt = '$'
+        input = ""
+    }
+
+    fun clipboardText(): String {
+        val clip = ctx.getSystemService(ClipboardManager::class.java)
+        val data = clip?.primaryClip ?: return ""
+        if (data.itemCount < 1) return ""
+        return data.getItemAt(0).coerceToText(ctx).toString()
+    }
+
+    fun importTickers(raw: String) {
+        val text = Stocks.queryFromInput(raw).ifBlank { raw }
+        val hits = StocksCsv.parse(text)
+        if (hits.isEmpty()) {
+            Toast.makeText(ctx, "No tickers in clipboard", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val added = stocks.importHits(hits)
+        Toast.makeText(
+            ctx,
+            if (added == 0) "Already on the list" else "Added $added",
+            Toast.LENGTH_SHORT,
+        ).show()
+        stockHits = emptyList()
+        prompt = '$'
+        input = ""
+        if (added > 0) {
+            scope.launch { stocks.refreshQuotes() }
+        }
     }
 
     fun saveAndCloseNote() {
@@ -186,43 +383,111 @@ fun BuilderRoot(
         Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
     }
 
-    fun onInput(value: String) {
-        if (value.startsWith(Notes.PREFIX) && page != Page.NoteEditor) {
-            openNoteEditor(id = null, draft = Notes.draftFromInput(value), fromList = false)
+    fun openHub() {
+        replyKey = null
+        replyText = ""
+        page = Page.Hub
+    }
+
+    fun sendHubReply(key: String) {
+        val text = replyText.trim()
+        if (text.isEmpty()) return
+        HubStore.reply(key, text)
+        replyKey = null
+        replyText = ""
+    }
+
+    fun mode() = PrefixCommands.Mode(prompt, input)
+
+    fun applyMode(next: PrefixCommands.Mode) {
+        prompt = next.prompt
+        val line = next.line
+        if (line.startsWith(Chats.PREFIX) && page != Page.Chat && page != Page.ChatHistory && page != Page.NoteEditor && page != Page.Apps) {
+            openAsk(Chats.questionFromInput(line))
             return
         }
-        input = value
+        if (line.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps && page != Page.Chat && page != Page.ChatHistory) {
+            openNoteEditor(id = null, draft = Notes.draftFromInput(line), fromList = false)
+            return
+        }
+        if (line.startsWith(Stocks.PREFIX) && page == Page.Home) {
+            openStocksList(line)
+            return
+        }
+        input = next.input
         contactAction = null
-        if (value.isNotBlank() && !value.equals("send", ignoreCase = true)) {
+        if (next.cancelsDraft) {
             smsDraft = null
         }
-        if (value.isBlank()) {
+        if (page == Page.Apps) {
             choices = emptyList()
             people = emptyList()
+            appQuery = false
             return
         }
-        val first = value.first()
+        if (line.isBlank()) {
+            choices = emptyList()
+            people = emptyList()
+            appQuery = false
+            return
+        }
+        val first = line.first()
         if (first == '@' || first == '#') {
             // First token only — body after the name is the message, not a search.
-            val needle = value.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
+            val needle = line.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
             people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
             choices = emptyList()
-        } else if (first in "*-+?") {
+            appQuery = false
+        } else if (PrefixCommands.isModePrompt(first)) {
             people = emptyList()
             choices = emptyList()
+            appQuery = false
         } else {
             people = emptyList()
-            choices = apps.search(value).take(8)
+            choices = apps.search(line)
+            appQuery = true
         }
     }
 
-    fun runCommand(line: String) {
+    fun clearBar() {
+        applyMode(PrefixCommands.Mode())
+    }
+
+    fun taskMode() {
+        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), '-'))
+    }
+
+    fun runCommand(line: String = mode().line) {
         if (page == Page.Todos) {
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed == HomeTodos.TASK_PREFIX) {
-                input = HomeTodos.enterDraft()
+                taskMode()
                 return
             }
+        }
+        if (page == Page.Stocks) {
+            val q = Stocks.queryFromInput(line)
+            if (q.isEmpty()) {
+                prompt = '$'
+                input = ""
+                return
+            }
+            if (StocksCsv.looksLikeList(line) || StocksCsv.looksLikeList(q)) {
+                importTickers(line)
+                return
+            }
+            addTicker(q)
+            return
+        }
+        if (page == Page.Chat) {
+            val q = Chats.questionFromInput(line)
+            if (q.isEmpty()) {
+                prompt = '?'
+                input = ""
+                return
+            }
+            sendAsk(q)
+            return
         }
         val draft = smsDraft
         if (draft != null) {
@@ -230,42 +495,40 @@ fun BuilderRoot(
                 executor.sendSms(draft.contact, draft.body)
             }
             smsDraft = null
-            input = ""
+            clearBar()
             people = emptyList()
             return
         }
         val result = executor.execute(CommandParser.parse(line))
         when (result) {
             ExecResult.None -> {
-                input = ""
+                clearBar()
                 choices = emptyList()
                 people = emptyList()
                 contactAction = null
                 smsDraft = null
                 help = false
+                appQuery = false
             }
             ExecResult.ShowHelp -> {
                 help = true
-                aiText = null
             }
             ExecResult.NavigateSettings -> page = Page.Settings
-            ExecResult.NavigateHub -> page = Page.Hub
+            ExecResult.NavigateHub -> openHub()
             ExecResult.NavigateNotes -> openNotesList()
-            is ExecResult.Ask -> {
-                help = false
-                aiBusy = true
-                aiText = "…"
-                input = ""
-                scope.launch {
-                    aiText = llm.ask(result.question)
-                    aiBusy = false
-                }
+            ExecResult.NavigateApps -> openAppsList(keepQuery = false)
+            ExecResult.NavigateStocks -> openStocksList()
+            is ExecResult.AddStock -> {
+                openStocksList()
+                addTicker(result.query)
             }
+            is ExecResult.Ask -> openAsk(result.question)
             is ExecResult.AppChoices -> {
                 choices = result.apps
                 pick = result.pick
                 people = emptyList()
                 help = false
+                appQuery = result.pick == AppPick.Launch
             }
             is ExecResult.ContactChoices -> {
                 people = result.contacts
@@ -276,15 +539,20 @@ fun BuilderRoot(
             }
             is ExecResult.SmsDraft -> {
                 smsDraft = result
-                input = ""
+                clearBar()
                 people = emptyList()
                 contactAction = null
                 help = false
             }
         }
         if (page == Page.Todos && input.isBlank()) {
-            input = HomeTodos.keepDraft(input)
+            taskMode()
         }
+    }
+
+    fun pickSlash(cmd: SlashCommand) {
+        applyMode(PrefixCommands.Mode(SlashCommands.PROMPT, cmd.name))
+        runCommand()
     }
 
     Column(
@@ -294,33 +562,37 @@ fun BuilderRoot(
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .then(
+                when (page) {
+                    Page.Home -> Modifier.horizontalSwipe(page, onRight = { openHub() })
+                    Page.Hub -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
+                    else -> Modifier
+                },
+            ),
     ) {
         when (page) {
             Page.Home -> {
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
                 ClockHeader(
-                    weather = forecast?.line,
+                    weather = forecast?.line(settings.weatherUnits),
                     onOpenSettings = { page = Page.Settings },
+                    onOpenHub = { openHub() },
                 )
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
                     open = previewTodos,
                     onToggle = { lists.toggleComplete(it) },
                     onMore = {
-                        input = HomeTodos.enterDraft()
+                        taskMode()
                         page = Page.Todos
                     },
                 )
                 Spacer(Modifier.height(8.dp))
-                if (aiText != null) {
-                    Text(if (aiBusy) "…" else aiText!!, color = Prompt, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(12.dp))
-                }
                 smsDraft?.let { draft ->
                     Text(
                         "Send to ${draft.contact.name} (${draft.contact.number})",
-                        color = Prompt,
+                        color = Accent,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(draft.body, color = Paper, style = MaterialTheme.typography.bodyMedium)
@@ -331,82 +603,61 @@ fun BuilderRoot(
                     HelpBlock()
                     Spacer(Modifier.height(12.dp))
                 }
-                val pinned = remember(pinPkgs, apps.all()) {
+                val pinned = remember(pinPkgs, appsEpoch) {
                     val all = apps.all()
                     pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
                 }
-                val shown = if (choices.isNotEmpty()) choices else pinned
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (people.isNotEmpty()) {
-                        items(people, key = { it.name + it.number }) { person ->
-                            Column(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val pending = contactAction
-                                        if (pending != null) {
-                                            when (val result = executor.applyContact(person, contactBody, pending)) {
-                                                is ExecResult.SmsDraft -> {
-                                                    smsDraft = result
-                                                    input = ""
-                                                }
-                                                else -> {
-                                                    input = ""
-                                                }
-                                            }
-                                            people = emptyList()
-                                            contactAction = null
-                                        } else {
-                                            val prefix = if (input.startsWith("#")) "#" else "@"
-                                            val body = if (prefix == "@") {
-                                                input.drop(1).trim().split(Regex("\\s+"), limit = 2)
-                                                    .getOrElse(1) { "" }
-                                            } else {
-                                                ""
-                                            }
-                                            input = if (body.isBlank()) {
-                                                "$prefix${person.name} "
-                                            } else {
-                                                "$prefix${person.name} $body"
-                                            }
-                                            people = emptyList()
-                                        }
-                                    }
-                                    .padding(vertical = 6.dp),
-                            ) {
-                                Text(person.name, color = Paper)
-                                Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
+                val filtering = people.isEmpty() && appQuery
+                val shown = if (filtering) {
+                    AppList.preview(choices)
+                } else if (choices.isNotEmpty()) {
+                    choices
+                } else {
+                    pinned
+                }
+                fun pickApp(app: LaunchableApp) {
+                    if (choices.isNotEmpty() || filtering) {
+                        executor.applyPick(app, pick)
+                        clearBar()
+                        choices = emptyList()
+                        appQuery = false
                     } else {
+                        apps.launch(app)
+                    }
+                }
+                if (filtering) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         if (Notes.matchesQuery(input)) {
-                            item(key = "all-notes") {
-                                Text(
-                                    Notes.MORE,
-                                    color = Prompt,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { openNotesList() }
-                                        .padding(vertical = 6.dp),
-                                )
-                            }
+                            Text(
+                                Notes.MORE,
+                                color = Accent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { openNotesList() }
+                                    .padding(vertical = 6.dp),
+                            )
                         }
-                        items(shown, key = { it.packageName + it.activityName }) { app ->
+                        if (Stocks.matchesQuery(input)) {
+                            Text(
+                                Stocks.MORE,
+                                color = Accent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { openStocksList() }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                        shown.forEach { app ->
                             Text(
                                 app.label,
                                 color = Paper,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .combinedClickable(
-                                        onClick = {
-                                            if (choices.isNotEmpty()) {
-                                                executor.applyPick(app, pick)
-                                                input = ""
-                                                choices = emptyList()
-                                            } else {
-                                                apps.launch(app)
-                                            }
-                                        },
+                                        onClick = { pickApp(app) },
                                         onLongClick = {
                                             if (pins.isPinned(app.packageName)) {
                                                 pins.unpin(app.packageName)
@@ -418,20 +669,99 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (shown.isEmpty() && input.isBlank()) {
-                            item {
-                                Text("Type to work. help for commands. Then put it down.", color = Dim)
+                        Text(
+                            AppList.MORE,
+                            color = Accent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { openAppsList(keepQuery = true) }
+                                .padding(vertical = 6.dp),
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (people.isNotEmpty()) {
+                            items(people, key = { it.name + it.number }) { person ->
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val pending = contactAction
+                                            if (pending != null) {
+                                                when (val result = executor.applyContact(person, contactBody, pending)) {
+                                                    is ExecResult.SmsDraft -> {
+                                                        smsDraft = result
+                                                        clearBar()
+                                                    }
+                                                    else -> {
+                                                        clearBar()
+                                                    }
+                                                }
+                                                people = emptyList()
+                                                contactAction = null
+                                            } else {
+                                                val glyph = if (prompt == '#') '#' else '@'
+                                                val rest = if (PrefixCommands.find(prompt) != null) input else input.drop(1)
+                                                val body = if (glyph == '@') {
+                                                    rest.trim().split(Regex("\\s+"), limit = 2)
+                                                        .getOrElse(1) { "" }
+                                                } else {
+                                                    ""
+                                                }
+                                                prompt = glyph
+                                                input = if (body.isBlank()) {
+                                                    "${person.name} "
+                                                } else {
+                                                    "${person.name} $body"
+                                                }
+                                                people = emptyList()
+                                            }
+                                        }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(person.name, color = Paper)
+                                    Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        } else {
+                            items(shown, key = { it.packageName + it.activityName }) { app ->
+                                Text(
+                                    app.label,
+                                    color = Paper,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .combinedClickable(
+                                            onClick = { pickApp(app) },
+                                            onLongClick = {
+                                                if (pins.isPinned(app.packageName)) {
+                                                    pins.unpin(app.packageName)
+                                                } else {
+                                                    pins.pin(app.packageName)
+                                                }
+                                            },
+                                        )
+                                        .padding(vertical = 6.dp),
+                                )
+                            }
+                            if (shown.isEmpty() && input.isBlank()) {
+                                item {
+                                    Text("Type to work. help for commands. Then put it down.", color = Dim)
+                                }
                             }
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
+                    prompt = prompt,
                     value = input,
                     hardware = hardware,
-                    onValue = { onInput(it) },
-                    onSubmit = { runCommand(input) },
-                    onHub = { page = Page.Hub },
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
                 )
             }
             Page.Todos -> {
@@ -445,10 +775,15 @@ fun BuilderRoot(
                 ) {
                     Text(
                         HomeTodos.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable {
-                                input = HomeTodos.leaveDraft(input)
+                                applyMode(
+                                    PrefixCommands.type(
+                                        PrefixCommands.Mode(),
+                                        HomeTodos.leaveDraft(mode().line),
+                                    ),
+                                )
                                 page = Page.Home
                             }
                             .padding(vertical = 6.dp),
@@ -464,7 +799,11 @@ fun BuilderRoot(
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(openTodos, key = { "t" + it.id }) { item ->
-                        TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        TodoLine(
+                            item,
+                            onToggle = { lists.toggleComplete(item.id) },
+                            onDelete = { lists.remove(item.id) },
+                        )
                     }
                     if (doneTodos.isNotEmpty()) {
                         item {
@@ -477,16 +816,24 @@ fun BuilderRoot(
                         }
                     }
                     items(doneTodos, key = { "d" + it.id }) { item ->
-                        TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        TodoLine(
+                            item,
+                            onToggle = { lists.toggleComplete(item.id) },
+                            onDelete = { lists.remove(item.id) },
+                        )
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
+                    prompt = prompt,
                     value = input,
                     hardware = hardware,
-                    onValue = { onInput(it) },
-                    onSubmit = { runCommand(input) },
-                    onHub = { page = Page.Hub },
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
                 )
             }
             Page.Notes -> {
@@ -498,7 +845,7 @@ fun BuilderRoot(
                 ) {
                     Text(
                         Notes.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable { page = Page.Home }
                             .padding(vertical = 6.dp),
@@ -548,7 +895,7 @@ fun BuilderRoot(
                 ) {
                     Text(
                         Notes.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable { saveAndCloseNote() }
                             .padding(vertical = 6.dp),
@@ -560,11 +907,12 @@ fun BuilderRoot(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                val noteAccent = Accent
                 BasicTextField(
                     value = noteDraft,
                     onValueChange = { noteDraft = it },
-                    visualTransformation = MarkdownVisualTransformation,
-                    cursorBrush = SolidColor(Prompt),
+                    visualTransformation = remember(noteAccent) { MarkdownVisualTransformation(noteAccent) },
+                    cursorBrush = SolidColor(Accent),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
@@ -576,39 +924,289 @@ fun BuilderRoot(
                         .focusRequester(focus),
                 )
             }
+            Page.Chat -> {
+                val thread = chatId?.let { id -> chatThreads.find { it.id == id } }
+                val messages = thread?.messages.orEmpty()
+                val listState = rememberLazyListState()
+                LaunchedEffect(messages.size, chatBusy) {
+                    val target = if (chatBusy) messages.size else messages.lastIndex
+                    if (target >= 0) listState.scrollToItem(target)
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Chats.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                page = Page.Home
+                                clearBar()
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    HistoryIcon(
+                        Modifier
+                            .semantics { contentDescription = "history" }
+                            .clickable { page = Page.ChatHistory }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    if (messages.isEmpty() && !chatBusy) {
+                        item {
+                            Text("Ask a question.", color = Dim)
+                        }
+                    }
+                    items(messages, key = { "${it.role}-${it.createdAt}-${it.content.hashCode()}" }) { msg ->
+                        if (msg.fromUser) {
+                            Text(msg.content, color = Accent, style = MaterialTheme.typography.bodyLarge)
+                        } else {
+                            MarkdownDocument(msg.content)
+                        }
+                    }
+                    if (chatBusy) {
+                        item {
+                            Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = '?',
+                    value = input,
+                    hardware = hardware,
+                    onValue = { typed ->
+                        input = if (typed.startsWith(Chats.PREFIX)) typed.drop(1) else typed
+                    },
+                    onPick = { glyph ->
+                        page = Page.Home
+                        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), glyph))
+                    },
+                    onClearMode = {
+                        page = Page.Home
+                        clearBar()
+                    },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
+            Page.ChatHistory -> {
+                val rows = Chats.of(chatThreads)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Chats.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable { page = Page.Chat }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (rows.isEmpty()) {
+                        item {
+                            Text("No conversations yet.", color = Dim)
+                        }
+                    }
+                    items(rows, key = { it.id }) { item ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { openAsk("", id = item.id) }
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                Text(Chats.title(item.messages), color = Paper)
+                                Text(
+                                    Chats.editedLabel(item.updatedAt),
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            DeleteIcon(
+                                Modifier
+                                    .semantics { contentDescription = "delete conversation" }
+                                    .clickable {
+                                        chats.remove(item.id)
+                                        if (chatId == item.id) chatId = null
+                                    }
+                                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            Page.Apps -> {
+                val listed = remember(input, appsEpoch) {
+                    if (input.isBlank()) apps.all() else apps.search(input)
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        AppList.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                page = Page.Home
+                                if (input.isNotBlank() || PrefixCommands.find(prompt) != null) applyMode(mode())
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (listed.isEmpty()) {
+                        item {
+                            Text("No apps match.", color = Dim)
+                        }
+                    }
+                    items(listed, key = { it.packageName + it.activityName }) { app ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        apps.launch(app)
+                                        clearBar()
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AppIcon(
+                                    drawable = apps.icon(app),
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .size(28.dp),
+                                )
+                                Text(
+                                    app.label,
+                                    color = Paper,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 8.dp),
+                                )
+                            }
+                            InfoIcon(
+                                Modifier
+                                    .semantics { contentDescription = "app settings" }
+                                    .clickable { apps.openInfo(app) }
+                                    .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                            DeleteIcon(
+                                Modifier
+                                    .semantics { contentDescription = "delete app" }
+                                    .clickable { apps.uninstall(app) }
+                                    .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
             Page.Hub -> {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("hub", color = Prompt)
+                    Text("hub", color = Accent)
                     Text("home", color = Dim, modifier = Modifier.clickable { page = Page.Home })
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(hub, key = { it.key }) { item ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(
-                                Modifier
-                                    .weight(1f)
-                                    .clickable { HubStore.open(item.key) },
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
-                                Text(item.title, color = Paper)
-                                if (item.body.isNotBlank()) {
-                                    Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .clickable { HubStore.open(item.key) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                    Text(item.title, color = Paper)
+                                    if (item.body.isNotBlank()) {
+                                        Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                    }
                                 }
+                                ReplyIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "reply" }
+                                        .clickable {
+                                            if (item.canInlineReply) {
+                                                replyKey = item.key
+                                                replyText = ""
+                                            } else {
+                                                HubStore.open(item.key)
+                                            }
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                                DeleteIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "dismiss" }
+                                        .clickable {
+                                            replyKey = null
+                                            replyText = ""
+                                            HubStore.dismiss(item.key)
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
                             }
-                            Text(
-                                "dismiss",
-                                color = Dim,
-                                modifier = Modifier
-                                    .clickable { HubStore.dismiss(item.key) }
-                                    .padding(start = 12.dp),
-                            )
+                            if (replyKey == item.key && item.canInlineReply) {
+                                Spacer(Modifier.height(4.dp))
+                                BasicTextField(
+                                    value = replyText,
+                                    onValueChange = { replyText = it },
+                                    singleLine = true,
+                                    cursorBrush = SolidColor(Accent),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+                                    keyboardOptions = KeyboardOptions(
+                                        capitalization = KeyboardCapitalization.Sentences,
+                                        imeAction = ImeAction.Send,
+                                    ),
+                                    keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+                            }
                         }
                     }
                     if (hub.isEmpty()) {
                         item {
                             Text(
-                                "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
+                                "Grant notification access in settings to fill the hub with messages you can reply to.",
                                 color = Dim,
                             )
                         }
@@ -626,12 +1224,210 @@ fun BuilderRoot(
                     oauth = oauth,
                 )
             }
+            Page.Stocks -> {
+                val searching = Stocks.queryFromInput(input).isNotEmpty()
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Stocks.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                applyMode(
+                                    PrefixCommands.type(
+                                        PrefixCommands.Mode(),
+                                        Stocks.leaveDraft(mode().line),
+                                    ),
+                                )
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "paste",
+                            color = Dim,
+                            modifier = Modifier
+                                .clickable { importTickers(clipboardText()) }
+                                .padding(vertical = 6.dp, horizontal = 8.dp),
+                        )
+                        CopyIcon(
+                            Modifier
+                                .clickable {
+                                    copyText("stocks", StocksCsv.export(watch))
+                                }
+                                .padding(vertical = 6.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (searching) {
+                        if (stockHits.isEmpty()) {
+                            item {
+                                Text(if (stockBusy) "Searching tickers…" else "No ticker matches", color = Dim)
+                            }
+                        }
+                        items(stockHits, key = { "h" + it.symbol }) { hit ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { addTicker(hit.symbol) }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(hit.symbol, color = Paper)
+                                    Text(hit.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                if (hit.exchange.isNotBlank()) {
+                                    Text(hit.exchange, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    } else {
+                        if (watch.isEmpty()) {
+                            item {
+                                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
+                            }
+                        }
+                        items(watch, key = { it.symbol }) { item ->
+                            val quote = quotes[item.symbol]
+                            val price = quote?.price ?: item.price
+                            val percent = quote?.changePercent ?: item.changePercent
+                            val up = (percent ?: 0.0) >= 0.0
+                            val tone = if (up) Gain else Loss
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .clickable { openStockDetail(item.symbol) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(item.symbol, color = Paper)
+                                    Text(
+                                        quote?.name ?: item.name,
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    modifier = Modifier
+                                        .clickable { openStockDetail(item.symbol) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(
+                                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item.currency) else "—",
+                                        color = Paper,
+                                    )
+                                    Text(
+                                        if (percent != null) Stocks.formatPercent(percent) else "—",
+                                        color = if (percent == null) Dim else tone,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                                DeleteIcon(
+                                    Modifier
+                                        .clickable { stocks.remove(item.symbol) }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
+            Page.StockDetail -> {
+                val symbol = stockSymbol.orEmpty()
+                val quote = stockChart?.quote ?: quotes[symbol]
+                val item = watch.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
+                val name = quote?.name ?: item?.name ?: symbol
+                val price = quote?.price ?: item?.price
+                val change = quote?.change
+                val percent = quote?.changePercent ?: item?.changePercent
+                val up = (percent ?: 0.0) >= 0.0
+                val tone = if (up) Gain else Loss
+                val changeLine = when {
+                    change != null && percent != null ->
+                        "${Stocks.formatChange(change)} (${Stocks.formatPercent(percent)})"
+                    percent != null -> Stocks.formatPercent(percent)
+                    else -> ""
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        Stocks.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable { page = Page.Stocks }
+                            .padding(vertical = 6.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(symbol, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                    Text(name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item?.currency ?: "USD") else "—",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Paper,
+                    )
+                    if (changeLine.isNotBlank()) {
+                        Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    StockChart(
+                        points = stockChart?.points.orEmpty(),
+                        up = up,
+                        modifier = Modifier.fillMaxWidth().height(180.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        StockRange.entries.forEach { range ->
+                            Text(
+                                range.label,
+                                color = if (range == stockRange) Accent else Dim,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .clickable { stockRange = range }
+                                    .padding(vertical = 6.dp, horizontal = 2.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    StockStatPair("Open", Stocks.formatNumber(quote?.open), "High", Stocks.formatNumber(quote?.high))
+                    StockStatPair("Low", Stocks.formatNumber(quote?.low), "Vol", quote?.volume?.let { Stocks.formatVolume(it) } ?: "—")
+                    StockStatPair("Prev", Stocks.formatNumber(quote?.previousClose), "52W H", Stocks.formatNumber(quote?.week52High))
+                    StockStatPair("52W L", Stocks.formatNumber(quote?.week52Low), "Chg", if (percent != null) Stocks.formatPercent(percent) else "—")
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
+private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit, onOpenHub: () -> Unit) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -641,11 +1437,37 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
     }
     val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
-    Column(Modifier.clickable { onOpenSettings() }) {
-        Text(time, style = MaterialTheme.typography.headlineLarge)
-        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        if (!weather.isNullOrBlank()) {
-            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(Modifier.clickable { onOpenSettings() }.weight(1f)) {
+            Text(time, style = MaterialTheme.typography.headlineLarge)
+            Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            if (!weather.isNullOrBlank()) {
+                Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        MessagesIcon(
+            Modifier
+                .semantics { contentDescription = "messages" }
+                .clickable { onOpenHub() }
+                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun StockStatPair(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+        }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Text(rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -662,7 +1484,7 @@ private fun TodoPreview(
         }
         Text(
             HomeTodos.MORE_TASKS,
-            color = Prompt,
+            color = Accent,
             modifier = Modifier
                 .clickable { onMore() }
                 .padding(vertical = 4.dp),
@@ -671,45 +1493,91 @@ private fun TodoPreview(
 }
 
 @Composable
-private fun TodoLine(item: LocalItem, onToggle: () -> Unit, compact: Boolean = false) {
-    Text(
-        item.text,
-        color = if (item.done) Dim else Paper,
-        style = MaterialTheme.typography.bodyLarge.copy(
-            textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle() }
-            .padding(vertical = if (compact) 4.dp else 6.dp),
-    )
+private fun TodoLine(
+    item: LocalItem,
+    onToggle: () -> Unit,
+    compact: Boolean = false,
+    onDelete: (() -> Unit)? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            item.text,
+            color = if (item.done) Dim else Paper,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .clickable { onToggle() }
+                .padding(vertical = if (compact) 4.dp else 6.dp),
+        )
+        if (onDelete != null) {
+            DeleteIcon(
+                Modifier
+                    .semantics { contentDescription = "delete task" }
+                    .clickable { onDelete() }
+                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
+    }
 }
 
 @Composable
 private fun CommandBar(
+    prompt: Char,
     value: String,
     hardware: Boolean,
     onValue: (String) -> Unit,
+    onPick: (Char) -> Unit,
+    onClearMode: () -> Unit,
     onSubmit: () -> Unit,
+    onSlash: (SlashCommand) -> Unit,
     onHub: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     var menuOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(0) }
+    var slashSelected by remember { mutableStateOf(0) }
+    val slashMode = prompt == SlashCommands.PROMPT
+    val slashMatches = if (slashMode) SlashCommands.matches(value) else emptyList()
     LaunchedEffect(hardware) {
         focus.requestFocus()
         if (hardware) keyboard?.hide()
+    }
+    LaunchedEffect(prompt) {
+        slashSelected = 0
+        if (slashMode) menuOpen = false
+    }
+    LaunchedEffect(slashMatches.size, value) {
+        if (slashSelected >= slashMatches.size) slashSelected = 0
     }
     fun pick(index: Int) {
         val cmd = PrefixCommands.all.getOrNull(index) ?: return
         menuOpen = false
         selected = 0
-        onValue(PrefixCommands.fill(cmd.glyph))
+        onPick(cmd.glyph)
+        focus.requestFocus()
+    }
+    fun pickSlash(index: Int) {
+        val cmd = slashMatches.getOrNull(index) ?: return
+        onSlash(cmd)
         focus.requestFocus()
     }
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (menuOpen) {
+        if (slashMode) {
+            SlashCommandMenu(
+                commands = slashMatches,
+                selected = slashSelected,
+                onSelect = { cmd ->
+                    val index = slashMatches.indexOf(cmd)
+                    if (index >= 0) pickSlash(index)
+                },
+            )
+        } else if (menuOpen) {
             CommandMenu(
                 selected = selected,
                 onSelect = { cmd ->
@@ -720,13 +1588,17 @@ private fun CommandBar(
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                ">",
-                color = Prompt,
+                prompt.toString(),
+                color = Accent,
                 modifier = Modifier
                     .semantics { contentDescription = "commands" }
                     .clickable {
-                        menuOpen = !menuOpen
-                        if (menuOpen) selected = 0
+                        if (slashMode) {
+                            onClearMode()
+                        } else {
+                            menuOpen = !menuOpen
+                            if (menuOpen) selected = 0
+                        }
                     }
                     .padding(end = 10.dp),
             )
@@ -740,13 +1612,21 @@ private fun CommandBar(
                     }
                 },
                 singleLine = true,
-                cursorBrush = SolidColor(Prompt),
+                cursorBrush = SolidColor(Accent),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.None,
                     imeAction = ImeAction.Go,
                 ),
-                keyboardActions = KeyboardActions(onGo = { onSubmit() }),
+                keyboardActions = KeyboardActions(
+                    onGo = {
+                        if (slashMode && slashMatches.isNotEmpty()) {
+                            pickSlash(slashSelected)
+                        } else {
+                            onSubmit()
+                        }
+                    },
+                ),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focus)
@@ -754,7 +1634,35 @@ private fun CommandBar(
                         if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
                         val code = event.nativeKeyEvent.keyCode
                         val ch = event.nativeKeyEvent.unicodeChar.toChar()
-                        if (menuOpen) {
+                        if (slashMode) {
+                            when (code) {
+                                KeyEvent.KEYCODE_DPAD_UP -> {
+                                    if (slashMatches.isNotEmpty()) {
+                                        slashSelected = (slashSelected - 1).mod(slashMatches.size)
+                                    }
+                                    true
+                                }
+                                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                    if (slashMatches.isNotEmpty()) {
+                                        slashSelected = (slashSelected + 1).mod(slashMatches.size)
+                                    }
+                                    true
+                                }
+                                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                                    if (slashMatches.isNotEmpty()) pickSlash(slashSelected) else onSubmit()
+                                    true
+                                }
+                                KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> {
+                                    if (value.isEmpty()) {
+                                        onClearMode()
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                                else -> false
+                            }
+                        } else if (menuOpen) {
                             when (code) {
                                 KeyEvent.KEYCODE_DPAD_UP -> {
                                     selected = (selected - 1).mod(PrefixCommands.all.size)
@@ -787,6 +1695,14 @@ private fun CommandBar(
                                     onHub()
                                     true
                                 }
+                                KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> {
+                                    if (value.isEmpty() && PrefixCommands.isModePrompt(prompt)) {
+                                        onClearMode()
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
                                 else -> {
                                     if (value.isEmpty() && ch == '>') {
                                         menuOpen = true
@@ -814,10 +1730,14 @@ private fun HelpBlock() {
         "-todo           save todo",
         "+               write a note",
         "notes           all notes",
-        "?question       ask AI",
+        "apps            all apps",
+        "\$ticker         add a stock",
+        "stocks          all stocks",
+        "?               ask AI",
+        "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / settings",
+        "hub / notes / apps / stocks / settings",
         "type a name     launch app",
         "hold an app     pin or unpin",
     )
@@ -849,6 +1769,7 @@ private fun SettingsPage(
     var pending by remember { mutableStateOf<DevicePending?>(null) }
     var pkce by remember { mutableStateOf<PkceSession?>(null) }
     var pollJob by remember { mutableStateOf<Job?>(null) }
+    var accentDraft by remember { mutableStateOf(settings.accentHex) }
     LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
         val q = placeQuery.trim()
         if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
@@ -876,8 +1797,22 @@ private fun SettingsPage(
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Prompt)
+            Text("settings", color = Accent)
             Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
+        }
+        Spacer(Modifier.height(16.dp))
+        AccentPicker(
+            hex = settings.accentHex,
+            onPick = { next ->
+                accentDraft = next
+                repo.update { it.copy(accentHex = next) }
+            },
+        )
+        LabeledField("Hex", accentDraft, AccentColor.DEFAULT_HEX) {
+            accentDraft = it
+            if (AccentColor.parse(it) != null) {
+                repo.update { s -> s.copy(accentHex = AccentColor.normalize(it)) }
+            }
         }
         Spacer(Modifier.height(16.dp))
         Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
@@ -885,7 +1820,7 @@ private fun SettingsPage(
             AiPlatforms.all.take(2).forEach { item ->
                 Text(
                     item.label,
-                    color = if (settings.provider == item.provider) Prompt else Dim,
+                    color = if (settings.provider == item.provider) Accent else Dim,
                     modifier = Modifier.clickable {
                         cancelAuth()
                         repo.setProvider(item.provider)
@@ -897,7 +1832,7 @@ private fun SettingsPage(
             AiPlatforms.all.drop(2).forEach { item ->
                 Text(
                     item.label,
-                    color = if (settings.provider == item.provider) Prompt else Dim,
+                    color = if (settings.provider == item.provider) Accent else Dim,
                     modifier = Modifier.clickable {
                         cancelAuth()
                         repo.setProvider(item.provider)
@@ -935,10 +1870,16 @@ private fun SettingsPage(
                         try {
                             when (spec) {
                                 is OAuthSpec.Device -> {
-                                    val next = oauth.beginDevice(settings.provider)
-                                    pending = next
-                                    pkce = null
-                                    oauth.browserUrl(next, settings.provider)?.let { openHttps(it) }
+                                    val existing = pending
+                                    val next = if (existing != null) {
+                                        existing
+                                    } else {
+                                        oauth.beginDevice(settings.provider).also { started ->
+                                            pending = started
+                                            pkce = null
+                                            oauth.browserUrl(started, settings.provider)?.let { openHttps(it) }
+                                        }
+                                    }
                                     oauth.pollUntilAuthorized(settings.provider, next)
                                     pending = null
                                     oauthMsg = "Signed in"
@@ -954,6 +1895,7 @@ private fun SettingsPage(
                         } catch (_: CancellationException) {
                         } catch (e: Exception) {
                             oauthMsg = e.message ?: "Sign-in failed"
+                            pending = null
                         }
                     }
                 },
@@ -991,7 +1933,7 @@ private fun SettingsPage(
             KeyboardMode.entries.forEach { mode ->
                 Text(
                     mode.name.lowercase(),
-                    color = if (settings.keyboardMode == mode) Prompt else Dim,
+                    color = if (settings.keyboardMode == mode) Accent else Dim,
                     modifier = Modifier.clickable { repo.update { it.copy(keyboardMode = mode) } },
                 )
             }
@@ -1032,6 +1974,26 @@ private fun SettingsPage(
                 scope.launch { weather.refresh() }
             },
         )
+        Spacer(Modifier.height(16.dp))
+        Text("Weather units", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            WeatherUnits.entries.forEach { units ->
+                Text(
+                    units.name.lowercase(),
+                    color = if (settings.weatherUnits == units) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(weatherUnits = units) } },
+                )
+            }
+        }
+        Text(
+            if (settings.weatherUnits == WeatherUnits.IMPERIAL) {
+                "Home weather in Fahrenheit."
+            } else {
+                "Home weather in Celsius."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text(
             "Notification access (hub)",
@@ -1069,11 +2031,12 @@ private fun OauthBlock(
     onSignOut: () -> Unit,
 ) {
     if (spec == null) return
-    val signInLabel = when (settings.provider) {
-        LlmProvider.XAI -> "Sign in with SuperGrok"
-        LlmProvider.OPENAI -> "Sign in with ChatGPT"
-        LlmProvider.ANTHROPIC -> "Sign in with Claude"
-        LlmProvider.HERMES -> "Sign in"
+    val signInLabel = when {
+        pending != null -> "Finish sign-in"
+        settings.provider == LlmProvider.XAI -> "Sign in with SuperGrok"
+        settings.provider == LlmProvider.OPENAI -> "Sign in with ChatGPT"
+        settings.provider == LlmProvider.ANTHROPIC -> "Sign in with Claude"
+        else -> "Sign in"
     }
     if (settings.signedIn) {
         Text(
@@ -1082,19 +2045,19 @@ private fun OauthBlock(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(8.dp))
-        Text("Sign out", color = Prompt, modifier = Modifier.clickable { onSignOut() })
+        Text("Sign out", color = Accent, modifier = Modifier.clickable { onSignOut() })
     } else {
         Text(signInLabel, color = Paper, modifier = Modifier.clickable { onSignIn() })
     }
     pending?.let {
         Spacer(Modifier.height(8.dp))
         Text("Enter this code in the browser", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Text(it.userCode, color = Prompt, style = MaterialTheme.typography.headlineSmall)
+        Text(it.userCode, color = Accent, style = MaterialTheme.typography.headlineSmall)
         Text("Waiting for approval…", color = Dim, style = MaterialTheme.typography.bodyMedium)
     }
     if (pkce != null) {
         LabeledField("Paste code or callback URL", paste, "code from the page") { onPaste(it) }
-        Text("Finish sign-in", color = Prompt, modifier = Modifier.clickable { onCompletePaste() }.padding(vertical = 8.dp))
+        Text("Finish sign-in", color = Accent, modifier = Modifier.clickable { onCompletePaste() }.padding(vertical = 8.dp))
     }
     message?.let {
         Spacer(Modifier.height(6.dp))
@@ -1110,7 +2073,7 @@ private fun LabeledField(label: String, value: String, placeholder: String, onCh
         value = value,
         onValueChange = onChange,
         singleLine = true,
-        cursorBrush = SolidColor(Prompt),
+        cursorBrush = SolidColor(Accent),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
         decorationBox = { inner ->
             if (value.isEmpty()) Text(placeholder, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -1136,7 +2099,7 @@ private fun WeatherLocationField(
         value = query,
         onValueChange = onQuery,
         singleLine = true,
-        cursorBrush = SolidColor(Prompt),
+        cursorBrush = SolidColor(Accent),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
         decorationBox = { inner ->
             if (query.isEmpty()) Text("New York", color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -1167,5 +2130,22 @@ private fun WeatherLocationField(
                 .clickable { onPick(place) }
                 .padding(vertical = 8.dp),
         )
+    }
+}
+
+@Composable
+private fun AppIcon(drawable: Drawable?, modifier: Modifier = Modifier) {
+    val bmp = remember(drawable) {
+        runCatching { drawable?.toBitmap(width = 84, height = 84)?.asImageBitmap() }.getOrNull()
+    }
+    if (bmp != null) {
+        Image(
+            bitmap = bmp,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = modifier,
+        )
+    } else {
+        Box(modifier.background(Line))
     }
 }

@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = Path(__file__).resolve().parent
-INK, PAPER, DIM, PROMPT, LINE = "#0B0B0B", "#E8E4D9", "#8A867C", "#B7C9A8", "#2A2A2A"
+INK, PAPER, DIM, PROMPT, LINE = "#0B0B0B", "#E8E4D9", "#8A867C", "#00FF41", "#2A2A2A"
 W, H = 780, 1688
 PAD_X, PAD_T = 56, 108
 
@@ -45,11 +45,15 @@ def home() -> None:
     d.text((PAD_X, PAD_T), "15:42", font=F_TIME, fill=PAPER)
     d.text((PAD_X, PAD_T + 128), "Mon 7 Sep", font=F_MED, fill=DIM)
     d.text((PAD_X, PAD_T + 168), "18° cloudy", font=F_MED, fill=DIM)
+    bubble_x, bubble_y = W - PAD_X - 36, PAD_T + 12
+    d.rounded_rectangle((bubble_x, bubble_y, bubble_x + 36, bubble_y + 24), radius=4, outline=PROMPT, width=2)
+    d.line((bubble_x + 10, bubble_y + 24, bubble_x + 4, bubble_y + 34), fill=PROMPT, width=2)
+    d.line((bubble_x + 18, bubble_y + 24, bubble_x + 4, bubble_y + 34), fill=PROMPT, width=2)
     y = PAD_T + 230
     for todo in ("buy milk", "ship builder-launcher CI", "call dentist"):
         d.text((PAD_X, y), todo, font=F_BODY, fill=PAPER)
         y += 48
-    d.text((PAD_X, y), "…more tasks >", font=F_BODY, fill=PROMPT)
+    d.text((PAD_X, y), "… more tasks >", font=F_BODY, fill=PROMPT)
     y = H - 160
     d.text((PAD_X, y), ">", font=F_BODY, fill=PROMPT)
     d.text((PAD_X + 36, y), "?summarize this PR", font=F_BODY, fill=PAPER)
@@ -63,20 +67,25 @@ def hub() -> None:
     d.text((PAD_X, PAD_T), "hub", font=F_BODY, fill=PROMPT)
     d.text((W - PAD_X - 80, PAD_T), "home", font=F_SMALL, fill=DIM)
     items = [
-        ("todo", "ship builder-launcher CI", None),
-        ("note", "review PR after lunch", None),
         ("Messages", "Jason", "on my way"),
-        ("Calendar", "dentist", "Tue 9:00"),
+        ("Signal", "Lauren", "running late"),
     ]
     y = PAD_T + 80
     for src, title, body in items:
         d.text((PAD_X, y), src, font=F_SMALL, fill=DIM)
         d.text((PAD_X, y + 32), title, font=F_BODY, fill=PAPER)
-        y += 78
         if body:
-            d.text((PAD_X, y - 8), body, font=F_MED, fill=DIM)
-            y += 28
-        y += 18
+            d.text((PAD_X, y + 70), body, font=F_MED, fill=DIM)
+        ix, iy = W - PAD_X - 78, y + 26
+        d.line((ix + 22, iy + 22, ix + 10, iy + 22), fill=PROMPT, width=2)
+        d.arc((ix, iy + 6, ix + 20, iy + 22), start=90, end=90, fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 12, ix + 2, iy + 4), fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 4, ix + 10, iy), fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 4, ix + 10, iy + 8), fill=PROMPT, width=2)
+        xx, xy = W - PAD_X - 28, y + 30
+        d.line((xx, xy, xx + 16, xy + 16), fill=DIM, width=2)
+        d.line((xx + 16, xy, xx, xy + 16), fill=DIM, width=2)
+        y += 128
     save(im, "hub.png")
 
 
@@ -85,6 +94,23 @@ def settings() -> None:
     d.text((PAD_X, PAD_T), "settings", font=F_BODY, fill=PROMPT)
     d.text((W - PAD_X - 80, PAD_T), "home", font=F_SMALL, fill=DIM)
     y = PAD_T + 80
+    d.text((PAD_X, y), "Accent", font=F_SMALL, fill=DIM)
+    y += 40
+    swatches = ["#00FF41", "#B7C9A8", "#FFB000", "#00E5FF", "#FF2BD6", "#E8E4D9"]
+    x = PAD_X
+    for i, color in enumerate(swatches):
+        d.rectangle((x, y, x + 28, y + 28), fill=color, outline="#E8E4D9" if i == 0 else LINE)
+        x += 40
+    y += 44
+    d.text((PAD_X, y), "cyberpunk green", font=F_MED, fill=PROMPT)
+    y += 36
+    d.text((PAD_X, y), "Cursor, the > prompt, and links like all notes.", font=F_MED, fill=DIM)
+    y += 48
+    d.text((PAD_X, y), "Hex", font=F_SMALL, fill=DIM)
+    y += 36
+    d.text((PAD_X, y), "#00FF41", font=F_MED, fill=PAPER)
+    d.line((PAD_X, y + 44, W - PAD_X, y + 44), fill=LINE, width=2)
+    y += 70
     d.text((PAD_X, y), "AI provider", font=F_SMALL, fill=DIM)
     y += 40
     d.text((PAD_X, y), "Hermes", font=F_MED, fill=PROMPT)

@@ -20,19 +20,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
+import xyz.cdr.builderlauncher.stocks.StockPoint
+import xyz.cdr.builderlauncher.stocks.StockRange
+import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Gain
+import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
-import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.ui.theme.Accent
 
 data class HubRow(
     val kind: String,
@@ -45,6 +57,25 @@ data class NoteListRow(
     val edited: String,
 )
 
+data class AppListRow(
+    val label: String,
+)
+
+data class StockListRow(
+    val symbol: String,
+    val name: String,
+    val price: String,
+    val change: String,
+    val up: Boolean,
+)
+
+data class StockStatRow(
+    val leftLabel: String,
+    val leftValue: String,
+    val rightLabel: String,
+    val rightValue: String,
+)
+
 @Composable
 fun HomeChrome(
     time: String,
@@ -55,6 +86,8 @@ fun HomeChrome(
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
+    slashOpen: Boolean = false,
+    prompt: String = ">",
 ) {
     Column(
         modifier = Modifier
@@ -62,16 +95,25 @@ fun HomeChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
-        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        if (weather.isNotBlank()) {
-            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                if (weather.isNotBlank()) {
+                    Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         todos.take(HomeTodos.PREVIEW).forEach { text ->
             Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
         }
-        Text(HomeTodos.MORE_TASKS, color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+        Text(HomeTodos.MORE_TASKS, color = Accent, modifier = Modifier.padding(vertical = 4.dp))
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (apps.isEmpty() && input.isBlank()) {
@@ -80,14 +122,14 @@ fun HomeChrome(
                 apps.forEach { label ->
                     Text(
                         label,
-                        color = if (label == Notes.MORE) Prompt else Paper,
+                        color = if (label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE) Accent else Paper,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     )
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input, commandsOpen = commandsOpen)
+        CommandRow(input, commandsOpen = commandsOpen, slashOpen = slashOpen, prompt = prompt)
     }
 }
 
@@ -95,7 +137,8 @@ fun HomeChrome(
 fun TodosChrome(
     todos: List<String> = emptyList(),
     doneTodos: List<String> = emptyList(),
-    input: String = HomeTodos.TASK_PREFIX,
+    input: String = "",
+    prompt: String = HomeTodos.TASK_PREFIX,
 ) {
     Column(
         modifier = Modifier
@@ -108,13 +151,23 @@ fun TodosChrome(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            Text(HomeTodos.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             CopyIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             todos.forEach { text ->
-                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text,
+                        color = Paper,
+                        modifier = Modifier.weight(1f).padding(vertical = 6.dp),
+                    )
+                    DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                }
             }
             if (doneTodos.isNotEmpty()) {
                 Text(
@@ -124,17 +177,23 @@ fun TodosChrome(
                     modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
                 )
                 doneTodos.forEach { text ->
-                    Text(
-                        text,
-                        color = Dim,
-                        style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text,
+                            color = Dim,
+                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                            modifier = Modifier.weight(1f).padding(vertical = 6.dp),
+                        )
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                    }
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input)
+        CommandRow(input, prompt = prompt)
     }
 }
 
@@ -146,7 +205,7 @@ fun NotesChrome(rows: List<NoteListRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Notes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Text(Notes.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (rows.isEmpty()) {
@@ -170,6 +229,48 @@ fun NotesChrome(rows: List<NoteListRow>) {
 }
 
 @Composable
+fun AllAppsChrome(
+    rows: List<AppListRow>,
+    input: String = "",
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(AppList.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (rows.isEmpty()) {
+                Text("No apps match.", color = Dim)
+            } else {
+                rows.forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppMark(Modifier.padding(end = 12.dp))
+                        Text(
+                            row.label,
+                            color = Paper,
+                            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                        )
+                        InfoIcon(Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
+                        DeleteIcon(Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input)
+    }
+}
+
+@Composable
 fun NoteEditorChrome(body: String) {
     Column(
         modifier = Modifier
@@ -182,11 +283,234 @@ fun NoteEditorChrome(body: String) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(Notes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            Text(Notes.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             CopyIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         Text(body, color = Paper, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+data class ChatListRow(
+    val title: String,
+    val edited: String,
+)
+
+@Composable
+fun ChatChrome(
+    messages: List<ChatBubble>,
+    input: String = "",
+    busy: Boolean = false,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            HistoryIcon(Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            if (messages.isEmpty() && !busy) {
+                Text("Ask a question.", color = Dim)
+            }
+            messages.forEach { msg ->
+                if (msg.user) {
+                    Text(msg.body, color = Accent, style = MaterialTheme.typography.bodyLarge)
+                } else {
+                    MarkdownDocument(msg.body)
+                }
+            }
+            if (busy) {
+                Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = "?")
+    }
+}
+
+@Composable
+fun ChatHistoryChrome(rows: List<ChatListRow>) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (rows.isEmpty()) {
+                Text("No conversations yet.", color = Dim)
+            } else {
+                rows.forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(row.title, color = Paper)
+                            Text(row.edited, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+data class ChatBubble(
+    val user: Boolean,
+    val body: String,
+)
+
+@Composable
+fun StocksChrome(
+    rows: List<StockListRow>,
+    input: String = "",
+    hits: List<StockListRow> = emptyList(),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("paste", color = Dim, modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp))
+                CopyIcon(Modifier.padding(vertical = 6.dp))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val shown = if (hits.isNotEmpty()) hits else rows
+            if (shown.isEmpty()) {
+                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
+            } else {
+                shown.forEach { row ->
+                    StockRowChrome(row)
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = "$")
+    }
+}
+
+@Composable
+fun StockDetailChrome(
+    symbol: String,
+    name: String,
+    price: String,
+    changeLine: String,
+    up: Boolean,
+    points: List<StockPoint>,
+    range: StockRange = StockRange.D1,
+    stats: List<StockStatRow> = emptyList(),
+) {
+    val tone = if (up) Gain else Loss
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(symbol, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        Text(name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+        Text(price, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        StockChart(points = points, up = up, modifier = Modifier.fillMaxWidth().height(180.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            StockRange.entries.forEach { item ->
+                Text(
+                    item.label,
+                    color = if (item == range) Accent else Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        stats.forEach { row ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f)) {
+                    Text(row.leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(row.leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                    Text(row.rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(row.rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StockChart(
+    points: List<StockPoint>,
+    up: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val tone = if (up) Gain else Loss
+    Canvas(modifier) {
+        if (points.size < 2) return@Canvas
+        val ys = points.map { it.close }
+        val min = ys.min()
+        val max = ys.max()
+        val span = (max - min).takeIf { it > 0.0 } ?: 1.0
+        val dx = size.width / (points.lastIndex)
+        val line = Path()
+        points.forEachIndexed { i, point ->
+            val x = i * dx
+            val y = (size.height - ((point.close - min) / span * size.height).toFloat()).coerceIn(0f, size.height)
+            if (i == 0) line.moveTo(x, y) else line.lineTo(x, y)
+        }
+        val fill = Path().apply {
+            addPath(line)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(fill, tone.copy(alpha = 0.18f))
+        drawPath(line, tone, style = Stroke(width = 2.dp.toPx()))
+    }
+}
+
+@Composable
+private fun StockRowChrome(row: StockListRow) {
+    val tone = if (row.up) Gain else Loss
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Text(row.symbol, color = Paper)
+            Text(row.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 6.dp)) {
+            Text(row.price, color = Paper)
+            Text(row.change, color = tone, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
@@ -199,24 +523,31 @@ fun HubChrome(rows: List<HubRow>) {
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("hub", color = Prompt)
+            Text("hub", color = Accent)
             Text("home", color = Dim)
         }
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (rows.isEmpty()) {
                 Text(
-                    "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
+                    "Grant notification access in settings to fill the hub with messages you can reply to.",
                     color = Dim,
                 )
             } else {
                 rows.forEach { row ->
-                    Column {
-                        Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                        Text(row.title, color = Paper)
-                        if (row.body.isNotBlank()) {
-                            Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+                            Text(row.title, color = Paper)
+                            if (row.body.isNotBlank()) {
+                                Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
+                        ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                     }
                 }
             }
@@ -241,18 +572,21 @@ fun SettingsChrome(
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Prompt)
+            Text("settings", color = Accent)
             Text("home", color = Dim)
         }
         Spacer(Modifier.height(16.dp))
+        AccentPicker(hex = settings.accentHex)
+        Field("Hex", settings.accentHex, AccentColor.DEFAULT_HEX)
+        Spacer(Modifier.height(16.dp))
         Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            Text("Hermes", color = if (settings.provider == LlmProvider.HERMES) Prompt else Dim)
-            Text("xAI", color = if (settings.provider == LlmProvider.XAI) Prompt else Dim)
+            Text("Hermes", color = if (settings.provider == LlmProvider.HERMES) Accent else Dim)
+            Text("xAI", color = if (settings.provider == LlmProvider.XAI) Accent else Dim)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            Text("OpenAI", color = if (settings.provider == LlmProvider.OPENAI) Prompt else Dim)
-            Text("Anthropic", color = if (settings.provider == LlmProvider.ANTHROPIC) Prompt else Dim)
+            Text("OpenAI", color = if (settings.provider == LlmProvider.OPENAI) Accent else Dim)
+            Text("Anthropic", color = if (settings.provider == LlmProvider.ANTHROPIC) Accent else Dim)
         }
         if (settings.provider == LlmProvider.HERMES) {
             Field("Hermes base URL", hermes, "http://192.168.1.10:8642")
@@ -285,7 +619,7 @@ fun SettingsChrome(
             KeyboardMode.entries.forEach { mode ->
                 Text(
                     mode.name.lowercase(),
-                    color = if (settings.keyboardMode == mode) Prompt else Dim,
+                    color = if (settings.keyboardMode == mode) Accent else Dim,
                 )
             }
         }
@@ -313,6 +647,25 @@ fun SettingsChrome(
         weatherSuggestions.forEach { label ->
             Text(label, color = Paper, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
         }
+        Spacer(Modifier.height(16.dp))
+        Text("Weather units", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            WeatherUnits.entries.forEach { units ->
+                Text(
+                    units.name.lowercase(),
+                    color = if (settings.weatherUnits == units) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.weatherUnits == WeatherUnits.IMPERIAL) {
+                "Home weather in Fahrenheit."
+            } else {
+                "Home weather in Celsius."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))
@@ -327,13 +680,15 @@ fun SettingsChrome(
 }
 
 @Composable
-private fun CommandRow(value: String, commandsOpen: Boolean = false) {
+private fun CommandRow(value: String, commandsOpen: Boolean = false, slashOpen: Boolean = false, prompt: String = ">") {
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (commandsOpen) {
+        if (slashOpen) {
+            SlashCommandMenu()
+        } else if (commandsOpen) {
             CommandMenu()
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(">", color = Prompt, modifier = Modifier.padding(end = 10.dp))
+            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp))
             Text(
                 value.ifEmpty { "" },
                 color = Paper,
@@ -357,20 +712,107 @@ private fun Field(label: String, value: String, placeholder: String) {
 }
 
 @Composable
+fun ReplyIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val w = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.12f
+        val tip = Offset(pad, size.height * 0.28f)
+        val shaft = Path().apply {
+            moveTo(size.width - pad, size.height - pad)
+            lineTo(size.width * 0.46f, size.height - pad)
+            quadraticTo(pad, size.height - pad, pad, size.height * 0.48f)
+            lineTo(tip.x, tip.y)
+        }
+        drawPath(shaft, color = accent, style = w)
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(pad + size.width * 0.30f, pad),
+            strokeWidth = w.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(pad + size.width * 0.30f, tip.y + size.height * 0.22f),
+            strokeWidth = w.width,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+fun MessagesIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val pad = size.minDimension * 0.08f
+        val bodyH = size.height * 0.70f
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(pad, pad),
+            size = Size(size.width - pad * 2f, bodyH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
+        val tail = size.width * 0.30f
+        drawLine(
+            color = accent,
+            start = Offset(tail, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+        drawLine(
+            color = accent,
+            start = Offset(tail + size.width * 0.20f, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun HistoryIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        val r = size.minDimension / 2f - stroke.width
+        val c = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(color = accent, radius = r, style = stroke)
+        drawLine(
+            color = accent,
+            start = c,
+            end = Offset(c.x, c.y - r * 0.45f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = accent,
+            start = c,
+            end = Offset(c.x + r * 0.38f, c.y + r * 0.18f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
 fun CopyIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val gap = size.minDimension * 0.28f
         val box = Size(size.width - gap, size.height - gap)
         drawRoundRect(
-            color = Prompt,
+            color = accent,
             topLeft = Offset(gap, 0f),
             size = box,
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke,
         )
         drawRoundRect(
-            color = Prompt,
+            color = accent,
             topLeft = Offset(0f, gap),
             size = box,
             cornerRadius = CornerRadius(2.dp.toPx()),
@@ -395,6 +837,33 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
             start = Offset(size.width - inset, inset),
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun InfoIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val r = size.minDimension / 2f - stroke.width
+        drawCircle(color = Dim, radius = r, style = stroke)
+        val cx = size.width / 2f
+        drawCircle(color = Dim, radius = 1.3.dp.toPx(), center = Offset(cx, size.height * 0.32f))
+        drawLine(
+            color = Dim,
+            start = Offset(cx, size.height * 0.46f),
+            end = Offset(cx, size.height * 0.72f),
+            strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun AppMark(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(28.dp)) {
+        drawRoundRect(
+            color = Line,
+            cornerRadius = CornerRadius(5.dp.toPx()),
         )
     }
 }

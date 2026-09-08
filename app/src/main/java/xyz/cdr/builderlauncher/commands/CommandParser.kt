@@ -6,6 +6,9 @@ sealed class Command {
     data object OpenSettings : Command()
     data object OpenHub : Command()
     data object OpenNotes : Command()
+    data object OpenApps : Command()
+    data object OpenStocks : Command()
+    data class Stock(val query: String) : Command()
     data class Message(val target: String, val body: String) : Command()
     data class Call(val target: String) : Command()
     data class Event(val title: String, val whenText: String) : Command()
@@ -22,23 +25,15 @@ object CommandParser {
         val line = raw.trim()
         if (line.isEmpty()) return Command.Empty
 
-        val lower = line.lowercase()
-        when (lower) {
-            "help", "/help", "?" -> return Command.Help
-            "settings", "/settings" -> return Command.OpenSettings
-            "hub", "/hub" -> return Command.OpenHub
-            "notes", "/notes" -> return Command.OpenNotes
-            "pin", "unpin" -> return Command.Help
+        if (line.startsWith("/")) {
+            val rest = line.drop(1).trim()
+            if (rest.isEmpty()) return Command.Empty
+            SlashCommands.resolve(rest)?.let { return it.command }
+            return parseNamed(rest) ?: Command.Empty
         }
 
-        if (lower.startsWith("pin ")) {
-            val query = line.drop(4).trim()
-            return if (query.isEmpty()) Command.Help else Command.Pin(query)
-        }
-        if (lower.startsWith("unpin ")) {
-            val query = line.drop(6).trim()
-            return if (query.isEmpty()) Command.Help else Command.Unpin(query)
-        }
+        if (line == "?") return Command.Help
+        parseNamed(line)?.let { return it }
 
         return when (line.first()) {
             '@' -> {
@@ -68,8 +63,31 @@ object CommandParser {
                 val question = line.drop(1).trim()
                 if (question.isEmpty()) Command.Help else Command.Ask(question)
             }
+            '$' -> {
+                val text = line.drop(1).trim()
+                if (text.isEmpty()) Command.OpenStocks else Command.Stock(text)
+            }
             else -> Command.LaunchApp(line)
         }
+    }
+
+    private fun parseNamed(raw: String): Command? {
+        val trimmed = raw.trim()
+        val lower = trimmed.lowercase()
+        SlashCommands.exact(lower)?.let { return it.command }
+        when (lower) {
+            "stock" -> return Command.OpenStocks
+            "pin", "unpin" -> return Command.Help
+        }
+        if (lower.startsWith("pin ")) {
+            val query = trimmed.drop(4).trim()
+            return if (query.isEmpty()) Command.Help else Command.Pin(query)
+        }
+        if (lower.startsWith("unpin ")) {
+            val query = trimmed.drop(6).trim()
+            return if (query.isEmpty()) Command.Help else Command.Unpin(query)
+        }
+        return null
     }
 
     private fun splitEvent(rest: String): Command.Event {

@@ -9,6 +9,11 @@ class HomeTodosTest {
         LocalItem(id = id, kind = "todo", text = text, createdAt = 0, completedAt = completedAt)
 
     @Test
+    fun moreTasksCopyMatchesNotesLink() {
+        assertEquals("… more tasks >", HomeTodos.MORE_TASKS)
+    }
+
+    @Test
     fun previewIsOpenOnlyCappedAtThree() {
         val items = listOf(
             todo("one"),

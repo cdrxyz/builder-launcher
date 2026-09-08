@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -17,12 +19,15 @@ import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.LocalLists
+import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.weather.WeatherRepository
+import xyz.cdr.builderlauncher.stocks.StocksRepository
 
 class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
@@ -41,6 +46,7 @@ class MainActivity : ComponentActivity() {
         val settings = SettingsRepository(this)
         val apps = InstalledApps(this)
         val lists = LocalLists(this)
+        val chats = ChatStore(this)
         val pins = PinnedApps(this)
         val people = PhoneContacts(this)
         val sms = SmsSender(this)
@@ -48,18 +54,22 @@ class MainActivity : ComponentActivity() {
         val llm = LlmClient(settings, oauth)
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
+        val stocks = StocksRepository(this)
         setContent {
-            BuilderTheme {
+            val current by settings.settings.collectAsState()
+            BuilderTheme(accent = accentColor(current.accentHex)) {
                 BuilderRoot(
                     settingsRepo = settings,
                     apps = apps,
                     lists = lists,
+                    chats = chats,
                     pins = pins,
                     contacts = people,
                     llm = llm,
                     oauth = oauth,
                     executor = executor,
                     weather = weather,
+                    stocks = stocks,
                     onRequestHome = { askToBeHome(fromSettings = true) },
                 )
             }

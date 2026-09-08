@@ -2,7 +2,7 @@ package xyz.cdr.builderlauncher.data
 
 object HomeTodos {
     const val PREVIEW = 3
-    const val MORE_TASKS = "…more tasks >"
+    const val MORE_TASKS = "… more tasks >"
     const val TASK_PREFIX = "-"
     const val BACK = "<"
 
