@@ -12,6 +12,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
+import xyz.cdr.builderlauncher.data.ChatMessage
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import java.util.concurrent.TimeUnit
@@ -26,7 +27,9 @@ class LlmClient(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun ask(question: String): String = withContext(Dispatchers.IO) {
+    suspend fun ask(question: String): String = ask(listOf(ChatMessage(role = "user", content = question)))
+
+    suspend fun ask(messages: List<ChatMessage>): String = withContext(Dispatchers.IO) {
         val s = settings.settings.value
         val platform = AiPlatforms.of(s.provider)
         val base = settings.effectiveBaseUrl()
@@ -46,28 +49,35 @@ class LlmClient(
         }
         val oauthLive = CredentialResolver.tokens(current)
             ?.valid(System.currentTimeMillis()) == true
+        val turns = messages.filter { it.content.isNotBlank() }
         when (platform.chatKind) {
-            ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(), question, bearer)
+            ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(), turns, bearer)
             ChatKind.ANTHROPIC_MESSAGES -> anthropicMessages(
                 base,
                 settings.effectiveModel(),
-                question,
+                turns,
                 bearer,
                 oauthLive,
             )
         }
     }
 
-    private fun openaiChat(base: String, model: String, question: String, bearer: String?): String {
+    private fun openaiChat(
+        base: String,
+        model: String,
+        messages: List<ChatMessage>,
+        bearer: String?,
+    ): String {
         val root = if (base.endsWith("/v1")) base else "$base/v1"
+        val turns = messagesJson(messages)
         val body = """
             {
               "model": ${esc(model)},
               "messages": [
                 {"role":"system","content":${esc(SYSTEM)}},
-                {"role":"user","content":${esc(question)}}
+                $turns
               ],
-              "max_tokens": 400,
+              "max_tokens": 2048,
               "temperature": 0.4
             }
         """.trimIndent()
@@ -88,18 +98,19 @@ class LlmClient(
     private fun anthropicMessages(
         base: String,
         model: String,
-        question: String,
+        messages: List<ChatMessage>,
         bearer: String?,
         oauth: Boolean,
     ): String {
         val root = base.trimEnd('/')
         val url = if (root.endsWith("/v1")) "$root/messages" else "$root/v1/messages"
+        val turns = messagesJson(messages)
         val body = """
             {
               "model": ${esc(model)},
-              "max_tokens": 400,
+              "max_tokens": 2048,
               "system": ${esc(SYSTEM)},
-              "messages": [{"role":"user","content":${esc(question)}}]
+              "messages": [$turns]
             }
         """.trimIndent()
         val reqBuilder = Request.Builder()
@@ -157,6 +168,12 @@ class LlmClient(
         else -> "Sign in or paste an API key in settings."
     }
 
+    private fun messagesJson(messages: List<ChatMessage>): String =
+        messages.joinToString(",") { msg ->
+            val role = if (msg.fromUser) "user" else "assistant"
+            "{\"role\":${esc(role)},\"content\":${esc(msg.content)}}"
+        }
+
     private fun esc(value: String): String =
         buildString {
             append('"')
@@ -176,6 +193,6 @@ class LlmClient(
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private const val SYSTEM =
-            "You are a concise assistant on a builder's phone. Answer in a few short sentences so they can get back to work. No markdown."
+            "You are a concise assistant on a builder's phone. Prefer short answers they can act on. Use markdown when it helps: headings, lists, tables, and fenced code. Skip preamble."
     }
 }
