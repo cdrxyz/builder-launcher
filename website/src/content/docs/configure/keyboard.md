@@ -12,3 +12,5 @@ Keyboard mode in settings: `auto` (default), `hardware`, or `software`.
 | software | Slab phone. Bar sits just above the IME. |
 
 The command bar always sits at the bottom. D-pad right from the bar opens the hub. Enter submits.
+
+On a software keyboard, default `>` mode disables autocorrect so the calculator is not rewritten. Switching the prompt to `-` (todos), `+` (notes), or `?` (AI) turns autocorrect back on.

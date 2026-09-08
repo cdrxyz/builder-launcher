@@ -126,6 +126,23 @@ class PrefixCommandsTest {
     }
 
     @Test
+    fun autocorrectIsOffInDefaultAndSymbolModes() {
+        assertFalse(PrefixCommands.usesAutocorrect(PrefixCommands.DEFAULT_PROMPT))
+        assertFalse(PrefixCommands.usesAutocorrect('@'))
+        assertFalse(PrefixCommands.usesAutocorrect('#'))
+        assertFalse(PrefixCommands.usesAutocorrect('*'))
+        assertFalse(PrefixCommands.usesAutocorrect('$'))
+        assertFalse(PrefixCommands.usesAutocorrect('/'))
+    }
+
+    @Test
+    fun autocorrectIsOnForTodosNotesAndAi() {
+        assertTrue(PrefixCommands.usesAutocorrect('-'))
+        assertTrue(PrefixCommands.usesAutocorrect('+'))
+        assertTrue(PrefixCommands.usesAutocorrect('?'))
+    }
+
+    @Test
     fun typeInStockModeDropsAutoSpaceAfterPeriod() {
         val inStock = PrefixCommands.Mode(prompt = '$', input = "OBE.")
         val typed = PrefixCommands.type(inStock, "OBE. TO")

@@ -38,6 +38,9 @@ object PrefixCommands {
 
     fun usesRawSymbolKeyboard(glyph: Char): Boolean = glyph == '$'
 
+    /** Prose modes. Default stays off so calculator expressions are not rewritten. */
+    fun usesAutocorrect(glyph: Char): Boolean = glyph == '-' || glyph == '+' || glyph == '?'
+
     fun type(current: Mode, newInput: String): Mode {
         val first = newInput.firstOrNull()
         val next = if (first != null && isModePrompt(first)) {
