@@ -82,12 +82,19 @@ class ClockTest {
     }
 
     @Test
-    fun fadeGainRisesFromSilentToPeak() {
-        assertEquals(0f, Clock.fadeGain(0), 0.0001f)
-        assertEquals(0f, Clock.fadeGain(-1), 0.0001f)
-        assertEquals(0.4f, Clock.fadeGain(5_000), 0.0001f)
-        assertEquals(0.8f, Clock.fadeGain(10_000), 0.0001f)
-        assertEquals(0.8f, Clock.fadeGain(30_000), 0.0001f)
+    fun fadeGainRisesFromFloorToPeak() {
+        assertEquals(0.45f, Clock.fadeGain(0), 0.0001f)
+        assertEquals(0.45f, Clock.fadeGain(-1), 0.0001f)
+        assertEquals(0.725f, Clock.fadeGain(2_000), 0.0001f)
+        assertEquals(1.0f, Clock.fadeGain(4_000), 0.0001f)
+        assertEquals(1.0f, Clock.fadeGain(30_000), 0.0001f)
+    }
+
+    @Test
+    fun mediaStreamWhenAlarmMutedOrPreview() {
+        assertTrue(Clock.useMediaStream(0, false))
+        assertTrue(Clock.useMediaStream(7, true))
+        assertFalse(Clock.useMediaStream(7, false))
     }
 
     @Test

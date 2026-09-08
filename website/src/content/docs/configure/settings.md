@@ -18,7 +18,7 @@ Type `settings` or `/settings`.
 | Home apps | `plaintext` (default) or `icons`. Names vs grayscale icons for pins and home search. All apps stays in color. |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |
-| Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Starts silent, then rises to 80% over 10 seconds. |
+| Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Tap a name to hear it. Alarms fade in over 4 seconds. |
 | Notification access (hub) | Opens Android's notification listener settings. |
 | Set as default home app | Asks Android again if you declined the first prompt. |
 
