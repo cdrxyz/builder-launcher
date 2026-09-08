@@ -153,7 +153,7 @@ fun BuilderRoot(
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
         noteId = id
-        noteDraft = draft
+        noteDraft = if (id == null) Notes.headingDraft(draft) else draft
         noteFromList = fromList
         input = ""
         choices = emptyList()

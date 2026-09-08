@@ -48,6 +48,15 @@ class NotesTest {
     }
 
     @Test
+    fun expandAddsH1OnFirstLine() {
+        assertEquals("# ", Notes.headingDraft(""))
+        assertEquals("# ship it", Notes.headingDraft("ship it"))
+        assertEquals("# ship it\n\nbody", Notes.headingDraft("ship it\n\nbody"))
+        assertEquals("# Title", Notes.headingDraft("# Title"))
+        assertEquals("## already", Notes.headingDraft("## already"))
+    }
+
+    @Test
     fun editedLabelIsDayMonthTime() {
         assertEquals(
             "7 Sep 15:42",
