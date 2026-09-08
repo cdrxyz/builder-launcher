@@ -31,6 +31,11 @@ object Clock {
         return (timer.endsAt - now).coerceAtLeast(0L)
     }
 
+    fun homeClockLabel(timer: TimerState, now: Long, clockText: String): String {
+        if (!timer.running) return clockText
+        return formatTimer(remainingMs(timer, now))
+    }
+
     fun start(timer: TimerState, now: Long): TimerState {
         val left = remainingMs(timer, now).coerceAtLeast(1L)
         return timer.copy(running = true, endsAt = now + left, remainingMs = left)
