@@ -60,7 +60,7 @@ fun AccentPicker(
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-            "Cursor, the > prompt, and links like all notes.",
+            "Cursor, the > prompt, and the > on links like all notes.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 6.dp),

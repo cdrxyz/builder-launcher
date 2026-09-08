@@ -59,6 +59,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -845,9 +847,8 @@ fun BuilderRoot(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         if (Notes.matchesQuery(input)) {
-                            Text(
+                            CaretLink(
                                 Notes.MORE,
-                                color = Accent,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { openNotesList() }
@@ -855,9 +856,8 @@ fun BuilderRoot(
                             )
                         }
                         if (Stocks.matchesQuery(input)) {
-                            Text(
+                            CaretLink(
                                 Stocks.MORE,
-                                color = Accent,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { openStocksList() }
@@ -879,9 +879,8 @@ fun BuilderRoot(
                                 },
                             )
                         }
-                        Text(
+                        CaretLink(
                             AppList.MORE,
-                            color = Accent,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { openAppsList(keepQuery = true) }
@@ -2052,9 +2051,8 @@ private fun TodoPreview(
         open.forEach { item ->
             TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
         }
-        Text(
+        CaretLink(
             HomeTodos.MORE_TASKS,
-            color = Accent,
             modifier = Modifier
                 .clickable { onMore() }
                 .padding(vertical = 4.dp),
@@ -2594,7 +2592,7 @@ private fun SettingsPage(
         }
         Text(
             if (settings.appIcons == AppIcons.ICONS) {
-                "Pinned apps as icons. Home search shows icons."
+                "Pinned apps as grayscale icons. Home search shows grayscale icons."
             } else {
                 "Pinned apps and home search as names."
             },
@@ -2830,6 +2828,7 @@ private fun HomeAppRow(
         if (icons) {
             AppIcon(
                 drawable = drawable,
+                grayscale = true,
                 modifier = Modifier
                     .padding(end = 12.dp)
                     .size(28.dp),
@@ -2932,6 +2931,7 @@ private fun PinnedAppsRow(
             }
             AppIcon(
                 drawable = icon(app),
+                grayscale = true,
                 modifier = Modifier
                     .size(48.dp)
                     .onSizeChanged { cellWidth = it.width.toFloat() }
@@ -2974,8 +2974,10 @@ private fun PinnedAppsRow(
     }
 }
 
+private val GrayscaleFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+
 @Composable
-private fun AppIcon(drawable: Drawable?, modifier: Modifier = Modifier) {
+private fun AppIcon(drawable: Drawable?, modifier: Modifier = Modifier, grayscale: Boolean = false) {
     val bmp = remember(drawable) {
         runCatching { drawable?.toBitmap(width = 84, height = 84)?.asImageBitmap() }.getOrNull()
     }
@@ -2984,6 +2986,7 @@ private fun AppIcon(drawable: Drawable?, modifier: Modifier = Modifier) {
             bitmap = bmp,
             contentDescription = null,
             contentScale = ContentScale.Fit,
+            colorFilter = if (grayscale) GrayscaleFilter else null,
             modifier = modifier,
         )
     } else {
