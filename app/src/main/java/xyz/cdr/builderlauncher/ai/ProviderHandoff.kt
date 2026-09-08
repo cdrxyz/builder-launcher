@@ -9,6 +9,13 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 object ProviderHandoff {
+    const val HERMEX_PACKAGE = "com.hermex.android"
+
+    val HERMEX_DEEP_LINKS = listOf(
+        "hermex://new-chat",
+        "hermes-agent://new-chat",
+    )
+
     fun prompt(draft: String, lastUserMessage: String?): String {
         val fromBar = Chats.questionFromInput(draft)
         if (fromBar.isNotBlank()) return fromBar
@@ -32,11 +39,12 @@ object ProviderHandoff {
 
     fun contentDescription(provider: LlmProvider): String = "open ${label(provider)}"
 
-    fun appPackage(provider: LlmProvider): String? = when (provider) {
+    fun appPackage(provider: LlmProvider, openHermex: Boolean = false): String? = when (provider) {
         LlmProvider.XAI -> "ai.x.grok"
         LlmProvider.OPENAI -> "com.openai.chatgpt"
         LlmProvider.ANTHROPIC -> "com.anthropic.claude"
         LlmProvider.GEMINI -> "com.google.android.apps.bard"
+        LlmProvider.HERMES -> if (openHermex) HERMEX_PACKAGE else null
         else -> null
     }
 
@@ -61,28 +69,39 @@ object ProviderHandoff {
         provider: LlmProvider,
         prompt: String,
         hermesBaseUrl: String?,
+        openHermex: Boolean = false,
     ): Boolean {
-        val pkg = appPackage(provider)
-        if (pkg != null && prompt.isNotBlank()) {
-            val share = Intent(Intent.ACTION_SEND)
-                .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, prompt)
-                .setPackage(pkg)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (share.resolveActivity(context.packageManager) != null) {
-                context.startActivity(share)
-                return true
+        val pkg = appPackage(provider, openHermex)
+        if (pkg != null && prompt.isNotBlank() && shareTo(context, pkg, prompt)) {
+            return true
+        }
+        if (provider == LlmProvider.HERMES && openHermex) {
+            for (link in HERMEX_DEEP_LINKS) {
+                if (view(context, link)) return true
             }
         }
         val url = webUrl(provider, prompt, hermesBaseUrl) ?: return false
-        return try {
-            context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            true
-        } catch (_: Exception) {
-            false
-        }
+        return view(context, url)
+    }
+
+    private fun shareTo(context: Context, pkg: String, prompt: String): Boolean {
+        val share = Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, prompt)
+            .setPackage(pkg)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (share.resolveActivity(context.packageManager) == null) return false
+        context.startActivity(share)
+        return true
+    }
+
+    private fun view(context: Context, url: String): Boolean = try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        true
+    } catch (_: Exception) {
+        false
     }
 
     private fun site(base: String, prompt: String): String {

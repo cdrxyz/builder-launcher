@@ -89,7 +89,7 @@ Home always shows a centered analog clock (digital time and date below; settings
 
 Settings (`settings` or `/settings`) → **… AI providers >**:
 
-- **Hermes** — Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
+- **Hermes** — Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works. **Open question in** on that screen: **web ui** opens the URL in the browser; **hermex** shares the question into Hermex like Grok (`com.hermex.android`, then `hermex://new-chat` / `hermes-agent://new-chat`).
 - **xAI** — Sign in with SuperGrok / X Premium+ (device-code OAuth at `auth.x.ai`) or paste an API key. Default model `grok-4.6`. Hits `https://api.x.ai/v1`.
 - **OpenAI** — Paste an API key. Default model `gpt-4o`. Hits `https://api.openai.com/v1`.
 - **Anthropic** — Paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic.com`.

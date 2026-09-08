@@ -1039,6 +1039,22 @@ fun AiProvidersChrome(
         if (platform.needsBaseUrl) {
             Field("Base URL", settings.hermesBaseUrl, platform.defaultLocalBase ?: "http://192.168.1.10:8642")
         }
+        if (settings.provider == LlmProvider.HERMES) {
+            Text("Open question in", color = Dim, style = MaterialTheme.typography.labelSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                Text("web ui", color = if (!settings.hermesOpenInHermex) Accent else Dim)
+                Text("hermex", color = if (settings.hermesOpenInHermex) Accent else Dim)
+            }
+            Text(
+                if (settings.hermesOpenInHermex) {
+                    "The Hermes mark shares the question into Hermex, like Grok. If Hermex is not installed it opens your Hermes URL."
+                } else {
+                    "The Hermes mark opens your instance in the browser."
+                },
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Field("API key (stored on device)", "", if (platform.keyOptional) "optional" else "optional if signed in")
         Field("Model", settings.model, platform.defaultModel)
         Spacer(Modifier.height(24.dp))

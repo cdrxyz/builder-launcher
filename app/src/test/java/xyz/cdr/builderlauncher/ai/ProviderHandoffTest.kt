@@ -61,6 +61,12 @@ class ProviderHandoffTest {
         )
         assertNull(ProviderHandoff.webUrl(LlmProvider.HERMES, "secret", "  "))
         assertNull(ProviderHandoff.appPackage(LlmProvider.HERMES))
+        assertNull(ProviderHandoff.appPackage(LlmProvider.HERMES, openHermex = false))
+        assertEquals(ProviderHandoff.HERMEX_PACKAGE, ProviderHandoff.appPackage(LlmProvider.HERMES, openHermex = true))
+        assertEquals(
+            listOf("hermex://new-chat", "hermes-agent://new-chat"),
+            ProviderHandoff.HERMEX_DEEP_LINKS,
+        )
     }
 
     @Test

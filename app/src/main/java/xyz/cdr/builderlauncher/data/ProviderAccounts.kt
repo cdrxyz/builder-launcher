@@ -13,6 +13,7 @@ data class ProviderAccount(
     val oauthAccount: String = "",
     val model: String = "",
     val baseUrl: String = "",
+    val openInHermex: Boolean = false,
 ) {
     fun apply(base: BuilderSettings, provider: LlmProvider): BuilderSettings = base.copy(
         provider = provider,
@@ -23,6 +24,7 @@ data class ProviderAccount(
         oauthAccount = oauthAccount,
         model = model,
         hermesBaseUrl = baseUrl,
+        hermesOpenInHermex = if (provider == LlmProvider.HERMES) openInHermex else base.hermesOpenInHermex,
     )
 
     companion object {
@@ -34,6 +36,7 @@ data class ProviderAccount(
             oauthAccount = settings.oauthAccount,
             model = settings.model,
             baseUrl = settings.hermesBaseUrl,
+            openInHermex = settings.hermesOpenInHermex,
         )
     }
 }

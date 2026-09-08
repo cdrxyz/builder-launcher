@@ -596,7 +596,13 @@ fun BuilderRoot(
             ctx.getSystemService(ClipboardManager::class.java)
                 ?.setPrimaryClip(ClipData.newPlainText("prompt", text))
         }
-        val opened = ProviderHandoff.open(ctx, settings.provider, text, settings.hermesBaseUrl)
+        val opened = ProviderHandoff.open(
+            ctx,
+            settings.provider,
+            text,
+            settings.hermesBaseUrl,
+            openHermex = settings.provider == LlmProvider.HERMES && settings.hermesOpenInHermex,
+        )
         if (!opened) {
             val name = ProviderHandoff.label(settings.provider)
             Toast.makeText(
@@ -3019,7 +3025,37 @@ private fun AiProvidersPage(
                 baseUrl = it
                 repo.update { s -> s.copy(hermesBaseUrl = it) }
             }
-        } else {
+        }
+        if (settings.provider == LlmProvider.HERMES) {
+            Text("Open question in", color = Dim, style = MaterialTheme.typography.labelSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                Text(
+                    "web ui",
+                    color = if (!settings.hermesOpenInHermex) Accent else Dim,
+                    modifier = Modifier.clickable {
+                        repo.update { it.copy(hermesOpenInHermex = false) }
+                    },
+                )
+                Text(
+                    "hermex",
+                    color = if (settings.hermesOpenInHermex) Accent else Dim,
+                    modifier = Modifier.clickable {
+                        repo.update { it.copy(hermesOpenInHermex = true) }
+                    },
+                )
+            }
+            Text(
+                if (settings.hermesOpenInHermex) {
+                    "The Hermes mark shares the question into Hermex, like Grok. If Hermex is not installed it opens your Hermes URL."
+                } else {
+                    "The Hermes mark opens your instance in the browser."
+                },
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        if (!platform.needsBaseUrl) {
             Text(
                 "${platform.apiBase} — sign in or paste an API key. Used only for ? questions.",
                 color = Dim,
