@@ -2,10 +2,13 @@
 
 package xyz.cdr.builderlauncher.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -379,16 +382,31 @@ fun BuilderRoot(
                 val todos = HomeTodos.of(local)
                 val openTodos = HomeTodos.open(todos)
                 val doneTodos = HomeTodos.completed(todos)
-                Text(
-                    HomeTodos.BACK,
-                    color = Prompt,
-                    modifier = Modifier
-                        .clickable {
-                            input = HomeTodos.leaveDraft(input)
-                            page = Page.Home
-                        }
-                        .padding(vertical = 6.dp),
-                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        HomeTodos.BACK,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable {
+                                input = HomeTodos.leaveDraft(input)
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    Text(
+                        HomeTodos.SHARE,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable {
+                                val clip = ctx.getSystemService(ClipboardManager::class.java)
+                                clip?.setPrimaryClip(
+                                    ClipData.newPlainText("todos", HomeTodos.shareMarkdown(todos)),
+                                )
+                                Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(openTodos, key = { "t" + it.id }) { item ->

@@ -5,6 +5,7 @@ object HomeTodos {
     const val MORE_TASKS = "…more tasks >"
     const val TASK_PREFIX = "-"
     const val BACK = "<"
+    const val SHARE = "↗"
 
     fun of(items: List<LocalItem>): List<LocalItem> =
         items.filter { it.kind.equals("todo", ignoreCase = true) }
@@ -25,5 +26,19 @@ object HomeTodos {
     fun leaveDraft(input: String): String {
         val trimmed = input.trim()
         return if (trimmed.isEmpty() || trimmed == TASK_PREFIX) "" else input
+    }
+
+    fun shareDate(now: Long = System.currentTimeMillis(), zone: java.util.TimeZone = java.util.TimeZone.getDefault()): String {
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        fmt.timeZone = zone
+        return fmt.format(java.util.Date(now))
+    }
+
+    fun shareMarkdown(todos: List<LocalItem>, date: String = shareDate()): String {
+        val lines = buildList {
+            add("## $date")
+            open(todos).forEach { add("- [ ] ${it.text}") }
+        }
+        return lines.joinToString("\n")
     }
 }

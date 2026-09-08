@@ -58,4 +58,30 @@ class HomeTodosTest {
         assertEquals("", HomeTodos.leaveDraft("  "))
         assertEquals("-buy milk", HomeTodos.leaveDraft("-buy milk"))
     }
+
+    @Test
+    fun shareMarkdownIsDatedChecklistOfOpenTodos() {
+        val items = listOf(
+            todo("milk"),
+            todo("eggs"),
+            todo("bread", completedAt = 1),
+        )
+        val markdown = HomeTodos.shareMarkdown(HomeTodos.of(items), date = "2026-06-30")
+        assertEquals(
+            """
+            ## 2026-06-30
+            - [ ] milk
+            - [ ] eggs
+            """.trimIndent(),
+            markdown,
+        )
+    }
+
+    @Test
+    fun shareMarkdownDateIsIsoDay() {
+        assertEquals(
+            "2026-09-07",
+            HomeTodos.shareDate(1_788_739_200_000L, java.util.TimeZone.getTimeZone("UTC")),
+        )
+    }
 }

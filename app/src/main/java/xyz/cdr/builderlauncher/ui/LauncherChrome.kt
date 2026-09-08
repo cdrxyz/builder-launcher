@@ -87,7 +87,10 @@ fun TodosChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            Text(HomeTodos.SHARE, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             todos.forEach { text ->
