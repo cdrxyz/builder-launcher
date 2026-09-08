@@ -204,6 +204,7 @@ fun HomeChrome(
             ) {
                 if (analog) {
                     AnalogClock(hour = hour, minute = minute)
+                    Spacer(Modifier.height(8.dp))
                     Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 } else {
