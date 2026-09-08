@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
@@ -68,6 +70,7 @@ import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ContactAction
 import xyz.cdr.builderlauncher.commands.ExecResult
+import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.HomeTodos
@@ -556,43 +559,114 @@ private fun CommandBar(
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    var menuOpen by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(0) }
     LaunchedEffect(hardware) {
         focus.requestFocus()
         if (hardware) keyboard?.hide()
     }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(">", color = Prompt, modifier = Modifier.padding(end = 10.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onValue,
-            singleLine = true,
-            cursorBrush = SolidColor(Prompt),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.None,
-                imeAction = ImeAction.Go,
-            ),
-            keyboardActions = KeyboardActions(onGo = { onSubmit() }),
-            modifier = Modifier
-                .weight(1f)
-                .focusRequester(focus)
-                .onPreviewKeyEvent { event ->
-                    if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
-                    when (event.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                            onSubmit()
-                            true
-                        }
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            onHub()
-                            true
-                        }
-                        else -> false
+    fun pick(index: Int) {
+        val cmd = PrefixCommands.all.getOrNull(index) ?: return
+        menuOpen = false
+        selected = 0
+        onValue(PrefixCommands.fill(cmd.glyph))
+        focus.requestFocus()
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (menuOpen) {
+            CommandMenu(
+                selected = selected,
+                onSelect = { cmd ->
+                    val index = PrefixCommands.all.indexOf(cmd)
+                    if (index >= 0) pick(index)
+                },
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                ">",
+                color = Prompt,
+                modifier = Modifier
+                    .semantics { contentDescription = "commands" }
+                    .clickable {
+                        menuOpen = !menuOpen
+                        if (menuOpen) selected = 0
+                    }
+                    .padding(end = 10.dp),
+            )
+            BasicTextField(
+                value = value,
+                onValueChange = {
+                    if (menuOpen) {
+                        menuOpen = false
+                    } else {
+                        onValue(it)
                     }
                 },
-        )
+                singleLine = true,
+                cursorBrush = SolidColor(Prompt),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    imeAction = ImeAction.Go,
+                ),
+                keyboardActions = KeyboardActions(onGo = { onSubmit() }),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focus)
+                    .onPreviewKeyEvent { event ->
+                        if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+                        val code = event.nativeKeyEvent.keyCode
+                        val ch = event.nativeKeyEvent.unicodeChar.toChar()
+                        if (menuOpen) {
+                            when (code) {
+                                KeyEvent.KEYCODE_DPAD_UP -> {
+                                    selected = (selected - 1).mod(PrefixCommands.all.size)
+                                    true
+                                }
+                                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                    selected = (selected + 1).mod(PrefixCommands.all.size)
+                                    true
+                                }
+                                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                                    pick(selected)
+                                    true
+                                }
+                                KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> {
+                                    menuOpen = false
+                                    true
+                                }
+                                else -> {
+                                    menuOpen = false
+                                    true
+                                }
+                            }
+                        } else {
+                            when (code) {
+                                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                                    onSubmit()
+                                    true
+                                }
+                                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                    onHub()
+                                    true
+                                }
+                                else -> {
+                                    if (value.isEmpty() && ch == '>') {
+                                        menuOpen = true
+                                        selected = 0
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                            }
+                        }
+                    },
+            )
+        }
+        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
     }
-    HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
 }
 
 @Composable
