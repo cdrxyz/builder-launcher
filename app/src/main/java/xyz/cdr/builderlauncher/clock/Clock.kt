@@ -14,8 +14,9 @@ object Clock {
     val PRESETS_MIN = listOf(1, 5, 10, 15, 25, 30)
     const val DEFAULT_TIMER_MS = 5 * 60_000L
     const val SNOOZE_MS = 8 * 60_000L
-    const val RAMP_MS = 10_000L
-    const val PEAK_GAIN = 0.8f
+    const val RAMP_MS = 4_000L
+    const val PEAK_GAIN = 1.0f
+    const val FLOOR_GAIN = 0.45f
 
     fun formatTimer(ms: Long): String {
         val total = (ms.coerceAtLeast(0L) + 999) / 1000
@@ -164,11 +165,19 @@ object Clock {
         return java.time.Duration.between(here.toLocalDateTime(), there.toLocalDateTime()).toHours()
     }
 
-    fun fadeGain(elapsedMs: Long, rampMs: Long = RAMP_MS, peak: Float = PEAK_GAIN): Float {
-        if (elapsedMs <= 0L) return 0f
+    fun fadeGain(
+        elapsedMs: Long,
+        rampMs: Long = RAMP_MS,
+        peak: Float = PEAK_GAIN,
+        floor: Float = FLOOR_GAIN,
+    ): Float {
+        val start = floor.coerceIn(0f, peak)
+        if (elapsedMs <= 0L) return start
         if (elapsedMs >= rampMs) return peak
-        return peak * (elapsedMs.toFloat() / rampMs.toFloat())
+        return start + (peak - start) * (elapsedMs.toFloat() / rampMs.toFloat())
     }
+
+    fun useMediaStream(alarmVolume: Int, preview: Boolean): Boolean = preview || alarmVolume <= 0
 
     fun fireTimer(timer: TimerState): TimerFire {
         val duration = timer.durationMs.coerceAtLeast(1_000L)

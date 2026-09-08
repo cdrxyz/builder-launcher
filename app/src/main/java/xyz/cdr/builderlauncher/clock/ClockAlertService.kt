@@ -8,9 +8,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -21,11 +18,6 @@ import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.SettingsRepository
 
 class ClockAlertService : Service() {
-    private var track: AudioTrack? = null
-    private var player: Thread? = null
-    @Volatile private var playing = false
-    @Volatile private var fadingFrom: Long = 0L
-
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -72,76 +64,23 @@ class ClockAlertService : Service() {
         } else {
             startForeground(NOTIFY, notification)
         }
-        if (!playing) startTone()
+        if (!ClockSoundPlayer.alerting) startTone()
         return START_STICKY
     }
 
     override fun onDestroy() {
-        stopTone()
+        ClockSoundPlayer.stop()
         super.onDestroy()
     }
 
     private fun finishAlert() {
         ClockStore.get(this).setAlert(null)
-        stopTone()
+        ClockSoundPlayer.stop()
         stopSelf()
     }
 
     private fun startTone() {
-        stopTone()
-        val sound = SettingsRepository(this).settings.value.clockSound
-        val pcm = ClockTone.pcm(sound)
-        if (pcm.isEmpty()) return
-        runCatching { playPcm(pcm) }
-    }
-
-    private fun playPcm(pcm: ShortArray) {
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        val format = AudioFormat.Builder()
-            .setSampleRate(ClockTone.SAMPLE_RATE)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .build()
-        val min = AudioTrack.getMinBufferSize(
-            ClockTone.SAMPLE_RATE,
-            AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        ).coerceAtLeast(pcm.size * 2)
-        val next = AudioTrack.Builder()
-            .setAudioAttributes(attrs)
-            .setAudioFormat(format)
-            .setBufferSizeInBytes(min)
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
-        track = next
-        playing = true
-        fadingFrom = System.currentTimeMillis()
-        next.play()
-        player = Thread {
-            while (playing) {
-                next.setVolume(Clock.fadeGain(System.currentTimeMillis() - fadingFrom))
-                var offset = 0
-                while (playing && offset < pcm.size) {
-                    val written = next.write(pcm, offset, pcm.size - offset)
-                    if (written <= 0) break
-                    offset += written
-                }
-            }
-        }.also { it.start() }
-    }
-
-    private fun stopTone() {
-        playing = false
-        val current = track
-        runCatching { current?.pause() }
-        runCatching { current?.stop() }
-        player?.join(1_000)
-        player = null
-        runCatching { current?.release() }
-        if (track === current) track = null
+        ClockSoundPlayer.startAlert(this, SettingsRepository(this).settings.value.clockSound)
     }
 
     companion object {

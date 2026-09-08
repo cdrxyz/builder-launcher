@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -61,6 +62,7 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.StockStatLine
 import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.weather.WeatherCodes
 import xyz.cdr.builderlauncher.weather.WeatherDay
 import xyz.cdr.builderlauncher.weather.WeatherForecast
 import xyz.cdr.builderlauncher.weather.WeatherHour
@@ -121,6 +123,35 @@ fun HomeTickerMark(
 }
 
 @Composable
+fun HomeWeatherMark(
+    weather: String?,
+    kind: WeatherKind? = null,
+    isDay: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    if (weather.isNullOrBlank()) return
+    val temperature = WeatherCodes.homeTemperature(weather)
+    val resolved = kind ?: WeatherKind.ofCondition(weather)
+    Column(
+        modifier = modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        resolved?.let { glyph ->
+            WeatherGlyph(
+                kind = glyph,
+                isDay = isDay,
+                color = Dim,
+                size = 24.dp,
+            )
+        }
+        Text(temperature, color = Paper, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
 fun HomeChrome(
     time: String,
     date: String,
@@ -149,27 +180,15 @@ fun HomeChrome(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top,
         ) {
-            Column(Modifier.weight(1f)) {
+            Column(if (weather.isBlank()) Modifier.weight(1f) else Modifier) {
                 Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
                 Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                if (weather.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                        WeatherKind.ofCondition(weather)?.let { kind ->
-                            WeatherGlyph(
-                                kind = kind,
-                                modifier = Modifier.padding(start = 6.dp),
-                                color = Dim,
-                                size = 16.dp,
-                            )
-                        }
-                    }
-                }
             }
-            Row(verticalAlignment = Alignment.Top) {
-                HomeTickerMark(ticker, tickerChange, tickerUp)
-                MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+            if (weather.isNotBlank()) {
+                HomeWeatherMark(weather, modifier = Modifier.weight(1f))
             }
+            HomeTickerMark(ticker, tickerChange, tickerUp)
+            MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         todos.take(HomeTodos.PREVIEW).forEach { text ->
@@ -932,7 +951,7 @@ fun SettingsChrome(
             }
         }
         Text(
-            "Starts silent, then rises to 80% over 10 seconds.",
+            "Tap a sound to hear it. Alarms fade in over 4 seconds.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

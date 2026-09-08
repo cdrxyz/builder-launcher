@@ -23,15 +23,15 @@ object ClockTone {
 
     private fun pulse(out: ShortArray) {
         val on = (SAMPLE_RATE * 0.45).toInt()
-        sine(out, 196.0, 0, on, 0.28)
+        sine(out, 196.0, 0, on, 0.55)
     }
 
     private fun chime(out: ShortArray) {
         val a = (SAMPLE_RATE * 0.35).toInt()
         val gap = (SAMPLE_RATE * 0.12).toInt()
         val b = (SAMPLE_RATE * 0.45).toInt()
-        sine(out, 392.0, 0, a, 0.22)
-        sine(out, 523.25, a + gap, b, 0.2)
+        sine(out, 392.0, 0, a, 0.45)
+        sine(out, 523.25, a + gap, b, 0.4)
     }
 
     private fun bell(out: ShortArray) {
@@ -40,8 +40,8 @@ object ClockTone {
             val t = i.toDouble() / SAMPLE_RATE
             val env = exp(-t * 2.2)
             val sample = env * (
-                0.22 * sin(2.0 * Math.PI * 196.0 * t) +
-                    0.08 * sin(2.0 * Math.PI * 392.0 * t)
+                0.42 * sin(2.0 * Math.PI * 196.0 * t) +
+                    0.16 * sin(2.0 * Math.PI * 392.0 * t)
                 )
             out[i] = (sample * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
@@ -49,16 +49,16 @@ object ClockTone {
 
     private fun orthodox(out: ShortArray) {
         val beat = SAMPLE_RATE
-        mix(out, 146.83, 0, out.size, 0.10)
-        mix(out, 293.66, 0, out.size, 0.03)
-        mix(out, 220.00, 0, beat * 2, 0.12)
-        mix(out, 196.00, beat, beat * 2, 0.11)
-        mix(out, 174.61, beat * 2, beat * 2, 0.12)
-        mix(out, 146.83, beat * 3, beat, 0.10)
+        mix(out, 146.83, 0, out.size, 0.20)
+        mix(out, 293.66, 0, out.size, 0.06)
+        mix(out, 220.00, 0, beat * 2, 0.24)
+        mix(out, 196.00, beat, beat * 2, 0.22)
+        mix(out, 174.61, beat * 2, beat * 2, 0.24)
+        mix(out, 146.83, beat * 3, beat, 0.20)
     }
 
     private fun hum(out: ShortArray) {
-        sine(out, 110.0, 0, out.size, 0.16)
+        sine(out, 110.0, 0, out.size, 0.40)
     }
 
     private fun sine(out: ShortArray, hz: Double, start: Int, length: Int, amp: Double) {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +40,8 @@ import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlert
 import xyz.cdr.builderlauncher.clock.ClockAlertKind
+import xyz.cdr.builderlauncher.clock.ClockSound
+import xyz.cdr.builderlauncher.clock.ClockSoundPlayer
 import xyz.cdr.builderlauncher.clock.ClockSnapshot
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.WorldClock
@@ -320,11 +324,17 @@ private fun ZonePane(
 fun ClockAlertScreen(
     alert: ClockAlert,
     modifier: Modifier = Modifier,
+    sound: ClockSound = ClockSound.OFF,
     onStop: () -> Unit = {},
     onRunAgain: () -> Unit = {},
     onDismiss: () -> Unit = {},
     onSnooze: () -> Unit = {},
 ) {
+    val ctx = LocalContext.current
+    DisposableEffect(alert, sound) {
+        if (!sound.silent) ClockSoundPlayer.startAlert(ctx, sound)
+        onDispose { }
+    }
     val timer = alert.kind == ClockAlertKind.TIMER
     Column(
         modifier
