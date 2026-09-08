@@ -16,7 +16,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; history lists past chats with a date and delete |
 | (none) | `Termux` | Search and launch apps |
-| | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
+| | `pin Termux` / `unpin Termux` | Pin or unpin. Pins show as icons on home |
 | | `hub` / `notes` / `apps` / `stocks` / `clock` / `weather` / `settings` / `help` | Built-ins |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 

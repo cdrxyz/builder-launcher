@@ -90,14 +90,8 @@ object Stocks {
             StockInsert.BOTTOM -> items + added
         }
 
-    fun move(items: List<WatchItem>, from: Int, to: Int): List<WatchItem> {
-        if (from == to) return items
-        if (from !in items.indices || to !in items.indices) return items
-        val next = items.toMutableList()
-        val item = next.removeAt(from)
-        next.add(to, item)
-        return next
-    }
+    fun move(items: List<WatchItem>, from: Int, to: Int): List<WatchItem> =
+        xyz.cdr.builderlauncher.data.ListReorder.move(items, from, to)
 
     fun formatNumber(value: Double?): String {
         if (value == null) return "—"

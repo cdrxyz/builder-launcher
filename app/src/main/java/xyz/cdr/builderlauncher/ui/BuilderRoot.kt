@@ -27,12 +27,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -61,6 +61,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -73,7 +74,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
@@ -119,6 +119,7 @@ import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.data.BuilderSettings
@@ -800,10 +801,8 @@ fun BuilderRoot(
                 val filtering = people.isEmpty() && appQuery
                 val shown = if (filtering) {
                     AppList.preview(choices)
-                } else if (choices.isNotEmpty()) {
-                    choices
                 } else {
-                    pinned
+                    choices
                 }
                 fun pickApp(app: LaunchableApp) {
                     if (choices.isNotEmpty() || filtering) {
@@ -869,6 +868,16 @@ fun BuilderRoot(
                         )
                     }
                 } else {
+                    Column(modifier = Modifier.weight(1f)) {
+                    if (people.isEmpty() && pinned.isNotEmpty()) {
+                        PinnedAppsRow(
+                            apps = pinned,
+                            icon = { apps.icon(it) },
+                            onLaunch = { apps.launch(it) },
+                            onMove = { from, to -> pins.move(from, to) },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
                     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (people.isNotEmpty()) {
                             items(people, key = { it.name + it.number }) { person ->
@@ -933,12 +942,13 @@ fun BuilderRoot(
                                         .padding(vertical = 6.dp),
                                 )
                             }
-                            if (shown.isEmpty() && input.isBlank()) {
+                            if (shown.isEmpty() && pinned.isEmpty() && input.isBlank()) {
                                 item {
                                     Text("Type to work. help for commands. Then put it down.", color = Dim)
                                 }
                             }
                         }
+                    }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -1533,6 +1543,7 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 var dragFrom by remember { mutableStateOf<Int?>(null) }
+                var dragTo by remember { mutableStateOf<Int?>(null) }
                 var dragY by remember { mutableFloatStateOf(0f) }
                 var rowHeight by remember { mutableFloatStateOf(0f) }
                 val gap = with(LocalDensity.current) { 10.dp.toPx() }
@@ -1573,44 +1584,52 @@ fun BuilderRoot(
                             val up = (percent ?: 0.0) >= 0.0
                             val tone = if (up) Gain else Loss
                             val lifting = dragFrom == index
+                            val stepPx = (rowHeight + gap).takeIf { it > 1f } ?: 0f
+                            val shift = when {
+                                lifting -> dragY
+                                dragFrom != null && dragTo != null && stepPx > 0f ->
+                                    ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
+                                else -> 0f
+                            }
                             Row(
                                 Modifier
                                     .fillMaxWidth()
                                     .zIndex(if (lifting) 1f else 0f)
-                                    .offset { IntOffset(0, if (lifting) dragY.toInt() else 0) }
+                                    .graphicsLayer { translationY = shift }
                                     .onSizeChanged { rowHeight = it.height.toFloat() }
-                                    .animateItem(),
+                                    .then(if (dragFrom == null) Modifier.animateItem() else Modifier),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Row(
                                     Modifier
                                         .weight(1f)
-                                        .pointerInput(index, watch.size) {
+                                        .pointerInput(item.symbol) {
                                             detectDragGesturesAfterLongPress(
                                                 onDragStart = {
                                                     dragFrom = index
+                                                    dragTo = index
                                                     dragY = 0f
                                                 },
                                                 onDragEnd = {
+                                                    val from = dragFrom
+                                                    val to = dragTo
                                                     dragFrom = null
+                                                    dragTo = null
                                                     dragY = 0f
+                                                    if (from != null && to != null) stocks.move(from, to)
                                                 },
                                                 onDragCancel = {
                                                     dragFrom = null
+                                                    dragTo = null
                                                     dragY = 0f
                                                 },
                                                 onDrag = { change, amount ->
                                                     change.consume()
                                                     dragY += amount.y
                                                     val from = dragFrom ?: return@detectDragGesturesAfterLongPress
-                                                    val step = (rowHeight + gap).takeIf { it > 1f } ?: return@detectDragGesturesAfterLongPress
-                                                    val shift = kotlin.math.round(dragY / step).toInt()
-                                                    val to = (from + shift).coerceIn(0, watch.lastIndex)
-                                                    if (to != from) {
-                                                        stocks.move(from, to)
-                                                        dragFrom = to
-                                                        dragY -= (to - from) * step
-                                                    }
+                                                    val step = (rowHeight + gap).takeIf { it > 1f }
+                                                        ?: return@detectDragGesturesAfterLongPress
+                                                    dragTo = ListReorder.targetIndex(from, dragY, step, watch.lastIndex)
                                                 },
                                             )
                                         }
@@ -2199,6 +2218,7 @@ private fun HelpBlock() {
         "hub / notes / apps / stocks / clock / weather / settings",
         "type a name     launch app",
         "hold an app     pin or unpin",
+        "hold a pin      drag to reorder",
     )
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         lines.forEach { Text(it, color = Dim, style = MaterialTheme.typography.bodyMedium) }
@@ -2589,6 +2609,75 @@ private fun WeatherLocationField(
                 .clickable { onPick(place) }
                 .padding(vertical = 8.dp),
         )
+    }
+}
+
+@Composable
+private fun PinnedAppsRow(
+    apps: List<LaunchableApp>,
+    icon: (LaunchableApp) -> Drawable?,
+    onLaunch: (LaunchableApp) -> Unit,
+    onMove: (Int, Int) -> Unit,
+) {
+    var dragFrom by remember { mutableStateOf<Int?>(null) }
+    var dragTo by remember { mutableStateOf<Int?>(null) }
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var cellWidth by remember { mutableFloatStateOf(0f) }
+    val gap = with(LocalDensity.current) { 12.dp.toPx() }
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        itemsIndexed(apps, key = { _, it -> it.packageName + it.activityName }) { index, app ->
+            val lifting = dragFrom == index
+            val stepPx = (cellWidth + gap).takeIf { it > 1f } ?: 0f
+            val shift = when {
+                lifting -> dragX
+                dragFrom != null && dragTo != null && stepPx > 0f ->
+                    ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
+                else -> 0f
+            }
+            AppIcon(
+                drawable = icon(app),
+                modifier = Modifier
+                    .size(48.dp)
+                    .onSizeChanged { cellWidth = it.width.toFloat() }
+                    .zIndex(if (lifting) 1f else 0f)
+                    .graphicsLayer { translationX = shift }
+                    .semantics { contentDescription = app.label }
+                    .pointerInput(app.packageName, app.activityName) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                dragFrom = index
+                                dragTo = index
+                                dragX = 0f
+                            },
+                            onDragEnd = {
+                                val from = dragFrom
+                                val to = dragTo
+                                dragFrom = null
+                                dragTo = null
+                                dragX = 0f
+                                if (from != null && to != null) onMove(from, to)
+                            },
+                            onDragCancel = {
+                                dragFrom = null
+                                dragTo = null
+                                dragX = 0f
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                dragX += amount.x
+                                val from = dragFrom ?: return@detectDragGesturesAfterLongPress
+                                val step = (cellWidth + gap).takeIf { it > 1f }
+                                    ?: return@detectDragGesturesAfterLongPress
+                                dragTo = ListReorder.targetIndex(from, dragX, step, apps.lastIndex)
+                            },
+                        )
+                    }
+                    .clickable { onLaunch(app) },
+            )
+        }
     }
 }
 

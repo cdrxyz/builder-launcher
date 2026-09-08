@@ -13,9 +13,16 @@ Type an app name (no prefix). Home shows a short, non-scrolling list of matches 
 - Several matches: pick from the list.
 - No matches: "No app matches".
 - `pin Termux` / `unpin Termux` pin without launching.
-- **Hold** an app row on home to pin or unpin.
+- **Hold** an app row in search or on all apps to pin or unpin.
 
-![Pinned apps on the home list](../../../assets/screenshots/home-pinned.png)
+## Pins
+
+Pinned apps sit on home as a horizontal row of icons (not a vertical name list).
+
+![Pinned apps as a row of icons on home](../../../assets/screenshots/home-pinned.png)
+
+- Tap an icon to launch.
+- Hold and drag an icon across the row to reorder. Order is saved on the device.
 
 ## All apps
 
