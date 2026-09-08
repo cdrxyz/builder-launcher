@@ -40,7 +40,8 @@ class ChatStreamTest {
     fun looksLikeSse() {
         assertTrue(ChatStream.looksLikeSse("data: {}"))
         assertTrue(ChatStream.looksLikeSse("event: ping"))
-        assertTrue(ChatStream.looksLikeSse(""))
+        assertFalse(ChatStream.looksLikeSse(""))
+        assertFalse(ChatStream.looksLikeSse("   "))
         assertFalse(ChatStream.looksLikeSse("{\"choices\":[]}"))
     }
 }

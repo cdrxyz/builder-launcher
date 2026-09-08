@@ -15,7 +15,7 @@ object ChatStream {
 
     fun looksLikeSse(line: String): Boolean {
         val trimmed = line.trimStart()
-        return trimmed.startsWith("data:") || trimmed.startsWith("event:") || trimmed.isEmpty()
+        return trimmed.startsWith("data:") || trimmed.startsWith("event:")
     }
 
     fun openaiDelta(data: String): String? {

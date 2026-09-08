@@ -158,17 +158,25 @@ class LlmClient(
         onDelta: ((String) -> Unit)?,
         openai: Boolean,
     ): String {
-        val body = resp.body ?: return if (resp.isSuccessful) "" else llmError(resp.code, "")
+        val body = resp.body ?: return if (resp.isSuccessful) EMPTY_REPLY else llmError(resp.code, "")
         if (!resp.isSuccessful) return llmError(resp.code, body.string())
         val source = body.source()
-        val first = source.readUtf8Line() ?: return ""
-        if (!ChatStream.looksLikeSse(first)) {
+        var first: String? = null
+        while (!source.exhausted()) {
+            val line = source.readUtf8Line() ?: break
+            if (line.isNotEmpty()) {
+                first = line
+                break
+            }
+        }
+        val start = first ?: return EMPTY_REPLY
+        if (!ChatStream.looksLikeSse(start)) {
             val rest = source.readUtf8()
-            val raw = if (rest.isEmpty()) first else first + "\n" + rest
+            val raw = if (rest.isEmpty()) start else start + "\n" + rest
             val full = if (openai) extractOpenAi(raw) else extractAnthropic(raw)
             val text = full ?: raw.take(400)
             emit(text, onDelta)
-            return text
+            return text.ifBlank { EMPTY_REPLY }
         }
         val acc = StringBuilder()
         val frame = StringBuilder()
@@ -185,13 +193,13 @@ class LlmClient(
                 frame.append(line).append('\n')
             }
         }
-        consume(first)
+        consume(start)
         while (!source.exhausted()) {
             val line = source.readUtf8Line() ?: break
             consume(line)
         }
         if (frame.isNotEmpty()) consume("")
-        return acc.toString()
+        return acc.toString().ifBlank { EMPTY_REPLY }
     }
 
     private suspend fun emit(text: String, onDelta: ((String) -> Unit)?) {
@@ -258,6 +266,7 @@ class LlmClient(
 
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
+        private const val EMPTY_REPLY = "Empty reply from the model."
         private const val SYSTEM =
             "You are a concise assistant on a builder's phone. Prefer short answers they can act on. Use markdown when it helps: headings, lists, tables, and fenced code. Skip preamble."
     }

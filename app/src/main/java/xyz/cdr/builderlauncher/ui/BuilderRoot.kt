@@ -278,16 +278,26 @@ fun BuilderRoot(
         streamDraft = ""
         val snapshot = chats.get(thread.id) ?: thread
         scope.launch {
-            val reply = runCatching {
-                llm.ask(snapshot.messages) { streamed ->
+            try {
+                val reply = llm.ask(snapshot.messages) { streamed ->
                     streamDraft = streamed
+                }.ifBlank { "Empty reply from the model." }
+                if (chats.get(thread.id) != null) {
+                    chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
                 }
-            }.getOrElse { "Could not reach the model." }
-            if (chats.get(thread.id) != null) {
-                chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                if (chats.get(thread.id) != null) {
+                    chats.addMessage(
+                        thread.id,
+                        ChatMessage(role = "assistant", content = "Could not reach the model."),
+                    )
+                }
+            } finally {
+                streamDraft = ""
+                chatBusy = false
             }
-            streamDraft = ""
-            chatBusy = false
         }
     }
 
