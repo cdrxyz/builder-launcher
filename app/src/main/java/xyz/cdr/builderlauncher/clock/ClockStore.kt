@@ -21,6 +21,18 @@ class ClockStore(context: Context) {
         persist(_state.value.copy(timer = timer))
     }
 
+    fun setAlert(alert: ClockAlert?) {
+        persist(_state.value.copy(alert = alert))
+    }
+
+    fun replaceAlarm(alarm: ClockAlarm) {
+        persist(
+            _state.value.copy(
+                alarms = _state.value.alarms.map { if (it.id == alarm.id) alarm else it },
+            ),
+        )
+    }
+
     fun addAlarm(hour: Int, minute: Int, label: String = ""): ClockAlarm {
         val alarm = ClockAlarm(
             id = System.currentTimeMillis().toString(36),

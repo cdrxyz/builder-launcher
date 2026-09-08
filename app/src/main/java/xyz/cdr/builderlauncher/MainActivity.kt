@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +19,7 @@ import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockScheduler
+import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -59,6 +61,13 @@ class MainActivity : ComponentActivity() {
         val stocks = StocksRepository(this)
         val clock = ClockStore(this)
         ClockScheduler.sync(this, clock.snapshot())
+        if (clock.snapshot().alert != null) {
+            if (Build.VERSION.SDK_INT >= 27) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            }
+            ClockAlertService.start(this)
+        }
         setContent {
             val current by settings.settings.collectAsState()
             BuilderTheme(accent = accentColor(current.accentHex)) {

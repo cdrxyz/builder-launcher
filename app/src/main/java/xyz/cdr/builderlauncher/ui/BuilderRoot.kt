@@ -97,7 +97,9 @@ import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.clock.Clock
+import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.clock.ClockScheduler
+import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.TimerState
@@ -746,6 +748,12 @@ fun BuilderRoot(
         runCommand()
     }
 
+    fun clearClockAlert() {
+        clock.setAlert(null)
+        ClockAlertService.stop(ctx)
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1893,6 +1901,30 @@ fun BuilderRoot(
             }
         }
     }
+        clockState.alert?.let { alert ->
+            ClockAlertScreen(
+                alert = alert,
+                onStop = { clearClockAlert() },
+                onRunAgain = {
+                    clock.setTimer(Clock.runAgain(alert, System.currentTimeMillis()))
+                    clearClockAlert()
+                    ClockScheduler.sync(ctx, clock.snapshot())
+                },
+                onDismiss = {
+                    clearClockAlert()
+                    ClockScheduler.sync(ctx, clock.snapshot())
+                },
+                onSnooze = {
+                    val alarm = clock.snapshot().alarms.find { it.id == alert.alarmId }
+                    if (alarm != null) {
+                        clock.replaceAlarm(Clock.snooze(alarm, System.currentTimeMillis()))
+                    }
+                    clearClockAlert()
+                    ClockScheduler.sync(ctx, clock.snapshot())
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -2528,6 +2560,31 @@ private fun SettingsPage(
             } else {
                 "Home weather in Celsius."
             },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Clock sound", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            ClockSound.entries.take(3).forEach { sound ->
+                Text(
+                    sound.label,
+                    color = if (settings.clockSound == sound) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(clockSound = sound) } },
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            ClockSound.entries.drop(3).forEach { sound ->
+                Text(
+                    sound.label,
+                    color = if (settings.clockSound == sound) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(clockSound = sound) } },
+                )
+            }
+        }
+        Text(
+            "Starts silent, then rises to 80% over 10 seconds.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

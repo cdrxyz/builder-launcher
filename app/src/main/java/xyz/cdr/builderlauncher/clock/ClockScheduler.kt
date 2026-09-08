@@ -22,7 +22,7 @@ object ClockScheduler {
             val req = alarmRequest(app, alarm.id)
             cancel(app, req)
             if (alarm.enabled) {
-                schedule(app, req, Clock.nextTrigger(alarm.hour, alarm.minute, now, alarm.days))
+                schedule(app, req, Clock.nextFireAt(alarm, now))
             }
         }
     }

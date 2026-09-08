@@ -13,6 +13,9 @@ object Clock {
     const val COMMAND = "clock"
     val PRESETS_MIN = listOf(1, 5, 10, 15, 25, 30)
     const val DEFAULT_TIMER_MS = 5 * 60_000L
+    const val SNOOZE_MS = 8 * 60_000L
+    const val RAMP_MS = 10_000L
+    const val PEAK_GAIN = 0.8f
 
     fun formatTimer(ms: Long): String {
         val total = (ms.coerceAtLeast(0L) + 999) / 1000
@@ -160,6 +163,52 @@ object Clock {
         val here = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
         return java.time.Duration.between(here.toLocalDateTime(), there.toLocalDateTime()).toHours()
     }
+
+    fun fadeGain(elapsedMs: Long, rampMs: Long = RAMP_MS, peak: Float = PEAK_GAIN): Float {
+        if (elapsedMs <= 0L) return 0f
+        if (elapsedMs >= rampMs) return peak
+        return peak * (elapsedMs.toFloat() / rampMs.toFloat())
+    }
+
+    fun fireTimer(timer: TimerState): TimerFire {
+        val duration = timer.durationMs.coerceAtLeast(1_000L)
+        return TimerFire(
+            timer = reset(timer),
+            alert = ClockAlert(kind = ClockAlertKind.TIMER, durationMs = duration),
+        )
+    }
+
+    fun runAgain(alert: ClockAlert, now: Long): TimerState {
+        val duration = alert.durationMs.coerceAtLeast(1_000L)
+        return start(TimerState(durationMs = duration, remainingMs = duration), now)
+    }
+
+    fun fireAlarm(alarm: ClockAlarm): AlarmFire {
+        return AlarmFire(
+            alarm = alarm.copy(snoozeUntil = null),
+            alert = ClockAlert(
+                kind = ClockAlertKind.ALARM,
+                alarmId = alarm.id,
+                hour = alarm.hour,
+                minute = alarm.minute,
+                label = alarm.label,
+            ),
+        )
+    }
+
+    fun snooze(alarm: ClockAlarm, now: Long): ClockAlarm {
+        return alarm.copy(enabled = true, snoozeUntil = now + SNOOZE_MS)
+    }
+
+    fun nextFireAt(
+        alarm: ClockAlarm,
+        now: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Long {
+        val snooze = alarm.snoozeUntil
+        if (snooze != null && snooze > now) return snooze
+        return nextTrigger(alarm.hour, alarm.minute, now, alarm.days, zone)
+    }
 }
 
 @Serializable
@@ -178,7 +227,41 @@ data class ClockAlarm(
     val enabled: Boolean = true,
     val label: String = "",
     val days: Set<Int> = emptySet(),
+    val snoozeUntil: Long? = null,
 )
+
+enum class ClockAlertKind { TIMER, ALARM }
+
+@Serializable
+data class ClockAlert(
+    val kind: ClockAlertKind,
+    val durationMs: Long = 0,
+    val alarmId: String = "",
+    val hour: Int = 0,
+    val minute: Int = 0,
+    val label: String = "",
+)
+
+data class TimerFire(val timer: TimerState, val alert: ClockAlert)
+
+data class AlarmFire(val alarm: ClockAlarm, val alert: ClockAlert)
+
+enum class ClockSound {
+    PULSE,
+    CHIME,
+    BELL,
+    HUM,
+    OFF,
+    ;
+
+    val label: String get() = name.lowercase()
+    val silent: Boolean get() = this == OFF
+
+    companion object {
+        fun parse(raw: String?): ClockSound =
+            entries.find { it.name.equals(raw, ignoreCase = true) } ?: PULSE
+    }
+}
 
 @Serializable
 data class WorldClock(
@@ -192,4 +275,5 @@ data class ClockSnapshot(
     val timer: TimerState = TimerState(),
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
+    val alert: ClockAlert? = null,
 )

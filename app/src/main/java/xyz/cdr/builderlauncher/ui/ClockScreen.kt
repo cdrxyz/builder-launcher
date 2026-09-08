@@ -1,14 +1,18 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,12 +35,15 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
+import xyz.cdr.builderlauncher.clock.ClockAlert
+import xyz.cdr.builderlauncher.clock.ClockAlertKind
 import xyz.cdr.builderlauncher.clock.ClockSnapshot
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 
@@ -303,6 +310,69 @@ private fun ZonePane(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ClockAlertScreen(
+    alert: ClockAlert,
+    modifier: Modifier = Modifier,
+    onStop: () -> Unit = {},
+    onRunAgain: () -> Unit = {},
+    onDismiss: () -> Unit = {},
+    onSnooze: () -> Unit = {},
+) {
+    val timer = alert.kind == ClockAlertKind.TIMER
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(Ink)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(
+            if (timer) "Time is up" else alert.label.ifBlank { "Alarm" },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            if (timer) Clock.formatTimer(alert.durationMs) else Clock.formatAlarm(alert.hour, alert.minute),
+            color = Paper,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 60.sp,
+            ),
+        )
+        Spacer(Modifier.height(24.dp))
+        if (timer) {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Text(
+                    "stop",
+                    color = Accent,
+                    modifier = Modifier.clickable { onStop() }.padding(vertical = 8.dp),
+                )
+                Text(
+                    "run again",
+                    color = Accent,
+                    modifier = Modifier.clickable { onRunAgain() }.padding(vertical = 8.dp),
+                )
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Text(
+                    "dismiss",
+                    color = Dim,
+                    modifier = Modifier.clickable { onDismiss() }.padding(vertical = 8.dp),
+                )
+                Text(
+                    "snooze 8 min",
+                    color = Accent,
+                    modifier = Modifier.clickable { onSnooze() }.padding(vertical = 8.dp),
+                )
             }
         }
     }
