@@ -79,6 +79,8 @@ data class WeatherForecast(
         latitude = latitude,
         longitude = longitude,
         celsius = true,
+        code = current.code,
+        isDay = current.isDay,
     )
 }
 

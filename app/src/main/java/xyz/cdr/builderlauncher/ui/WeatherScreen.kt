@@ -76,15 +76,27 @@ fun WeatherBody(place: String, units: WeatherUnits, forecast: WeatherForecast) {
     val now = forecast.current
     val today = forecast.daily.firstOrNull()
     Text(place, color = Dim, style = MaterialTheme.typography.bodyMedium)
-    Text(
-        WeatherFormat.temp(now.temperatureC, units).removeSuffix("°"),
-        color = Paper,
-        style = MaterialTheme.typography.headlineLarge.copy(
-            fontSize = 72.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 76.sp,
-        ),
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            WeatherFormat.temp(now.temperatureC, units).removeSuffix("°"),
+            color = Paper,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 72.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 76.sp,
+            ),
+        )
+        WeatherCodes.kind(now.code)?.let { kind ->
+            WeatherGlyph(
+                kind = kind,
+                isDay = now.isDay,
+                color = Paper,
+                size = 72.dp,
+                modifier = Modifier.padding(start = 12.dp),
+                contentDescription = WeatherCodes.label(now.code),
+            )
+        }
+    }
     Text(WeatherCodes.label(now.code), color = Paper, style = MaterialTheme.typography.bodyLarge)
     if (today != null) {
         Text(
