@@ -276,7 +276,7 @@ fun NoteEditorChrome(body: String) {
 @Composable
 fun StocksChrome(
     rows: List<StockListRow>,
-    input: String = Stocks.enterDraft(),
+    input: String = "",
     hits: List<StockListRow> = emptyList(),
 ) {
     Column(

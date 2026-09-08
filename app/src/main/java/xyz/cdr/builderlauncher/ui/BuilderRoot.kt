@@ -315,7 +315,8 @@ fun BuilderRoot(
             Toast.LENGTH_SHORT,
         ).show()
         stockHits = emptyList()
-        input = Stocks.enterDraft()
+        prompt = '$'
+        input = ""
         if (added > 0) {
             scope.launch { stocks.refreshQuotes() }
         }
