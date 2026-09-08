@@ -5,6 +5,8 @@ sealed class Command {
     data object Help : Command()
     data object OpenSettings : Command()
     data object OpenHub : Command()
+    data object OpenNotes : Command()
+    data object OpenTodos : Command()
     data class Message(val target: String, val body: String) : Command()
     data class Call(val target: String) : Command()
     data class Event(val title: String, val whenText: String) : Command()
@@ -21,20 +23,23 @@ object CommandParser {
         val line = raw.trim()
         if (line.isEmpty()) return Command.Empty
 
-        val lower = line.lowercase()
+        val stripped = if (line.startsWith("/")) line.drop(1).trimStart() else line
+        val lower = stripped.lowercase()
         when (lower) {
-            "help", "/help", "?" -> return Command.Help
-            "settings", "/settings" -> return Command.OpenSettings
-            "hub", "/hub" -> return Command.OpenHub
+            "help", "?" -> return Command.Help
+            "settings" -> return Command.OpenSettings
+            "hub" -> return Command.OpenHub
+            "notes", "note" -> return Command.OpenNotes
+            "todos", "todo", "tasks", "task" -> return Command.OpenTodos
             "pin", "unpin" -> return Command.Help
         }
 
         if (lower.startsWith("pin ")) {
-            val query = line.drop(4).trim()
+            val query = stripped.drop(4).trim()
             return if (query.isEmpty()) Command.Help else Command.Pin(query)
         }
         if (lower.startsWith("unpin ")) {
-            val query = line.drop(6).trim()
+            val query = stripped.drop(6).trim()
             return if (query.isEmpty()) Command.Help else Command.Unpin(query)
         }
 

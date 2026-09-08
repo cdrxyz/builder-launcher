@@ -16,9 +16,19 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
   <img src="docs/screenshots/settings.png" alt="Settings: Hermes or xAI, keyboard mode" width="240" />
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/help.png" alt="Help: slash commands" width="240" />
+  <img src="docs/screenshots/notes.png" alt="Notes list" width="240" />
+  <img src="docs/screenshots/commands.png" alt="Command menu on the prompt" width="240" />
+</p>
+
 | Home | Hub | Settings |
 | --- | --- | --- |
 | Clock, weather, last 3 todos, command bar | Todos, notes, granted notifications | Hermes, xAI, OpenAI, Anthropic |
+
+| Help | Notes | Prompt |
+| --- | --- | --- |
+| `/help` — tap or type to leave | `/notes` — `+` to add | `>` menu closes on the first key |
 
 ## Install with Obtainium
 
@@ -52,9 +62,13 @@ Type on the home screen, then Enter.
 | `?` | `?weather tomorrow` | Ask the configured LLM inline |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
-| | `hub` / `settings` / `help` | Built-ins |
+| | `/help` | Command list. Tap or type to leave |
+| | `/settings` | Settings |
+| | `/notes` | Notes list (`+` to add) |
+| | `/todos` or `/tasks` | Full task list |
+| | `/hub` | Notifications, todos, and notes |
 
-Home always shows the clock, current weather, and up to 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. `…more tasks >` is always on home and opens the full todos list (no clock; `<` returns home). The command bar there starts in `-` task mode. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet). Finished items sit below open ones, newest completed first. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. `@` and `#` complete contacts as you type. Tap the clock for settings.
+Home always shows the clock, current weather, and up to 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. `…more tasks >` is always on home and opens the full todos list (no clock; `<` returns home). The command bar there starts in `-` task mode. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet). Finished items sit below open ones, newest completed first. `/notes` opens notes; tap a note to delete it. `/help` is its own screen — tap anywhere or type to return home. The `>` command menu closes on the first keystroke and keeps that character. D-pad right (or type `/hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. `@` and `#` complete contacts as you type. Tap the clock for settings.
 
 ## AI settings
 

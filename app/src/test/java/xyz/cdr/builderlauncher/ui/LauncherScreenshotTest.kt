@@ -52,6 +52,27 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun notes() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                NotesChrome(
+                    notes = listOf("review PR after lunch", "ship notes"),
+                    input = "+",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun help() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HelpChrome()
+            }
+        }
+    }
+
+    @Test
     fun homeCommandMenu() {
         paparazzi.snapshot {
             BuilderTheme {

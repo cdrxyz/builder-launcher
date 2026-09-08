@@ -76,6 +76,7 @@ import xyz.cdr.builderlauncher.commands.ExecResult
 import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
+import xyz.cdr.builderlauncher.data.HomeNotes
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
@@ -96,7 +97,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Hub, Settings }
+enum class Page { Home, Todos, Notes, Help, Hub, Settings }
 
 @Composable
 fun BuilderRoot(
@@ -117,7 +118,7 @@ fun BuilderRoot(
     val forecast by weather.current.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
     var input by remember { mutableStateOf("") }
-    var help by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     var aiText by remember { mutableStateOf<String?>(null) }
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
@@ -147,7 +148,13 @@ fun BuilderRoot(
         }
     }
 
+    fun dismissHelp() {
+        menuOpen = false
+        if (page == Page.Help) page = Page.Home
+    }
+
     fun onInput(value: String) {
+        dismissHelp()
         input = value
         contactAction = null
         if (value.isNotBlank() && !value.equals("send", ignoreCase = true)) {
@@ -174,10 +181,18 @@ fun BuilderRoot(
     }
 
     fun runCommand(line: String) {
+        menuOpen = false
         if (page == Page.Todos) {
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed == HomeTodos.TASK_PREFIX) {
                 input = HomeTodos.enterDraft()
+                return
+            }
+        }
+        if (page == Page.Notes) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed == HomeNotes.NOTE_PREFIX) {
+                input = HomeNotes.enterDraft()
                 return
             }
         }
@@ -199,16 +214,30 @@ fun BuilderRoot(
                 people = emptyList()
                 contactAction = null
                 smsDraft = null
-                help = false
             }
             ExecResult.ShowHelp -> {
-                help = true
+                page = Page.Help
+                input = ""
                 aiText = null
             }
-            ExecResult.NavigateSettings -> page = Page.Settings
-            ExecResult.NavigateHub -> page = Page.Hub
+            ExecResult.NavigateSettings -> {
+                page = Page.Settings
+                input = ""
+            }
+            ExecResult.NavigateHub -> {
+                page = Page.Hub
+                input = ""
+            }
+            ExecResult.NavigateNotes -> {
+                page = Page.Notes
+                input = HomeNotes.enterDraft()
+            }
+            ExecResult.NavigateTodos -> {
+                page = Page.Todos
+                input = HomeTodos.enterDraft()
+            }
             is ExecResult.Ask -> {
-                help = false
+                page = Page.Home
                 aiBusy = true
                 aiText = "…"
                 input = ""
@@ -218,28 +247,31 @@ fun BuilderRoot(
                 }
             }
             is ExecResult.AppChoices -> {
+                page = Page.Home
                 choices = result.apps
                 pick = result.pick
                 people = emptyList()
-                help = false
             }
             is ExecResult.ContactChoices -> {
+                page = Page.Home
                 people = result.contacts
                 contactBody = result.body
                 contactAction = result.action
                 choices = emptyList()
-                help = false
             }
             is ExecResult.SmsDraft -> {
+                page = Page.Home
                 smsDraft = result
                 input = ""
                 people = emptyList()
                 contactAction = null
-                help = false
             }
         }
         if (page == Page.Todos && input.isBlank()) {
             input = HomeTodos.keepDraft(input)
+        }
+        if (page == Page.Notes && input.isBlank()) {
+            input = HomeNotes.keepDraft(input)
         }
     }
 
@@ -257,13 +289,20 @@ fun BuilderRoot(
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
                 ClockHeader(
                     weather = forecast?.line,
-                    onOpenSettings = { page = Page.Settings },
+                    onOpenSettings = {
+                        dismissHelp()
+                        page = Page.Settings
+                    },
                 )
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
                     open = previewTodos,
-                    onToggle = { lists.toggleComplete(it) },
+                    onToggle = {
+                        dismissHelp()
+                        lists.toggleComplete(it)
+                    },
                     onMore = {
+                        dismissHelp()
                         input = HomeTodos.enterDraft()
                         page = Page.Todos
                     },
@@ -283,10 +322,6 @@ fun BuilderRoot(
                     Text("Enter to send. Type anything else to cancel.", color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
                 }
-                if (help) {
-                    HelpBlock()
-                    Spacer(Modifier.height(12.dp))
-                }
                 val pinned = remember(pinPkgs, apps.all()) {
                     val all = apps.all()
                     pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
@@ -299,6 +334,7 @@ fun BuilderRoot(
                                 Modifier
                                     .fillMaxWidth()
                                     .clickable {
+                                        dismissHelp()
                                         val pending = contactAction
                                         if (pending != null) {
                                             when (val result = executor.applyContact(person, contactBody, pending)) {
@@ -343,6 +379,7 @@ fun BuilderRoot(
                                     .fillMaxWidth()
                                     .combinedClickable(
                                         onClick = {
+                                            dismissHelp()
                                             if (choices.isNotEmpty()) {
                                                 executor.applyPick(app, pick)
                                                 input = ""
@@ -364,7 +401,11 @@ fun BuilderRoot(
                         }
                         if (shown.isEmpty() && input.isBlank()) {
                             item {
-                                Text("Type to work. help for commands. Then put it down.", color = Dim)
+                                Text(
+                                    "Type to work. /help for commands. Then put it down.",
+                                    color = Dim,
+                                    modifier = Modifier.clickable { dismissHelp() },
+                                )
                             }
                         }
                     }
@@ -373,9 +414,14 @@ fun BuilderRoot(
                 CommandBar(
                     value = input,
                     hardware = hardware,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
                     onValue = { onInput(it) },
                     onSubmit = { runCommand(input) },
-                    onHub = { page = Page.Hub },
+                    onHub = {
+                        dismissHelp()
+                        page = Page.Hub
+                    },
                 )
             }
             Page.Todos -> {
@@ -432,6 +478,94 @@ fun BuilderRoot(
                 CommandBar(
                     value = input,
                     hardware = hardware,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
+                    onValue = { onInput(it) },
+                    onSubmit = { runCommand(input) },
+                    onHub = { page = Page.Hub },
+                )
+            }
+            Page.Notes -> {
+                val notes = HomeNotes.of(local)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        HomeNotes.BACK,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable {
+                                input = HomeNotes.leaveDraft(input)
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    Text("notes", color = Dim)
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (notes.isEmpty()) {
+                        item {
+                            Text("Type + to write a note.", color = Dim)
+                        }
+                    }
+                    items(notes, key = { "n" + it.id }) { item ->
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { lists.remove(item.id) }
+                                .padding(vertical = 6.dp),
+                        ) {
+                            Text(HomeNotes.title(item.text), color = Paper)
+                            if (item.text.lines().size > 1) {
+                                Text(
+                                    item.text.lineSequence().drop(1).firstOrNull { it.isNotBlank() }.orEmpty(),
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    value = input,
+                    hardware = hardware,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
+                    onValue = { onInput(it) },
+                    onSubmit = { runCommand(input) },
+                    onHub = { page = Page.Hub },
+                )
+            }
+            Page.Help -> {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("help", color = Prompt)
+                    Text(
+                        "home",
+                        color = Dim,
+                        modifier = Modifier.clickable {
+                            dismissHelp()
+                        },
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { dismissHelp() },
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    item { HelpBlock() }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    value = input,
+                    hardware = hardware,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
                     onValue = { onInput(it) },
                     onSubmit = { runCommand(input) },
                     onHub = { page = Page.Hub },
@@ -577,13 +711,14 @@ private fun HubLocalRow(item: LocalItem, onTap: () -> Unit) {
 private fun CommandBar(
     value: String,
     hardware: Boolean,
+    menuOpen: Boolean,
+    onMenuOpenChange: (Boolean) -> Unit,
     onValue: (String) -> Unit,
     onSubmit: () -> Unit,
     onHub: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    var menuOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(0) }
     LaunchedEffect(hardware) {
         focus.requestFocus()
@@ -591,7 +726,7 @@ private fun CommandBar(
     }
     fun pick(index: Int) {
         val cmd = PrefixCommands.all.getOrNull(index) ?: return
-        menuOpen = false
+        onMenuOpenChange(false)
         selected = 0
         onValue(PrefixCommands.fill(cmd.glyph))
         focus.requestFocus()
@@ -613,19 +748,17 @@ private fun CommandBar(
                 modifier = Modifier
                     .semantics { contentDescription = "commands" }
                     .clickable {
-                        menuOpen = !menuOpen
-                        if (menuOpen) selected = 0
+                        onMenuOpenChange(!menuOpen)
+                        if (!menuOpen) selected = 0
                     }
                     .padding(end = 10.dp),
             )
             BasicTextField(
                 value = value,
                 onValueChange = {
-                    if (menuOpen) {
-                        menuOpen = false
-                    } else {
-                        onValue(it)
-                    }
+                    val typed = PrefixCommands.typeWhileOpen(it)
+                    if (menuOpen) onMenuOpenChange(typed.menuOpen)
+                    onValue(typed.value)
                 },
                 singleLine = true,
                 cursorBrush = SolidColor(Prompt),
@@ -657,12 +790,12 @@ private fun CommandBar(
                                     true
                                 }
                                 KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> {
-                                    menuOpen = false
+                                    onMenuOpenChange(false)
                                     true
                                 }
                                 else -> {
-                                    menuOpen = false
-                                    true
+                                    onMenuOpenChange(false)
+                                    false
                                 }
                             }
                         } else {
@@ -677,7 +810,7 @@ private fun CommandBar(
                                 }
                                 else -> {
                                     if (value.isEmpty() && ch == '>') {
-                                        menuOpen = true
+                                        onMenuOpenChange(true)
                                         selected = 0
                                         true
                                     } else {
@@ -704,7 +837,11 @@ private fun HelpBlock() {
         "?question       ask AI",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / settings",
+        "/help           this screen",
+        "/settings       settings",
+        "/notes          notes",
+        "/todos /tasks   tasks",
+        "/hub            hub",
         "type a name     launch app",
         "hold an app     pin or unpin",
     )

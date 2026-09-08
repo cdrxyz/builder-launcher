@@ -23,4 +23,11 @@ class PrefixCommandsTest {
     fun catalogCoversPrefixCommands() {
         assertEquals(listOf('@', '#', '*', '-', '+', '?'), PrefixCommands.all.map { it.glyph })
     }
+
+    @Test
+    fun typingWhileMenuOpenClosesAndKeepsTheCharacter() {
+        val typed = PrefixCommands.typeWhileOpen("h")
+        assertEquals(false, typed.menuOpen)
+        assertEquals("h", typed.value)
+    }
 }

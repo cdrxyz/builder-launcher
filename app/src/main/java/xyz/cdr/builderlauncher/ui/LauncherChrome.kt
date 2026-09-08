@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.HomeNotes
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
@@ -47,7 +48,7 @@ fun HomeChrome(
     weather: String = "",
     todos: List<String> = emptyList(),
     apps: List<String> = emptyList(),
-    hint: String = "Type to work. help for commands. Then put it down.",
+    hint: String = "Type to work. /help for commands. Then put it down.",
     commandsOpen: Boolean = false,
 ) {
     Column(
@@ -125,6 +126,78 @@ fun TodosChrome(
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input)
+    }
+}
+
+@Composable
+fun NotesChrome(
+    notes: List<String> = emptyList(),
+    input: String = HomeNotes.NOTE_PREFIX,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(HomeNotes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            Text("notes", color = Dim)
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (notes.isEmpty()) {
+                Text("Type + to write a note.", color = Dim)
+            } else {
+                notes.forEach { text ->
+                    Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input)
+    }
+}
+
+@Composable
+fun HelpChrome() {
+    val lines = listOf(
+        "@name message   text",
+        "#name           call",
+        "*title when     calendar",
+        "-todo           save todo",
+        "+note           save note",
+        "?question       ask AI",
+        "pin Termux      pin an app",
+        "unpin Termux    unpin",
+        "/help           this screen",
+        "/settings       settings",
+        "/notes          notes",
+        "/todos /tasks   tasks",
+        "/hub            hub",
+        "type a name     launch app",
+        "hold an app     pin or unpin",
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("help", color = Prompt)
+            Text("home", color = Dim)
+        }
+        Spacer(Modifier.height(12.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            lines.forEach { Text(it, color = Dim, style = MaterialTheme.typography.bodyMedium) }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow("")
     }
 }
 
