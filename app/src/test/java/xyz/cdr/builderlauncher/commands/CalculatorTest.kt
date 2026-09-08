@@ -42,4 +42,10 @@ class CalculatorTest {
         assertEquals("4", Calculator.commit("2+2"))
         assertNull(Calculator.commit("Signal"))
     }
+
+    @Test
+    fun askPrefixOnTheFullLineIsIgnoredButTheFieldBodyEvaluates() {
+        assertNull(Calculator.preview("?2+2"))
+        assertEquals("4", Calculator.preview("2+2"))
+    }
 }

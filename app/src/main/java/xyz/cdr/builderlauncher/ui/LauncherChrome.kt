@@ -1026,14 +1026,26 @@ private fun CommandRow(
         } else if (commandsOpen) {
             CommandMenu()
         }
-        val calc = if (prompt == ">" && !commandsOpen && !slashOpen) Calculator.preview(value) else null
+        val calc = if ((prompt == ">" || prompt == "?") && !commandsOpen && !slashOpen) {
+            Calculator.preview(value)
+        } else {
+            null
+        }
         if (calc != null) {
-            Text(
-                "= $calc",
-                color = Accent,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "= $calc",
+                    color = Accent,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                CopyIcon(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp))
+            }
         }
         Row(verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically) {
             Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp, top = if (wrap) 2.dp else 0.dp))

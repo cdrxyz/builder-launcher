@@ -2088,6 +2088,7 @@ private fun CommandBar(
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val ctx = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(0) }
     var slashSelected by remember { mutableStateOf(0) }
@@ -2135,20 +2136,39 @@ private fun CommandBar(
                 },
             )
         }
-        val calc = if (prompt == PrefixCommands.DEFAULT_PROMPT && !menuOpen && !slashMode) {
+        val calc = if (
+            (prompt == PrefixCommands.DEFAULT_PROMPT || prompt == '?') &&
+            !menuOpen &&
+            !slashMode
+        ) {
             Calculator.preview(value)
         } else {
             null
         }
         if (calc != null) {
-            Text(
-                "= $calc",
-                color = Accent,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
+            Row(
+                Modifier
                     .fillMaxWidth()
                     .padding(bottom = 6.dp),
-            )
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "= $calc",
+                    color = Accent,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                CopyIcon(
+                    Modifier
+                        .semantics { contentDescription = "copy result" }
+                        .clickable {
+                            ctx.getSystemService(ClipboardManager::class.java)
+                                ?.setPrimaryClip(ClipData.newPlainText("result", calc))
+                            Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+                        }
+                        .padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
+                )
+            }
         }
         Row(
             verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically,
