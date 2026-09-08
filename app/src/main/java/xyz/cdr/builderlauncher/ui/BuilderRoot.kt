@@ -597,8 +597,11 @@ private fun CommandBar(
             BasicTextField(
                 value = value,
                 onValueChange = {
-                    if (menuOpen) menuOpen = false
-                    onValue(it)
+                    if (menuOpen) {
+                        menuOpen = false
+                    } else {
+                        onValue(it)
+                    }
                 },
                 singleLine = true,
                 cursorBrush = SolidColor(Prompt),
@@ -629,23 +632,13 @@ private fun CommandBar(
                                     pick(selected)
                                     true
                                 }
-                                KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DEL -> {
+                                KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> {
                                     menuOpen = false
                                     true
                                 }
                                 else -> {
-                                    if (ch == '>') {
-                                        menuOpen = false
-                                        true
-                                    } else {
-                                        val match = PrefixCommands.find(ch)
-                                        if (match != null) {
-                                            pick(PrefixCommands.all.indexOf(match))
-                                            true
-                                        } else {
-                                            false
-                                        }
-                                    }
+                                    menuOpen = false
+                                    true
                                 }
                             }
                         } else {
