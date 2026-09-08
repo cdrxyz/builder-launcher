@@ -13,11 +13,11 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 
 | Piece | What it does |
 | --- | --- |
-| Usage | Descending bar-chart mark, top left. Tap it for [usage](usage/) (screen time). Swipe left or D-pad left also opens it. |
+| Usage | Descending bar-chart mark, top left. Tap it for [usage](usage/) (screen time). Pull from the left of home, or D-pad left. |
 | Weather | Condition icon over the temperature, on the left of the clock. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
 | Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
 | Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
-| Hub | Messages icon, top right. Tap, swipe right, or D-pad right opens the [hub](hub/). |
+| Hub | Messages icon, top right. Tap, pull from the right of home, or D-pad right opens the [hub](hub/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
 | Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to icons. See [apps](apps/). |

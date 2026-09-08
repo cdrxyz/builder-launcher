@@ -558,4 +558,13 @@ class LauncherScreenshotTest {
             }
         }
     }
+
+    @Test
+    fun usageScrub() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                UsageChrome(selectedIndex = 14)
+            }
+        }
+    }
 }

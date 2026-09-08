@@ -1161,7 +1161,7 @@ fun WeatherChrome(
 }
 
 @Composable
-fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
+fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1171,7 +1171,7 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
         Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         Spacer(Modifier.height(8.dp))
         Column(Modifier.weight(1f)) {
-            UsageBody(snapshot = snapshot)
+            UsageBody(snapshot = snapshot, selectedIndex = selectedIndex)
         }
         Spacer(Modifier.height(8.dp))
         CommandRow("")
@@ -1379,7 +1379,7 @@ fun AnalogClock(
     minute: Int,
     second: Int = 0,
     modifier: Modifier = Modifier,
-    faceSize: Dp = 72.dp,
+    faceSize: Dp = 120.dp,
 ) {
     val paper = Paper
     val dim = Dim

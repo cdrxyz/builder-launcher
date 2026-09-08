@@ -846,11 +846,11 @@ fun BuilderRoot(
                 when (page) {
                     Page.Home -> Modifier.horizontalSwipe(
                         page,
-                        onRight = { openHub() },
-                        onLeft = { openUsage() },
+                        onRight = { openUsage() },
+                        onLeft = { openHub() },
                     )
-                    Page.Hub -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
-                    Page.Usage -> Modifier.horizontalSwipe(page, onRight = { page = Page.Home })
+                    Page.Hub -> Modifier.horizontalSwipe(page, onRight = { page = Page.Home })
+                    Page.Usage -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
                     else -> Modifier
                 },
             ),
