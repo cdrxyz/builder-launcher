@@ -136,7 +136,20 @@ class ClockTest {
         assertEquals(ClockSound.PULSE, ClockSound.parse("nope"))
         assertFalse(ClockSound.PULSE.silent)
         assertTrue(ClockSound.OFF.silent)
-        assertTrue(ClockTone.pcm(ClockSound.ORTHODOX).isNotEmpty())
-        assertTrue(ClockTone.pcm(ClockSound.OFF).isEmpty())
+        ClockSound.entries.filterNot { it.silent }.forEach { sound ->
+            assertTrue(ClockTone.loopMs(sound) in ClockTone.MIN_LOOP_MS..ClockTone.MAX_LOOP_MS)
+        }
+        assertEquals(0L, ClockTone.loopMs(ClockSound.OFF))
+    }
+
+    @Test
+    fun startDoesNotJumpWhenDisplayClockIsStale() {
+        val now = 1_000_000L
+        val idle = TimerState(durationMs = 60_000, remainingMs = 60_000)
+        val started = Clock.start(idle, now)
+        assertEquals(60_000L, Clock.remainingMs(started, now - 15_000))
+        assertEquals("1:00", Clock.formatTimer(Clock.remainingMs(started, now - 15_000)))
+        assertEquals("1:00", Clock.formatTimer(Clock.remainingMs(started, now)))
+        assertEquals("1:00", Clock.homeClockLabel(started, now - 15_000, "15:42"))
     }
 }

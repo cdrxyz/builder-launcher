@@ -1986,7 +1986,8 @@ private fun ClockHeader(
     onOpenTicker: () -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(timer.running) {
+    LaunchedEffect(timer.running, timer.endsAt) {
+        now.value = System.currentTimeMillis()
         while (true) {
             now.value = System.currentTimeMillis()
             delay(if (timer.running) 200 else 15_000)
@@ -2685,7 +2686,7 @@ private fun SettingsPage(
             }
         }
         Text(
-            "Tap a sound to hear it. Alarms fade in over 4 seconds.",
+            "Tap a sound to hear it. Each tone loops 10 to 30 seconds. Alarms fade in over 4 seconds.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
