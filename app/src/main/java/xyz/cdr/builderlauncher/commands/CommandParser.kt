@@ -5,6 +5,7 @@ sealed class Command {
     data object Help : Command()
     data object OpenSettings : Command()
     data object OpenHub : Command()
+    data object OpenNotes : Command()
     data class Message(val target: String, val body: String) : Command()
     data class Call(val target: String) : Command()
     data class Event(val title: String, val whenText: String) : Command()
@@ -26,6 +27,7 @@ object CommandParser {
             "help", "/help", "?" -> return Command.Help
             "settings", "/settings" -> return Command.OpenSettings
             "hub", "/hub" -> return Command.OpenHub
+            "notes", "/notes" -> return Command.OpenNotes
             "pin", "unpin" -> return Command.Help
         }
 

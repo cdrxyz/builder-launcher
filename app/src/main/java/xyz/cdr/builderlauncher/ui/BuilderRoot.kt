@@ -81,6 +81,7 @@ import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.LocalLists
+import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
@@ -96,7 +97,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Hub, Settings }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings }
 
 @Composable
 fun BuilderRoot(
@@ -126,6 +127,9 @@ fun BuilderRoot(
     var contactBody by remember { mutableStateOf("") }
     var smsDraft by remember { mutableStateOf<ExecResult.SmsDraft?>(null) }
     var pick by remember { mutableStateOf(AppPick.Launch) }
+    var noteId by remember { mutableStateOf<String?>(null) }
+    var noteDraft by remember { mutableStateOf("") }
+    var noteFromList by remember { mutableStateOf(false) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -147,7 +151,46 @@ fun BuilderRoot(
         }
     }
 
+    fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
+        noteId = id
+        noteDraft = draft
+        noteFromList = fromList
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        page = Page.NoteEditor
+    }
+
+    fun openNotesList() {
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        page = Page.Notes
+    }
+
+    fun saveAndCloseNote() {
+        val text = noteDraft.trim()
+        if (text.isNotEmpty()) {
+            val id = noteId
+            if (id == null) lists.add("note", text) else lists.update(id, text)
+        }
+        noteId = null
+        noteDraft = ""
+        page = if (noteFromList) Page.Notes else Page.Home
+        noteFromList = false
+    }
+
+    fun copyText(label: String, value: String) {
+        val clip = ctx.getSystemService(ClipboardManager::class.java)
+        clip?.setPrimaryClip(ClipData.newPlainText(label, value))
+        Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+    }
+
     fun onInput(value: String) {
+        if (value.startsWith(Notes.PREFIX) && page != Page.NoteEditor) {
+            openNoteEditor(id = null, draft = Notes.draftFromInput(value), fromList = false)
+            return
+        }
         input = value
         contactAction = null
         if (value.isNotBlank() && !value.equals("send", ignoreCase = true)) {
@@ -207,6 +250,7 @@ fun BuilderRoot(
             }
             ExecResult.NavigateSettings -> page = Page.Settings
             ExecResult.NavigateHub -> page = Page.Hub
+            ExecResult.NavigateNotes -> openNotesList()
             is ExecResult.Ask -> {
                 help = false
                 aiBusy = true
@@ -335,6 +379,18 @@ fun BuilderRoot(
                             }
                         }
                     } else {
+                        if (Notes.matchesQuery(input)) {
+                            item(key = "all-notes") {
+                                Text(
+                                    Notes.MORE,
+                                    color = Prompt,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { openNotesList() }
+                                        .padding(vertical = 6.dp),
+                                )
+                            }
+                        }
                         items(shown, key = { it.packageName + it.activityName }) { app ->
                             Text(
                                 app.label,
@@ -400,11 +456,7 @@ fun BuilderRoot(
                     CopyIcon(
                         Modifier
                             .clickable {
-                                val clip = ctx.getSystemService(ClipboardManager::class.java)
-                                clip?.setPrimaryClip(
-                                    ClipData.newPlainText("todos", HomeTodos.shareMarkdown(todos)),
-                                )
-                                Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+                                copyText("todos", HomeTodos.shareMarkdown(todos))
                             }
                             .padding(vertical = 6.dp),
                     )
@@ -437,6 +489,93 @@ fun BuilderRoot(
                     onHub = { page = Page.Hub },
                 )
             }
+            Page.Notes -> {
+                val notes = Notes.of(local)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Notes.BACK,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable { page = Page.Home }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (notes.isEmpty()) {
+                        item {
+                            Text("Type + to write a note.", color = Dim)
+                        }
+                    }
+                    items(notes, key = { it.id }) { item ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { openNoteEditor(item.id, item.text, fromList = true) }
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                Text(Notes.title(item.text), color = Paper)
+                                Text(
+                                    Notes.editedLabel(item.editedAt),
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            DeleteIcon(
+                                Modifier
+                                    .clickable { lists.remove(item.id) }
+                                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            Page.NoteEditor -> {
+                val focus = remember { FocusRequester() }
+                LaunchedEffect(Unit) { focus.requestFocus() }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Notes.BACK,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable { saveAndCloseNote() }
+                            .padding(vertical = 6.dp),
+                    )
+                    CopyIcon(
+                        Modifier
+                            .clickable { copyText("note", noteDraft) }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                BasicTextField(
+                    value = noteDraft,
+                    onValueChange = { noteDraft = it },
+                    visualTransformation = MarkdownVisualTransformation,
+                    cursorBrush = SolidColor(Prompt),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Default,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .focusRequester(focus),
+                )
+            }
             Page.Hub -> {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("hub", color = Prompt)
@@ -452,7 +591,7 @@ fun BuilderRoot(
                         HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
                     }
                     items(notes, key = { "n" + it.id }) { item ->
-                        HubLocalRow(item, onTap = { lists.remove(item.id) })
+                        HubLocalRow(item, onTap = { openNoteEditor(item.id, item.text, fromList = false) })
                     }
                     items(hubDone, key = { "ld" + it.id }) { item ->
                         HubLocalRow(item, onTap = { lists.toggleComplete(item.id) })
@@ -700,11 +839,12 @@ private fun HelpBlock() {
         "#name           call",
         "*title when     calendar",
         "-todo           save todo",
-        "+note           save note",
+        "+               write a note",
+        "notes           all notes",
         "?question       ask AI",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / settings",
+        "hub / notes / settings",
         "type a name     launch app",
         "hold an app     pin or unpin",
     )

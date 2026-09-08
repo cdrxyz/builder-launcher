@@ -63,6 +63,8 @@ class CommandParserTest {
     fun builtins() {
         assertEquals(Command.OpenSettings, CommandParser.parse("settings"))
         assertEquals(Command.OpenHub, CommandParser.parse("hub"))
+        assertEquals(Command.OpenNotes, CommandParser.parse("notes"))
+        assertEquals(Command.OpenNotes, CommandParser.parse("/notes"))
         assertEquals(Command.Help, CommandParser.parse("help"))
         assertEquals(Command.Help, CommandParser.parse("?"))
     }
