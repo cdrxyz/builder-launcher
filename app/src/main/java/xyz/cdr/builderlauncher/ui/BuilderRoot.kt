@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -1500,10 +1501,13 @@ fun BuilderRoot(
                 val thread = chatId?.let { id -> chatThreads.find { it.id == id } }
                 val messages = thread?.messages.orEmpty()
                 val listState = rememberLazyListState()
+                var providerMenu by remember { mutableStateOf(false) }
                 LaunchedEffect(messages.size, chatBusy, streamDraft) {
                     val target = if (chatBusy) messages.size else messages.lastIndex
                     if (target >= 0) listState.scrollToItem(target)
                 }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                Column(Modifier.fillMaxSize()) {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1527,7 +1531,11 @@ fun BuilderRoot(
                             settings.provider,
                             Modifier
                                 .semantics { contentDescription = ProviderHandoff.contentDescription(settings.provider) }
-                                .clickable { handoffToProvider() }
+                                .combinedClickable(
+                                    onClick = { handoffToProvider() },
+                                    onLongClick = { providerMenu = true },
+                                    onLongClickLabel = "switch provider",
+                                )
                                 .padding(vertical = 6.dp),
                         )
                         HistoryIcon(
@@ -1588,6 +1596,27 @@ fun BuilderRoot(
                             }
                         }
                     }
+                }
+                }
+                if (providerMenu) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures { providerMenu = false }
+                            },
+                    )
+                    ProviderMenu(
+                        current = settings.provider,
+                        onPick = { next ->
+                            settingsRepo.setProvider(next)
+                            providerMenu = false
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = ProviderMenuBelowIcon, end = ProviderMenuEndInset),
+                    )
+                }
                 }
             }
             Page.ChatHistory -> {
