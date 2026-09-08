@@ -16,8 +16,10 @@ data class LocalItem(
     val text: String,
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
+    val updatedAt: Long = 0,
 ) {
     val done: Boolean get() = completedAt != null
+    val editedAt: Long get() = if (updatedAt > 0L) updatedAt else createdAt
 }
 
 class LocalLists(context: Context) {
@@ -39,6 +41,14 @@ class LocalLists(context: Context) {
 
     fun remove(id: String) {
         persist(_items.value.filterNot { it.id == id })
+    }
+
+    fun update(id: String, text: String, now: Long = System.currentTimeMillis()) {
+        persist(
+            _items.value.map { item ->
+                if (item.id != id) item else item.copy(text = text, updatedAt = now)
+            },
+        )
     }
 
     fun toggleComplete(id: String, now: Long = System.currentTimeMillis()) {

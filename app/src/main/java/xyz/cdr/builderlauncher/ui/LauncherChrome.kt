@@ -27,6 +27,7 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
@@ -37,6 +38,11 @@ data class HubRow(
     val kind: String,
     val title: String,
     val body: String = "",
+)
+
+data class NoteListRow(
+    val title: String,
+    val edited: String,
 )
 
 @Composable
@@ -72,7 +78,11 @@ fun HomeChrome(
                 Text(hint, color = Dim)
             } else {
                 apps.forEach { label ->
-                    Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                    Text(
+                        label,
+                        color = if (label == Notes.MORE) Prompt else Paper,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    )
                 }
             }
         }
@@ -125,6 +135,58 @@ fun TodosChrome(
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input)
+    }
+}
+
+@Composable
+fun NotesChrome(rows: List<NoteListRow>) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Notes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (rows.isEmpty()) {
+                Text("Type + to write a note.", color = Dim)
+            } else {
+                rows.forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(row.title, color = Paper)
+                            Text(row.edited, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NoteEditorChrome(body: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Notes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            CopyIcon(Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(body, color = Paper, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -313,6 +375,26 @@ fun CopyIcon(modifier: Modifier = Modifier) {
             size = box,
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke,
+        )
+    }
+}
+
+@Composable
+fun DeleteIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val inset = size.minDimension * 0.22f
+        drawLine(
+            color = Dim,
+            start = Offset(inset, inset),
+            end = Offset(size.width - inset, size.height - inset),
+            strokeWidth = stroke.width,
+        )
+        drawLine(
+            color = Dim,
+            start = Offset(size.width - inset, inset),
+            end = Offset(inset, size.height - inset),
+            strokeWidth = stroke.width,
         )
     }
 }

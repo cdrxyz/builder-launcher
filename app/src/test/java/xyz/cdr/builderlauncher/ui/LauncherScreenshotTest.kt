@@ -68,6 +68,47 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun notes() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                NotesChrome(
+                    rows = listOf(
+                        NoteListRow("Ship notes", "7 Sep 15:42"),
+                        NoteListRow("PR review", "6 Sep 09:18"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun noteEditor() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                NoteEditorChrome(
+                    body = "# Ship notes\n\nWrite the markdown here.\n\n- first\n- second",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeNotesShortcut() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "notes",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    apps = listOf("… all notes >", "Notes"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun hub() {
         paparazzi.snapshot {
             BuilderTheme {
