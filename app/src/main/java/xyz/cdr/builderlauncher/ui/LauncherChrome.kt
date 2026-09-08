@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
+import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.ui.theme.Dim
@@ -313,6 +314,25 @@ fun SettingsChrome(
         weatherSuggestions.forEach { label ->
             Text(label, color = Paper, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
         }
+        Spacer(Modifier.height(16.dp))
+        Text("Weather units", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            WeatherUnits.entries.forEach { units ->
+                Text(
+                    units.name.lowercase(),
+                    color = if (settings.weatherUnits == units) Prompt else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.weatherUnits == WeatherUnits.IMPERIAL) {
+                "Home weather in Fahrenheit."
+            } else {
+                "Home weather in Celsius."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))

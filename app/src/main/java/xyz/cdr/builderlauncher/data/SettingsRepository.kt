@@ -22,6 +22,7 @@ data class BuilderSettings(
     val weatherPlace: String = "",
     val weatherLat: Double? = null,
     val weatherLon: Double? = null,
+    val weatherUnits: WeatherUnits = WeatherUnits.METRIC,
     val oauthAccess: String = "",
     val oauthRefresh: String = "",
     val oauthExpiresAtEpochMs: Long = 0L,
@@ -38,6 +39,15 @@ data class BuilderSettings(
 }
 
 enum class KeyboardMode { AUTO, HARDWARE, SOFTWARE }
+
+enum class WeatherUnits {
+    METRIC,
+    IMPERIAL,
+    ;
+
+    fun displayTemperature(celsius: Int): Int =
+        if (this == IMPERIAL) kotlin.math.round(celsius * 9.0 / 5.0 + 32.0).toInt() else celsius
+}
 
 class SettingsRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -92,6 +102,9 @@ class SettingsRepository(context: Context) {
         val kb = runCatching {
             KeyboardMode.valueOf(prefs.getString(KEY_KB, KeyboardMode.AUTO.name)!!)
         }.getOrDefault(KeyboardMode.AUTO)
+        val units = runCatching {
+            WeatherUnits.valueOf(prefs.getString(KEY_WEATHER_UNITS, WeatherUnits.METRIC.name)!!)
+        }.getOrDefault(WeatherUnits.METRIC)
         return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
@@ -101,6 +114,7 @@ class SettingsRepository(context: Context) {
             weatherPlace = prefs.getString(KEY_WEATHER_PLACE, "") ?: "",
             weatherLat = prefs.getString(KEY_WEATHER_LAT, "")?.toDoubleOrNull(),
             weatherLon = prefs.getString(KEY_WEATHER_LON, "")?.toDoubleOrNull(),
+            weatherUnits = units,
             oauthAccess = prefs.getString(KEY_OAUTH_ACCESS, "") ?: "",
             oauthRefresh = prefs.getString(KEY_OAUTH_REFRESH, "") ?: "",
             oauthExpiresAtEpochMs = prefs.getString(KEY_OAUTH_EXPIRES, "0")?.toLongOrNull() ?: 0L,
@@ -118,6 +132,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_WEATHER_PLACE, next.weatherPlace)
             .putString(KEY_WEATHER_LAT, next.weatherLat?.toString() ?: "")
             .putString(KEY_WEATHER_LON, next.weatherLon?.toString() ?: "")
+            .putString(KEY_WEATHER_UNITS, next.weatherUnits.name)
             .putString(KEY_OAUTH_ACCESS, next.oauthAccess)
             .putString(KEY_OAUTH_REFRESH, next.oauthRefresh)
             .putString(KEY_OAUTH_EXPIRES, next.oauthExpiresAtEpochMs.toString())
@@ -136,6 +151,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_WEATHER_PLACE = "weather_place"
         private const val KEY_WEATHER_LAT = "weather_lat"
         private const val KEY_WEATHER_LON = "weather_lon"
+        private const val KEY_WEATHER_UNITS = "weather_units"
         private const val KEY_OAUTH_ACCESS = "oauth_access"
         private const val KEY_OAUTH_REFRESH = "oauth_refresh"
         private const val KEY_OAUTH_EXPIRES = "oauth_expires"

@@ -24,8 +24,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import xyz.cdr.builderlauncher.data.SettingsRepository
+import xyz.cdr.builderlauncher.data.WeatherUnits
 import java.io.File
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
@@ -37,7 +37,9 @@ data class WeatherSnapshot(
     val latitude: Double,
     val longitude: Double,
 ) {
-    val line: String get() = "$temperature° $condition"
+    val line: String get() = line(WeatherUnits.METRIC)
+
+    fun line(units: WeatherUnits): String = "${units.displayTemperature(temperature)}° $condition"
 }
 
 class WeatherRepository(
@@ -56,12 +58,11 @@ class WeatherRepository(
 
     suspend fun refresh() = withContext(Dispatchers.IO) {
         val point = WeatherPointResolver.fromSettings(settings.settings.value) ?: gpsPoint() ?: return@withContext
-        val unit = if (Locale.getDefault().country.equals("US", true)) "fahrenheit" else "celsius"
         val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl().newBuilder()
             .addQueryParameter("latitude", point.latitude.toString())
             .addQueryParameter("longitude", point.longitude.toString())
             .addQueryParameter("current", "temperature_2m,weather_code")
-            .addQueryParameter("temperature_unit", unit)
+            .addQueryParameter("temperature_unit", "celsius")
             .build()
         val req = Request.Builder().url(url).get().build()
         runCatching {

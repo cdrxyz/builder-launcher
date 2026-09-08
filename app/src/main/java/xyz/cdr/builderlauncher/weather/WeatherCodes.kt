@@ -1,5 +1,7 @@
 package xyz.cdr.builderlauncher.weather
 
+import xyz.cdr.builderlauncher.data.WeatherUnits
+
 object WeatherCodes {
     fun label(code: Int): String = when (code) {
         0 -> "clear"
@@ -13,5 +15,9 @@ object WeatherCodes {
         else -> "—"
     }
 
-    fun line(temperature: Int, code: Int): String = "$temperature° ${label(code)}"
+    fun line(
+        temperature: Int,
+        code: Int,
+        units: WeatherUnits = WeatherUnits.METRIC,
+    ): String = "${units.displayTemperature(temperature)}° ${label(code)}"
 }
