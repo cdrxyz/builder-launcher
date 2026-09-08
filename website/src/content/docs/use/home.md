@@ -33,6 +33,6 @@ Back is not Home. From tasks, hub, notes, and the rest it returns to this home s
 
 ![Full todos list with more-tasks command bar in dash mode](../../../assets/screenshots/todos.png)
 
-On the tasks list the command bar starts in `-` task mode. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet).
+On the tasks list the command bar starts in `-` task mode. Long-press and drag an open row to reorder (saved on the device; home preview stays tap-only). The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet).
 
 See [Todos](todos/) for the `-` command.

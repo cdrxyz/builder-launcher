@@ -51,6 +51,10 @@ class LocalLists(context: Context) {
         )
     }
 
+    fun moveOpen(from: Int, to: Int) {
+        persist(HomeTodos.moveOpen(_items.value, from, to))
+    }
+
     fun toggleComplete(id: String, now: Long = System.currentTimeMillis()) {
         persist(
             _items.value.map { item ->

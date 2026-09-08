@@ -37,6 +37,24 @@ class HomeTodosTest {
     }
 
     @Test
+    fun moveOpenPermutesOpenTodosAndLeavesNotesAndDoneInPlace() {
+        val items = listOf(
+            todo("one"),
+            LocalItem("n", "note", "ignore", 0),
+            todo("two"),
+            todo("done", completedAt = 1),
+            todo("three"),
+        )
+        val moved = HomeTodos.moveOpen(items, 0, 2)
+        assertEquals(listOf("two", "ignore", "three", "done", "one"), moved.map { it.text })
+        assertEquals(listOf("two", "three", "one"), HomeTodos.open(HomeTodos.of(moved)).map { it.text })
+        assertEquals(items, HomeTodos.moveOpen(items, 1, 1))
+        assertEquals(items, HomeTodos.moveOpen(items, -1, 0))
+        assertEquals(listOf("one", "two", "three"), HomeTodos.preview(HomeTodos.of(items)).map { it.text })
+        assertEquals(listOf("two", "three", "one"), HomeTodos.preview(HomeTodos.of(moved)).map { it.text })
+    }
+
+    @Test
     fun fullListKeepsAllOpenThenCompletedNewestFirst() {
         val items = listOf(
             todo("open-new"),
