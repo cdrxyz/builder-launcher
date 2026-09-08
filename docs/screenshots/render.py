@@ -76,10 +76,12 @@ def hub() -> None:
         d.text((PAD_X, y + 32), title, font=F_BODY, fill=PAPER)
         if body:
             d.text((PAD_X, y + 70), body, font=F_MED, fill=DIM)
-        ix, iy = W - PAD_X - 78, y + 28
-        d.rounded_rectangle((ix, iy, ix + 22, iy + 16), radius=3, outline=PROMPT, width=2)
-        d.line((ix + 6, iy + 16, ix + 2, iy + 24), fill=PROMPT, width=2)
-        d.line((ix + 12, iy + 16, ix + 2, iy + 24), fill=PROMPT, width=2)
+        ix, iy = W - PAD_X - 78, y + 26
+        d.line((ix + 22, iy + 22, ix + 10, iy + 22), fill=PROMPT, width=2)
+        d.arc((ix, iy + 6, ix + 20, iy + 22), start=90, end=90, fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 12, ix + 2, iy + 4), fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 4, ix + 10, iy), fill=PROMPT, width=2)
+        d.line((ix + 2, iy + 4, ix + 10, iy + 8), fill=PROMPT, width=2)
         xx, xy = W - PAD_X - 28, y + 30
         d.line((xx, xy, xx + 16, xy + 16), fill=DIM, width=2)
         d.line((xx + 16, xy, xx, xy + 16), fill=DIM, width=2)
