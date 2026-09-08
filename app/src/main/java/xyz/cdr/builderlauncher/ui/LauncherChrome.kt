@@ -206,7 +206,7 @@ fun HubChrome(rows: List<HubRow>) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (rows.isEmpty()) {
                 Text(
-                    "Grant notification access in settings to fill the hub. Todos and notes typed with - and + appear here.",
+                    "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
                     color = Dim,
                 )
             } else {

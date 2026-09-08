@@ -12,7 +12,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="Home: clock, weather, todos, command bar" width="240" />
-  <img src="docs/screenshots/hub.png" alt="Hub: todos, notes, notifications" width="240" />
+  <img src="docs/screenshots/hub.png" alt="Hub: granted notifications" width="240" />
   <img src="docs/screenshots/settings.png" alt="Settings: Hermes or xAI, keyboard mode" width="240" />
 </p>
 
@@ -24,7 +24,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 
 | Home | Hub | Settings |
 | --- | --- | --- |
-| Clock, weather, last 3 todos, command bar | Todos, notes, granted notifications | Hermes, xAI, OpenAI, Anthropic |
+| Clock, weather, last 3 todos, command bar | Granted notifications | Hermes, xAI, OpenAI, Anthropic |
 
 ## Install with Obtainium
 
@@ -53,7 +53,7 @@ Type on the home screen, then Enter.
 | `@` | `@jason on my way!` | Draft an SMS in the launcher; Enter again to send |
 | `#` | `#lauren` | Dial |
 | `*` | `*dentist mar 24 9a` | Create a calendar event |
-| `-` | `-buy milk` | Save a todo in the hub |
+| `-` | `-buy milk` | Save a todo on home and the tasks list |
 | `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` saves and goes home |
 | | `notes` | Open all notes. App search shows `… all notes >` so it is not an installed Notes app |
 | `?` | `?weather tomorrow` | Ask the configured LLM inline |
@@ -61,7 +61,7 @@ Type on the home screen, then Enter.
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
 | | `hub` / `notes` / `settings` / `help` | Built-ins |
 
-Home always shows the clock, current weather, and up to 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. `…more tasks >` is always on home and opens the full todos list (no clock; `<` returns home). The command bar there starts in `-` task mode. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet). Finished items sit below open ones, newest completed first. Type `+` to expand a full-screen markdown note. The first line is seeded with `# ` (`<` home, copy icon top right). Type `notes` (or tap `… all notes >` in the filtered app list) for notes sorted by date edited; first line is the title, delete on the right. D-pad right (or type `hub`) opens the hub: notifications you grant access to, plus local todos and notes. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. `@` and `#` complete contacts as you type. Tap the clock for settings.
+Home always shows the clock, current weather, and up to 3 open todos. Set the weather city in settings (autocomplete, no GPS). Tap a todo to strike it through; tap again to reopen it. `…more tasks >` is always on home and opens the full todos list (no clock; `<` returns home). The command bar there starts in `-` task mode. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet). Finished items sit below open ones, newest completed first. Type `+` to expand a full-screen markdown note. The first line is seeded with `# ` (`<` home, copy icon top right). Type `notes` (or tap `… all notes >` in the filtered app list) for notes sorted by date edited; first line is the title, delete on the right. D-pad right (or type `hub`) opens the hub: notifications you grant access to. Todos stay on home and `…more tasks >`; notes stay on `notes`. Tap a notification to open it, or dismiss. Hold an app on home to pin or unpin. `@` and `#` complete contacts as you type. Tap the clock for settings.
 
 ## AI settings
 
