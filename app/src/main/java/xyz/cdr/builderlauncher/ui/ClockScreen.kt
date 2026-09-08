@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -232,6 +233,7 @@ private fun ZonePane(
     var dragY by remember { mutableFloatStateOf(0f) }
     var rowHeight by remember { mutableFloatStateOf(0f) }
     val gap = with(LocalDensity.current) { 4.dp.toPx() }
+    val liveZones = rememberUpdatedState(zones)
     Column(Modifier.fillMaxWidth()) {
         if (hits.isNotEmpty()) {
             hits.forEach { place ->
@@ -272,8 +274,10 @@ private fun ZonePane(
                                 .pointerInput(zone.id) {
                                     detectDragGesturesAfterLongPress(
                                         onDragStart = {
-                                            dragFrom = index
-                                            dragTo = index
+                                            val i = ListReorder.liveIndex(liveZones.value) { it.id == zone.id }
+                                            if (i < 0) return@detectDragGesturesAfterLongPress
+                                            dragFrom = i
+                                            dragTo = i
                                             dragY = 0f
                                         },
                                         onDragEnd = {
@@ -295,7 +299,7 @@ private fun ZonePane(
                                             val from = dragFrom ?: return@detectDragGesturesAfterLongPress
                                             val step = (rowHeight + gap).takeIf { it > 1f }
                                                 ?: return@detectDragGesturesAfterLongPress
-                                            dragTo = ListReorder.targetIndex(from, dragY, step, zones.lastIndex)
+                                            dragTo = ListReorder.targetIndex(from, dragY, step, liveZones.value.lastIndex)
                                         },
                                     )
                                 }

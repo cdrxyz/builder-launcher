@@ -1314,6 +1314,7 @@ fun BuilderRoot(
                 var dragY by remember { mutableFloatStateOf(0f) }
                 var rowHeight by remember { mutableFloatStateOf(0f) }
                 val gap = with(LocalDensity.current) { 6.dp.toPx() }
+                val liveOpen = rememberUpdatedState(openTodos)
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -1341,12 +1342,14 @@ fun BuilderRoot(
                                 .graphicsLayer { translationY = shift }
                                 .onSizeChanged { rowHeight = it.height.toFloat() }
                                 .then(if (dragFrom == null) Modifier.animateItem() else Modifier),
-                            textModifier = Modifier.pointerInput(item.id, index, openTodos.size) {
+                            textModifier = Modifier.pointerInput(item.id) {
                                 detectTapOrLongDrag(
                                     onTap = { lists.toggleComplete(item.id) },
                                     onDragStart = {
-                                        dragFrom = index
-                                        dragTo = index
+                                        val i = ListReorder.liveIndex(liveOpen.value) { it.id == item.id }
+                                        if (i < 0) return@detectTapOrLongDrag
+                                        dragFrom = i
+                                        dragTo = i
                                         dragY = 0f
                                     },
                                     onDrag = { amount ->
@@ -1354,7 +1357,7 @@ fun BuilderRoot(
                                         val from = dragFrom ?: return@detectTapOrLongDrag
                                         val step = (rowHeight + gap).takeIf { it > 1f }
                                             ?: return@detectTapOrLongDrag
-                                        dragTo = ListReorder.targetIndex(from, dragY, step, openTodos.lastIndex)
+                                        dragTo = ListReorder.targetIndex(from, dragY, step, liveOpen.value.lastIndex)
                                     },
                                     onDragEnd = {
                                         val from = dragFrom
@@ -1853,6 +1856,7 @@ fun BuilderRoot(
                 var dragY by remember { mutableFloatStateOf(0f) }
                 var rowHeight by remember { mutableFloatStateOf(0f) }
                 val gap = with(LocalDensity.current) { 10.dp.toPx() }
+                val liveWatch = rememberUpdatedState(watch)
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (searching) {
                         if (stockHits.isEmpty()) {
@@ -1912,8 +1916,10 @@ fun BuilderRoot(
                                         .pointerInput(item.symbol) {
                                             detectDragGesturesAfterLongPress(
                                                 onDragStart = {
-                                                    dragFrom = index
-                                                    dragTo = index
+                                                    val i = ListReorder.liveIndex(liveWatch.value) { it.symbol == item.symbol }
+                                                    if (i < 0) return@detectDragGesturesAfterLongPress
+                                                    dragFrom = i
+                                                    dragTo = i
                                                     dragY = 0f
                                                 },
                                                 onDragEnd = {
@@ -1935,7 +1941,7 @@ fun BuilderRoot(
                                                     val from = dragFrom ?: return@detectDragGesturesAfterLongPress
                                                     val step = (rowHeight + gap).takeIf { it > 1f }
                                                         ?: return@detectDragGesturesAfterLongPress
-                                                    dragTo = ListReorder.targetIndex(from, dragY, step, watch.lastIndex)
+                                                    dragTo = ListReorder.targetIndex(from, dragY, step, liveWatch.value.lastIndex)
                                                 },
                                             )
                                         }
