@@ -131,6 +131,7 @@ fun BuilderRoot(
     val local by lists.items.collectAsState()
     val forecast by weather.current.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
+    var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
     var aiText by remember { mutableStateOf<String?>(null) }
@@ -179,6 +180,7 @@ fun BuilderRoot(
         noteId = id
         noteDraft = if (id == null) Notes.headingDraft(draft) else draft
         noteFromList = fromList
+        prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
         choices = emptyList()
         people = emptyList()
@@ -187,6 +189,7 @@ fun BuilderRoot(
     }
 
     fun openNotesList() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
         choices = emptyList()
         people = emptyList()
@@ -195,7 +198,10 @@ fun BuilderRoot(
     }
 
     fun openAppsList(keepQuery: Boolean) {
-        if (!keepQuery) input = ""
+        if (!keepQuery) {
+            prompt = PrefixCommands.DEFAULT_PROMPT
+            input = ""
+        }
         choices = emptyList()
         people = emptyList()
         appQuery = false
@@ -220,14 +226,18 @@ fun BuilderRoot(
         Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
     }
 
-    fun onInput(value: String) {
-        if (value.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps) {
-            openNoteEditor(id = null, draft = Notes.draftFromInput(value), fromList = false)
+    fun mode() = PrefixCommands.Mode(prompt, input)
+
+    fun applyMode(next: PrefixCommands.Mode) {
+        prompt = next.prompt
+        val line = next.line
+        if (line.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps) {
+            openNoteEditor(id = null, draft = Notes.draftFromInput(line), fromList = false)
             return
         }
-        input = value
+        input = next.input
         contactAction = null
-        if (value.isNotBlank() && !value.equals("send", ignoreCase = true)) {
+        if (line.isNotBlank() && !line.equals("send", ignoreCase = true)) {
             smsDraft = null
         }
         if (page == Page.Apps) {
@@ -236,35 +246,43 @@ fun BuilderRoot(
             appQuery = false
             return
         }
-        if (value.isBlank()) {
+        if (line.isBlank()) {
             choices = emptyList()
             people = emptyList()
             appQuery = false
             return
         }
-        val first = value.first()
+        val first = line.first()
         if (first == '@' || first == '#') {
             // First token only — body after the name is the message, not a search.
-            val needle = value.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
+            val needle = line.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
             people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
             choices = emptyList()
             appQuery = false
-        } else if (first in "*-+?") {
+        } else if (PrefixCommands.find(first) != null) {
             people = emptyList()
             choices = emptyList()
             appQuery = false
         } else {
             people = emptyList()
-            choices = apps.search(value)
+            choices = apps.search(line)
             appQuery = true
         }
     }
 
-    fun runCommand(line: String) {
+    fun clearBar() {
+        applyMode(PrefixCommands.Mode())
+    }
+
+    fun taskMode() {
+        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), '-'))
+    }
+
+    fun runCommand(line: String = mode().line) {
         if (page == Page.Todos) {
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed == HomeTodos.TASK_PREFIX) {
-                input = HomeTodos.enterDraft()
+                taskMode()
                 return
             }
         }
@@ -274,14 +292,14 @@ fun BuilderRoot(
                 executor.sendSms(draft.contact, draft.body)
             }
             smsDraft = null
-            input = ""
+            clearBar()
             people = emptyList()
             return
         }
         val result = executor.execute(CommandParser.parse(line))
         when (result) {
             ExecResult.None -> {
-                input = ""
+                clearBar()
                 choices = emptyList()
                 people = emptyList()
                 contactAction = null
@@ -301,7 +319,7 @@ fun BuilderRoot(
                 help = false
                 aiBusy = true
                 aiText = "…"
-                input = ""
+                clearBar()
                 scope.launch {
                     aiText = llm.ask(result.question)
                     aiBusy = false
@@ -323,14 +341,14 @@ fun BuilderRoot(
             }
             is ExecResult.SmsDraft -> {
                 smsDraft = result
-                input = ""
+                clearBar()
                 people = emptyList()
                 contactAction = null
                 help = false
             }
         }
         if (page == Page.Todos && input.isBlank()) {
-            input = HomeTodos.keepDraft(input)
+            taskMode()
         }
     }
 
@@ -355,7 +373,7 @@ fun BuilderRoot(
                     open = previewTodos,
                     onToggle = { lists.toggleComplete(it) },
                     onMore = {
-                        input = HomeTodos.enterDraft()
+                        taskMode()
                         page = Page.Todos
                     },
                 )
@@ -393,7 +411,7 @@ fun BuilderRoot(
                 fun pickApp(app: LaunchableApp) {
                     if (choices.isNotEmpty() || filtering) {
                         executor.applyPick(app, pick)
-                        input = ""
+                        clearBar()
                         choices = emptyList()
                         appQuery = false
                     } else {
@@ -456,26 +474,28 @@ fun BuilderRoot(
                                                 when (val result = executor.applyContact(person, contactBody, pending)) {
                                                     is ExecResult.SmsDraft -> {
                                                         smsDraft = result
-                                                        input = ""
+                                                        clearBar()
                                                     }
                                                     else -> {
-                                                        input = ""
+                                                        clearBar()
                                                     }
                                                 }
                                                 people = emptyList()
                                                 contactAction = null
                                             } else {
-                                                val prefix = if (input.startsWith("#")) "#" else "@"
-                                                val body = if (prefix == "@") {
-                                                    input.drop(1).trim().split(Regex("\\s+"), limit = 2)
+                                                val glyph = if (prompt == '#') '#' else '@'
+                                                val rest = if (PrefixCommands.find(prompt) != null) input else input.drop(1)
+                                                val body = if (glyph == '@') {
+                                                    rest.trim().split(Regex("\\s+"), limit = 2)
                                                         .getOrElse(1) { "" }
                                                 } else {
                                                     ""
                                                 }
+                                                prompt = glyph
                                                 input = if (body.isBlank()) {
-                                                    "$prefix${person.name} "
+                                                    "${person.name} "
                                                 } else {
-                                                    "$prefix${person.name} $body"
+                                                    "${person.name} $body"
                                                 }
                                                 people = emptyList()
                                             }
@@ -516,10 +536,13 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
+                    prompt = prompt,
                     value = input,
                     hardware = hardware,
-                    onValue = { onInput(it) },
-                    onSubmit = { runCommand(input) },
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
                     onHub = { page = Page.Hub },
                 )
             }
@@ -537,7 +560,12 @@ fun BuilderRoot(
                         color = Prompt,
                         modifier = Modifier
                             .clickable {
-                                input = HomeTodos.leaveDraft(input)
+                                applyMode(
+                                    PrefixCommands.type(
+                                        PrefixCommands.Mode(),
+                                        HomeTodos.leaveDraft(mode().line),
+                                    ),
+                                )
                                 page = Page.Home
                             }
                             .padding(vertical = 6.dp),
@@ -571,10 +599,13 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
+                    prompt = prompt,
                     value = input,
                     hardware = hardware,
-                    onValue = { onInput(it) },
-                    onSubmit = { runCommand(input) },
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
                     onHub = { page = Page.Hub },
                 )
             }
@@ -680,7 +711,7 @@ fun BuilderRoot(
                         modifier = Modifier
                             .clickable {
                                 page = Page.Home
-                                if (input.isNotBlank()) onInput(input)
+                                if (input.isNotBlank() || PrefixCommands.find(prompt) != null) applyMode(mode())
                             }
                             .padding(vertical = 6.dp),
                     )
@@ -710,7 +741,7 @@ fun BuilderRoot(
                                     .weight(1f)
                                     .clickable {
                                         apps.launch(app)
-                                        input = ""
+                                        clearBar()
                                     }
                                     .padding(vertical = 8.dp),
                             )
@@ -731,10 +762,13 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
+                    prompt = prompt,
                     value = input,
                     hardware = hardware,
-                    onValue = { onInput(it) },
-                    onSubmit = { runCommand(input) },
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
                     onHub = { page = Page.Hub },
                 )
             }
@@ -849,9 +883,12 @@ private fun TodoLine(item: LocalItem, onToggle: () -> Unit, compact: Boolean = f
 
 @Composable
 private fun CommandBar(
+    prompt: Char,
     value: String,
     hardware: Boolean,
     onValue: (String) -> Unit,
+    onPick: (Char) -> Unit,
+    onClearMode: () -> Unit,
     onSubmit: () -> Unit,
     onHub: () -> Unit,
 ) {
@@ -867,7 +904,7 @@ private fun CommandBar(
         val cmd = PrefixCommands.all.getOrNull(index) ?: return
         menuOpen = false
         selected = 0
-        onValue(PrefixCommands.fill(cmd.glyph))
+        onPick(cmd.glyph)
         focus.requestFocus()
     }
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -882,7 +919,7 @@ private fun CommandBar(
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                ">",
+                prompt.toString(),
                 color = Prompt,
                 modifier = Modifier
                     .semantics { contentDescription = "commands" }
@@ -948,6 +985,14 @@ private fun CommandBar(
                                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                                     onHub()
                                     true
+                                }
+                                KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> {
+                                    if (value.isEmpty() && PrefixCommands.find(prompt) != null) {
+                                        onClearMode()
+                                        true
+                                    } else {
+                                        false
+                                    }
                                 }
                                 else -> {
                                     if (value.isEmpty() && ch == '>') {
