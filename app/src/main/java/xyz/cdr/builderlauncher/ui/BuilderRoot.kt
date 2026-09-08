@@ -102,6 +102,7 @@ import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.clock.ClockSound
+import xyz.cdr.builderlauncher.clock.ClockSoundPlayer
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.TimerState
@@ -229,6 +230,10 @@ fun BuilderRoot(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    DisposableEffect(page) {
+        if (page != Page.Settings) ClockSoundPlayer.stopPreview()
+        onDispose { ClockSoundPlayer.stopPreview() }
     }
     val hardware = remember(settings.keyboardMode) {
         when (settings.keyboardMode) {
@@ -1932,6 +1937,7 @@ fun BuilderRoot(
         clockState.alert?.let { alert ->
             ClockAlertScreen(
                 alert = alert,
+                sound = settings.clockSound,
                 onStop = { clearClockAlert() },
                 onRunAgain = {
                     clock.setTimer(Clock.runAgain(alert, System.currentTimeMillis()))
@@ -2647,7 +2653,10 @@ private fun SettingsPage(
                 Text(
                     sound.label,
                     color = if (settings.clockSound == sound) Accent else Dim,
-                    modifier = Modifier.clickable { repo.update { it.copy(clockSound = sound) } },
+                    modifier = Modifier.clickable {
+                        repo.update { it.copy(clockSound = sound) }
+                        ClockSoundPlayer.preview(ctx, sound)
+                    },
                 )
             }
         }
@@ -2656,12 +2665,15 @@ private fun SettingsPage(
                 Text(
                     sound.label,
                     color = if (settings.clockSound == sound) Accent else Dim,
-                    modifier = Modifier.clickable { repo.update { it.copy(clockSound = sound) } },
+                    modifier = Modifier.clickable {
+                        repo.update { it.copy(clockSound = sound) }
+                        ClockSoundPlayer.preview(ctx, sound)
+                    },
                 )
             }
         }
         Text(
-            "Starts silent, then rises to 80% over 10 seconds.",
+            "Tap a sound to hear it. Alarms fade in over 4 seconds.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
