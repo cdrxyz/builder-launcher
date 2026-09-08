@@ -32,6 +32,7 @@ data class BuilderSettings(
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
+    val clockFace: ClockFace = ClockFace.ANALOG,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -48,6 +49,8 @@ enum class KeyboardMode { AUTO, HARDWARE, SOFTWARE }
 enum class StockInsert { TOP, BOTTOM }
 
 enum class AppIcons { PLAINTEXT, ICONS }
+
+enum class ClockFace { ANALOG, DIGITAL }
 
 enum class WeatherUnits {
     METRIC,
@@ -123,6 +126,9 @@ class SettingsRepository(context: Context) {
         val appIcons = runCatching {
             AppIcons.valueOf(prefs.getString(KEY_APP_ICONS, AppIcons.PLAINTEXT.name)!!)
         }.getOrDefault(AppIcons.PLAINTEXT)
+        val clockFace = runCatching {
+            ClockFace.valueOf(prefs.getString(KEY_CLOCK_FACE, ClockFace.ANALOG.name)!!)
+        }.getOrDefault(ClockFace.ANALOG)
         return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
@@ -141,6 +147,7 @@ class SettingsRepository(context: Context) {
             stockInsert = insert,
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
             appIcons = appIcons,
+            clockFace = clockFace,
         )
     }
 
@@ -163,6 +170,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
+            .putString(KEY_CLOCK_FACE, next.clockFace.name)
             .apply()
     }
 
@@ -186,6 +194,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_STOCK_INSERT = "stock_insert"
         private const val KEY_CLOCK_SOUND = "clock_sound"
         private const val KEY_APP_ICONS = "app_icons"
+        private const val KEY_CLOCK_FACE = "clock_face"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {

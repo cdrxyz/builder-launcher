@@ -15,15 +15,15 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; history lists past chats with a date and delete |
-| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, settings, stocks, weather). Also in the [command menu](command-bar/) |
+| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, settings, stocks, usage, weather). Also in the [command menu](command-bar/) |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin. Names on home; icons if settings says so |
-| | `hub` / `notes` / `apps` / `stocks` / `clock` / `weather` / `settings` / `help` | Built-ins |
+| | `hub` / `notes` / `apps` / `stocks` / `clock` / `weather` / `usage` / `settings` / `help` | Built-ins |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 
 `help` and `/help` show the on-screen cheat sheet. A lone `?` opens [Ask AI](ai/).
 
-`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `clock`, and `weather`.
+`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `clock`, `weather`, and `usage`.
 
 ## Where each thing lives
 
@@ -32,6 +32,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 - Stocks stay on [stocks](stocks/).
 - Clock stays on [clock](clock/).
 - Weather stays on [weather](weather/).
+- Usage stays on [usage](usage/).
 - AI chats stay on [Ask AI](ai/).
 - Notifications stay on the [hub](hub/).
 - Installed apps stay on [apps](apps/).

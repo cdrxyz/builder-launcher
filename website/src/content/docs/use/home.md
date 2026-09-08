@@ -1,21 +1,23 @@
 ---
 title: Home
-description: Clock, weather, rotating watchlist ticker, three open todos, pinned apps, and the command bar.
+description: Analog clock, weather on the left, usage, rotating watchlist ticker, three open todos, pinned apps, and the command bar.
 ---
 
 ![Home with clock, weather, last three todos, and the command bar](../../../assets/screenshots/home.png)
 
 ![Home with a running timer in place of the clock](../../../assets/screenshots/home-timer.png)
 
-![Home with weather between the clock and the watchlist ticker](../../../assets/screenshots/home-ticker.png)
+![Home with weather on the left and the watchlist ticker on the right](../../../assets/screenshots/home-ticker.png)
 
 Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or as a compact row of icons if you turn that on in [settings](../configure/settings/).
 
 | Piece | What it does |
 | --- | --- |
-| Clock | Large time, weekday, date. While a timer is running, the time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
-| Weather | Condition icon over the temperature, between the clock and the ticker. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
-| Ticker | To the right of the weather, between weather and the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
+| Usage | Descending bar-chart mark, top left. Tap it for [usage](usage/) (screen time). Swipe left or D-pad left also opens it. |
+| Weather | Condition icon over the temperature, on the left of the clock. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
+| Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
+| Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
+| Hub | Messages icon, top right. Tap, swipe right, or D-pad right opens the [hub](hub/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
 | Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to icons. See [apps](apps/). |

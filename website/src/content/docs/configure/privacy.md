@@ -10,6 +10,7 @@ description: What leaves the device, and what never does.
 - **Stocks** call Yahoo Finance for ticker search, quotes, charts, and fundamentals (P/E, yield, market cap, EPS, volume). The watchlist itself stays on the device. CSV copy/paste never leaves the phone.
 - **SMS** is sent through the Android SMS APIs to the number you chose. Contacts are read only to complete `@` and `#`.
 - **Hub** reads notifications you granted the listener for. It does not upload them.
+- **Usage** reads Android usage stats you granted access for. Totals and your productive/distracting labels stay on the device.
 - **Hermes** can be a cleartext LAN URL so a home box works. Do not point it at an untrusted network.
 
 Settings footer: "Tokens stay on the device. They are sent only as a Bearer token to the provider you chose."

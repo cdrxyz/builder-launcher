@@ -5,7 +5,7 @@ description: Timer, alarms, and time zones from the home clock or /clock.
 
 ![Clock timer with presets](../../../assets/screenshots/clock.png)
 
-Tap the time on [home](home/), or type `clock` / `/clock`.
+Tap the time on [home](home/), or type `clock` / `/clock`. Home shows an analog clock in the center by default (digital time and date below). Switch to digital in [settings](../../configure/settings/).
 
 Three tabs:
 

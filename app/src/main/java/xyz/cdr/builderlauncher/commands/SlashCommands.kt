@@ -13,6 +13,7 @@ object SlashCommands {
         SlashCommand("notes", "all notes", Command.OpenNotes),
         SlashCommand("settings", "settings", Command.OpenSettings),
         SlashCommand("stocks", "watchlist", Command.OpenStocks),
+        SlashCommand("usage", "screen time", Command.OpenUsage),
         SlashCommand("weather", "forecast", Command.OpenWeather),
     ).sortedBy { it.name }
 
