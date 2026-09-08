@@ -184,6 +184,19 @@ object Stocks {
         return volumes.average().toLong()
     }
 
+    fun formatExtended(quote: StockQuote): String? {
+        val label = quote.extendedLabel?.takeIf { it.isNotBlank() } ?: return null
+        val extendedPrice = quote.extendedPrice ?: return null
+        val price = formatPrice(extendedPrice, quote.currency)
+        val change = quote.extendedChange
+        val percent = quote.extendedPercent
+        return when {
+            change != null && percent != null ->
+                "$label $price ${formatChange(change)} (${formatPercent(percent)})"
+            else -> "$label $price"
+        }
+    }
+
     fun quoteStats(quote: StockQuote): List<StockStatLine> = listOf(
         StockStatLine("Open", formatNumber(quote.open), "High", formatNumber(quote.high)),
         StockStatLine("Low", formatNumber(quote.low), "Vol", quote.volume?.let { formatVolume(it) } ?: "—"),

@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.stocks
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
@@ -41,8 +42,14 @@ data class StockQuote(
     val eps: Double? = null,
     val beta: Double? = null,
     val avgVolume: Long? = null,
+    val extendedLabel: String? = null,
+    val extendedPrice: Double? = null,
+    val extendedChange: Double? = null,
+    val extendedPercent: Double? = null,
 ) {
     val up: Boolean get() = change >= 0
+    val hasExtended: Boolean
+        get() = !extendedLabel.isNullOrBlank() && extendedPrice != null
 }
 
 data class StockChartData(
@@ -96,7 +103,7 @@ object YahooFinance {
         }.distinctBy { it.symbol }.take(limit)
     }
 
-    fun parseChart(raw: String): StockChartData? {
+    fun parseChart(raw: String, nowSec: Long = System.currentTimeMillis() / 1000L): StockChartData? {
         val root = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull() ?: return null
         val chart = root["chart"]?.jsonObject ?: return null
         if (chart["error"] != null && chart["error"].toString() != "null") return null
@@ -122,6 +129,12 @@ object YahooFinance {
         val dayHigh = meta.num("regularMarketDayHigh") ?: highs?.filterNotNull()?.maxOrNull()
         val dayLow = meta.num("regularMarketDayLow") ?: lows?.filterNotNull()?.minOrNull()
         val volume = meta.long("regularMarketVolume") ?: volumes?.filterNotNull()?.lastOrNull()
+        val extendedLabel = extendedSession(
+            nowSec = nowSec,
+            hasPrePost = meta.bool("hasPrePostMarketData") == true,
+            periods = meta["currentTradingPeriod"]?.jsonObject,
+        )
+        val extendedPrice = if (extendedLabel != null) meta.num("fulldayPrice") else null
         return StockChartData(
             quote = StockQuote(
                 symbol = symbol,
@@ -137,6 +150,10 @@ object YahooFinance {
                 volume = volume,
                 week52High = meta.num("fiftyTwoWeekHigh"),
                 week52Low = meta.num("fiftyTwoWeekLow"),
+                extendedLabel = if (extendedPrice != null) extendedLabel else null,
+                extendedPrice = extendedPrice,
+                extendedChange = if (extendedPrice != null) meta.num("fulldayChange") else null,
+                extendedPercent = if (extendedPrice != null) meta.num("fulldayChangePercent") else null,
             ),
             points = points,
             volumes = volumes?.filterNotNull().orEmpty(),
@@ -170,6 +187,28 @@ object YahooFinance {
         val reported = last["reportedValue"]?.jsonObject
         return reported?.num("raw") ?: last.num("dataValue") ?: last.num("raw")
     }
+
+    private fun extendedSession(nowSec: Long, hasPrePost: Boolean, periods: JsonObject?): String? {
+        if (!hasPrePost || periods == null) return null
+        val pre = periods["pre"]?.jsonObject
+        val regular = periods["regular"]?.jsonObject
+        val post = periods["post"]?.jsonObject
+        val preStart = pre?.long("start")
+        val preEnd = pre?.long("end")
+        val regStart = regular?.long("start")
+        val regEnd = regular?.long("end")
+        val postStart = post?.long("start")
+        val postEnd = post?.long("end")
+        if (preStart != null && preEnd != null && nowSec in preStart..preEnd) return "Pre-Market"
+        if (postStart != null && postEnd != null && nowSec in postStart..postEnd) return "After Hours"
+        if (regStart != null && regEnd != null && nowSec in regStart..regEnd) return null
+        if (regEnd != null && nowSec > regEnd) return "After Hours"
+        if (preStart != null && nowSec < preStart) return "After Hours"
+        return null
+    }
+
+    private fun JsonObject.bool(key: String): Boolean? =
+        this[key]?.jsonPrimitive?.booleanOrNull
 
     private fun JsonObject.str(key: String): String? =
         this[key]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }

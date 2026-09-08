@@ -264,6 +264,8 @@ class LauncherScreenshotTest {
                     price = "$319.97",
                     changeLine = "-8.24 (-2.51%)",
                     up = false,
+                    extendedLine = "Pre-Market $318.55 -1.42 (-0.44%)",
+                    extendedUp = false,
                     points = points,
                     range = xyz.cdr.builderlauncher.stocks.StockRange.D1,
                     stats = Stocks.quoteStats(

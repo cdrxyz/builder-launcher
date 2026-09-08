@@ -217,6 +217,7 @@ class StocksRepository(
                 .addPathSegment(symbol)
                 .addQueryParameter("range", range)
                 .addQueryParameter("interval", interval)
+                .addQueryParameter("includePrePost", "true")
                 .build()
             runCatching {
                 http.newCall(request(url)).execute().use { resp ->
