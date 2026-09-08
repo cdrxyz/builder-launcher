@@ -565,7 +565,6 @@ private fun StockRowChrome(row: StockListRow) {
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GripIcon(Modifier.padding(end = 10.dp, top = 6.dp, bottom = 6.dp))
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(row.symbol, color = Paper)
             Text(row.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -574,6 +573,7 @@ private fun StockRowChrome(row: StockListRow) {
             Text(row.price, color = Paper)
             Text(row.change, color = tone, style = MaterialTheme.typography.bodyMedium)
         }
+        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
     }
 }
 
@@ -904,20 +904,6 @@ fun GearIcon(modifier: Modifier = Modifier) {
                 end = Offset(cx + kotlin.math.cos(a) * outer, cy + kotlin.math.sin(a) * outer),
                 strokeWidth = stroke.width,
             )
-        }
-    }
-}
-
-@Composable
-fun GripIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier.size(18.dp)) {
-        val r = 1.4.dp.toPx()
-        val xs = listOf(size.width * 0.35f, size.width * 0.65f)
-        val ys = listOf(size.height * 0.28f, size.height * 0.50f, size.height * 0.72f)
-        xs.forEach { x ->
-            ys.forEach { y ->
-                drawCircle(color = Dim, radius = r, center = Offset(x, y))
-            }
         }
     }
 }

@@ -14,8 +14,8 @@ Prefix `$`. Type `stocks`, or tap `… all stocks >`.
 Each row is ticker, company, last price, and today's percent (green up, red down). Cap is 20 names.
 
 - Tap a row for the chart.
-- Drag the grip on the left to reorder. Order is saved on the device.
-- Delete on the right removes it.
+- Delete on the right removes it from the watchlist.
+- Long-press and drag a row to reorder. Order is saved on the device.
 - Command bar stays in `$` mode. Type a symbol or company name to search.
 - Empty list: `Type $AAPL to add a ticker.`
 - Gear (top right) opens stocks settings.

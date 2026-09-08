@@ -30,7 +30,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -1318,11 +1318,11 @@ fun BuilderRoot(
                                     .animateItem(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                GripIcon(
+                                Row(
                                     Modifier
-                                        .semantics { contentDescription = "reorder" }
+                                        .weight(1f)
                                         .pointerInput(index, watch.size) {
-                                            detectDragGestures(
+                                            detectDragGesturesAfterLongPress(
                                                 onDragStart = {
                                                     dragFrom = index
                                                     dragY = 0f
@@ -1338,8 +1338,8 @@ fun BuilderRoot(
                                                 onDrag = { change, amount ->
                                                     change.consume()
                                                     dragY += amount.y
-                                                    val from = dragFrom ?: return@detectDragGestures
-                                                    val step = (rowHeight + gap).takeIf { it > 1f } ?: return@detectDragGestures
+                                                    val from = dragFrom ?: return@detectDragGesturesAfterLongPress
+                                                    val step = (rowHeight + gap).takeIf { it > 1f } ?: return@detectDragGesturesAfterLongPress
                                                     val shift = kotlin.math.round(dragY / step).toInt()
                                                     val to = (from + shift).coerceIn(0, watch.lastIndex)
                                                     if (to != from) {
@@ -1350,39 +1350,33 @@ fun BuilderRoot(
                                                 },
                                             )
                                         }
-                                        .padding(end = 10.dp, top = 6.dp, bottom = 6.dp),
-                                )
-                                Column(
-                                    Modifier
-                                        .weight(1f)
                                         .clickable { openStockDetail(item.symbol) }
                                         .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(item.symbol, color = Paper)
-                                    Text(
-                                        quote?.name ?: item.name,
-                                        color = Dim,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                                Column(
-                                    horizontalAlignment = Alignment.End,
-                                    modifier = Modifier
-                                        .clickable { openStockDetail(item.symbol) }
-                                        .padding(vertical = 6.dp),
-                                ) {
-                                    Text(
-                                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item.currency) else "—",
-                                        color = Paper,
-                                    )
-                                    Text(
-                                        if (percent != null) Stocks.formatPercent(percent) else "—",
-                                        color = if (percent == null) Dim else tone,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(item.symbol, color = Paper)
+                                        Text(
+                                            quote?.name ?: item.name,
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            if (price != null) Stocks.formatPrice(price, quote?.currency ?: item.currency) else "—",
+                                            color = Paper,
+                                        )
+                                        Text(
+                                            if (percent != null) Stocks.formatPercent(percent) else "—",
+                                            color = if (percent == null) Dim else tone,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
                                 }
                                 DeleteIcon(
                                     Modifier
+                                        .semantics { contentDescription = "delete stock" }
                                         .clickable { stocks.remove(item.symbol) }
                                         .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
                                 )
