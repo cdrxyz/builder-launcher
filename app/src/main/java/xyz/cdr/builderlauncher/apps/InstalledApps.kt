@@ -28,13 +28,7 @@ class InstalledApps(private val context: Context) {
         }.sortedBy { it.label.lowercase() }
     }
 
-    fun search(query: String): List<LaunchableApp> {
-        val q = query.trim().lowercase()
-        if (q.isEmpty()) return all()
-        return all().filter {
-            it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q)
-        }
-    }
+    fun search(query: String): List<LaunchableApp> = AppSearch.filter(all(), query)
 
     fun launch(app: LaunchableApp) {
         val intent = Intent(Intent.ACTION_MAIN)
