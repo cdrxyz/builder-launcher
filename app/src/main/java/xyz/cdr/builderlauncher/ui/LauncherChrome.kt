@@ -90,6 +90,9 @@ fun HomeChrome(
     commandsOpen: Boolean = false,
     slashOpen: Boolean = false,
     prompt: String = ">",
+    ticker: String? = null,
+    tickerChange: String? = null,
+    tickerUp: Boolean = true,
 ) {
     Column(
         modifier = Modifier
@@ -109,7 +112,22 @@ fun HomeChrome(
                     Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                if (!ticker.isNullOrBlank()) {
+                    Column(
+                        modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 8.dp),
+                        horizontalAlignment = Alignment.End,
+                    ) {
+                        Text(ticker, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            tickerChange ?: "—",
+                            color = if (tickerChange.isNullOrBlank()) Dim else if (tickerUp) Gain else Loss,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+                MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+            }
         }
         Spacer(Modifier.height(8.dp))
         todos.take(HomeTodos.PREVIEW).forEach { text ->

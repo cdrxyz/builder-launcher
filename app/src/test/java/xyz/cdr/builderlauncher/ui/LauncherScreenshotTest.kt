@@ -38,6 +38,25 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeTicker() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "summarize this PR",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    ticker = "AAPL",
+                    tickerChange = "-2.51%",
+                    tickerUp = false,
+                )
+            }
+        }
+    }
+
+    @Test
     fun todos() {
         paparazzi.snapshot {
             BuilderTheme {

@@ -124,6 +124,8 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.hub.HubStore
+import xyz.cdr.builderlauncher.stocks.HomeTicker
+import xyz.cdr.builderlauncher.stocks.HomeTickerLine
 import xyz.cdr.builderlauncher.stocks.StockChartData
 import xyz.cdr.builderlauncher.stocks.StockDetails
 import xyz.cdr.builderlauncher.stocks.StockHit
@@ -203,6 +205,7 @@ fun BuilderRoot(
     var stockDetails by remember { mutableStateOf<StockDetails?>(null) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
+    var tickerIndex by remember { mutableIntStateOf(0) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -231,16 +234,28 @@ fun BuilderRoot(
             weather.refresh()
         }
     }
-    LaunchedEffect(page) {
-        if (page == Page.Stocks || page == Page.StockDetail) {
+    LaunchedEffect(page, watch.size) {
+        val quotesOnHome = page == Page.Home && watch.isNotEmpty()
+        if (quotesOnHome || page == Page.Stocks || page == Page.StockDetail) {
             stocks.refreshQuotes()
         }
     }
     LaunchedEffect(page) {
-        if (page != Page.Stocks && page != Page.StockDetail) return@LaunchedEffect
+        if (page != Page.Home && page != Page.Stocks && page != Page.StockDetail) return@LaunchedEffect
         while (true) {
             kotlinx.coroutines.delay(60_000)
             stocks.refreshQuotes()
+        }
+    }
+    LaunchedEffect(watch.size) {
+        if (watch.isEmpty()) {
+            tickerIndex = 0
+            return@LaunchedEffect
+        }
+        tickerIndex = tickerIndex.mod(watch.size)
+        while (true) {
+            kotlinx.coroutines.delay(HomeTicker.ROTATE_MS)
+            tickerIndex = HomeTicker.nextIndex(watch.size, tickerIndex)
         }
     }
     LaunchedEffect(page, input) {
@@ -725,11 +740,14 @@ fun BuilderRoot(
         when (page) {
             Page.Home -> {
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
+                val ticker = HomeTicker.line(watch, quotes, tickerIndex)
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
+                    ticker = ticker,
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
+                    onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
                 )
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
@@ -1780,9 +1798,11 @@ fun BuilderRoot(
 @Composable
 private fun ClockHeader(
     weather: String?,
+    ticker: HomeTickerLine?,
     onOpenClock: () -> Unit,
     onOpenWeather: () -> Unit,
     onOpenHub: () -> Unit,
+    onOpenTicker: () -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -1812,12 +1832,30 @@ private fun ClockHeader(
                 )
             }
         }
-        MessagesIcon(
-            Modifier
-                .semantics { contentDescription = "messages" }
-                .clickable { onOpenHub() }
-                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-        )
+        Row(verticalAlignment = Alignment.Top) {
+            if (ticker != null) {
+                Column(
+                    modifier = Modifier
+                        .semantics { contentDescription = "${ticker.symbol} ${ticker.change}" }
+                        .clickable { onOpenTicker() }
+                        .padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 8.dp),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    Text(ticker.symbol, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        ticker.change,
+                        color = if (ticker.percent == null) Dim else if (ticker.up) Gain else Loss,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            MessagesIcon(
+                Modifier
+                    .semantics { contentDescription = "messages" }
+                    .clickable { onOpenHub() }
+                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
     }
 }
 
