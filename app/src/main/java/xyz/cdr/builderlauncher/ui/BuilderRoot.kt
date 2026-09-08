@@ -1467,6 +1467,7 @@ fun BuilderRoot(
                     },
                     onPickZone = { addWorldClock(it) },
                     onRemoveZone = { clock.removeZone(it) },
+                    onMoveZone = { from, to -> clock.moveZone(from, to) },
                 )
                 Spacer(Modifier.height(8.dp))
                 CommandBar(

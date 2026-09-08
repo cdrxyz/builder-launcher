@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,19 +13,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockSnapshot
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.WorldClock
+import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Paper
@@ -45,6 +55,7 @@ fun ClockScreen(
     onRemoveAlarm: (String) -> Unit,
     onPickZone: (WeatherPlace) -> Unit,
     onRemoveZone: (String) -> Unit,
+    onMoveZone: (Int, Int) -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(snapshot.timer.running) {
@@ -95,6 +106,7 @@ fun ClockScreen(
                 now = now.value,
                 onPick = onPickZone,
                 onRemove = onRemoveZone,
+                onMove = onMoveZone,
             )
         }
     }
@@ -200,7 +212,13 @@ private fun ZonePane(
     now: Long,
     onPick: (WeatherPlace) -> Unit,
     onRemove: (String) -> Unit,
+    onMove: (Int, Int) -> Unit,
 ) {
+    var dragFrom by remember { mutableStateOf<Int?>(null) }
+    var dragTo by remember { mutableStateOf<Int?>(null) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var rowHeight by remember { mutableFloatStateOf(0f) }
+    val gap = with(LocalDensity.current) { 4.dp.toPx() }
     Column(Modifier.fillMaxWidth()) {
         if (hits.isNotEmpty()) {
             hits.forEach { place ->
@@ -218,12 +236,58 @@ private fun ZonePane(
         }
         if (hits.isEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                zones.forEach { zone ->
+                zones.forEachIndexed { index, zone ->
+                    val lifting = dragFrom == index
+                    val stepPx = (rowHeight + gap).takeIf { it > 1f } ?: 0f
+                    val shift = when {
+                        lifting -> dragY
+                        dragFrom != null && dragTo != null && stepPx > 0f ->
+                            ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
+                        else -> 0f
+                    }
                     Row(
-                        Modifier.fillMaxWidth(),
+                        Modifier
+                            .fillMaxWidth()
+                            .zIndex(if (lifting) 1f else 0f)
+                            .graphicsLayer { translationY = shift }
+                            .onSizeChanged { rowHeight = it.height.toFloat() },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .pointerInput(zone.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            dragFrom = index
+                                            dragTo = index
+                                            dragY = 0f
+                                        },
+                                        onDragEnd = {
+                                            val from = dragFrom
+                                            val to = dragTo
+                                            dragFrom = null
+                                            dragTo = null
+                                            dragY = 0f
+                                            if (from != null && to != null) onMove(from, to)
+                                        },
+                                        onDragCancel = {
+                                            dragFrom = null
+                                            dragTo = null
+                                            dragY = 0f
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragY += amount.y
+                                            val from = dragFrom ?: return@detectDragGesturesAfterLongPress
+                                            val step = (rowHeight + gap).takeIf { it > 1f }
+                                                ?: return@detectDragGesturesAfterLongPress
+                                            dragTo = ListReorder.targetIndex(from, dragY, step, zones.lastIndex)
+                                        },
+                                    )
+                                }
+                                .padding(vertical = 8.dp),
+                        ) {
                             Text(Clock.formatZoneTime(zone.zoneId, now), color = Paper)
                             Text(zone.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
                             Text(
