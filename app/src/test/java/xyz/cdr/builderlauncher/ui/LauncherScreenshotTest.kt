@@ -207,6 +207,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homePinnedIcons() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    pins = listOf("Phone", "Messages", "Maps", "Camera"),
+                    appIcons = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeNotesShortcut() {
         paparazzi.snapshot {
             BuilderTheme {

@@ -15,14 +15,20 @@ Type an app name (no prefix). Home shows a short, non-scrolling list of matches 
 - `pin Termux` / `unpin Termux` pin without launching.
 - **Hold** an app row in search or on all apps to pin or unpin.
 
+Home search is names only by default. Settings → **Home apps** → `icons` puts a grayscale icon next to each match.
+
 ## Pins
 
-Pinned apps sit on home as a horizontal row of icons (not a vertical name list).
+Default: names in a vertical list on home.
 
-![Pinned apps as a row of icons on home](../../../assets/screenshots/home-pinned.png)
+![Pinned apps as names on home](../../../assets/screenshots/home-pinned.png)
 
-- Tap an icon to launch.
-- Hold and drag an icon across the row to reorder. Order is saved on the device.
+Settings → **Home apps** → `icons` switches pins to a horizontal row of grayscale icons. All apps keeps color.
+
+![Pinned apps as a row of icons on home](../../../assets/screenshots/home-pinned-icons.png)
+
+- Tap a name or icon to launch.
+- Hold and drag to reorder. Order is saved on the device.
 
 ## All apps
 

@@ -32,6 +32,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -44,6 +47,7 @@ import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
+import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -125,6 +129,7 @@ fun HomeChrome(
     todos: List<String> = emptyList(),
     apps: List<String> = emptyList(),
     pins: List<String> = emptyList(),
+    appIcons: Boolean = false,
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
     slashOpen: Boolean = false,
@@ -170,9 +175,9 @@ fun HomeChrome(
         todos.take(HomeTodos.PREVIEW).forEach { text ->
             Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
         }
-        Text(HomeTodos.MORE_TASKS, color = Accent, modifier = Modifier.padding(vertical = 4.dp))
+        CaretLink(HomeTodos.MORE_TASKS, modifier = Modifier.padding(vertical = 4.dp))
         Spacer(Modifier.height(8.dp))
-        if (pins.isNotEmpty() && apps.isEmpty()) {
+        if (appIcons && pins.isNotEmpty() && apps.isEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -184,15 +189,33 @@ fun HomeChrome(
             Spacer(Modifier.height(8.dp))
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (apps.isEmpty() && input.isBlank() && pins.isEmpty()) {
+            if (apps.isEmpty() && input.isBlank() && (pins.isEmpty() || appIcons)) {
                 Text(hint, color = Dim)
             } else {
+                if (!appIcons) {
+                    pins.forEach { label ->
+                        Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                    }
+                }
                 apps.forEach { label ->
-                    Text(
-                        label,
-                        color = if (label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE) Accent else Paper,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    )
+                    val shortcut = label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE
+                    if (appIcons && !shortcut) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AppMark(Modifier.padding(end = 12.dp))
+                            Text(label, color = Paper)
+                        }
+                    } else if (shortcut) {
+                        CaretLink(label, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                    } else {
+                        Text(
+                            label,
+                            color = Paper,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        )
+                    }
                 }
             }
         }
@@ -844,6 +867,25 @@ fun SettingsChrome(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
+        Text("Home apps", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            AppIcons.entries.forEach { style ->
+                Text(
+                    style.name.lowercase(),
+                    color = if (settings.appIcons == style) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.appIcons == AppIcons.ICONS) {
+                "Pinned apps as grayscale icons. Home search shows grayscale icons."
+            } else {
+                "Pinned apps and home search as names."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
         Field("Weather location", weatherPlace, "New York")
         Text(
             if (weatherPlace.isNotBlank() && weatherSuggestions.isEmpty()) {
@@ -1377,6 +1419,24 @@ fun InfoIcon(modifier: Modifier = Modifier) {
             strokeWidth = stroke.width,
         )
     }
+}
+
+@Composable
+fun CaretLink(text: String, modifier: Modifier = Modifier) {
+    val caret = text.lastIndexOf('>')
+    Text(
+        text = if (caret >= 0) {
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = Paper)) { append(text.substring(0, caret)) }
+                withStyle(SpanStyle(color = Accent)) { append(">") }
+            }
+        } else {
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = Paper)) { append(text) }
+            }
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
