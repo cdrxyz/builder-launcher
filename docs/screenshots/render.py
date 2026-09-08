@@ -77,11 +77,11 @@ def hub() -> None:
         if body:
             d.text((PAD_X, y + 70), body, font=F_MED, fill=DIM)
         ix, iy = W - PAD_X - 78, y + 26
-        d.line((ix + 22, iy + 22, ix + 10, iy + 22), fill=PROMPT, width=2)
-        d.arc((ix, iy + 6, ix + 20, iy + 22), start=90, end=90, fill=PROMPT, width=2)
-        d.line((ix + 2, iy + 12, ix + 2, iy + 4), fill=PROMPT, width=2)
-        d.line((ix + 2, iy + 4, ix + 10, iy), fill=PROMPT, width=2)
-        d.line((ix + 2, iy + 4, ix + 10, iy + 8), fill=PROMPT, width=2)
+        stem_x, top_y, tip_x = ix + 4, iy + 2, ix + 22
+        d.line((stem_x, iy + 22, stem_x, top_y), fill=PROMPT, width=2)
+        d.line((stem_x, top_y, tip_x, top_y), fill=PROMPT, width=2)
+        d.line((tip_x, top_y, tip_x - 7, top_y - 5), fill=PROMPT, width=2)
+        d.line((tip_x, top_y, tip_x - 7, top_y + 5), fill=PROMPT, width=2)
         xx, xy = W - PAD_X - 28, y + 30
         d.line((xx, xy, xx + 16, xy + 16), fill=DIM, width=2)
         d.line((xx + 16, xy, xx, xy + 16), fill=DIM, width=2)
