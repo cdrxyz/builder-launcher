@@ -1,7 +1,9 @@
 package xyz.cdr.builderlauncher.commands
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PrefixCommandsTest {
@@ -71,5 +73,27 @@ class PrefixCommandsTest {
         val emptyTodo = PrefixCommands.Mode(prompt = '-', input = "")
         assertEquals(emptyTodo, PrefixCommands.type(emptyTodo, ""))
         assertEquals(PrefixCommands.Mode(), PrefixCommands.clearMode(emptyTodo))
+    }
+
+    @Test
+    fun modeOnlyPromptDoesNotCountAsTypedText() {
+        val emptyTodo = PrefixCommands.Mode(prompt = '-', input = "")
+        assertEquals("-", emptyTodo.line)
+        assertFalse(emptyTodo.hasTypedText)
+        assertFalse(emptyTodo.cancelsDraft)
+    }
+
+    @Test
+    fun typedBodyCancelsAPendingDraft() {
+        val todo = PrefixCommands.Mode(prompt = '-', input = "buy milk")
+        assertTrue(todo.hasTypedText)
+        assertTrue(todo.cancelsDraft)
+    }
+
+    @Test
+    fun sendInTheFieldDoesNotCancelADraft() {
+        val send = PrefixCommands.Mode(input = "send")
+        assertTrue(send.hasTypedText)
+        assertFalse(send.cancelsDraft)
     }
 }

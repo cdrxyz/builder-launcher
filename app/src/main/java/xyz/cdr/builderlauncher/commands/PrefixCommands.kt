@@ -20,6 +20,12 @@ object PrefixCommands {
     ) {
         val line: String
             get() = if (find(prompt) != null) "$prompt$input" else input
+
+        val hasTypedText: Boolean
+            get() = input.isNotBlank()
+
+        val cancelsDraft: Boolean
+            get() = hasTypedText && !input.equals("send", ignoreCase = true)
     }
 
     fun find(glyph: Char): PrefixCommand? = all.find { it.glyph == glyph }

@@ -237,7 +237,7 @@ fun BuilderRoot(
         }
         input = next.input
         contactAction = null
-        if (line.isNotBlank() && !line.equals("send", ignoreCase = true)) {
+        if (next.cancelsDraft) {
             smsDraft = null
         }
         if (page == Page.Apps) {
