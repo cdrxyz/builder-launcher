@@ -730,23 +730,29 @@ fun BuilderRoot(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            AppIcon(
-                                drawable = apps.icon(app),
-                                modifier = Modifier
-                                    .padding(end = 12.dp)
-                                    .size(28.dp),
-                            )
-                            Text(
-                                app.label,
-                                color = Paper,
-                                modifier = Modifier
+                            Row(
+                                Modifier
                                     .weight(1f)
                                     .clickable {
                                         apps.launch(app)
                                         clearBar()
-                                    }
-                                    .padding(vertical = 8.dp),
-                            )
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AppIcon(
+                                    drawable = apps.icon(app),
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .size(28.dp),
+                                )
+                                Text(
+                                    app.label,
+                                    color = Paper,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 8.dp),
+                                )
+                            }
                             InfoIcon(
                                 Modifier
                                     .semantics { contentDescription = "app settings" }
