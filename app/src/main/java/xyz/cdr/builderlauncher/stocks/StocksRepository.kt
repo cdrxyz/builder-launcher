@@ -108,6 +108,22 @@ class StocksRepository(
         persist(Stocks.move(_watch.value, from, to))
     }
 
+    fun replaceHits(hits: List<StockHit>): Int {
+        val next = hits.mapNotNull { hit ->
+            val symbol = hit.symbol.uppercase()
+            if (!Stocks.looksLikeSymbol(symbol)) null
+            else WatchItem(
+                symbol = symbol,
+                name = hit.name.ifBlank { symbol },
+                exchange = hit.exchange,
+            )
+        }.distinctBy { it.symbol }.take(Stocks.MAX)
+        persist(next)
+        val keep = next.map { it.symbol }.toSet()
+        _quotes.value = _quotes.value.filterKeys { it in keep }
+        return next.size
+    }
+
     fun remove(symbol: String) {
         persist(_watch.value.filterNot { it.symbol.equals(symbol, ignoreCase = true) })
         _quotes.value = _quotes.value - symbol.uppercase()

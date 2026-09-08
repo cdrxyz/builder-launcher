@@ -138,7 +138,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, Chat, ChatHistory }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory }
 
 @Composable
 fun BuilderRoot(
@@ -354,23 +354,27 @@ fun BuilderRoot(
         return data.getItemAt(0).coerceToText(ctx).toString()
     }
 
-    fun importTickers(raw: String) {
+    fun importTickers(raw: String, replace: Boolean = false) {
         val text = Stocks.queryFromInput(raw).ifBlank { raw }
         val hits = StocksCsv.parse(text)
         if (hits.isEmpty()) {
             Toast.makeText(ctx, "No tickers in clipboard", Toast.LENGTH_SHORT).show()
             return
         }
-        val added = stocks.importHits(hits, settings.stockInsert)
+        val count = if (replace) stocks.replaceHits(hits) else stocks.importHits(hits, settings.stockInsert)
         Toast.makeText(
             ctx,
-            if (added == 0) "Already on the list" else "Added $added",
+            when {
+                replace -> "Loaded $count"
+                count == 0 -> "Already on the list"
+                else -> "Added $count"
+            },
             Toast.LENGTH_SHORT,
         ).show()
         stockHits = emptyList()
         prompt = '$'
         input = ""
-        if (added > 0) {
+        if (count > 0) {
             scope.launch { stocks.refreshQuotes() }
         }
     }
@@ -1256,22 +1260,12 @@ fun BuilderRoot(
                             }
                             .padding(vertical = 6.dp),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "paste",
-                            color = Dim,
-                            modifier = Modifier
-                                .clickable { importTickers(clipboardText()) }
-                                .padding(vertical = 6.dp, horizontal = 8.dp),
-                        )
-                        CopyIcon(
-                            Modifier
-                                .clickable {
-                                    copyText("stocks", StocksCsv.export(watch))
-                                }
-                                .padding(vertical = 6.dp),
-                        )
-                    }
+                    GearIcon(
+                        Modifier
+                            .semantics { contentDescription = "stocks settings" }
+                            .clickable { page = Page.StockSettings }
+                            .padding(vertical = 6.dp),
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
                 var dragFrom by remember { mutableStateOf<Int?>(null) }
@@ -1305,7 +1299,7 @@ fun BuilderRoot(
                     } else {
                         if (watch.isEmpty()) {
                             item {
-                                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
+                                Text("Type \$AAPL to add a ticker.", color = Dim)
                             }
                         }
                         itemsIndexed(watch, key = { _, it -> it.symbol }) { index, item ->
@@ -1474,6 +1468,89 @@ fun BuilderRoot(
                     StockStatPair("Low", Stocks.formatNumber(quote?.low), "Vol", quote?.volume?.let { Stocks.formatVolume(it) } ?: "—")
                     StockStatPair("Prev", Stocks.formatNumber(quote?.previousClose), "52W H", Stocks.formatNumber(quote?.week52High))
                     StockStatPair("52W L", Stocks.formatNumber(quote?.week52Low), "Chg", if (percent != null) Stocks.formatPercent(percent) else "—")
+                }
+            }
+            Page.StockSettings -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            Stocks.BACK,
+                            color = Accent,
+                            modifier = Modifier
+                                .clickable { page = Page.Stocks }
+                                .padding(vertical = 6.dp),
+                        )
+                        Text("stocks", color = Dim)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                        StockInsert.entries.forEach { insert ->
+                            Text(
+                                insert.name.lowercase(),
+                                color = if (settings.stockInsert == insert) Accent else Dim,
+                                modifier = Modifier.clickable { settingsRepo.update { it.copy(stockInsert = insert) } },
+                            )
+                        }
+                    }
+                    Text(
+                        if (settings.stockInsert == StockInsert.BOTTOM) {
+                            "New tickers go to the bottom of the list."
+                        } else {
+                            "New tickers go to the top of the list."
+                        },
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Text("Import / export", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "${watch.size} of ${Stocks.MAX} tickers",
+                        color = Paper,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                    )
+                    Text(
+                        "copy list",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { copyText("stocks", StocksCsv.export(watch)) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Text(
+                        "paste (add)",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { importTickers(clipboardText()) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Text(
+                        "replace list",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { importTickers(clipboardText(), replace = true) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Copy writes Exchange,Ticker,Name. Paste adds tickers from the clipboard and skips ones already on the list. Replace swaps the whole list for the clipboard. New tickers from paste follow the top/bottom setting.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Accepted: our CSV, an Apple Stocks Symbol,Name export, or one ticker per line. Cap is ${Stocks.MAX}.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
         }
@@ -2044,26 +2121,6 @@ private fun SettingsPage(
                 "Home weather in Fahrenheit."
             } else {
                 "Home weather in Celsius."
-            },
-            color = Dim,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            StockInsert.entries.forEach { insert ->
-                Text(
-                    insert.name.lowercase(),
-                    color = if (settings.stockInsert == insert) Accent else Dim,
-                    modifier = Modifier.clickable { repo.update { it.copy(stockInsert = insert) } },
-                )
-            }
-        }
-        Text(
-            if (settings.stockInsert == StockInsert.BOTTOM) {
-                "New tickers go to the bottom of the list."
-            } else {
-                "New tickers go to the top of the list."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,

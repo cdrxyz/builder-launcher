@@ -392,16 +392,13 @@ fun StocksChrome(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("paste", color = Dim, modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp))
-                CopyIcon(Modifier.padding(vertical = 6.dp))
-            }
+            GearIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val shown = if (hits.isNotEmpty()) hits else rows
             if (shown.isEmpty()) {
-                Text("Type \$AAPL to add a ticker. Paste a CSV to import.", color = Dim)
+                Text("Type \$AAPL to add a ticker.", color = Dim)
             } else {
                 shown.forEach { row ->
                     StockRowChrome(row)
@@ -410,6 +407,70 @@ fun StocksChrome(
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input, prompt = "$")
+    }
+}
+
+@Composable
+fun StocksSettingsChrome(
+    insert: StockInsert = StockInsert.TOP,
+    count: Int = 2,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("stocks", color = Dim)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            StockInsert.entries.forEach { item ->
+                Text(
+                    item.name.lowercase(),
+                    color = if (item == insert) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (insert == StockInsert.BOTTOM) {
+                "New tickers go to the bottom of the list."
+            } else {
+                "New tickers go to the top of the list."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(20.dp))
+        Text("Import / export", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            "$count of ${Stocks.MAX} tickers",
+            color = Paper,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+        )
+        Text("copy list", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("paste (add)", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("replace list", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Copy writes Exchange,Ticker,Name. Paste adds tickers from the clipboard and skips ones already on the list. Replace swaps the whole list for the clipboard. New tickers from paste follow the top/bottom setting.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Accepted: our CSV, an Apple Stocks Symbol,Name export, or one ticker per line. Cap is ${Stocks.MAX}.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -668,25 +729,6 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
-        Spacer(Modifier.height(16.dp))
-        Text("New stocks", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            StockInsert.entries.forEach { insert ->
-                Text(
-                    insert.name.lowercase(),
-                    color = if (settings.stockInsert == insert) Accent else Dim,
-                )
-            }
-        }
-        Text(
-            if (settings.stockInsert == StockInsert.BOTTOM) {
-                "New tickers go to the bottom of the list."
-            } else {
-                "New tickers go to the top of the list."
-            },
-            color = Dim,
-            style = MaterialTheme.typography.bodyMedium,
-        )
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))
@@ -839,6 +881,30 @@ fun CopyIcon(modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke,
         )
+    }
+}
+
+@Composable
+fun GearIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val inner = size.minDimension * 0.18f
+        val mid = size.minDimension * 0.32f
+        val outer = size.minDimension * 0.46f
+        drawCircle(color = accent, radius = inner, style = stroke)
+        val teeth = 6
+        for (i in 0 until teeth) {
+            val a = Math.toRadians(i * 60.0 - 90.0).toFloat()
+            drawLine(
+                color = accent,
+                start = Offset(cx + kotlin.math.cos(a) * mid, cy + kotlin.math.sin(a) * mid),
+                end = Offset(cx + kotlin.math.cos(a) * outer, cy + kotlin.math.sin(a) * outer),
+                strokeWidth = stroke.width,
+            )
+        }
     }
 }
 
