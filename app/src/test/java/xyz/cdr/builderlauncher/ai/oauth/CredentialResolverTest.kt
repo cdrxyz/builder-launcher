@@ -17,6 +17,12 @@ class CredentialResolverTest {
     }
 
     @Test
+    fun hermesReadyWithWebUiOnly() {
+        val s = BuilderSettings(provider = LlmProvider.HERMES, hermesWebUrl = "http://192.168.1.10:9119")
+        assertTrue(CredentialResolver.readyForAsk(s))
+    }
+
+    @Test
     fun xaiNeedsLoginOrKey() {
         val empty = BuilderSettings(provider = LlmProvider.XAI)
         assertFalse(CredentialResolver.readyForAsk(empty, nowMs = 0L))

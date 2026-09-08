@@ -11,6 +11,7 @@ class ProviderAccountsTest {
             provider = LlmProvider.HERMES,
             hermesBaseUrl = "http://192.168.1.10:8642",
             hermesOpenInHermex = true,
+            hermesWebUrl = "http://192.168.1.10:9119",
         )
         val grok = hermes.copy(
             provider = LlmProvider.XAI,
@@ -28,6 +29,7 @@ class ProviderAccountsTest {
         assertEquals(LlmProvider.HERMES, back.provider)
         assertEquals("http://192.168.1.10:8642", back.hermesBaseUrl)
         assertTrue(back.hermesOpenInHermex)
+        assertEquals("http://192.168.1.10:9119", back.hermesWebUrl)
         val xai = ProviderAccounts.view(stored, back, LlmProvider.XAI)
         assertEquals("sk-x", xai.apiKey)
         assertEquals("tok", xai.oauthAccess)

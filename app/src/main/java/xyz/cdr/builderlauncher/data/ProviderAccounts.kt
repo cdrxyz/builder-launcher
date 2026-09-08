@@ -14,6 +14,7 @@ data class ProviderAccount(
     val model: String = "",
     val baseUrl: String = "",
     val openInHermex: Boolean = false,
+    val webUrl: String = "",
 ) {
     fun apply(base: BuilderSettings, provider: LlmProvider): BuilderSettings = base.copy(
         provider = provider,
@@ -25,6 +26,7 @@ data class ProviderAccount(
         model = model,
         hermesBaseUrl = baseUrl,
         hermesOpenInHermex = if (provider == LlmProvider.HERMES) openInHermex else base.hermesOpenInHermex,
+        hermesWebUrl = webUrl,
     )
 
     companion object {
@@ -37,6 +39,7 @@ data class ProviderAccount(
             model = settings.model,
             baseUrl = settings.hermesBaseUrl,
             openInHermex = settings.hermesOpenInHermex,
+            webUrl = settings.hermesWebUrl,
         )
     }
 }
