@@ -3,6 +3,8 @@ package xyz.cdr.builderlauncher.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -14,8 +16,12 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -439,13 +445,15 @@ fun ChatChrome(
     input: String = "",
     busy: Boolean = false,
     provider: LlmProvider = LlmProvider.XAI,
+    providerMenu: Boolean = false,
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -477,6 +485,15 @@ fun ChatChrome(
             if (busy) {
                 Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
             }
+        }
+    }
+        if (providerMenu) {
+            ProviderMenu(
+                current = provider,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = ProviderMenuBelowIcon, end = ProviderMenuEndInset),
+            )
         }
     }
 }
@@ -1479,6 +1496,45 @@ fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
         colorFilter = tint,
         modifier = modifier.size(22.dp),
     )
+}
+
+internal val ProviderMenuBelowIcon = 34.dp
+internal val ProviderMenuEndInset = 32.dp
+
+@Composable
+fun ProviderMenu(
+    current: LlmProvider,
+    onPick: (LlmProvider) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .wrapContentWidth()
+            .heightIn(max = 640.dp)
+            .verticalScroll(rememberScrollState())
+            .background(Ink)
+            .border(1.dp, Line)
+            .padding(vertical = 4.dp, horizontal = 10.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        AiPlatforms.all.forEach { item ->
+            Row(
+                modifier = Modifier
+                    .clickable { onPick(item.provider) }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    item.label,
+                    color = if (item.provider == current) Accent else Paper,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                )
+                ProviderIcon(item.provider)
+            }
+        }
+    }
 }
 
 @Composable

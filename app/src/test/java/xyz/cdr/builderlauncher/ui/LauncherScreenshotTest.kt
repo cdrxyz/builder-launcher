@@ -428,6 +428,22 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun chatProviderMenu() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ChatChrome(
+                    messages = listOf(
+                        ChatBubble(user = true, body = "compare kotlin and rust"),
+                        ChatBubble(user = false, body = "Use **Kotlin** on Android."),
+                    ),
+                    input = "write a longer follow-up",
+                    providerMenu = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun chatHistory() {
         paparazzi.snapshot {
             BuilderTheme {

@@ -14,7 +14,9 @@ Nothing is sent anywhere until you submit a question. There is no analytics.
 
 ![Full-screen AI chat with a markdown table answer](../../../assets/screenshots/chat.png)
 
-`<` top left returns home. Top right: the provider mark (Grok, ChatGPT, Claude, or Hermes) copies the current prompt and opens that app pre-filled so you can send it there. History opens past conversations.
+`<` top left returns home. Top right: the provider mark (Grok, ChatGPT, Claude, or Hermes) copies the current prompt and opens that app pre-filled so you can send it there. Long-press the mark for a menu of provider names with logos on the right, aligned under the mark; tap a row to switch. History opens past conversations.
+
+![Long-press the provider mark to switch](../../../assets/screenshots/chat-provider-menu.png)
 
 Answers render markdown: headings, lists, tables, fenced code, bold and italic.
 

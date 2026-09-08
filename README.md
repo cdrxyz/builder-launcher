@@ -75,7 +75,7 @@ Type on the home screen, then Enter.
 | | `apps` | Open all installed apps. App search truncates and always ends with `… all apps >` |
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the stocks list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
-| `?` | `?` then write | Full-screen AI chat. Markdown answers (tables, lists, code). `<` home; history icon lists past chats with a date and delete |
+| `?` | `?` then write | Full-screen AI chat. Markdown answers (tables, lists, code). `<` home; tap the provider mark to open Grok/ChatGPT/Claude/Hermes with the prompt; long-press it to switch providers; history icon lists past chats with a date and delete |
 | `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, settings, stocks, usage, weather) |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin. Names on home; icons if settings says so |
