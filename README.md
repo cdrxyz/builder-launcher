@@ -6,6 +6,8 @@
 
 A simple Android launcher for builders who want to be deliberate with their phone. Open it, do the work, put it down, get back to life off screen.
 
+Manual: [Builder Launcher docs](https://cdrxyz.github.io/builder-launcher/) (Starlight on GitHub Pages). Source lives in `website/`.
+
 The home screen is a command bar, not an icon grid. Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
 
 AI stays optional and private: point `?` at your own Hermes instance, or sign in to xAI / OpenAI / Anthropic (API key still works as a fallback). Tokens never leave the device except as a Bearer token to the provider you chose.

@@ -1,0 +1,34 @@
+:root {
+	--sl-color-accent-low: #2a3328;
+	--sl-color-accent: #b7c9a8;
+	--sl-color-accent-high: #e8e4d9;
+	--sl-color-white: #e8e4d9;
+	--sl-color-gray-1: #e8e4d9;
+	--sl-color-gray-2: #c4c0b4;
+	--sl-color-gray-3: #8a867c;
+	--sl-color-gray-4: #4a4842;
+	--sl-color-gray-5: #2a2a2a;
+	--sl-color-gray-6: #161616;
+	--sl-color-black: #0b0b0b;
+	--sl-color-bg: #0b0b0b;
+	--sl-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+		'Courier New', monospace;
+}
+
+.sl-markdown-content img {
+	max-width: min(280px, 100%);
+	border-radius: 16px;
+	border: 1px solid var(--sl-color-gray-5);
+	background: #0b0b0b;
+}
+
+.shot-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	margin: 1rem 0 1.5rem;
+}
+
+.shot-row img {
+	margin: 0;
+}
