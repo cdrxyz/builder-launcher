@@ -23,7 +23,7 @@ Default: names in a vertical list on home.
 
 ![Pinned apps as names on home](../../../assets/screenshots/home-pinned.png)
 
-Settings → **Home apps** → `icons` switches pins to a horizontal row of grayscale icons. All apps keeps color.
+Settings → **Home apps** → `icons` switches pins to a centered horizontal row of grayscale icons. All apps keeps color.
 
 ![Pinned apps as a row of icons on home](../../../assets/screenshots/home-pinned-icons.png)
 

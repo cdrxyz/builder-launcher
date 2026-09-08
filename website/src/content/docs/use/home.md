@@ -20,7 +20,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 | Hub | Messages icon, top right. Tap, swipe right, or D-pad right opens the [hub](hub/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
-| Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to icons. See [apps](apps/). |
+| Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to a centered icon row. See [apps](apps/). |
 | Command bar | Bottom of the screen. Type, then Enter. |
 
 Finished todos do **not** sit on home. They live on the tasks list under open items, newest completed first.
