@@ -228,7 +228,7 @@ fun SettingsChrome(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
-        Field("Weather location", weatherPlace, "Kitchener, Ontario")
+        Field("Weather location", weatherPlace, "New York")
         Text(
             if (weatherPlace.isNotBlank() && weatherSuggestions.isEmpty()) {
                 "Weather uses this city. No GPS."

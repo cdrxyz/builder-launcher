@@ -928,7 +928,7 @@ private fun WeatherLocationField(
         cursorBrush = SolidColor(Prompt),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
         decorationBox = { inner ->
-            if (query.isEmpty()) Text("Kitchener, Ontario", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            if (query.isEmpty()) Text("New York", color = Dim, style = MaterialTheme.typography.bodyMedium)
             inner()
         },
         modifier = Modifier
