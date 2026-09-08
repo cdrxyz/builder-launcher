@@ -14,7 +14,7 @@ Nothing is sent anywhere until you submit a question. There is no analytics.
 
 ![Full-screen AI chat with a markdown table answer](../../../assets/screenshots/chat.png)
 
-`<` top left returns home. The history icon top right opens past conversations.
+`<` top left returns home. Top right: the provider mark (Grok, ChatGPT, Claude, or Hermes) copies the current prompt and opens that app pre-filled so you can send it there. History opens past conversations.
 
 Answers render markdown: headings, lists, tables, fenced code, bold and italic.
 

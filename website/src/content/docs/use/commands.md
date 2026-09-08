@@ -14,7 +14,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` saves and goes home |
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
-| `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; history lists past chats with a date and delete |
+| `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; history lists past chats with a date and delete |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
 | | `hub` / `notes` / `apps` / `stocks` / `clock` / `weather` / `settings` / `help` | Built-ins |

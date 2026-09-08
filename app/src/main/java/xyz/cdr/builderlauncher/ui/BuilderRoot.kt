@@ -87,6 +87,7 @@ import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.OAuthSpec
+import xyz.cdr.builderlauncher.ai.ProviderHandoff
 import xyz.cdr.builderlauncher.ai.oauth.DevicePending
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.ai.oauth.PkceSession
@@ -459,6 +460,28 @@ fun BuilderRoot(
         val clip = ctx.getSystemService(ClipboardManager::class.java)
         clip?.setPrimaryClip(ClipData.newPlainText(label, value))
         Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+    }
+
+    fun handoffToProvider() {
+        val lastUser = chatId
+            ?.let { id -> chatThreads.find { it.id == id } }
+            ?.messages
+            ?.lastOrNull { it.fromUser }
+            ?.content
+        val text = ProviderHandoff.prompt(input, lastUser)
+        if (text.isNotBlank()) {
+            ctx.getSystemService(ClipboardManager::class.java)
+                ?.setPrimaryClip(ClipData.newPlainText("prompt", text))
+        }
+        val opened = ProviderHandoff.open(ctx, settings.provider, text, settings.hermesBaseUrl)
+        if (!opened) {
+            val name = ProviderHandoff.label(settings.provider)
+            Toast.makeText(
+                ctx,
+                if (text.isNotBlank()) "Copied — could not open $name" else "Could not open $name",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
     }
 
     fun openHub() {
@@ -1099,12 +1122,24 @@ fun BuilderRoot(
                             }
                             .padding(vertical = 6.dp),
                     )
-                    HistoryIcon(
-                        Modifier
-                            .semantics { contentDescription = "history" }
-                            .clickable { page = Page.ChatHistory }
-                            .padding(vertical = 6.dp),
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ProviderIcon(
+                            settings.provider,
+                            Modifier
+                                .semantics { contentDescription = ProviderHandoff.contentDescription(settings.provider) }
+                                .clickable { handoffToProvider() }
+                                .padding(vertical = 6.dp),
+                        )
+                        HistoryIcon(
+                            Modifier
+                                .semantics { contentDescription = "history" }
+                                .clickable { page = Page.ChatHistory }
+                                .padding(vertical = 6.dp),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(

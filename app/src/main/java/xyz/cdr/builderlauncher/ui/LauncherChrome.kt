@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -33,6 +37,7 @@ import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
+import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
@@ -303,6 +308,7 @@ fun ChatChrome(
     messages: List<ChatBubble>,
     input: String = "",
     busy: Boolean = false,
+    provider: LlmProvider = LlmProvider.XAI,
 ) {
     Column(
         modifier = Modifier
@@ -316,7 +322,13 @@ fun ChatChrome(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            HistoryIcon(Modifier.padding(vertical = 6.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ProviderIcon(provider, Modifier.padding(vertical = 6.dp))
+                HistoryIcon(Modifier.padding(vertical = 6.dp))
+            }
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input, prompt = "?", wrap = true)
@@ -991,6 +1003,27 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
             strokeWidth = stroke.width,
         )
     }
+}
+
+@Composable
+fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
+    val res = when (provider) {
+        LlmProvider.XAI -> R.drawable.ic_logo_grok
+        LlmProvider.OPENAI -> R.drawable.ic_logo_openai
+        LlmProvider.ANTHROPIC -> R.drawable.ic_logo_claude
+        LlmProvider.HERMES -> R.drawable.ic_logo_hermes
+    }
+    val tint = when (provider) {
+        LlmProvider.XAI, LlmProvider.OPENAI -> ColorFilter.tint(Accent)
+        else -> null
+    }
+    Image(
+        painter = painterResource(res),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        colorFilter = tint,
+        modifier = modifier.size(22.dp),
+    )
 }
 
 @Composable
