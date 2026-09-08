@@ -853,7 +853,7 @@ fun BuilderRoot(
                                     value = replyText,
                                     onValueChange = { replyText = it },
                                     singleLine = true,
-                                    cursorBrush = SolidColor(Prompt),
+                                    cursorBrush = SolidColor(Accent),
                                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
                                     keyboardOptions = KeyboardOptions(
                                         capitalization = KeyboardCapitalization.Sentences,

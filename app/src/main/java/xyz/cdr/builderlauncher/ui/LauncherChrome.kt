@@ -450,6 +450,7 @@ private fun Field(label: String, value: String, placeholder: String) {
 
 @Composable
 fun ReplyIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
     Canvas(modifier.size(18.dp)) {
         val w = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         val pad = size.minDimension * 0.12f
@@ -460,16 +461,16 @@ fun ReplyIcon(modifier: Modifier = Modifier) {
             quadraticTo(pad, size.height - pad, pad, size.height * 0.48f)
             lineTo(tip.x, tip.y)
         }
-        drawPath(shaft, color = Prompt, style = w)
+        drawPath(shaft, color = accent, style = w)
         drawLine(
-            color = Prompt,
+            color = accent,
             start = tip,
             end = Offset(pad + size.width * 0.30f, pad),
             strokeWidth = w.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Prompt,
+            color = accent,
             start = tip,
             end = Offset(pad + size.width * 0.30f, tip.y + size.height * 0.22f),
             strokeWidth = w.width,
@@ -480,12 +481,13 @@ fun ReplyIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun MessagesIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
     Canvas(modifier.size(22.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val pad = size.minDimension * 0.08f
         val bodyH = size.height * 0.70f
         drawRoundRect(
-            color = Prompt,
+            color = accent,
             topLeft = Offset(pad, pad),
             size = Size(size.width - pad * 2f, bodyH),
             cornerRadius = CornerRadius(3.dp.toPx()),
@@ -493,13 +495,13 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
         )
         val tail = size.width * 0.30f
         drawLine(
-            color = Prompt,
+            color = accent,
             start = Offset(tail, pad + bodyH),
             end = Offset(tail - size.width * 0.14f, size.height - pad),
             strokeWidth = stroke.width,
         )
         drawLine(
-            color = Prompt,
+            color = accent,
             start = Offset(tail + size.width * 0.20f, pad + bodyH),
             end = Offset(tail - size.width * 0.14f, size.height - pad),
             strokeWidth = stroke.width,
