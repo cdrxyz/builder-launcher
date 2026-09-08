@@ -87,6 +87,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.LlmClient
@@ -165,6 +167,8 @@ import java.util.Locale
 
 enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather }
 
+private var lastPage: Page = Page.Home
+
 @Composable
 fun BuilderRoot(
     settingsRepo: SettingsRepository,
@@ -179,6 +183,7 @@ fun BuilderRoot(
     weather: WeatherRepository,
     stocks: StocksRepository,
     clock: ClockStore,
+    homePresses: StateFlow<Int> = MutableStateFlow(0),
     onRequestHome: () -> Unit = {},
 ) {
     val settings by settingsRepo.settings.collectAsState()
@@ -190,7 +195,8 @@ fun BuilderRoot(
     val clockState by clock.state.collectAsState()
     val watch by stocks.watch.collectAsState()
     val quotes by stocks.quotes.collectAsState()
-    var page by remember { mutableStateOf(Page.Home) }
+    val homePressCount by homePresses.collectAsState()
+    var page by remember { mutableStateOf(lastPage) }
     var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
@@ -234,6 +240,12 @@ fun BuilderRoot(
     DisposableEffect(page) {
         if (page != Page.Settings) ClockSoundPlayer.stopPreview()
         onDispose { ClockSoundPlayer.stopPreview() }
+    }
+    LaunchedEffect(page) {
+        lastPage = page
+    }
+    LaunchedEffect(homePressCount) {
+        if (homePressCount > 0) page = Page.Home
     }
     val hardware = remember(settings.keyboardMode) {
         when (settings.keyboardMode) {

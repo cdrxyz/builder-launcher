@@ -23,6 +23,8 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 
 Finished todos do **not** sit on home. They live on the tasks list under open items, newest completed first.
 
+Swipe up to Home (or the Home button) while already in Builder Launcher returns to this home screen — tasks, hub, notes, settings, and the rest. Home from another app restores the last launcher page instead: leave from tasks, come back on tasks.
+
 ## Tasks list
 
 ![Full todos list with more-tasks command bar in dash mode](../../../assets/screenshots/todos.png)

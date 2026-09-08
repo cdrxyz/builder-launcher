@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.flow.MutableStateFlow
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.apps.InstalledApps
@@ -27,6 +28,7 @@ import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
+import xyz.cdr.builderlauncher.home.HomeGesture
 import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
@@ -38,6 +40,8 @@ class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { }
+    private val homePresses = MutableStateFlow(0)
+    private var stopped = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,20 +83,30 @@ class MainActivity : ComponentActivity() {
                     weather = weather,
                     stocks = stocks,
                     clock = clock,
+                    homePresses = homePresses,
                     onRequestHome = { askToBeHome(fromSettings = true) },
                 )
             }
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        stopped = true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         applyAlertWindow()
+        if (HomeGesture.shouldOpenHome(stopped, intent.action, intent.categories)) {
+            homePresses.value += 1
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        stopped = false
         applyAlertWindow()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
             != PackageManager.PERMISSION_GRANTED
