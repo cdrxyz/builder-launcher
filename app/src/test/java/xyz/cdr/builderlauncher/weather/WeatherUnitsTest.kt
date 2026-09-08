@@ -26,8 +26,27 @@ class WeatherUnitsTest {
             fetchedAt = 0L,
             latitude = 43.45,
             longitude = -80.49,
+            celsius = true,
         )
         assertEquals("18° cloudy", snap.line(WeatherUnits.METRIC))
         assertEquals("64° cloudy", snap.line(WeatherUnits.IMPERIAL))
+    }
+
+    @Test
+    fun dropsLegacyCacheWithoutCelsiusFlag() {
+        val raw = """
+            {"temperature":64,"condition":"cloudy","fetchedAt":1,"latitude":40.7,"longitude":-74.0}
+        """.trimIndent()
+        assertEquals(null, WeatherCache.parse(raw))
+    }
+
+    @Test
+    fun keepsCelsiusCache() {
+        val raw = """
+            {"temperature":18,"condition":"cloudy","fetchedAt":1,"latitude":43.45,"longitude":-80.49,"celsius":true}
+        """.trimIndent()
+        val snap = WeatherCache.parse(raw)!!
+        assertEquals(18, snap.temperature)
+        assertEquals("18° cloudy", snap.line(WeatherUnits.METRIC))
     }
 }
