@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import xyz.cdr.builderlauncher.data.ListReorder
 import java.io.File
 
 class ClockStore(context: Context) {
@@ -58,6 +59,10 @@ class ClockStore(context: Context) {
 
     fun removeZone(id: String) {
         persist(_state.value.copy(zones = _state.value.zones.filterNot { it.id == id }))
+    }
+
+    fun moveZone(from: Int, to: Int) {
+        persist(_state.value.copy(zones = ListReorder.move(_state.value.zones, from, to)))
     }
 
     private fun persist(next: ClockSnapshot) {
