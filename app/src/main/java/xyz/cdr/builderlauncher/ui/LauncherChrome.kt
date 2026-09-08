@@ -1009,19 +1009,14 @@ fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
         val r = size.minDimension / 2f - stroke.width
         when (provider) {
             LlmProvider.XAI -> {
-                val path = Path()
-                val inner = r * 0.32f
-                for (i in 0 until 8) {
-                    val ang = Math.toRadians(-90.0 + i * 45.0)
-                    val rad = if (i % 2 == 0) r else inner
-                    val p = Offset(
-                        c.x + (kotlin.math.cos(ang) * rad).toFloat(),
-                        c.y + (kotlin.math.sin(ang) * rad).toFloat(),
-                    )
-                    if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
-                }
-                path.close()
-                drawPath(path, color = accent, style = stroke)
+                drawCircle(color = accent, radius = r, center = c, style = stroke)
+                drawLine(
+                    color = accent,
+                    start = Offset(c.x - r, c.y + r),
+                    end = Offset(c.x + r, c.y - r),
+                    strokeWidth = stroke.width,
+                    cap = StrokeCap.Round,
+                )
             }
             LlmProvider.OPENAI -> {
                 val path = Path()
