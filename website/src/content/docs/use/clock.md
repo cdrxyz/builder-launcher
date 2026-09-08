@@ -28,6 +28,6 @@ Alarms and the running timer play a calm sound and open a full-screen prompt, ev
 | Timer | `stop` or `run again` (same duration). |
 | Alarm | `dismiss` or `snooze 8 min`. |
 
-The sound starts audible and rises to full over 4 seconds. Pick `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off` in [settings](../../configure/settings/) — tap a name to hear it. `<` returns home.
+The sound is a 10-30 second loop. It starts audible and rises to full over 4 seconds. Pick `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off` in [settings](../../configure/settings/) — tap a name to hear it. `<` returns home.
 
 Settings stay on `settings` / `/settings` — the clock is no longer the settings shortcut.

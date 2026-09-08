@@ -951,7 +951,7 @@ fun SettingsChrome(
             }
         }
         Text(
-            "Tap a sound to hear it. Alarms fade in over 4 seconds.",
+            "Tap a sound to hear it. Each tone loops 10 to 30 seconds. Alarms fade in over 4 seconds.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

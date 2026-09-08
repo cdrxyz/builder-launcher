@@ -3,25 +3,39 @@ package xyz.cdr.builderlauncher.clock
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
-import android.media.AudioFormat
 import android.media.AudioManager
-import android.media.AudioTrack
+import android.media.MediaPlayer
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import xyz.cdr.builderlauncher.R
 
 object ClockSoundPlayer {
+    private const val PREVIEW_MS = 5_000L
     private val lock = Any()
+    private val main = Handler(Looper.getMainLooper())
     @Volatile private var playing = false
     @Volatile private var mode = Mode.IDLE
-    private var track: AudioTrack? = null
-    private var worker: Thread? = null
+    private var player: MediaPlayer? = null
     private var audio: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var fadeStartedAt = 0L
+    private val previewStop = Runnable { stopPreview() }
+    private val fadeTick = object : Runnable {
+        override fun run() {
+            val current = synchronized(lock) { player }
+            if (!playing || current == null) return
+            val gain = Clock.fadeGain(System.currentTimeMillis() - fadeStartedAt)
+            runCatching { current.setVolume(gain, gain) }
+            if (gain < 1f) main.postDelayed(this, 80)
+        }
+    }
 
     val alerting: Boolean get() = playing && mode == Mode.ALERT
 
@@ -68,88 +82,68 @@ object ClockSoundPlayer {
         synchronized(lock) {
             if (!preview && mode == Mode.ALERT && playing) return
             haltLocked()
-            val pcm = ClockTone.pcm(sound)
-            if (pcm.isEmpty()) return
+            val resId = rawId(sound) ?: return
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val media = Clock.useMediaStream(am.getStreamVolume(AudioManager.STREAM_ALARM), preview)
-            val attrs = attributes(media)
-            val next = runCatching { buildTrack(attrs, pcm.size) }.getOrNull() ?: return
-            requestFocus(am, attrs)
+            val next = runCatching { buildPlayer(context, resId, loop) }.getOrNull() ?: return
+            requestFocus(am)
             if (!preview) runCatching { holdWake(context) }
             if (vibrate) buzz(context)
             playing = true
             mode = if (preview) Mode.PREVIEW else Mode.ALERT
-            track = next
+            player = next
             audio = am
-            runCatching { next.play() }
-            val startedAt = System.currentTimeMillis()
-            worker = Thread {
-                try {
-                    writeLoop(next, pcm, loop, fade, startedAt)
-                } finally {
-                    synchronized(lock) {
-                        if (track === next) haltLocked()
-                    }
-                }
-            }.also { it.start() }
-        }
-    }
-
-    private fun writeLoop(
-        next: AudioTrack,
-        pcm: ShortArray,
-        loop: Boolean,
-        fade: Boolean,
-        startedAt: Long,
-    ) {
-        val chunk = 1_024
-        while (playing) {
-            var offset = 0
-            while (playing && offset < pcm.size) {
-                val gain = if (fade) Clock.fadeGain(System.currentTimeMillis() - startedAt) else 1f
-                runCatching { next.setVolume(gain.coerceIn(0f, 1f)) }
-                val n = (pcm.size - offset).coerceAtMost(chunk)
-                val written = runCatching { next.write(pcm, offset, n) }.getOrDefault(-1)
-                when {
-                    written < 0 -> return
-                    written == 0 -> Thread.sleep(10)
-                    else -> offset += written
-                }
+            val startGain = if (fade) Clock.FLOOR_GAIN else 1f
+            runCatching { next.setVolume(startGain, startGain) }
+            runCatching { next.start() }
+            if (fade) {
+                fadeStartedAt = System.currentTimeMillis()
+                main.post(fadeTick)
             }
-            if (!loop) return
+            if (preview) {
+                main.postDelayed(previewStop, PREVIEW_MS)
+            }
         }
     }
 
-    private fun attributes(media: Boolean): AudioAttributes {
-        val builder = AudioAttributes.Builder()
-            .setUsage(if (media) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-        if (!media) builder.setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
-        return builder.build()
+    private fun buildPlayer(context: Context, resId: Int, loop: Boolean): MediaPlayer {
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+        return MediaPlayer().apply {
+            setAudioAttributes(attrs)
+            setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+            val afd = context.resources.openRawResourceFd(resId)
+            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            afd.close()
+            isLooping = loop
+            setOnCompletionListener {
+                if (!loop) main.post { stop() }
+            }
+            setOnErrorListener { _, _, _ ->
+                main.post { stop() }
+                true
+            }
+            prepare()
+        }
     }
 
-    private fun buildTrack(attrs: AudioAttributes, pcmShorts: Int): AudioTrack {
-        val format = AudioFormat.Builder()
-            .setSampleRate(ClockTone.SAMPLE_RATE)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .build()
-        val min = AudioTrack.getMinBufferSize(
-            ClockTone.SAMPLE_RATE,
-            AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        ).coerceAtLeast(2_048)
-        return AudioTrack.Builder()
-            .setAudioAttributes(attrs)
-            .setAudioFormat(format)
-            .setBufferSizeInBytes(min.coerceAtMost((pcmShorts * 2).coerceAtLeast(min)))
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
+    private fun rawId(sound: ClockSound): Int? = when (sound) {
+        ClockSound.PULSE -> R.raw.clock_pulse
+        ClockSound.CHIME -> R.raw.clock_chime
+        ClockSound.BELL -> R.raw.clock_bell
+        ClockSound.ORTHODOX -> R.raw.clock_orthodox
+        ClockSound.HUM -> R.raw.clock_hum
+        ClockSound.OFF -> null
     }
 
-    private fun requestFocus(am: AudioManager, attrs: AudioAttributes) {
+    private fun requestFocus(am: AudioManager) {
+        val built = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
         val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-            .setAudioAttributes(attrs)
+            .setAudioAttributes(built)
             .setOnAudioFocusChangeListener { }
             .build()
         runCatching { am.requestAudioFocus(req) }
@@ -180,10 +174,10 @@ object ClockSoundPlayer {
     private fun haltLocked() {
         playing = false
         mode = Mode.IDLE
-        val current = track
-        worker = null
-        track = null
-        runCatching { current?.pause() }
+        main.removeCallbacks(fadeTick)
+        main.removeCallbacks(previewStop)
+        val current = player
+        player = null
         runCatching { current?.stop() }
         runCatching { current?.release() }
         runCatching { vibrator?.cancel() }

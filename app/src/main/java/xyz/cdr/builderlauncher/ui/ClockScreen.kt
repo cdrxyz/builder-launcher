@@ -70,7 +70,8 @@ fun ClockScreen(
     onMoveZone: (Int, Int) -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(snapshot.timer.running) {
+    LaunchedEffect(snapshot.timer.running, snapshot.timer.endsAt) {
+        now.value = System.currentTimeMillis()
         while (true) {
             now.value = System.currentTimeMillis()
             delay(if (snapshot.timer.running) 200 else 15_000)
