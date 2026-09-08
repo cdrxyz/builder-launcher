@@ -26,6 +26,7 @@ import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.weather.WeatherRepository
+import xyz.cdr.builderlauncher.stocks.StocksRepository
 
 class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
         val llm = LlmClient(settings, oauth)
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
+        val stocks = StocksRepository(this)
         setContent {
             val current by settings.settings.collectAsState()
             BuilderTheme(accent = accentColor(current.accentHex)) {
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     oauth = oauth,
                     executor = executor,
                     weather = weather,
+                    stocks = stocks,
                     onRequestHome = { askToBeHome(fromSettings = true) },
                 )
             }

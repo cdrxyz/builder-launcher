@@ -7,6 +7,8 @@ sealed class Command {
     data object OpenHub : Command()
     data object OpenNotes : Command()
     data object OpenApps : Command()
+    data object OpenStocks : Command()
+    data class Stock(val query: String) : Command()
     data class Message(val target: String, val body: String) : Command()
     data class Call(val target: String) : Command()
     data class Event(val title: String, val whenText: String) : Command()
@@ -30,6 +32,7 @@ object CommandParser {
             "hub", "/hub" -> return Command.OpenHub
             "notes", "/notes" -> return Command.OpenNotes
             "apps", "/apps" -> return Command.OpenApps
+            "stocks", "/stocks", "stock", "/stock", "$" -> return Command.OpenStocks
             "pin", "unpin" -> return Command.Help
         }
 
@@ -69,6 +72,10 @@ object CommandParser {
             '?' -> {
                 val question = line.drop(1).trim()
                 if (question.isEmpty()) Command.Help else Command.Ask(question)
+            }
+            '$' -> {
+                val text = line.drop(1).trim()
+                if (text.isEmpty()) Command.OpenStocks else Command.Stock(text)
             }
             else -> Command.LaunchApp(line)
         }

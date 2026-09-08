@@ -42,4 +42,11 @@ class AccentColorTest {
         assertEquals("sage", AccentColor.nameOf("#b7c9a8"))
         assertNull(AccentColor.nameOf("#112233"))
     }
+
+    @Test
+    fun stockUpDownDefaultsArePickerGreenAndRed() {
+        assertEquals(AccentColor.DEFAULT_HEX, AccentColor.DEFAULT_UP_HEX)
+        assertEquals("#FF3B30", AccentColor.DEFAULT_DOWN_HEX)
+        assertEquals("red", AccentColor.nameOf(AccentColor.DEFAULT_DOWN_HEX))
+    }
 }

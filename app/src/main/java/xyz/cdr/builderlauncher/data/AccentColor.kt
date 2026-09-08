@@ -4,9 +4,12 @@ data class AccentSwatch(val name: String, val hex: String)
 
 object AccentColor {
     const val DEFAULT_HEX = "#00FF41"
+    const val DEFAULT_UP_HEX = "#00FF41"
+    const val DEFAULT_DOWN_HEX = "#FF3B30"
 
     val presets = listOf(
         AccentSwatch("cyberpunk green", DEFAULT_HEX),
+        AccentSwatch("red", DEFAULT_DOWN_HEX),
         AccentSwatch("sage", "#B7C9A8"),
         AccentSwatch("amber", "#FFB000"),
         AccentSwatch("cyan", "#00E5FF"),

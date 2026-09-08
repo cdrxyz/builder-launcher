@@ -18,6 +18,8 @@ val Ink = Color(0xFF0B0B0B)
 val Paper = Color(0xFFE8E4D9)
 val Dim = Color(0xFF8A867C)
 val Prompt = Color(0xFF00FF41)
+val Gain = Color(AccentColor.argb(AccentColor.DEFAULT_UP_HEX))
+val Loss = Color(AccentColor.argb(AccentColor.DEFAULT_DOWN_HEX))
 val Line = Color(0xFF2A2A2A)
 
 val LocalAccent = staticCompositionLocalOf { Prompt }
