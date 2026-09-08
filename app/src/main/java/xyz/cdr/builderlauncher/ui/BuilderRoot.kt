@@ -101,7 +101,16 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.hub.HubStore
+import xyz.cdr.builderlauncher.stocks.StockChartData
+import xyz.cdr.builderlauncher.stocks.StockHit
+import xyz.cdr.builderlauncher.stocks.StockQuote
+import xyz.cdr.builderlauncher.stocks.StockRange
+import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.stocks.StocksRepository
+import xyz.cdr.builderlauncher.stocks.WatchItem
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Gain
+import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
@@ -112,7 +121,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail }
 
 @Composable
 fun BuilderRoot(
@@ -125,12 +134,15 @@ fun BuilderRoot(
     oauth: OAuthService,
     executor: CommandExecutor,
     weather: WeatherRepository,
+    stocks: StocksRepository,
     onRequestHome: () -> Unit = {},
 ) {
     val settings by settingsRepo.settings.collectAsState()
     val hub by HubStore.items.collectAsState()
     val local by lists.items.collectAsState()
     val forecast by weather.current.collectAsState()
+    val watch by stocks.watch.collectAsState()
+    val quotes by stocks.quotes.collectAsState()
     var page by remember { mutableStateOf(Page.Home) }
     var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
     var input by remember { mutableStateOf("") }
@@ -148,6 +160,11 @@ fun BuilderRoot(
     var noteId by remember { mutableStateOf<String?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     var noteFromList by remember { mutableStateOf(false) }
+    var stockSymbol by remember { mutableStateOf<String?>(null) }
+    var stockRange by remember { mutableStateOf(StockRange.default) }
+    var stockHits by remember { mutableStateOf<List<StockHit>>(emptyList()) }
+    var stockBusy by remember { mutableStateOf(false) }
+    var stockChart by remember { mutableStateOf<StockChartData?>(null) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -175,6 +192,42 @@ fun BuilderRoot(
             kotlinx.coroutines.delay(15 * 60 * 1000)
             weather.refresh()
         }
+    }
+    LaunchedEffect(page) {
+        if (page == Page.Stocks || page == Page.StockDetail) {
+            stocks.refreshQuotes()
+        }
+    }
+    LaunchedEffect(page) {
+        if (page != Page.Stocks && page != Page.StockDetail) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(60_000)
+            stocks.refreshQuotes()
+        }
+    }
+    LaunchedEffect(page, input) {
+        if (page != Page.Stocks) {
+            stockHits = emptyList()
+            return@LaunchedEffect
+        }
+        val q = Stocks.queryFromInput(input)
+        if (q.isEmpty()) {
+            stockHits = emptyList()
+            stockBusy = false
+            return@LaunchedEffect
+        }
+        stockBusy = true
+        kotlinx.coroutines.delay(280)
+        stockHits = stocks.search(q)
+        stockBusy = false
+    }
+    LaunchedEffect(page, stockSymbol, stockRange) {
+        val symbol = stockSymbol
+        if (page != Page.StockDetail || symbol.isNullOrBlank()) {
+            stockChart = null
+            return@LaunchedEffect
+        }
+        stockChart = stocks.chart(symbol, stockRange)
     }
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
@@ -209,6 +262,35 @@ fun BuilderRoot(
         page = Page.Apps
     }
 
+    fun openStocksList(draft: String = "") {
+        prompt = '$'
+        input = Stocks.queryFromInput(draft)
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Stocks
+    }
+
+    fun openStockDetail(symbol: String) {
+        stockSymbol = symbol
+        stockRange = StockRange.default
+        stockChart = null
+        page = Page.StockDetail
+    }
+
+    fun addTicker(query: String) {
+        scope.launch {
+            val item = stocks.add(query)
+            if (item == null) {
+                Toast.makeText(ctx, "No ticker matches", Toast.LENGTH_SHORT).show()
+            }
+            stockHits = emptyList()
+        }
+        prompt = '$'
+        input = ""
+    }
+
     fun saveAndCloseNote() {
         val text = noteDraft.trim()
         if (text.isNotEmpty()) {
@@ -234,6 +316,10 @@ fun BuilderRoot(
         val line = next.line
         if (line.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps) {
             openNoteEditor(id = null, draft = Notes.draftFromInput(line), fromList = false)
+            return
+        }
+        if (line.startsWith(Stocks.PREFIX) && page == Page.Home) {
+            openStocksList(line)
             return
         }
         input = next.input
@@ -287,6 +373,16 @@ fun BuilderRoot(
                 return
             }
         }
+        if (page == Page.Stocks) {
+            val q = Stocks.queryFromInput(line)
+            if (q.isEmpty()) {
+                prompt = '$'
+                input = ""
+                return
+            }
+            addTicker(q)
+            return
+        }
         val draft = smsDraft
         if (draft != null) {
             if (line.isBlank() || line.equals("send", ignoreCase = true)) {
@@ -316,6 +412,11 @@ fun BuilderRoot(
             ExecResult.NavigateHub -> page = Page.Hub
             ExecResult.NavigateNotes -> openNotesList()
             ExecResult.NavigateApps -> openAppsList(keepQuery = false)
+            ExecResult.NavigateStocks -> openStocksList()
+            is ExecResult.AddStock -> {
+                openStocksList()
+                addTicker(result.query)
+            }
             is ExecResult.Ask -> {
                 help = false
                 aiBusy = true
@@ -431,6 +532,16 @@ fun BuilderRoot(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { openNotesList() }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                        if (Stocks.matchesQuery(input)) {
+                            Text(
+                                Stocks.MORE,
+                                color = Accent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { openStocksList() }
                                     .padding(vertical = 6.dp),
                             )
                         }
@@ -824,6 +935,187 @@ fun BuilderRoot(
                     oauth = oauth,
                 )
             }
+            Page.Stocks -> {
+                val searching = Stocks.queryFromInput(input).isNotEmpty()
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Stocks.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                applyMode(
+                                    PrefixCommands.type(
+                                        PrefixCommands.Mode(),
+                                        Stocks.leaveDraft(mode().line),
+                                    ),
+                                )
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (searching) {
+                        if (stockHits.isEmpty()) {
+                            item {
+                                Text(if (stockBusy) "Searching tickers…" else "No ticker matches", color = Dim)
+                            }
+                        }
+                        items(stockHits, key = { "h" + it.symbol }) { hit ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { addTicker(hit.symbol) }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(hit.symbol, color = Paper)
+                                    Text(hit.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                if (hit.exchange.isNotBlank()) {
+                                    Text(hit.exchange, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    } else {
+                        if (watch.isEmpty()) {
+                            item {
+                                Text("Type \$AAPL to add a ticker.", color = Dim)
+                            }
+                        }
+                        items(watch, key = { it.symbol }) { item ->
+                            val quote = quotes[item.symbol]
+                            val price = quote?.price ?: item.price
+                            val percent = quote?.changePercent ?: item.changePercent
+                            val up = (percent ?: 0.0) >= 0.0
+                            val tone = if (up) Gain else Loss
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .clickable { openStockDetail(item.symbol) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(item.symbol, color = Paper)
+                                    Text(
+                                        quote?.name ?: item.name,
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    modifier = Modifier
+                                        .clickable { openStockDetail(item.symbol) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(
+                                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item.currency) else "—",
+                                        color = Paper,
+                                    )
+                                    Text(
+                                        if (percent != null) Stocks.formatPercent(percent) else "—",
+                                        color = if (percent == null) Dim else tone,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                                DeleteIcon(
+                                    Modifier
+                                        .clickable { stocks.remove(item.symbol) }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onHub = { page = Page.Hub },
+                )
+            }
+            Page.StockDetail -> {
+                val symbol = stockSymbol.orEmpty()
+                val quote = stockChart?.quote ?: quotes[symbol]
+                val item = watch.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
+                val name = quote?.name ?: item?.name ?: symbol
+                val price = quote?.price ?: item?.price
+                val change = quote?.change
+                val percent = quote?.changePercent ?: item?.changePercent
+                val up = (percent ?: 0.0) >= 0.0
+                val tone = if (up) Gain else Loss
+                val changeLine = when {
+                    change != null && percent != null ->
+                        "${Stocks.formatChange(change)} (${Stocks.formatPercent(percent)})"
+                    percent != null -> Stocks.formatPercent(percent)
+                    else -> ""
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        Stocks.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable { page = Page.Stocks }
+                            .padding(vertical = 6.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(symbol, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                    Text(name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item?.currency ?: "USD") else "—",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Paper,
+                    )
+                    if (changeLine.isNotBlank()) {
+                        Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    StockChart(
+                        points = stockChart?.points.orEmpty(),
+                        up = up,
+                        modifier = Modifier.fillMaxWidth().height(180.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        StockRange.entries.forEach { range ->
+                            Text(
+                                range.label,
+                                color = if (range == stockRange) Accent else Dim,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .clickable { stockRange = range }
+                                    .padding(vertical = 6.dp, horizontal = 2.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    StockStatPair("Open", Stocks.formatNumber(quote?.open), "High", Stocks.formatNumber(quote?.high))
+                    StockStatPair("Low", Stocks.formatNumber(quote?.low), "Vol", quote?.volume?.let { Stocks.formatVolume(it) } ?: "—")
+                    StockStatPair("Prev", Stocks.formatNumber(quote?.previousClose), "52W H", Stocks.formatNumber(quote?.week52High))
+                    StockStatPair("52W L", Stocks.formatNumber(quote?.week52Low), "Chg", if (percent != null) Stocks.formatPercent(percent) else "—")
+                }
+            }
         }
     }
 }
@@ -844,6 +1136,20 @@ private fun ClockHeader(weather: String?, onOpenSettings: () -> Unit) {
         Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
         if (!weather.isNullOrBlank()) {
             Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun StockStatPair(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+        }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Text(rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+            Text(rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -1024,10 +1330,12 @@ private fun HelpBlock() {
         "+               write a note",
         "notes           all notes",
         "apps            all apps",
+        "\$ticker         add a stock",
+        "stocks          all stocks",
         "?question       ask AI",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / apps / settings",
+        "hub / notes / apps / stocks / settings",
         "type a name     launch app",
         "hold an app     pin or unpin",
     )

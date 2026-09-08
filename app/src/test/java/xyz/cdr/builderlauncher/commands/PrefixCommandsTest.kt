@@ -14,7 +14,7 @@ class PrefixCommandsTest {
 
     @Test
     fun catalogCoversPrefixCommands() {
-        assertEquals(listOf('@', '#', '*', '-', '+', '?'), PrefixCommands.all.map { it.glyph })
+        assertEquals(listOf('@', '#', '*', '-', '+', '$', '?'), PrefixCommands.all.map { it.glyph })
     }
 
     @Test

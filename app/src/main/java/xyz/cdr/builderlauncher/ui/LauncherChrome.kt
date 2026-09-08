@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -31,7 +32,12 @@ import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Notes
+import xyz.cdr.builderlauncher.stocks.StockPoint
+import xyz.cdr.builderlauncher.stocks.StockRange
+import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Gain
+import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
@@ -50,6 +56,21 @@ data class NoteListRow(
 
 data class AppListRow(
     val label: String,
+)
+
+data class StockListRow(
+    val symbol: String,
+    val name: String,
+    val price: String,
+    val change: String,
+    val up: Boolean,
+)
+
+data class StockStatRow(
+    val leftLabel: String,
+    val leftValue: String,
+    val rightLabel: String,
+    val rightValue: String,
 )
 
 @Composable
@@ -88,7 +109,7 @@ fun HomeChrome(
                 apps.forEach { label ->
                     Text(
                         label,
-                        color = if (label == Notes.MORE || label == AppList.MORE) Accent else Paper,
+                        color = if (label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE) Accent else Paper,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     )
                 }
@@ -238,6 +259,137 @@ fun NoteEditorChrome(body: String) {
         }
         Spacer(Modifier.height(8.dp))
         Text(body, color = Paper, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+fun StocksChrome(
+    rows: List<StockListRow>,
+    input: String = Stocks.enterDraft(),
+    hits: List<StockListRow> = emptyList(),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val shown = if (hits.isNotEmpty()) hits else rows
+            if (shown.isEmpty()) {
+                Text("Type \$AAPL to add a ticker.", color = Dim)
+            } else {
+                shown.forEach { row ->
+                    StockRowChrome(row)
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = "$")
+    }
+}
+
+@Composable
+fun StockDetailChrome(
+    symbol: String,
+    name: String,
+    price: String,
+    changeLine: String,
+    up: Boolean,
+    points: List<StockPoint>,
+    range: StockRange = StockRange.D1,
+    stats: List<StockStatRow> = emptyList(),
+) {
+    val tone = if (up) Gain else Loss
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(symbol, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        Text(name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+        Text(price, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        StockChart(points = points, up = up, modifier = Modifier.fillMaxWidth().height(180.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            StockRange.entries.forEach { item ->
+                Text(
+                    item.label,
+                    color = if (item == range) Accent else Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        stats.forEach { row ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f)) {
+                    Text(row.leftLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(row.leftValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                    Text(row.rightLabel, color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(row.rightValue, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StockChart(
+    points: List<StockPoint>,
+    up: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val tone = if (up) Gain else Loss
+    Canvas(modifier) {
+        if (points.size < 2) return@Canvas
+        val ys = points.map { it.close }
+        val min = ys.min()
+        val max = ys.max()
+        val span = (max - min).takeIf { it > 0.0 } ?: 1.0
+        val dx = size.width / (points.lastIndex)
+        val line = Path()
+        points.forEachIndexed { i, point ->
+            val x = i * dx
+            val y = (size.height - ((point.close - min) / span * size.height).toFloat()).coerceIn(0f, size.height)
+            if (i == 0) line.moveTo(x, y) else line.lineTo(x, y)
+        }
+        val fill = Path().apply {
+            addPath(line)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(fill, tone.copy(alpha = 0.18f))
+        drawPath(line, tone, style = Stroke(width = 2.dp.toPx()))
+    }
+}
+
+@Composable
+private fun StockRowChrome(row: StockListRow) {
+    val tone = if (row.up) Gain else Loss
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Text(row.symbol, color = Paper)
+            Text(row.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 6.dp)) {
+            Text(row.price, color = Paper)
+            Text(row.change, color = tone, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
