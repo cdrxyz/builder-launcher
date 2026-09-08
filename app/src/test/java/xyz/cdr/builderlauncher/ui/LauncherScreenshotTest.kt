@@ -374,6 +374,20 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun hubReply() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HubChrome(
+                    rows = listOf(
+                        HubRow("Messages", "Jason", "on my way", reply = "sounds good"),
+                        HubRow("Signal", "Lauren", "running late"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun settings() {
         paparazzi.snapshot {
             BuilderTheme {

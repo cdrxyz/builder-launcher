@@ -66,6 +66,7 @@ data class HubRow(
     val kind: String,
     val title: String,
     val body: String = "",
+    val reply: String? = null,
 )
 
 data class NoteListRow(
@@ -675,25 +676,30 @@ fun HubChrome(rows: List<HubRow>) {
                 )
             } else {
                 rows.forEach { row ->
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                            Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                            Text(row.title, color = Paper)
-                            if (row.body.isNotBlank()) {
-                                Text(
-                                    row.body,
-                                    color = Dim,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                                Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                Text(row.title, color = Paper)
+                                if (row.body.isNotBlank()) {
+                                    Text(
+                                        row.body,
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
+                            ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                            DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                         }
-                        ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
-                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                        if (row.reply != null) {
+                            HubReplyBar(row.reply)
+                        }
                     }
                 }
             }
@@ -997,6 +1003,50 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(4.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                value.ifEmpty { "reply" },
+                color = if (value.isEmpty()) Dim else Paper,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+        }
+        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+fun SendIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.12f
+        val nose = Offset(size.width - pad, pad)
+        val left = Offset(pad, size.height * 0.40f)
+        val tail = Offset(size.width * 0.36f, size.height - pad)
+        val fold = Offset(size.width * 0.44f, size.height * 0.56f)
+        drawLine(color = accent, start = left, end = nose, strokeWidth = stroke.width, cap = StrokeCap.Round)
+        drawLine(color = accent, start = nose, end = tail, strokeWidth = stroke.width, cap = StrokeCap.Round)
+        drawLine(color = accent, start = left, end = fold, strokeWidth = stroke.width, cap = StrokeCap.Round)
+        drawLine(color = accent, start = fold, end = tail, strokeWidth = stroke.width, cap = StrokeCap.Round)
+        drawLine(
+            color = accent,
+            start = fold,
+            end = Offset(size.width * 0.70f, size.height * 0.28f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+    }
 }
 
 @Composable
