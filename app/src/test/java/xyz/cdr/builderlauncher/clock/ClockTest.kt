@@ -36,6 +36,17 @@ class ClockTest {
     }
 
     @Test
+    fun homeClockShowsCountdownWhileTimerRuns() {
+        val now = 1_000_000L
+        val idle = TimerState(durationMs = 60_000, remainingMs = 60_000)
+        assertEquals("15:42", Clock.homeClockLabel(idle, now, "15:42"))
+        val running = Clock.start(idle, now)
+        assertEquals("0:30", Clock.homeClockLabel(running, now + 30_000, "15:42"))
+        val paused = Clock.pause(running, now + 20_000)
+        assertEquals("15:42", Clock.homeClockLabel(paused, now + 20_000, "15:42"))
+    }
+
+    @Test
     fun startPauseReset() {
         val now = 1_000_000L
         val started = Clock.start(TimerState(durationMs = 60_000, remainingMs = 60_000), now)

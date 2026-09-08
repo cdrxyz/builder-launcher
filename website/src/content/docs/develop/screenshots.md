@@ -23,6 +23,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | README / docs PNG | Typical Paparazzi test |
 | --- | --- |
 | `home.png` | `home` |
+| `home-timer.png` | `homeTimer` |
 | `home-ticker.png` | `homeTicker` |
 | `todos.png` | `todos` |
 | `commands.png` / `command-menu.png` | `homeCommandMenu` |

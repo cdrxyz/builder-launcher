@@ -14,6 +14,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="Home: clock, weather, todos, command bar" width="240" />
+  <img src="docs/screenshots/home-timer.png" alt="Home with a running timer in place of the clock" width="240" />
   <img src="docs/screenshots/home-ticker.png" alt="Home with a watchlist ticker between the clock and hub" width="240" />
   <img src="docs/screenshots/hub.png" alt="Hub: messages you can reply to" width="240" />
   <img src="docs/screenshots/settings.png" alt="Settings: accent color, Hermes or xAI, keyboard mode" width="240" />
@@ -37,7 +38,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 
 | Home | Hub | Settings |
 | --- | --- | --- |
-| Clock, weather, rotating watchlist ticker, last 3 todos, messages icon, command bar | Messages you can reply to | Hermes, xAI, OpenAI, Anthropic |
+| Clock (running timer countdown), weather, rotating watchlist ticker, last 3 todos, messages icon, command bar | Messages you can reply to | Hermes, xAI, OpenAI, Anthropic |
 
 ## Install with Obtainium
 

@@ -98,6 +98,7 @@ import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
+import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.commands.AppPick
 import xyz.cdr.builderlauncher.commands.Command
 import xyz.cdr.builderlauncher.commands.CommandExecutor
@@ -765,6 +766,7 @@ fun BuilderRoot(
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
                     ticker = ticker,
+                    timer = clockState.timer,
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
@@ -1864,19 +1866,21 @@ fun BuilderRoot(
 private fun ClockHeader(
     weather: String?,
     ticker: HomeTickerLine?,
+    timer: TimerState,
     onOpenClock: () -> Unit,
     onOpenWeather: () -> Unit,
     onOpenHub: () -> Unit,
     onOpenTicker: () -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(timer.running) {
         while (true) {
             now.value = System.currentTimeMillis()
-            kotlinx.coroutines.delay(15_000)
+            delay(if (timer.running) 200 else 15_000)
         }
     }
-    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
+    val clockText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
+    val time = Clock.homeClockLabel(timer, now.value, clockText)
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     Row(
         Modifier.fillMaxWidth(),

@@ -15,6 +15,8 @@ Three tabs:
 | Alarm | Type `7:30` or `7:30am` to add. Tap a row to enable or disable. Delete on the right. |
 | Time Zones | Type a city, pick a match. Shows local time and offset from here. |
 
+While the timer is running, home replaces the large clock with the countdown. Tap it to return here.
+
 Alarms and the running timer fire a notification even if you leave the screen. `<` returns home.
 
 Settings stay on `settings` / `/settings` — the clock is no longer the settings shortcut.
