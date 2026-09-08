@@ -10,6 +10,7 @@ import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -137,6 +138,8 @@ import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
+import xyz.cdr.builderlauncher.home.BackPress
+import xyz.cdr.builderlauncher.home.BackResult
 import xyz.cdr.builderlauncher.hub.HubStore
 import xyz.cdr.builderlauncher.stocks.HomeTicker
 import xyz.cdr.builderlauncher.stocks.HomeTickerLine
@@ -246,6 +249,28 @@ fun BuilderRoot(
     }
     LaunchedEffect(homePressCount) {
         if (homePressCount > 0) page = Page.Home
+    }
+    BackHandler {
+        when (
+            BackPress.result(
+                onHome = page == Page.Home,
+                overlayOpen = help ||
+                    choices.isNotEmpty() ||
+                    people.isNotEmpty() ||
+                    smsDraft != null,
+            )
+        ) {
+            BackResult.Stay -> Unit
+            BackResult.DismissUi -> {
+                help = false
+                choices = emptyList()
+                people = emptyList()
+                contactAction = null
+                smsDraft = null
+                appQuery = false
+            }
+            BackResult.OpenHome -> page = Page.Home
+        }
     }
     val hardware = remember(settings.keyboardMode) {
         when (settings.keyboardMode) {
