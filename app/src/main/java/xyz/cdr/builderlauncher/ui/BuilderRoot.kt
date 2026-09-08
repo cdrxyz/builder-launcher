@@ -1982,48 +1982,42 @@ private fun ClockHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
     ) {
-        Column(Modifier.weight(1f)) {
-            Column(Modifier.clickable { onOpenClock() }) {
-                Text(time, style = MaterialTheme.typography.headlineLarge)
-                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-            }
-            if (!weather.isNullOrBlank()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onOpenWeather() }.padding(top = 2.dp),
-                ) {
-                    Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                    weatherKind?.let { kind ->
-                        WeatherGlyph(
-                            kind = kind,
-                            isDay = isDay,
-                            color = Dim,
-                            size = 16.dp,
-                            modifier = Modifier.padding(start = 6.dp),
-                            contentDescription = kind.name.lowercase(),
-                        )
-                    }
-                }
-            }
+        val hasWeather = !weather.isNullOrBlank()
+        Column(
+            Modifier
+                .then(if (hasWeather) Modifier else Modifier.weight(1f))
+                .clickable { onOpenClock() },
+        ) {
+            Text(time, style = MaterialTheme.typography.headlineLarge)
+            Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
-        Row(verticalAlignment = Alignment.Top) {
-            if (ticker != null) {
-                HomeTickerMark(
-                    symbol = ticker.symbol,
-                    change = ticker.change,
-                    up = ticker.up,
-                    modifier = Modifier
-                        .semantics { contentDescription = "${ticker.symbol} ${ticker.change}" }
-                        .clickable { onOpenTicker() },
-                )
-            }
-            MessagesIcon(
-                Modifier
-                    .semantics { contentDescription = "messages" }
-                    .clickable { onOpenHub() }
-                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+        if (hasWeather) {
+            HomeWeatherMark(
+                weather = weather,
+                kind = weatherKind,
+                isDay = isDay,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { contentDescription = weather }
+                    .clickable { onOpenWeather() },
             )
         }
+        if (ticker != null) {
+            HomeTickerMark(
+                symbol = ticker.symbol,
+                change = ticker.change,
+                up = ticker.up,
+                modifier = Modifier
+                    .semantics { contentDescription = "${ticker.symbol} ${ticker.change}" }
+                    .clickable { onOpenTicker() },
+            )
+        }
+        MessagesIcon(
+            Modifier
+                .semantics { contentDescription = "messages" }
+                .clickable { onOpenHub() }
+                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+        )
     }
 }
 

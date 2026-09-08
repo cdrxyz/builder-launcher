@@ -7,15 +7,15 @@ description: Clock, weather, rotating watchlist ticker, three open todos, pinned
 
 ![Home with a running timer in place of the clock](../../../assets/screenshots/home-timer.png)
 
-![Home with a watchlist ticker between the clock and the hub icon](../../../assets/screenshots/home-ticker.png)
+![Home with weather between the clock and the watchlist ticker](../../../assets/screenshots/home-ticker.png)
 
 Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or as a compact row of icons if you turn that on in [settings](../configure/settings/).
 
 | Piece | What it does |
 | --- | --- |
 | Clock | Large time, weekday, date. While a timer is running, the time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
-| Ticker | To the right of the clock, between the time and the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
-| Weather | Current condition under the date, with a small weather icon to the right of the text. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
+| Weather | Condition icon over the temperature, between the clock and the ticker. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
+| Ticker | To the right of the weather, between weather and the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
 | Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to icons. See [apps](apps/). |

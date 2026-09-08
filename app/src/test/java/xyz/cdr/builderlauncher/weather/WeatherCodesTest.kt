@@ -43,4 +43,12 @@ class WeatherCodesTest {
         assertEquals("18° cloudy", WeatherCodes.line(18, 3))
         assertEquals("-2° snow", WeatherCodes.line(-2, 71))
     }
+
+    @Test
+    fun homeTemperatureFromLine() {
+        assertEquals("18°", WeatherCodes.homeTemperature("18° cloudy"))
+        assertEquals("-2°", WeatherCodes.homeTemperature("-2° snow"))
+        assertEquals("64°", WeatherCodes.homeTemperature("64°"))
+        assertEquals("cloudy", WeatherCodes.homeTemperature("cloudy"))
+    }
 }

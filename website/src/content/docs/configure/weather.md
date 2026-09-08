@@ -7,9 +7,9 @@ description: City autocomplete, no GPS required. Metric or imperial on the home 
 
 1. Settings → **Weather location**.
 2. Type a city (placeholder is New York). Pick a match from geocoding suggestions.
-3. Home shows `18° cloudy` (or similar) under the date, with a small weather icon to the right of that text. Tap that line for the [full forecast](../use/weather/).
+3. Home shows a condition icon over the temperature between the clock and the ticker. Tap that mark for the [full forecast](../use/weather/).
 
-![Weather line under the clock on home](../../../assets/screenshots/home.png)
+![Weather mark between the clock and ticker on home](../../../assets/screenshots/home.png)
 
 - No GPS is required when a city is set. If you clear the city, the launcher may use a last-known GPS point when the OS has already granted location — the documented path is still "type a city".
 - **Weather units:** `metric` (Celsius) or `imperial` (Fahrenheit). Default metric.
