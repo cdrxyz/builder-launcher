@@ -74,13 +74,16 @@ def hub() -> None:
     for src, title, body in items:
         d.text((PAD_X, y), src, font=F_SMALL, fill=DIM)
         d.text((PAD_X, y + 32), title, font=F_BODY, fill=PAPER)
-        y += 78
         if body:
-            d.text((PAD_X, y - 8), body, font=F_MED, fill=DIM)
-            y += 28
-        d.text((PAD_X, y), "reply", font=F_MED, fill=PROMPT)
-        d.text((PAD_X + 120, y), "dismiss", font=F_MED, fill=DIM)
-        y += 48
+            d.text((PAD_X, y + 70), body, font=F_MED, fill=DIM)
+        ix, iy = W - PAD_X - 78, y + 28
+        d.rounded_rectangle((ix, iy, ix + 22, iy + 16), radius=3, outline=PROMPT, width=2)
+        d.line((ix + 6, iy + 16, ix + 2, iy + 24), fill=PROMPT, width=2)
+        d.line((ix + 12, iy + 16, ix + 2, iy + 24), fill=PROMPT, width=2)
+        xx, xy = W - PAD_X - 28, y + 30
+        d.line((xx, xy, xx + 16, xy + 16), fill=DIM, width=2)
+        d.line((xx + 16, xy, xx, xy + 16), fill=DIM, width=2)
+        y += 128
     save(im, "hub.png")
 
 

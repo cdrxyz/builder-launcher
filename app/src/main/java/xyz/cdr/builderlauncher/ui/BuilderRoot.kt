@@ -807,19 +807,48 @@ fun BuilderRoot(
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(hub, key = { it.key }) { item ->
                         Column(Modifier.fillMaxWidth()) {
-                            Column(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { HubStore.open(item.key) },
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
-                                Text(item.title, color = Paper)
-                                if (item.body.isNotBlank()) {
-                                    Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .clickable { HubStore.open(item.key) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                    Text(item.title, color = Paper)
+                                    if (item.body.isNotBlank()) {
+                                        Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                    }
                                 }
+                                ReplyIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "reply" }
+                                        .clickable {
+                                            if (item.canInlineReply) {
+                                                replyKey = item.key
+                                                replyText = ""
+                                            } else {
+                                                HubStore.open(item.key)
+                                            }
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                                DeleteIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "dismiss" }
+                                        .clickable {
+                                            replyKey = null
+                                            replyText = ""
+                                            HubStore.dismiss(item.key)
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
                             }
                             if (replyKey == item.key && item.canInlineReply) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(4.dp))
                                 BasicTextField(
                                     value = replyText,
                                     onValueChange = { replyText = it },
@@ -833,44 +862,7 @@ fun BuilderRoot(
                                     keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
-                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    Text(
-                                        "send",
-                                        color = Prompt,
-                                        modifier = Modifier.clickable { sendHubReply(item.key) },
-                                    )
-                                    Text(
-                                        "dismiss",
-                                        color = Dim,
-                                        modifier = Modifier.clickable {
-                                            replyKey = null
-                                            replyText = ""
-                                            HubStore.dismiss(item.key)
-                                        },
-                                    )
-                                }
-                            } else {
-                                Spacer(Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    Text(
-                                        "reply",
-                                        color = Prompt,
-                                        modifier = Modifier.clickable {
-                                            if (item.canInlineReply) {
-                                                replyKey = item.key
-                                                replyText = ""
-                                            } else {
-                                                HubStore.open(item.key)
-                                            }
-                                        },
-                                    )
-                                    Text(
-                                        "dismiss",
-                                        color = Dim,
-                                        modifier = Modifier.clickable { HubStore.dismiss(item.key) },
-                                    )
-                                }
+                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
                             }
                         }
                     }

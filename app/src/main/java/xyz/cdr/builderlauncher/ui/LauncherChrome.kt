@@ -271,19 +271,19 @@ fun HubChrome(rows: List<HubRow>) {
                 )
             } else {
                 rows.forEach { row ->
-                    Column {
-                        Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                        Text(row.title, color = Paper)
-                        if (row.body.isNotBlank()) {
-                            Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+                            Text(row.title, color = Paper)
+                            if (row.body.isNotBlank()) {
+                                Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(top = 6.dp),
-                        ) {
-                            Text("reply", color = Prompt)
-                            Text("dismiss", color = Dim)
-                        }
+                        ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                     }
                 }
             }
@@ -443,6 +443,35 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun ReplyIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val pad = size.minDimension * 0.08f
+        val bodyH = size.height * 0.70f
+        drawRoundRect(
+            color = Prompt,
+            topLeft = Offset(pad, pad),
+            size = Size(size.width - pad * 2f, bodyH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
+        val tail = size.width * 0.30f
+        drawLine(
+            color = Prompt,
+            start = Offset(tail, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+        drawLine(
+            color = Prompt,
+            start = Offset(tail + size.width * 0.20f, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+    }
 }
 
 @Composable
