@@ -65,6 +65,8 @@ class CommandParserTest {
         assertEquals(Command.OpenHub, CommandParser.parse("hub"))
         assertEquals(Command.OpenNotes, CommandParser.parse("notes"))
         assertEquals(Command.OpenNotes, CommandParser.parse("/notes"))
+        assertEquals(Command.OpenApps, CommandParser.parse("apps"))
+        assertEquals(Command.OpenApps, CommandParser.parse("/apps"))
         assertEquals(Command.Help, CommandParser.parse("help"))
         assertEquals(Command.Help, CommandParser.parse("?"))
     }

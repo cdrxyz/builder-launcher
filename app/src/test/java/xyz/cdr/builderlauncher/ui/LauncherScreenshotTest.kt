@@ -111,7 +111,60 @@ class LauncherScreenshotTest {
                     weather = "18° cloudy",
                     input = "notes",
                     todos = listOf("buy milk", "ship builder-launcher CI"),
-                    apps = listOf("… all notes >", "Notes"),
+                    apps = listOf("… all notes >", "Notes", "… all apps >"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeAppsFilter() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "c",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    apps = listOf("Calendar", "Camera", "Clock", "Contacts", "… all apps >"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun allApps() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                AllAppsChrome(
+                    rows = listOf(
+                        AppListRow("Calendar"),
+                        AppListRow("Camera"),
+                        AppListRow("Clock"),
+                        AppListRow("Contacts"),
+                        AppListRow("Maps"),
+                        AppListRow("Messages"),
+                        AppListRow("Phone"),
+                        AppListRow("Settings"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun allAppsFilter() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                AllAppsChrome(
+                    rows = listOf(
+                        AppListRow("Calendar"),
+                        AppListRow("Camera"),
+                        AppListRow("Clock"),
+                        AppListRow("Contacts"),
+                    ),
+                    input = "c",
                 )
             }
         }

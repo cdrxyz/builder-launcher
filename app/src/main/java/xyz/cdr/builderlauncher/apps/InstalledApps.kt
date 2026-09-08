@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.graphics.drawable.Drawable
+import android.net.Uri
+import android.provider.Settings
 
 data class LaunchableApp(
     val label: String,
@@ -40,6 +43,23 @@ class InstalledApps(private val context: Context) {
         val intent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
             .setClassName(app.packageName, app.activityName)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+
+    fun icon(app: LaunchableApp): Drawable? =
+        runCatching { context.packageManager.getApplicationIcon(app.packageName) }.getOrNull()
+
+    fun openInfo(app: LaunchableApp) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.fromParts("package", app.packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+
+    fun uninstall(app: LaunchableApp) {
+        val intent = Intent(Intent.ACTION_DELETE)
+            .setData(Uri.parse("package:${app.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }

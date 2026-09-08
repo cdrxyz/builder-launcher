@@ -5,14 +5,17 @@ package xyz.cdr.builderlauncher.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.Configuration
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,9 +40,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -57,6 +65,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -66,6 +78,7 @@ import xyz.cdr.builderlauncher.ai.OAuthSpec
 import xyz.cdr.builderlauncher.ai.oauth.DevicePending
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.ai.oauth.PkceSession
+import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.commands.AppPick
@@ -98,7 +111,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps }
 
 @Composable
 fun BuilderRoot(
@@ -123,6 +136,8 @@ fun BuilderRoot(
     var aiText by remember { mutableStateOf<String?>(null) }
     var aiBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
+    var appQuery by remember { mutableStateOf(false) }
+    var appsEpoch by remember { mutableIntStateOf(0) }
     var people by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
     var contactAction by remember { mutableStateOf<ContactAction?>(null) }
     var contactBody by remember { mutableStateOf("") }
@@ -134,6 +149,14 @@ fun BuilderRoot(
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) appsEpoch++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val hardware = remember(settings.keyboardMode) {
         when (settings.keyboardMode) {
             KeyboardMode.HARDWARE -> true
@@ -159,6 +182,7 @@ fun BuilderRoot(
         input = ""
         choices = emptyList()
         people = emptyList()
+        appQuery = false
         page = Page.NoteEditor
     }
 
@@ -166,7 +190,16 @@ fun BuilderRoot(
         input = ""
         choices = emptyList()
         people = emptyList()
+        appQuery = false
         page = Page.Notes
+    }
+
+    fun openAppsList(keepQuery: Boolean) {
+        if (!keepQuery) input = ""
+        choices = emptyList()
+        people = emptyList()
+        appQuery = false
+        page = Page.Apps
     }
 
     fun saveAndCloseNote() {
@@ -188,7 +221,7 @@ fun BuilderRoot(
     }
 
     fun onInput(value: String) {
-        if (value.startsWith(Notes.PREFIX) && page != Page.NoteEditor) {
+        if (value.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps) {
             openNoteEditor(id = null, draft = Notes.draftFromInput(value), fromList = false)
             return
         }
@@ -197,9 +230,16 @@ fun BuilderRoot(
         if (value.isNotBlank() && !value.equals("send", ignoreCase = true)) {
             smsDraft = null
         }
+        if (page == Page.Apps) {
+            choices = emptyList()
+            people = emptyList()
+            appQuery = false
+            return
+        }
         if (value.isBlank()) {
             choices = emptyList()
             people = emptyList()
+            appQuery = false
             return
         }
         val first = value.first()
@@ -208,12 +248,15 @@ fun BuilderRoot(
             val needle = value.drop(1).trim().split(Regex("\\s+")).firstOrNull().orEmpty()
             people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
             choices = emptyList()
+            appQuery = false
         } else if (first in "*-+?") {
             people = emptyList()
             choices = emptyList()
+            appQuery = false
         } else {
             people = emptyList()
-            choices = apps.search(value).take(8)
+            choices = apps.search(value)
+            appQuery = true
         }
     }
 
@@ -244,6 +287,7 @@ fun BuilderRoot(
                 contactAction = null
                 smsDraft = null
                 help = false
+                appQuery = false
             }
             ExecResult.ShowHelp -> {
                 help = true
@@ -252,6 +296,7 @@ fun BuilderRoot(
             ExecResult.NavigateSettings -> page = Page.Settings
             ExecResult.NavigateHub -> page = Page.Hub
             ExecResult.NavigateNotes -> openNotesList()
+            ExecResult.NavigateApps -> openAppsList(keepQuery = false)
             is ExecResult.Ask -> {
                 help = false
                 aiBusy = true
@@ -267,6 +312,7 @@ fun BuilderRoot(
                 pick = result.pick
                 people = emptyList()
                 help = false
+                appQuery = result.pick == AppPick.Launch
             }
             is ExecResult.ContactChoices -> {
                 people = result.contacts
@@ -332,82 +378,51 @@ fun BuilderRoot(
                     HelpBlock()
                     Spacer(Modifier.height(12.dp))
                 }
-                val pinned = remember(pinPkgs, apps.all()) {
+                val pinned = remember(pinPkgs, appsEpoch) {
                     val all = apps.all()
                     pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
                 }
-                val shown = if (choices.isNotEmpty()) choices else pinned
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (people.isNotEmpty()) {
-                        items(people, key = { it.name + it.number }) { person ->
-                            Column(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val pending = contactAction
-                                        if (pending != null) {
-                                            when (val result = executor.applyContact(person, contactBody, pending)) {
-                                                is ExecResult.SmsDraft -> {
-                                                    smsDraft = result
-                                                    input = ""
-                                                }
-                                                else -> {
-                                                    input = ""
-                                                }
-                                            }
-                                            people = emptyList()
-                                            contactAction = null
-                                        } else {
-                                            val prefix = if (input.startsWith("#")) "#" else "@"
-                                            val body = if (prefix == "@") {
-                                                input.drop(1).trim().split(Regex("\\s+"), limit = 2)
-                                                    .getOrElse(1) { "" }
-                                            } else {
-                                                ""
-                                            }
-                                            input = if (body.isBlank()) {
-                                                "$prefix${person.name} "
-                                            } else {
-                                                "$prefix${person.name} $body"
-                                            }
-                                            people = emptyList()
-                                        }
-                                    }
-                                    .padding(vertical = 6.dp),
-                            ) {
-                                Text(person.name, color = Paper)
-                                Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
+                val filtering = people.isEmpty() && appQuery
+                val shown = if (filtering) {
+                    AppList.preview(choices)
+                } else if (choices.isNotEmpty()) {
+                    choices
+                } else {
+                    pinned
+                }
+                fun pickApp(app: LaunchableApp) {
+                    if (choices.isNotEmpty() || filtering) {
+                        executor.applyPick(app, pick)
+                        input = ""
+                        choices = emptyList()
+                        appQuery = false
                     } else {
+                        apps.launch(app)
+                    }
+                }
+                if (filtering) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         if (Notes.matchesQuery(input)) {
-                            item(key = "all-notes") {
-                                Text(
-                                    Notes.MORE,
-                                    color = Prompt,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { openNotesList() }
-                                        .padding(vertical = 6.dp),
-                                )
-                            }
+                            Text(
+                                Notes.MORE,
+                                color = Prompt,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { openNotesList() }
+                                    .padding(vertical = 6.dp),
+                            )
                         }
-                        items(shown, key = { it.packageName + it.activityName }) { app ->
+                        shown.forEach { app ->
                             Text(
                                 app.label,
                                 color = Paper,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .combinedClickable(
-                                        onClick = {
-                                            if (choices.isNotEmpty()) {
-                                                executor.applyPick(app, pick)
-                                                input = ""
-                                                choices = emptyList()
-                                            } else {
-                                                apps.launch(app)
-                                            }
-                                        },
+                                        onClick = { pickApp(app) },
                                         onLongClick = {
                                             if (pins.isPinned(app.packageName)) {
                                                 pins.unpin(app.packageName)
@@ -419,9 +434,82 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (shown.isEmpty() && input.isBlank()) {
-                            item {
-                                Text("Type to work. help for commands. Then put it down.", color = Dim)
+                        Text(
+                            AppList.MORE,
+                            color = Prompt,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { openAppsList(keepQuery = true) }
+                                .padding(vertical = 6.dp),
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (people.isNotEmpty()) {
+                            items(people, key = { it.name + it.number }) { person ->
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val pending = contactAction
+                                            if (pending != null) {
+                                                when (val result = executor.applyContact(person, contactBody, pending)) {
+                                                    is ExecResult.SmsDraft -> {
+                                                        smsDraft = result
+                                                        input = ""
+                                                    }
+                                                    else -> {
+                                                        input = ""
+                                                    }
+                                                }
+                                                people = emptyList()
+                                                contactAction = null
+                                            } else {
+                                                val prefix = if (input.startsWith("#")) "#" else "@"
+                                                val body = if (prefix == "@") {
+                                                    input.drop(1).trim().split(Regex("\\s+"), limit = 2)
+                                                        .getOrElse(1) { "" }
+                                                } else {
+                                                    ""
+                                                }
+                                                input = if (body.isBlank()) {
+                                                    "$prefix${person.name} "
+                                                } else {
+                                                    "$prefix${person.name} $body"
+                                                }
+                                                people = emptyList()
+                                            }
+                                        }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(person.name, color = Paper)
+                                    Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        } else {
+                            items(shown, key = { it.packageName + it.activityName }) { app ->
+                                Text(
+                                    app.label,
+                                    color = Paper,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .combinedClickable(
+                                            onClick = { pickApp(app) },
+                                            onLongClick = {
+                                                if (pins.isPinned(app.packageName)) {
+                                                    pins.unpin(app.packageName)
+                                                } else {
+                                                    pins.pin(app.packageName)
+                                                }
+                                            },
+                                        )
+                                        .padding(vertical = 6.dp),
+                                )
+                            }
+                            if (shown.isEmpty() && input.isBlank()) {
+                                item {
+                                    Text("Type to work. help for commands. Then put it down.", color = Dim)
+                                }
                             }
                         }
                     }
@@ -575,6 +663,79 @@ fun BuilderRoot(
                         .weight(1f)
                         .fillMaxWidth()
                         .focusRequester(focus),
+                )
+            }
+            Page.Apps -> {
+                val listed = remember(input, appsEpoch) {
+                    if (input.isBlank()) apps.all() else apps.search(input)
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        AppList.BACK,
+                        color = Prompt,
+                        modifier = Modifier
+                            .clickable {
+                                page = Page.Home
+                                if (input.isNotBlank()) onInput(input)
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (listed.isEmpty()) {
+                        item {
+                            Text("No apps match.", color = Dim)
+                        }
+                    }
+                    items(listed, key = { it.packageName + it.activityName }) { app ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AppIcon(
+                                drawable = apps.icon(app),
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .size(28.dp),
+                            )
+                            Text(
+                                app.label,
+                                color = Paper,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        apps.launch(app)
+                                        input = ""
+                                    }
+                                    .padding(vertical = 8.dp),
+                            )
+                            InfoIcon(
+                                Modifier
+                                    .semantics { contentDescription = "app settings" }
+                                    .clickable { apps.openInfo(app) }
+                                    .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                            DeleteIcon(
+                                Modifier
+                                    .semantics { contentDescription = "delete app" }
+                                    .clickable { apps.uninstall(app) }
+                                    .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    value = input,
+                    hardware = hardware,
+                    onValue = { onInput(it) },
+                    onSubmit = { runCommand(input) },
+                    onHub = { page = Page.Hub },
                 )
             }
             Page.Hub -> {
@@ -815,10 +976,11 @@ private fun HelpBlock() {
         "-todo           save todo",
         "+               write a note",
         "notes           all notes",
+        "apps            all apps",
         "?question       ask AI",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / settings",
+        "hub / notes / apps / settings",
         "type a name     launch app",
         "hold an app     pin or unpin",
     )
@@ -1196,5 +1358,22 @@ private fun WeatherLocationField(
                 .clickable { onPick(place) }
                 .padding(vertical = 8.dp),
         )
+    }
+}
+
+@Composable
+private fun AppIcon(drawable: Drawable?, modifier: Modifier = Modifier) {
+    val bmp = remember(drawable) {
+        runCatching { drawable?.toBitmap(width = 84, height = 84)?.asImageBitmap() }.getOrNull()
+    }
+    if (bmp != null) {
+        Image(
+            bitmap = bmp,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = modifier,
+        )
+    } else {
+        Box(modifier.background(Line))
     }
 }
