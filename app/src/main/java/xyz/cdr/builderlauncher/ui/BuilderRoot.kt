@@ -74,6 +74,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
@@ -1370,13 +1371,20 @@ fun BuilderRoot(
                                 Column(
                                     Modifier
                                         .weight(1f)
+                                        .semantics { contentDescription = "open message" }
                                         .clickable { HubStore.open(item.key) }
                                         .padding(vertical = 6.dp),
                                 ) {
                                     Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
                                     Text(item.title, color = Paper)
                                     if (item.body.isNotBlank()) {
-                                        Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            item.body,
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                     }
                                 }
                                 ReplyIcon(
@@ -1405,19 +1413,39 @@ fun BuilderRoot(
                             }
                             if (replyKey == item.key && item.canInlineReply) {
                                 Spacer(Modifier.height(4.dp))
-                                BasicTextField(
-                                    value = replyText,
-                                    onValueChange = { replyText = it },
-                                    singleLine = true,
-                                    cursorBrush = SolidColor(Accent),
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
-                                    keyboardOptions = KeyboardOptions(
-                                        capitalization = KeyboardCapitalization.Sentences,
-                                        imeAction = ImeAction.Send,
-                                    ),
-                                    keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(Modifier.weight(1f)) {
+                                        if (replyText.isEmpty()) {
+                                            Text(
+                                                "reply",
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = replyText,
+                                            onValueChange = { replyText = it },
+                                            singleLine = true,
+                                            cursorBrush = SolidColor(Accent),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+                                            keyboardOptions = KeyboardOptions(
+                                                capitalization = KeyboardCapitalization.Sentences,
+                                                imeAction = ImeAction.Send,
+                                            ),
+                                            keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                    SendIcon(
+                                        Modifier
+                                            .semantics { contentDescription = "send" }
+                                            .clickable { sendHubReply(item.key) }
+                                            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                    )
+                                }
                                 HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
                             }
                         }

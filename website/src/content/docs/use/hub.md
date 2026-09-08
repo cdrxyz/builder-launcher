@@ -10,9 +10,12 @@ Type `hub` or press D-pad right.
 The hub is **notifications only**. Todos stay on home / `… more tasks >`. Notes stay on `notes`.
 
 1. Settings → **Notification access (hub)** and grant access for Builder Launcher.
-2. Posted notifications appear here (up to 80).
-3. Tap a row to open the originating app.
-4. Dismiss removes it from the hub (and the system shade when the listener can).
+2. Posted notifications appear here (up to 80). Long message bodies clip to 3 lines.
+3. Tap the message to open it in the source app. Reply stays on the arrow.
+4. Inline reply shows a field with a right-facing send arrow on the right.
+5. Dismiss removes it from the hub (and the system shade when the listener can).
+
+![Hub reply field with send icon](../../../assets/screenshots/hub-reply.png)
 
 ![Dismissing a hub notification](../../../assets/screenshots/hub-dismiss.png)
 

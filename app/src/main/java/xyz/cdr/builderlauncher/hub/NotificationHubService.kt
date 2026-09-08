@@ -1,9 +1,11 @@
 package xyz.cdr.builderlauncher.hub
 
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.RemoteInput
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -92,9 +94,31 @@ class NotificationHubService : NotificationListenerService() {
     }
 
     private fun open(key: String): Boolean {
-        val intent = intents[key] ?: return false
+        val pending = intents[key]
+        if (pending != null && sendPending(pending)) return true
+        val pkg = HubStore.items.value.find { it.key == key }?.packageName ?: return false
+        val launch = packageManager.getLaunchIntentForPackage(pkg) ?: return false
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return try {
-            intent.send()
+            startActivity(launch)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun sendPending(pending: PendingIntent): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val options = ActivityOptions.makeBasic().apply {
+                    setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+                    )
+                }
+                pending.send(this, 0, null, null, null, null, options.toBundle())
+            } else {
+                pending.send()
+            }
             true
         } catch (_: Exception) {
             false

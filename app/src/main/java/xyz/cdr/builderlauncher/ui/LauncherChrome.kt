@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.apps.AppList
@@ -65,6 +66,7 @@ data class HubRow(
     val kind: String,
     val title: String,
     val body: String = "",
+    val reply: String? = null,
 )
 
 data class NoteListRow(
@@ -674,19 +676,30 @@ fun HubChrome(rows: List<HubRow>) {
                 )
             } else {
                 rows.forEach { row ->
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                            Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
-                            Text(row.title, color = Paper)
-                            if (row.body.isNotBlank()) {
-                                Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                                Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                Text(row.title, color = Paper)
+                                if (row.body.isNotBlank()) {
+                                    Text(
+                                        row.body,
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
+                            ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                            DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                         }
-                        ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
-                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                        if (row.reply != null) {
+                            HubReplyBar(row.reply)
+                        }
                     }
                 }
             }
@@ -990,6 +1003,59 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(4.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                value.ifEmpty { "reply" },
+                color = if (value.isEmpty()) Dim else Paper,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+        }
+        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+fun SendIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.16f
+        val midY = size.height / 2f
+        val tip = Offset(size.width - pad, midY)
+        drawLine(
+            color = accent,
+            start = Offset(pad, midY),
+            end = tip,
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        val ah = size.minDimension * 0.28f
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(tip.x - ah, tip.y - ah * 0.9f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = accent,
+            start = tip,
+            end = Offset(tip.x - ah, tip.y + ah * 0.9f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+    }
 }
 
 @Composable
