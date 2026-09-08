@@ -750,7 +750,11 @@ fun BuilderRoot(
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(openTodos, key = { "t" + it.id }) { item ->
-                        TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        TodoLine(
+                            item,
+                            onToggle = { lists.toggleComplete(item.id) },
+                            onDelete = { lists.remove(item.id) },
+                        )
                     }
                     if (doneTodos.isNotEmpty()) {
                         item {
@@ -763,7 +767,11 @@ fun BuilderRoot(
                         }
                     }
                     items(doneTodos, key = { "d" + it.id }) { item ->
-                        TodoLine(item, onToggle = { lists.toggleComplete(item.id) })
+                        TodoLine(
+                            item,
+                            onToggle = { lists.toggleComplete(item.id) },
+                            onDelete = { lists.remove(item.id) },
+                        )
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -1305,18 +1313,36 @@ private fun TodoPreview(
 }
 
 @Composable
-private fun TodoLine(item: LocalItem, onToggle: () -> Unit, compact: Boolean = false) {
-    Text(
-        item.text,
-        color = if (item.done) Dim else Paper,
-        style = MaterialTheme.typography.bodyLarge.copy(
-            textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle() }
-            .padding(vertical = if (compact) 4.dp else 6.dp),
-    )
+private fun TodoLine(
+    item: LocalItem,
+    onToggle: () -> Unit,
+    compact: Boolean = false,
+    onDelete: (() -> Unit)? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            item.text,
+            color = if (item.done) Dim else Paper,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .clickable { onToggle() }
+                .padding(vertical = if (compact) 4.dp else 6.dp),
+        )
+        if (onDelete != null) {
+            DeleteIcon(
+                Modifier
+                    .semantics { contentDescription = "delete task" }
+                    .clickable { onDelete() }
+                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
+    }
 }
 
 @Composable
