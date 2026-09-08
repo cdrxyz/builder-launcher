@@ -73,6 +73,38 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeCalculator() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "15*37",
+                    prompt = ">",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeCalculatorAsk() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "15*37",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun todos() {
         paparazzi.snapshot {
             BuilderTheme {

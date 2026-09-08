@@ -104,6 +104,7 @@ import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.commands.AppPick
+import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.commands.Command
 import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.commands.CommandParser
@@ -689,6 +690,12 @@ fun BuilderRoot(
             clearBar()
             people = emptyList()
             return
+        }
+        if (prompt == PrefixCommands.DEFAULT_PROMPT) {
+            Calculator.commit(line)?.let { result ->
+                applyMode(PrefixCommands.Mode(input = result))
+                return
+            }
         }
         val result = executor.execute(CommandParser.parse(line))
         when (result) {
@@ -2081,6 +2088,7 @@ private fun CommandBar(
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val ctx = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(0) }
     var slashSelected by remember { mutableStateOf(0) }
@@ -2127,6 +2135,40 @@ private fun CommandBar(
                     if (index >= 0) pick(index)
                 },
             )
+        }
+        val calc = if (
+            (prompt == PrefixCommands.DEFAULT_PROMPT || prompt == '?') &&
+            !menuOpen &&
+            !slashMode
+        ) {
+            Calculator.preview(value)
+        } else {
+            null
+        }
+        if (calc != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "= $calc",
+                    color = Accent,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                CopyIcon(
+                    Modifier
+                        .semantics { contentDescription = "copy result" }
+                        .clickable {
+                            ctx.getSystemService(ClipboardManager::class.java)
+                                ?.setPrimaryClip(ClipData.newPlainText("result", calc))
+                            Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+                        }
+                        .padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
+                )
+            }
         }
         Row(
             verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically,
@@ -2306,6 +2348,7 @@ private fun HelpBlock() {
         "pin Termux      pin an app",
         "unpin Termux    unpin",
         "hub / notes / apps / stocks / clock / weather / settings",
+        "2+2             calculator",
         "type a name     launch app",
         "hold an app     pin or unpin",
         "hold a pin      drag to reorder",
