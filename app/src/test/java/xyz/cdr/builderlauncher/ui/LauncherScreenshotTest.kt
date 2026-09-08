@@ -276,7 +276,7 @@ class LauncherScreenshotTest {
                             """.trimIndent(),
                         ),
                     ),
-                    input = "",
+                    input = "write a longer follow-up that wraps instead of scrolling sideways on this screen",
                 )
             }
         }

@@ -318,6 +318,8 @@ fun ChatChrome(
             HistoryIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = "?", wrap = true)
+        Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (messages.isEmpty() && !busy) {
                 Text("Ask a question.", color = Dim)
@@ -333,8 +335,6 @@ fun ChatChrome(
                 Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
             }
         }
-        Spacer(Modifier.height(8.dp))
-        CommandRow(input, prompt = "?")
     }
 }
 
@@ -743,19 +743,26 @@ fun SettingsChrome(
 }
 
 @Composable
-private fun CommandRow(value: String, commandsOpen: Boolean = false, slashOpen: Boolean = false, prompt: String = ">") {
+private fun CommandRow(
+    value: String,
+    commandsOpen: Boolean = false,
+    slashOpen: Boolean = false,
+    prompt: String = ">",
+    wrap: Boolean = false,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         if (slashOpen) {
             SlashCommandMenu()
         } else if (commandsOpen) {
             CommandMenu()
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp))
+        Row(verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically) {
+            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp, top = if (wrap) 2.dp else 0.dp))
             Text(
                 value.ifEmpty { "" },
                 color = Paper,
                 style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f),
             )
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
