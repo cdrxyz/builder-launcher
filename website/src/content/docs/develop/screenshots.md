@@ -32,6 +32,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `home-notes.png` | `homeNotesShortcut` |
 | `home-apps.png` | `homeAppsFilter` |
 | `home-pinned.png` | `homePinned` |
+| `home-pinned-icons.png` | `homePinnedIcons` |
 | `all-apps.png` | `allApps` |
 | `home-stocks.png` | `homeStocksShortcut` |
 | `stocks.png` | `stocks` |

@@ -15,6 +15,7 @@ Type `settings` or `/settings`.
 | Model | Blank uses the provider default. |
 | Accent | Color chips for the cursor, `>` prompt, selected chips, and links. Default cyberpunk green. |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
+| Home apps | `plaintext` (default) or `icons`. Names vs icons for pins and home search. |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |
 | Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Starts silent, then rises to 80% over 10 seconds. |

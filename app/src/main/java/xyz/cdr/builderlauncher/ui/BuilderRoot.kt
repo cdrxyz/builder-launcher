@@ -123,6 +123,7 @@ import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
+import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.ListReorder
@@ -864,22 +865,18 @@ fun BuilderRoot(
                             )
                         }
                         shown.forEach { app ->
-                            Text(
-                                app.label,
-                                color = Paper,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .combinedClickable(
-                                        onClick = { pickApp(app) },
-                                        onLongClick = {
-                                            if (pins.isPinned(app.packageName)) {
-                                                pins.unpin(app.packageName)
-                                            } else {
-                                                pins.pin(app.packageName)
-                                            }
-                                        },
-                                    )
-                                    .padding(vertical = 6.dp),
+                            HomeAppRow(
+                                app = app,
+                                icons = settings.appIcons == AppIcons.ICONS,
+                                drawable = apps.icon(app),
+                                onClick = { pickApp(app) },
+                                onLongClick = {
+                                    if (pins.isPinned(app.packageName)) {
+                                        pins.unpin(app.packageName)
+                                    } else {
+                                        pins.pin(app.packageName)
+                                    }
+                                },
                             )
                         }
                         Text(
@@ -893,13 +890,22 @@ fun BuilderRoot(
                     }
                 } else {
                     Column(modifier = Modifier.weight(1f)) {
-                    if (people.isEmpty() && pinned.isNotEmpty()) {
-                        PinnedAppsRow(
-                            apps = pinned,
-                            icon = { apps.icon(it) },
-                            onLaunch = { apps.launch(it) },
-                            onMove = { from, to -> pins.move(from, to) },
-                        )
+                    val showPins = people.isEmpty() && pinned.isNotEmpty() && shown.isEmpty()
+                    if (showPins) {
+                        if (settings.appIcons == AppIcons.ICONS) {
+                            PinnedAppsRow(
+                                apps = pinned,
+                                icon = { apps.icon(it) },
+                                onLaunch = { apps.launch(it) },
+                                onMove = { from, to -> pins.move(from, to) },
+                            )
+                        } else {
+                            PinnedAppsTextList(
+                                apps = pinned,
+                                onLaunch = { apps.launch(it) },
+                                onMove = { from, to -> pins.move(from, to) },
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                     }
                     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -948,22 +954,18 @@ fun BuilderRoot(
                             }
                         } else {
                             items(shown, key = { it.packageName + it.activityName }) { app ->
-                                Text(
-                                    app.label,
-                                    color = Paper,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .combinedClickable(
-                                            onClick = { pickApp(app) },
-                                            onLongClick = {
-                                                if (pins.isPinned(app.packageName)) {
-                                                    pins.unpin(app.packageName)
-                                                } else {
-                                                    pins.pin(app.packageName)
-                                                }
-                                            },
-                                        )
-                                        .padding(vertical = 6.dp),
+                                HomeAppRow(
+                                    app = app,
+                                    icons = settings.appIcons == AppIcons.ICONS,
+                                    drawable = apps.icon(app),
+                                    onClick = { pickApp(app) },
+                                    onLongClick = {
+                                        if (pins.isPinned(app.packageName)) {
+                                            pins.unpin(app.packageName)
+                                        } else {
+                                            pins.pin(app.packageName)
+                                        }
+                                    },
                                 )
                             }
                             if (shown.isEmpty() && pinned.isEmpty() && input.isBlank()) {
@@ -2580,6 +2582,26 @@ private fun SettingsPage(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
+        Text("Home apps", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            AppIcons.entries.forEach { style ->
+                Text(
+                    style.name.lowercase(),
+                    color = if (settings.appIcons == style) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(appIcons = style) } },
+                )
+            }
+        }
+        Text(
+            if (settings.appIcons == AppIcons.ICONS) {
+                "Pinned apps as icons. Home search shows icons."
+            } else {
+                "Pinned apps and home search as names."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
         WeatherLocationField(
             query = placeQuery,
             locked = settings.weatherLat != null && placeQuery == settings.weatherPlace,
@@ -2787,6 +2809,99 @@ private fun WeatherLocationField(
                 .clickable { onPick(place) }
                 .padding(vertical = 8.dp),
         )
+    }
+}
+
+@Composable
+private fun HomeAppRow(
+    app: LaunchableApp,
+    icons: Boolean,
+    drawable: Drawable?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icons) {
+            AppIcon(
+                drawable = drawable,
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(28.dp),
+            )
+        }
+        Text(app.label, color = Paper)
+    }
+}
+
+@Composable
+private fun PinnedAppsTextList(
+    apps: List<LaunchableApp>,
+    onLaunch: (LaunchableApp) -> Unit,
+    onMove: (Int, Int) -> Unit,
+) {
+    var dragFrom by remember { mutableStateOf<Int?>(null) }
+    var dragTo by remember { mutableStateOf<Int?>(null) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var rowHeight by remember { mutableFloatStateOf(0f) }
+    val gap = with(LocalDensity.current) { 6.dp.toPx() }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        apps.forEachIndexed { index, app ->
+            val lifting = dragFrom == index
+            val stepPx = (rowHeight + gap).takeIf { it > 1f } ?: 0f
+            val shift = when {
+                lifting -> dragY
+                dragFrom != null && dragTo != null && stepPx > 0f ->
+                    ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
+                else -> 0f
+            }
+            Text(
+                app.label,
+                color = Paper,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(if (lifting) 1f else 0f)
+                    .graphicsLayer { translationY = shift }
+                    .onSizeChanged { rowHeight = it.height.toFloat() }
+                    .pointerInput(app.packageName, app.activityName) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                dragFrom = index
+                                dragTo = index
+                                dragY = 0f
+                            },
+                            onDragEnd = {
+                                val from = dragFrom
+                                val to = dragTo
+                                dragFrom = null
+                                dragTo = null
+                                dragY = 0f
+                                if (from != null && to != null) onMove(from, to)
+                            },
+                            onDragCancel = {
+                                dragFrom = null
+                                dragTo = null
+                                dragY = 0f
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                dragY += amount.y
+                                val from = dragFrom ?: return@detectDragGesturesAfterLongPress
+                                val step = (rowHeight + gap).takeIf { it > 1f }
+                                    ?: return@detectDragGesturesAfterLongPress
+                                dragTo = ListReorder.targetIndex(from, dragY, step, apps.lastIndex)
+                            },
+                        )
+                    }
+                    .clickable { onLaunch(app) }
+                    .padding(vertical = 6.dp),
+            )
+        }
     }
 }
 

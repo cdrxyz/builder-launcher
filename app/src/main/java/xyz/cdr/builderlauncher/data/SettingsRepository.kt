@@ -31,6 +31,7 @@ data class BuilderSettings(
     val accentHex: String = AccentColor.DEFAULT_HEX,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
+    val appIcons: AppIcons = AppIcons.PLAINTEXT,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -45,6 +46,8 @@ data class BuilderSettings(
 enum class KeyboardMode { AUTO, HARDWARE, SOFTWARE }
 
 enum class StockInsert { TOP, BOTTOM }
+
+enum class AppIcons { PLAINTEXT, ICONS }
 
 enum class WeatherUnits {
     METRIC,
@@ -117,6 +120,9 @@ class SettingsRepository(context: Context) {
         val insert = runCatching {
             StockInsert.valueOf(prefs.getString(KEY_STOCK_INSERT, StockInsert.TOP.name)!!)
         }.getOrDefault(StockInsert.TOP)
+        val appIcons = runCatching {
+            AppIcons.valueOf(prefs.getString(KEY_APP_ICONS, AppIcons.PLAINTEXT.name)!!)
+        }.getOrDefault(AppIcons.PLAINTEXT)
         return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
@@ -134,6 +140,7 @@ class SettingsRepository(context: Context) {
             accentHex = AccentColor.normalize(prefs.getString(KEY_ACCENT, AccentColor.DEFAULT_HEX)),
             stockInsert = insert,
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
+            appIcons = appIcons,
         )
     }
 
@@ -155,6 +162,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_ACCENT, AccentColor.normalize(next.accentHex))
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
+            .putString(KEY_APP_ICONS, next.appIcons.name)
             .apply()
     }
 
@@ -177,6 +185,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_ACCENT = "accent"
         private const val KEY_STOCK_INSERT = "stock_insert"
         private const val KEY_CLOCK_SOUND = "clock_sound"
+        private const val KEY_APP_ICONS = "app_icons"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {
