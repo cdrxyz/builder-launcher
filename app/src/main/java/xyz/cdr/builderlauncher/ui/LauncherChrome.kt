@@ -839,7 +839,7 @@ fun SettingsChrome(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            listOf("hum", "off").forEach { label ->
+            listOf("orthodox", "hum", "off").forEach { label ->
                 Text(label, color = Dim)
             }
         }

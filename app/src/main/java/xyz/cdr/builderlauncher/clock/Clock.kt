@@ -206,7 +206,7 @@ object Clock {
         zone: ZoneId = ZoneId.systemDefault(),
     ): Long {
         val snooze = alarm.snoozeUntil
-        if (snooze != null && snooze > now) return snooze
+        if (snooze != null) return if (snooze > now) snooze else now
         return nextTrigger(alarm.hour, alarm.minute, now, alarm.days, zone)
     }
 }
@@ -250,6 +250,7 @@ enum class ClockSound {
     PULSE,
     CHIME,
     BELL,
+    ORTHODOX,
     HUM,
     OFF,
     ;

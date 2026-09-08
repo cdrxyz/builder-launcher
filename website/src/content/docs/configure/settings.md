@@ -17,7 +17,7 @@ Type `settings` or `/settings`.
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |
-| Clock sound | `pulse`, `chime`, `bell`, `hum`, or `off`. Starts silent, then rises to 80% over 10 seconds. |
+| Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Starts silent, then rises to 80% over 10 seconds. |
 | Notification access (hub) | Opens Android's notification listener settings. |
 | Set as default home app | Asks Android again if you declined the first prompt. |
 

@@ -8,12 +8,13 @@ object ClockTone {
 
     fun pcm(sound: ClockSound): ShortArray {
         if (sound.silent) return ShortArray(0)
-        val n = SAMPLE_RATE * 2
-        val out = ShortArray(n)
+        val seconds = if (sound == ClockSound.ORTHODOX) 4 else 2
+        val out = ShortArray(SAMPLE_RATE * seconds)
         when (sound) {
             ClockSound.PULSE -> pulse(out)
             ClockSound.CHIME -> chime(out)
             ClockSound.BELL -> bell(out)
+            ClockSound.ORTHODOX -> orthodox(out)
             ClockSound.HUM -> hum(out)
             ClockSound.OFF -> Unit
         }
@@ -46,13 +47,38 @@ object ClockTone {
         }
     }
 
+    private fun orthodox(out: ShortArray) {
+        val beat = SAMPLE_RATE
+        mix(out, 146.83, 0, out.size, 0.10)
+        mix(out, 293.66, 0, out.size, 0.03)
+        mix(out, 220.00, 0, beat * 2, 0.12)
+        mix(out, 196.00, beat, beat * 2, 0.11)
+        mix(out, 174.61, beat * 2, beat * 2, 0.12)
+        mix(out, 146.83, beat * 3, beat, 0.10)
+    }
+
     private fun hum(out: ShortArray) {
         sine(out, 110.0, 0, out.size, 0.16)
     }
 
     private fun sine(out: ShortArray, hz: Double, start: Int, length: Int, amp: Double) {
+        mixInto(out, hz, start, length, amp, replace = true)
+    }
+
+    private fun mix(out: ShortArray, hz: Double, start: Int, length: Int, amp: Double) {
+        mixInto(out, hz, start, length, amp, replace = false)
+    }
+
+    private fun mixInto(
+        out: ShortArray,
+        hz: Double,
+        start: Int,
+        length: Int,
+        amp: Double,
+        replace: Boolean,
+    ) {
         val end = (start + length).coerceAtMost(out.size)
-        val fade = (SAMPLE_RATE * 0.04).toInt().coerceAtLeast(1)
+        val fade = (SAMPLE_RATE * 0.08).toInt().coerceAtLeast(1)
         for (i in start until end) {
             val t = (i - start).toDouble() / SAMPLE_RATE
             val local = i - start
@@ -62,8 +88,9 @@ object ClockTone {
                 remain < fade -> remain.toDouble() / fade
                 else -> 1.0
             }
-            val sample = env * amp * sin(2.0 * Math.PI * hz * t)
-            out[i] = (sample * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            val sample = (env * amp * sin(2.0 * Math.PI * hz * t) * Short.MAX_VALUE).toInt()
+            val mixed = if (replace) sample else out[i] + sample
+            out[i] = mixed.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
     }
 }

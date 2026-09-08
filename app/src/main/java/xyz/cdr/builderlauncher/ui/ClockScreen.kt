@@ -3,6 +3,7 @@ package xyz.cdr.builderlauncher.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -329,6 +330,10 @@ fun ClockAlertScreen(
         modifier
             .fillMaxSize()
             .background(Ink)
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+            ) {}
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),

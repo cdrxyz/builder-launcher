@@ -24,15 +24,39 @@ class ClockAlertService : Service() {
     private var track: AudioTrack? = null
     private var player: Thread? = null
     @Volatile private var playing = false
+    @Volatile private var fadingFrom: Long = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP, ACTION_DISMISS -> {
+                finishAlert()
+                return START_NOT_STICKY
+            }
+            ACTION_RUN_AGAIN -> {
+                val store = ClockStore.get(this)
+                val alert = store.snapshot().alert
+                if (alert != null && alert.kind == ClockAlertKind.TIMER) {
+                    store.setTimer(Clock.runAgain(alert, System.currentTimeMillis()))
+                }
+                finishAlert()
+                ClockScheduler.sync(this, ClockStore.get(this).snapshot())
+                return START_NOT_STICKY
+            }
+            ACTION_SNOOZE -> {
+                val store = ClockStore.get(this)
+                val alert = store.snapshot().alert
+                val alarm = alert?.alarmId?.let { id -> store.snapshot().alarms.find { it.id == id } }
+                if (alarm != null) {
+                    store.replaceAlarm(Clock.snooze(alarm, System.currentTimeMillis()))
+                }
+                finishAlert()
+                ClockScheduler.sync(this, ClockStore.get(this).snapshot())
+                return START_NOT_STICKY
+            }
         }
-        val alert = ClockStore(this).snapshot().alert
+        val alert = ClockStore.get(this).snapshot().alert
         if (alert == null) {
             stopSelf()
             return START_NOT_STICKY
@@ -48,13 +72,19 @@ class ClockAlertService : Service() {
         } else {
             startForeground(NOTIFY, notification)
         }
-        startTone()
+        if (!playing) startTone()
         return START_STICKY
     }
 
     override fun onDestroy() {
         stopTone()
         super.onDestroy()
+    }
+
+    private fun finishAlert() {
+        ClockStore.get(this).setAlert(null)
+        stopTone()
+        stopSelf()
     }
 
     private fun startTone() {
@@ -88,16 +118,14 @@ class ClockAlertService : Service() {
             .build()
         track = next
         playing = true
-        val startedAt = System.currentTimeMillis()
+        fadingFrom = System.currentTimeMillis()
         next.play()
         player = Thread {
-            val bytes = ShortArray(pcm.size)
             while (playing) {
-                next.setVolume(Clock.fadeGain(System.currentTimeMillis() - startedAt))
-                pcm.copyInto(bytes)
+                next.setVolume(Clock.fadeGain(System.currentTimeMillis() - fadingFrom))
                 var offset = 0
-                while (playing && offset < bytes.size) {
-                    val written = next.write(bytes, offset, bytes.size - offset)
+                while (playing && offset < pcm.size) {
+                    val written = next.write(pcm, offset, pcm.size - offset)
                     if (written <= 0) break
                     offset += written
                 }
@@ -107,20 +135,23 @@ class ClockAlertService : Service() {
 
     private fun stopTone() {
         playing = false
-        player?.join(250)
+        val current = track
+        runCatching { current?.pause() }
+        runCatching { current?.stop() }
+        player?.join(1_000)
         player = null
-        runCatching {
-            track?.pause()
-            track?.flush()
-            track?.release()
-        }
-        track = null
+        runCatching { current?.release() }
+        if (track === current) track = null
     }
 
     companion object {
         const val CHANNEL = "clock"
         const val NOTIFY = 7103
         const val ACTION_STOP = "xyz.cdr.builderlauncher.clock.STOP_ALERT"
+        const val ACTION_DISMISS = "xyz.cdr.builderlauncher.clock.DISMISS_ALERT"
+        const val ACTION_RUN_AGAIN = "xyz.cdr.builderlauncher.clock.RUN_AGAIN"
+        const val ACTION_SNOOZE = "xyz.cdr.builderlauncher.clock.SNOOZE"
+        const val EXTRA_ALERT = "clock_alert"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(
@@ -130,8 +161,8 @@ class ClockAlertService : Service() {
         }
 
         fun stop(context: Context) {
-            context.applicationContext.stopService(
-                Intent(context.applicationContext, ClockAlertService::class.java),
+            context.applicationContext.startService(
+                Intent(context.applicationContext, ClockAlertService::class.java).setAction(ACTION_STOP),
             )
         }
 
@@ -146,14 +177,7 @@ class ClockAlertService : Service() {
 
         fun notification(context: Context, alert: ClockAlert): Notification {
             ensureChannel(context)
-            val open = PendingIntent.getActivity(
-                context,
-                0,
-                Intent(context, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    .putExtra(EXTRA_ALERT, true),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
+            val open = activityIntent(context)
             val title = when (alert.kind) {
                 ClockAlertKind.TIMER -> "Time is up"
                 ClockAlertKind.ALARM -> alert.label.ifBlank { "Alarm" }
@@ -162,7 +186,7 @@ class ClockAlertService : Service() {
                 ClockAlertKind.TIMER -> Clock.formatTimer(alert.durationMs)
                 ClockAlertKind.ALARM -> Clock.formatAlarm(alert.hour, alert.minute)
             }
-            return NotificationCompat.Builder(context, CHANNEL)
+            val builder = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(body)
@@ -172,9 +196,34 @@ class ClockAlertService : Service() {
                 .setContentIntent(open)
                 .setFullScreenIntent(open, true)
                 .setSound(null)
-                .build()
+            if (alert.kind == ClockAlertKind.TIMER) {
+                builder.addAction(0, "stop", serviceIntent(context, ACTION_STOP, 11))
+                builder.addAction(0, "run again", serviceIntent(context, ACTION_RUN_AGAIN, 12))
+            } else {
+                builder.addAction(0, "dismiss", serviceIntent(context, ACTION_DISMISS, 13))
+                builder.addAction(0, "snooze 8 min", serviceIntent(context, ACTION_SNOOZE, 14))
+            }
+            return builder.build()
         }
 
-        const val EXTRA_ALERT = "clock_alert"
+        private fun activityIntent(context: Context): PendingIntent {
+            return PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(EXTRA_ALERT, true),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        private fun serviceIntent(context: Context, action: String, code: Int): PendingIntent {
+            return PendingIntent.getService(
+                context,
+                code,
+                Intent(context, ClockAlertService::class.java).setAction(action),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
     }
 }

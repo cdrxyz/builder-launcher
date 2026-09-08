@@ -117,15 +117,19 @@ class ClockTest {
         assertTrue(snoozed.enabled)
         assertEquals(now + Clock.SNOOZE_MS, Clock.nextFireAt(snoozed, now))
         assertTrue(Clock.nextFireAt(fired.alarm, now) > now)
+        assertEquals(now, Clock.nextFireAt(snoozed.copy(snoozeUntil = now), now))
+        assertEquals(now, Clock.nextFireAt(snoozed.copy(snoozeUntil = now - 1), now))
     }
 
     @Test
     fun clockSoundLabelsAndDefault() {
-        assertEquals(listOf("pulse", "chime", "bell", "hum", "off"), ClockSound.entries.map { it.label })
+        assertEquals(listOf("pulse", "chime", "bell", "orthodox", "hum", "off"), ClockSound.entries.map { it.label })
         assertEquals(ClockSound.PULSE, ClockSound.parse(null))
         assertEquals(ClockSound.CHIME, ClockSound.parse("chime"))
         assertEquals(ClockSound.PULSE, ClockSound.parse("nope"))
         assertFalse(ClockSound.PULSE.silent)
         assertTrue(ClockSound.OFF.silent)
+        assertTrue(ClockTone.pcm(ClockSound.ORTHODOX).isNotEmpty())
+        assertTrue(ClockTone.pcm(ClockSound.OFF).isEmpty())
     }
 }

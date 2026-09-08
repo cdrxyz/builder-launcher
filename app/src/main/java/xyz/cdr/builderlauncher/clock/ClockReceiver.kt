@@ -6,7 +6,7 @@ import android.content.Intent
 
 class ClockReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val store = ClockStore(context)
+        val store = ClockStore.get(context)
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
                 ClockScheduler.sync(context, store.snapshot())
