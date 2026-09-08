@@ -70,10 +70,19 @@ fun HomeChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
-        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        if (weather.isNotBlank()) {
-            Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                if (weather.isNotBlank()) {
+                    Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         todos.take(HomeTodos.PREVIEW).forEach { text ->
@@ -257,7 +266,7 @@ fun HubChrome(rows: List<HubRow>) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (rows.isEmpty()) {
                 Text(
-                    "Grant notification access in settings to fill the hub. Tap a notification to open it, or dismiss.",
+                    "Grant notification access in settings to fill the hub with messages you can reply to.",
                     color = Dim,
                 )
             } else {
@@ -267,6 +276,13 @@ fun HubChrome(rows: List<HubRow>) {
                         Text(row.title, color = Paper)
                         if (row.body.isNotBlank()) {
                             Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(top = 6.dp),
+                        ) {
+                            Text("reply", color = Prompt)
+                            Text("dismiss", color = Dim)
                         }
                     }
                 }
@@ -427,6 +443,35 @@ private fun Field(label: String, value: String, placeholder: String) {
         modifier = Modifier.padding(vertical = 6.dp),
     )
     HorizontalDivider(color = Line)
+}
+
+@Composable
+fun MessagesIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(22.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx())
+        val pad = size.minDimension * 0.08f
+        val bodyH = size.height * 0.70f
+        drawRoundRect(
+            color = Prompt,
+            topLeft = Offset(pad, pad),
+            size = Size(size.width - pad * 2f, bodyH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
+        val tail = size.width * 0.30f
+        drawLine(
+            color = Prompt,
+            start = Offset(tail, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+        drawLine(
+            color = Prompt,
+            start = Offset(tail + size.width * 0.20f, pad + bodyH),
+            end = Offset(tail - size.width * 0.14f, size.height - pad),
+            strokeWidth = stroke.width,
+        )
+    }
 }
 
 @Composable

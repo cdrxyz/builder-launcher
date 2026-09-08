@@ -178,7 +178,7 @@ class LauncherScreenshotTest {
                 HubChrome(
                     rows = listOf(
                         HubRow("Messages", "Jason", "on my way"),
-                        HubRow("Calendar", "dentist", "Tue 9:00"),
+                        HubRow("Signal", "Lauren", "running late"),
                     ),
                 )
             }
