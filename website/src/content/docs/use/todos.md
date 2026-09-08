@@ -18,6 +18,7 @@ On the tasks page:
 
 - Command bar starts with `-` so the next Enter saves another todo.
 - `<` returns home.
+- Long-press and drag an open row across the list to reorder. Other rows slide out of the way as you pass them. Order is saved on the device. Home preview stays tap-only.
 - Copy icon writes open todos to the clipboard as:
 
   ```markdown

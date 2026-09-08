@@ -1098,12 +1098,60 @@ fun BuilderRoot(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                var dragFrom by remember { mutableStateOf<Int?>(null) }
+                var dragTo by remember { mutableStateOf<Int?>(null) }
+                var dragY by remember { mutableFloatStateOf(0f) }
+                var rowHeight by remember { mutableFloatStateOf(0f) }
+                val gap = with(LocalDensity.current) { 6.dp.toPx() }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(openTodos, key = { "t" + it.id }) { item ->
+                    itemsIndexed(openTodos, key = { _, it -> "t" + it.id }) { index, item ->
+                        val lifting = dragFrom == index
+                        val stepPx = (rowHeight + gap).takeIf { it > 1f } ?: 0f
+                        val shift = when {
+                            lifting -> dragY
+                            dragFrom != null && dragTo != null && stepPx > 0f ->
+                                ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
+                            else -> 0f
+                        }
                         TodoLine(
                             item,
                             onToggle = { lists.toggleComplete(item.id) },
                             onDelete = { lists.remove(item.id) },
+                            modifier = Modifier
+                                .zIndex(if (lifting) 1f else 0f)
+                                .graphicsLayer { translationY = shift }
+                                .onSizeChanged { rowHeight = it.height.toFloat() }
+                                .then(if (dragFrom == null) Modifier.animateItem() else Modifier),
+                            textModifier = Modifier.pointerInput(item.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        dragFrom = index
+                                        dragTo = index
+                                        dragY = 0f
+                                    },
+                                    onDragEnd = {
+                                        val from = dragFrom
+                                        val to = dragTo
+                                        dragFrom = null
+                                        dragTo = null
+                                        dragY = 0f
+                                        if (from != null && to != null) lists.moveOpen(from, to)
+                                    },
+                                    onDragCancel = {
+                                        dragFrom = null
+                                        dragTo = null
+                                        dragY = 0f
+                                    },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        dragY += amount.y
+                                        val from = dragFrom ?: return@detectDragGesturesAfterLongPress
+                                        val step = (rowHeight + gap).takeIf { it > 1f }
+                                            ?: return@detectDragGesturesAfterLongPress
+                                        dragTo = ListReorder.targetIndex(from, dragY, step, openTodos.lastIndex)
+                                    },
+                                )
+                            },
                         )
                     }
                     if (doneTodos.isNotEmpty()) {
@@ -2189,9 +2237,11 @@ private fun TodoLine(
     onToggle: () -> Unit,
     compact: Boolean = false,
     onDelete: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    textModifier: Modifier = Modifier,
 ) {
     Row(
-        Modifier.fillMaxWidth(),
+        modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -2200,7 +2250,7 @@ private fun TodoLine(
             style = MaterialTheme.typography.bodyLarge.copy(
                 textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
             ),
-            modifier = Modifier
+            modifier = textModifier
                 .weight(1f)
                 .clickable { onToggle() }
                 .padding(vertical = if (compact) 4.dp else 6.dp),

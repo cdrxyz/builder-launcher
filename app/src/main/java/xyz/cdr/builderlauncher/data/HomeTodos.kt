@@ -18,6 +18,16 @@ object HomeTodos {
     fun preview(todos: List<LocalItem>): List<LocalItem> =
         open(todos).take(PREVIEW)
 
+    fun moveOpen(items: List<LocalItem>, from: Int, to: Int): List<LocalItem> {
+        val current = open(of(items))
+        val moved = ListReorder.move(current, from, to)
+        if (moved === current) return items
+        var i = 0
+        return items.map { item ->
+            if (item.kind.equals("todo", ignoreCase = true) && !item.done) moved[i++] else item
+        }
+    }
+
     fun enterDraft(): String = TASK_PREFIX
 
     fun keepDraft(input: String): String = input.ifBlank { TASK_PREFIX }
