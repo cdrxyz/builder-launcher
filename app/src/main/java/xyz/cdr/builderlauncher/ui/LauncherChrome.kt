@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,6 +50,7 @@ import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
+import xyz.cdr.builderlauncher.data.ClockFace
 import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -68,6 +70,8 @@ import xyz.cdr.builderlauncher.weather.WeatherForecast
 import xyz.cdr.builderlauncher.weather.WeatherHour
 import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherNow
+import xyz.cdr.builderlauncher.usage.Usage
+import xyz.cdr.builderlauncher.usage.UsageSnapshot
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Gain
 import xyz.cdr.builderlauncher.ui.theme.Loss
@@ -168,27 +172,45 @@ fun HomeChrome(
     ticker: String? = null,
     tickerChange: String? = null,
     tickerUp: Boolean = true,
+    analog: Boolean = true,
 ) {
+    val (hour, minute) = parseHomeClock(time)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(if (weather.isBlank()) Modifier.weight(1f) else Modifier) {
-                Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
-                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Box(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Row(verticalAlignment = Alignment.Top) {
+                    UsageIcon(Modifier.padding(top = 6.dp, end = 8.dp, bottom = 6.dp))
+                    if (weather.isNotBlank()) {
+                        HomeWeatherMark(weather)
+                    }
+                }
+                Row(verticalAlignment = Alignment.Top) {
+                    HomeTickerMark(ticker, tickerChange, tickerUp)
+                    MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                }
             }
-            if (weather.isNotBlank()) {
-                HomeWeatherMark(weather, modifier = Modifier.weight(1f))
+            Column(
+                Modifier.align(Alignment.TopCenter),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (analog) {
+                    AnalogClock(hour = hour, minute = minute)
+                    Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                    Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                    Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
             }
-            HomeTickerMark(ticker, tickerChange, tickerUp)
-            MessagesIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         todos.take(HomeTodos.PREVIEW).forEach { text ->
@@ -905,6 +927,25 @@ fun SettingsChrome(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
+        Text("Clock face", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            ClockFace.entries.forEach { face ->
+                Text(
+                    face.name.lowercase(),
+                    color = if (settings.clockFace == face) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.clockFace == ClockFace.ANALOG) {
+                "Analog clock in the center of home, with the time and date below."
+            } else {
+                "Digital time and date in the center of home."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
         Field("Weather location", weatherPlace, "New York")
         Text(
             if (weatherPlace.isNotBlank() && weatherSuggestions.isEmpty()) {
@@ -1120,6 +1161,24 @@ fun WeatherChrome(
 }
 
 @Composable
+fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.weight(1f)) {
+            UsageBody(snapshot = snapshot)
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow("")
+    }
+}
+
+@Composable
 private fun CommandRow(
     value: String,
     commandsOpen: Boolean = false,
@@ -1293,6 +1352,79 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
             strokeWidth = stroke.width,
         )
     }
+}
+
+@Composable
+fun UsageIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val w = size.width
+        val h = size.height
+        val gap = w * 0.14f
+        val bar = (w - gap * 2f) / 3f
+        val heights = listOf(h * 0.95f, h * 0.62f, h * 0.34f)
+        heights.forEachIndexed { i, barH ->
+            drawRect(
+                color = accent,
+                topLeft = Offset(i * (bar + gap), h - barH),
+                size = Size(bar, barH),
+            )
+        }
+    }
+}
+
+@Composable
+fun AnalogClock(
+    hour: Int,
+    minute: Int,
+    second: Int = 0,
+    modifier: Modifier = Modifier,
+    faceSize: Dp = 72.dp,
+) {
+    val paper = Paper
+    val dim = Dim
+    val accent = Accent
+    Canvas(modifier.size(faceSize)) {
+        val r = size.minDimension / 2f
+        val c = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(color = dim, radius = r, style = Stroke(width = 1.6.dp.toPx()))
+        for (i in 0 until 12) {
+            val a = Math.toRadians((i * 30).toDouble() - 90.0)
+            val inner = r * 0.82f
+            val outer = r * 0.94f
+            drawLine(
+                color = dim,
+                start = Offset(c.x + inner * kotlin.math.cos(a).toFloat(), c.y + inner * kotlin.math.sin(a).toFloat()),
+                end = Offset(c.x + outer * kotlin.math.cos(a).toFloat(), c.y + outer * kotlin.math.sin(a).toFloat()),
+                strokeWidth = 1.4.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+        fun hand(degrees: Double, length: Float, width: Float, color: androidx.compose.ui.graphics.Color) {
+            val a = Math.toRadians(degrees - 90.0)
+            drawLine(
+                color = color,
+                start = c,
+                end = Offset(c.x + length * kotlin.math.cos(a).toFloat(), c.y + length * kotlin.math.sin(a).toFloat()),
+                strokeWidth = width,
+                cap = StrokeCap.Round,
+            )
+        }
+        val hourDeg = (hour % 12) * 30.0 + minute * 0.5 + second * (0.5 / 60.0)
+        val minuteDeg = minute * 6.0 + second * 0.1
+        val secondDeg = second * 6.0
+        hand(hourDeg, r * 0.52f, 2.6.dp.toPx(), paper)
+        hand(minuteDeg, r * 0.72f, 2.0.dp.toPx(), paper)
+        hand(secondDeg, r * 0.78f, 1.2.dp.toPx(), accent)
+        drawCircle(color = paper, radius = 2.2.dp.toPx(), center = c)
+    }
+}
+
+fun parseHomeClock(time: String): Pair<Int, Int> {
+    val parts = time.split(':')
+    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+    val minute = parts.getOrNull(1)?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 0
+    return hour to minute
 }
 
 @Composable

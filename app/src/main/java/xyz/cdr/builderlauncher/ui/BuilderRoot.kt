@@ -130,6 +130,7 @@ import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
+import xyz.cdr.builderlauncher.data.ClockFace
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.ListReorder
@@ -161,14 +162,19 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.usage.Usage
+import xyz.cdr.builderlauncher.usage.UsagePeriod
+import xyz.cdr.builderlauncher.usage.UsageReader
+import xyz.cdr.builderlauncher.usage.UsageStore
 import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather, Usage }
 
 private var lastPage: Page = Page.Home
 
@@ -229,9 +235,13 @@ fun BuilderRoot(
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
+    var usagePeriod by remember { mutableStateOf(UsagePeriod.TODAY) }
+    var usageSnapshot by remember { mutableStateOf(Usage.build(emptyList(), emptyMap(), UsagePeriod.TODAY, false)) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
+    val usageStore = remember { UsageStore(ctx) }
+    val usageReader = remember { UsageReader(ctx) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -246,6 +256,11 @@ fun BuilderRoot(
     }
     LaunchedEffect(page) {
         lastPage = page
+    }
+    LaunchedEffect(page, usagePeriod, appsEpoch) {
+        if (page == Page.Usage) {
+            usageSnapshot = usageReader.load(usageStore, usagePeriod)
+        }
     }
     LaunchedEffect(homePressCount) {
         if (homePressCount > 0) page = Page.Home
@@ -460,6 +475,16 @@ fun BuilderRoot(
         scope.launch { weather.refresh() }
     }
 
+    fun openUsage() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Usage
+    }
+
     fun openStockDetail(symbol: String) {
         stockSymbol = symbol
         stockRange = StockRange.default
@@ -593,7 +618,7 @@ fun BuilderRoot(
             appQuery = false
             return
         }
-        if (page == Page.Clock || page == Page.Weather) {
+        if (page == Page.Clock || page == Page.Weather || page == Page.Usage) {
             choices = emptyList()
             people = emptyList()
             appQuery = false
@@ -765,6 +790,7 @@ fun BuilderRoot(
             ExecResult.NavigateStocks -> openStocksList()
             ExecResult.NavigateClock -> openClock()
             ExecResult.NavigateWeather -> openWeather()
+            ExecResult.NavigateUsage -> openUsage()
             is ExecResult.AddStock -> {
                 openStocksList()
                 addTicker(result.query)
@@ -818,8 +844,13 @@ fun BuilderRoot(
             .padding(horizontal = 20.dp, vertical = 12.dp)
             .then(
                 when (page) {
-                    Page.Home -> Modifier.horizontalSwipe(page, onRight = { openHub() })
+                    Page.Home -> Modifier.horizontalSwipe(
+                        page,
+                        onRight = { openHub() },
+                        onLeft = { openUsage() },
+                    )
                     Page.Hub -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
+                    Page.Usage -> Modifier.horizontalSwipe(page, onRight = { page = Page.Home })
                     else -> Modifier
                 },
             ),
@@ -834,9 +865,11 @@ fun BuilderRoot(
                     isDay = forecast?.isDay ?: true,
                     ticker = ticker,
                     timer = clockState.timer,
+                    analog = settings.clockFace == ClockFace.ANALOG,
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
+                    onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
                 )
                 Spacer(Modifier.height(8.dp))
@@ -1029,6 +1062,7 @@ fun BuilderRoot(
                     onSubmit = { runCommand() },
                     onSlash = { pickSlash(it) },
                     onHub = { openHub() },
+                    onLeft = { openUsage() },
                 )
             }
             Page.Todos -> {
@@ -1596,6 +1630,33 @@ fun BuilderRoot(
                     onHub = { openHub() },
                 )
             }
+            Page.Usage -> {
+                UsageScreen(
+                    snapshot = usageSnapshot,
+                    modifier = Modifier.weight(1f),
+                    onBack = { page = Page.Home },
+                    onPeriod = { next -> usagePeriod = next },
+                    onGrant = {
+                        runCatching { ctx.startActivity(usageReader.settingsIntent()) }
+                    },
+                    onCycleApp = { pkg ->
+                        usageStore.cycle(pkg)
+                        usageSnapshot = usageReader.load(usageStore, usagePeriod)
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { page = Page.Home },
+                )
+            }
             Page.Settings -> {
                 SettingsPage(
                     settings = settings,
@@ -2005,63 +2066,87 @@ private fun ClockHeader(
     isDay: Boolean = true,
     ticker: HomeTickerLine?,
     timer: TimerState,
+    analog: Boolean,
     onOpenClock: () -> Unit,
     onOpenWeather: () -> Unit,
     onOpenHub: () -> Unit,
+    onOpenUsage: () -> Unit,
     onOpenTicker: () -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(timer.running, timer.endsAt) {
+    LaunchedEffect(timer.running, timer.endsAt, analog) {
         now.value = System.currentTimeMillis()
         while (true) {
             now.value = System.currentTimeMillis()
-            delay(if (timer.running) 200 else 15_000)
+            delay(if (timer.running || analog) 200 else 15_000)
         }
     }
     val clockText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
     val time = Clock.homeClockLabel(timer, now.value, clockText)
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
-    ) {
-        val hasWeather = !weather.isNullOrBlank()
+    val cal = Calendar.getInstance().apply { timeInMillis = now.value }
+    Box(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Row(verticalAlignment = Alignment.Top) {
+                UsageIcon(
+                    Modifier
+                        .semantics { contentDescription = "usage" }
+                        .clickable { onOpenUsage() }
+                        .padding(top = 6.dp, end = 8.dp, bottom = 6.dp),
+                )
+                if (!weather.isNullOrBlank()) {
+                    HomeWeatherMark(
+                        weather = weather,
+                        kind = weatherKind,
+                        isDay = isDay,
+                        modifier = Modifier
+                            .semantics { contentDescription = weather }
+                            .clickable { onOpenWeather() },
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.Top) {
+                if (ticker != null) {
+                    HomeTickerMark(
+                        symbol = ticker.symbol,
+                        change = ticker.change,
+                        up = ticker.up,
+                        modifier = Modifier
+                            .semantics { contentDescription = "${ticker.symbol} ${ticker.change}" }
+                            .clickable { onOpenTicker() },
+                    )
+                }
+                MessagesIcon(
+                    Modifier
+                        .semantics { contentDescription = "messages" }
+                        .clickable { onOpenHub() }
+                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                )
+            }
+        }
         Column(
             Modifier
-                .then(if (hasWeather) Modifier else Modifier.weight(1f))
+                .align(Alignment.TopCenter)
                 .clickable { onOpenClock() },
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(time, style = MaterialTheme.typography.headlineLarge)
-            Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            if (timer.running || !analog) {
+                Text(time, style = MaterialTheme.typography.headlineLarge)
+                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            } else {
+                AnalogClock(
+                    hour = cal.get(Calendar.HOUR),
+                    minute = cal.get(Calendar.MINUTE),
+                    second = cal.get(Calendar.SECOND),
+                )
+                Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            }
         }
-        if (hasWeather) {
-            HomeWeatherMark(
-                weather = weather,
-                kind = weatherKind,
-                isDay = isDay,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { contentDescription = weather }
-                    .clickable { onOpenWeather() },
-            )
-        }
-        if (ticker != null) {
-            HomeTickerMark(
-                symbol = ticker.symbol,
-                change = ticker.change,
-                up = ticker.up,
-                modifier = Modifier
-                    .semantics { contentDescription = "${ticker.symbol} ${ticker.change}" }
-                    .clickable { onOpenTicker() },
-            )
-        }
-        MessagesIcon(
-            Modifier
-                .semantics { contentDescription = "messages" }
-                .clickable { onOpenHub() }
-                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-        )
     }
 }
 
@@ -2143,6 +2228,7 @@ private fun CommandBar(
     onSubmit: () -> Unit,
     onSlash: (SlashCommand) -> Unit,
     onHub: () -> Unit,
+    onLeft: (() -> Unit)? = null,
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -2351,6 +2437,14 @@ private fun CommandBar(
                                     onHub()
                                     true
                                 }
+                                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                    if (onLeft != null) {
+                                        onLeft()
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
                                 KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> {
                                     if (value.isEmpty() && PrefixCommands.isModePrompt(prompt)) {
                                         onClearMode()
@@ -2405,7 +2499,7 @@ private fun HelpBlock() {
         "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / apps / stocks / clock / weather / settings",
+        "hub / notes / apps / stocks / clock / weather / usage / settings",
         "2+2             calculator",
         "type a name     launch app",
         "hold an app     pin or unpin",
@@ -2638,6 +2732,26 @@ private fun SettingsPage(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
+        Text("Clock face", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            ClockFace.entries.forEach { face ->
+                Text(
+                    face.name.lowercase(),
+                    color = if (settings.clockFace == face) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(clockFace = face) } },
+                )
+            }
+        }
+        Text(
+            if (settings.clockFace == ClockFace.ANALOG) {
+                "Analog clock in the center of home, with the time and date below."
+            } else {
+                "Digital time and date in the center of home."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
         WeatherLocationField(
             query = placeQuery,
             locked = settings.weatherLat != null && placeQuery == settings.weatherPlace,
@@ -2722,6 +2836,17 @@ private fun SettingsPage(
             modifier = Modifier.clickable {
                 ctx.startActivity(
                     android.content.Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            },
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Usage access",
+            color = Paper,
+            modifier = Modifier.clickable {
+                ctx.startActivity(
+                    android.content.Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             },

@@ -10,6 +10,7 @@ sealed class Command {
     data object OpenStocks : Command()
     data object OpenClock : Command()
     data object OpenWeather : Command()
+    data object OpenUsage : Command()
     data class Stock(val query: String) : Command()
     data class Message(val target: String, val body: String) : Command()
     data class Call(val target: String) : Command()

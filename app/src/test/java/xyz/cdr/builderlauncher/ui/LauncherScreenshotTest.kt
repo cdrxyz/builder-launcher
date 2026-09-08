@@ -48,6 +48,7 @@ class LauncherScreenshotTest {
                     input = "summarize this PR",
                     prompt = "?",
                     todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    analog = false,
                 )
             }
         }
@@ -545,6 +546,15 @@ class LauncherScreenshotTest {
         paparazzi.snapshot {
             BuilderTheme {
                 WeatherChrome()
+            }
+        }
+    }
+
+    @Test
+    fun usage() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                UsageChrome()
             }
         }
     }
