@@ -1,6 +1,11 @@
 package xyz.cdr.builderlauncher.stocks
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import xyz.cdr.builderlauncher.data.StockInsert
 
 object Stocks {
@@ -62,6 +67,36 @@ object Stocks {
     fun formatPercent(percent: Double): String {
         val sign = if (percent >= 0) "+" else ""
         return sign + "%.2f%%".format(java.util.Locale.US, percent)
+    }
+
+    fun indexAt(x: Float, width: Float, count: Int): Int {
+        if (count <= 1 || width <= 0f) return 0
+        val t = (x / width).coerceIn(0f, 1f)
+        return (t * (count - 1)).roundToInt().coerceIn(0, count - 1)
+    }
+
+    fun scrubBaseline(points: List<StockPoint>, range: StockRange, previousClose: Double?): Double? {
+        if (range == StockRange.D1) {
+            previousClose?.takeIf { it > 0.0 }?.let { return it }
+        }
+        return points.firstOrNull()?.close?.takeIf { it > 0.0 }
+    }
+
+    fun formatChartTime(
+        timeSec: Long,
+        range: StockRange,
+        locale: Locale = Locale.US,
+        zone: TimeZone = TimeZone.getDefault(),
+    ): String {
+        val pattern = when (range) {
+            StockRange.D1 -> "h:mm a"
+            StockRange.W1 -> "EEE h:mm a"
+            StockRange.M1, StockRange.M3 -> "MMM d"
+            StockRange.Y1, StockRange.Y5 -> "MMM d, yyyy"
+        }
+        val fmt = SimpleDateFormat(pattern, locale)
+        fmt.timeZone = zone
+        return fmt.format(Date(timeSec * 1000L))
     }
 
     fun formatVolume(volume: Long): String {

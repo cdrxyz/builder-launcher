@@ -212,6 +212,7 @@ fun BuilderRoot(
     var stockBusy by remember { mutableStateOf(false) }
     var stockChart by remember { mutableStateOf<StockChartData?>(null) }
     var stockDetails by remember { mutableStateOf<StockDetails?>(null) }
+    var stockScrub by remember { mutableStateOf<Int?>(null) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
@@ -281,6 +282,7 @@ fun BuilderRoot(
         stockBusy = false
     }
     LaunchedEffect(page, stockSymbol, stockRange) {
+        stockScrub = null
         val symbol = stockSymbol
         if (page != Page.StockDetail || symbol.isNullOrBlank()) {
             stockChart = null
@@ -1749,17 +1751,31 @@ fun BuilderRoot(
                 ) ?: extra
                 val item = watch.firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
                 val name = quote?.name ?: item?.name ?: symbol
-                val price = quote?.price ?: item?.price
-                val change = quote?.change
-                val percent = quote?.changePercent ?: item?.changePercent
+                val points = stockChart?.points.orEmpty()
+                val scrubPoint = stockScrub?.let { points.getOrNull(it) }
+                val currency = quote?.currency ?: item?.currency ?: "USD"
+                val livePrice = quote?.price ?: item?.price
+                val liveChange = quote?.change
+                val livePercent = quote?.changePercent ?: item?.changePercent
+                val baseline = scrubPoint?.let { Stocks.scrubBaseline(points, stockRange, quote?.previousClose) }
+                val price = scrubPoint?.close ?: livePrice
+                val change = if (scrubPoint != null && baseline != null) scrubPoint.close - baseline else liveChange
+                val percent = if (scrubPoint != null && baseline != null && baseline != 0.0) {
+                    (scrubPoint.close - baseline) / baseline * 100.0
+                } else {
+                    livePercent
+                }
                 val up = (percent ?: 0.0) >= 0.0
                 val tone = if (up) Gain else Loss
+                val chartUp = (livePercent ?: 0.0) >= 0.0
                 val changeLine = when {
                     change != null && percent != null ->
                         "${Stocks.formatChange(change)} (${Stocks.formatPercent(percent)})"
                     percent != null -> Stocks.formatPercent(percent)
                     else -> ""
                 }
+                val dateLine = scrubPoint?.let { Stocks.formatChartTime(it.time, stockRange) }.orEmpty()
+                val extendedLine = if (scrubPoint == null) quote?.let { Stocks.formatExtended(it) }.orEmpty() else ""
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -1778,14 +1794,16 @@ fun BuilderRoot(
                     Text(name, color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        if (price != null) Stocks.formatPrice(price, quote?.currency ?: item?.currency ?: "USD") else "—",
+                        if (price != null) Stocks.formatPrice(price, currency) else "—",
                         style = MaterialTheme.typography.headlineLarge,
                         color = Paper,
                     )
                     if (changeLine.isNotBlank()) {
                         Text(changeLine, color = tone, style = MaterialTheme.typography.bodyMedium)
                     }
-                    val extendedLine = quote?.let { Stocks.formatExtended(it) }.orEmpty()
+                    if (dateLine.isNotBlank()) {
+                        Text(dateLine, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    }
                     if (extendedLine.isNotBlank()) {
                         val extendedUp = (quote?.extendedChange ?: 0.0) >= 0.0
                         Text(
@@ -1796,8 +1814,10 @@ fun BuilderRoot(
                     }
                     Spacer(Modifier.height(16.dp))
                     StockChart(
-                        points = stockChart?.points.orEmpty(),
-                        up = up,
+                        points = points,
+                        up = chartUp,
+                        selectedIndex = stockScrub,
+                        onSelect = { stockScrub = it },
                         modifier = Modifier.fillMaxWidth().height(180.dp),
                     )
                     Spacer(Modifier.height(12.dp))
