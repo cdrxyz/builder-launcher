@@ -1,0 +1,61 @@
+---
+title: Builder Launcher
+description: A simple Android home for builders who want to be deliberate with the phone.
+template: splash
+hero:
+  tagline: Open it, do the work, put it down. Command bar instead of an icon grid.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Install
+      link: start/install/
+      icon: right-arrow
+    - text: Command reference
+      link: use/commands/
+      icon: document
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+import home from '../../assets/screenshots/home.png';
+import hub from '../../assets/screenshots/hub.png';
+import settings from '../../assets/screenshots/settings.png';
+import stocks from '../../assets/screenshots/stocks.png';
+import detail from '../../assets/screenshots/stock-detail.png';
+
+<div class="shot-row">
+	<img src={home.src} alt="Home: clock, weather, todos, command bar" width="240" />
+	<img src={hub.src} alt="Hub: granted notifications" width="240" />
+	<img src={settings.src} alt="Settings: accent, AI provider, keyboard, weather" width="240" />
+</div>
+
+<div class="shot-row">
+	<img src={stocks.src} alt="Stocks watchlist with price and percent change" width="240" />
+	<img src={detail.src} alt="Ticker detail with chart, timeframes, and stats" width="240" />
+</div>
+
+## What it is
+
+Builder Launcher is an Android home screen for people who want the phone to stay out of the way. Type a command, send the message, check the weather, then go back to the rest of the day.
+
+Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
+
+## Jump in
+
+<CardGrid stagger>
+	<Card title="Install" icon="download">
+		[Obtainium](start/install/) or a signed APK from GitHub Releases.
+	</Card>
+	<Card title="Type to work" icon="seti:config">
+		Prefixes for text, call, calendar, todos, notes, stocks, and AI. See [commands](use/commands/).
+	</Card>
+	<Card title="Configure AI" icon="setting">
+		Hermes on your LAN, or xAI / OpenAI / Anthropic. [Providers](configure/ai-providers/).
+	</Card>
+	<Card title="Keep docs honest" icon="pencil">
+		Every feature PR updates these pages. [Agent rules](develop/docs/).
+	</Card>
+</CardGrid>
+
+MIT. Built by [Cedar Labs](https://cdr.xyz).
