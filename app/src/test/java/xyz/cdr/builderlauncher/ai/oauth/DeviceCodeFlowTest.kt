@@ -53,6 +53,24 @@ class DeviceCodeFlowTest {
     }
 
     @Test
+    fun pollUnknownHostStaysPending() {
+        val poster = FormPoster { _, _, _ ->
+            throw java.net.UnknownHostException(
+                """Unable to resolve host "auth.x.ai": No address associated with hostname""",
+            )
+        }
+        assertEquals(PollResult.Pending, DeviceCodeFlow.pollOnce(poster, spec, "dev-1", 0L))
+    }
+
+    @Test
+    fun pollIoExceptionStaysPending() {
+        val poster = FormPoster { _, _, _ ->
+            throw java.io.IOException("unexpected end of stream")
+        }
+        assertEquals(PollResult.Pending, DeviceCodeFlow.pollOnce(poster, spec, "dev-1", 0L))
+    }
+
+    @Test
     fun refreshKeepsOldRefreshIfOmitted() {
         val poster = ScriptedPoster(
             FormResponse(200, """{"access_token":"new","expires_in":120}"""),

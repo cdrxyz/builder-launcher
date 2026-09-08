@@ -50,15 +50,21 @@ object DeviceCodeFlow {
     }
 
     fun pollOnce(poster: FormPoster, spec: OAuthSpec.Device, deviceCode: String, nowMs: Long): PollResult {
-        val resp = poster.post(
-            spec.tokenUrl,
-            mapOf(
-                "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
-                "device_code" to deviceCode,
-                "client_id" to spec.clientId,
-            ),
-            emptyMap(),
-        )
+        val resp = try {
+            poster.post(
+                spec.tokenUrl,
+                mapOf(
+                    "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
+                    "device_code" to deviceCode,
+                    "client_id" to spec.clientId,
+                ),
+                emptyMap(),
+            )
+        } catch (_: java.io.IOException) {
+            // Transient DNS / network while the user is in the browser.
+            // Aborting here drops a code they may already have approved.
+            return PollResult.Pending
+        }
         val obj = parseObject(resp.body)
         val err = obj?.str("error").orEmpty()
         if (resp.code in 200..299) {

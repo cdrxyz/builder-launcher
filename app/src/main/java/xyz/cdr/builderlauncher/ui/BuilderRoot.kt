@@ -935,10 +935,16 @@ private fun SettingsPage(
                         try {
                             when (spec) {
                                 is OAuthSpec.Device -> {
-                                    val next = oauth.beginDevice(settings.provider)
-                                    pending = next
-                                    pkce = null
-                                    oauth.browserUrl(next, settings.provider)?.let { openHttps(it) }
+                                    val existing = pending
+                                    val next = if (existing != null) {
+                                        existing
+                                    } else {
+                                        oauth.beginDevice(settings.provider).also { started ->
+                                            pending = started
+                                            pkce = null
+                                            oauth.browserUrl(started, settings.provider)?.let { openHttps(it) }
+                                        }
+                                    }
                                     oauth.pollUntilAuthorized(settings.provider, next)
                                     pending = null
                                     oauthMsg = "Signed in"
@@ -954,6 +960,7 @@ private fun SettingsPage(
                         } catch (_: CancellationException) {
                         } catch (e: Exception) {
                             oauthMsg = e.message ?: "Sign-in failed"
+                            pending = null
                         }
                     }
                 },
@@ -1069,11 +1076,12 @@ private fun OauthBlock(
     onSignOut: () -> Unit,
 ) {
     if (spec == null) return
-    val signInLabel = when (settings.provider) {
-        LlmProvider.XAI -> "Sign in with SuperGrok"
-        LlmProvider.OPENAI -> "Sign in with ChatGPT"
-        LlmProvider.ANTHROPIC -> "Sign in with Claude"
-        LlmProvider.HERMES -> "Sign in"
+    val signInLabel = when {
+        pending != null -> "Finish sign-in"
+        settings.provider == LlmProvider.XAI -> "Sign in with SuperGrok"
+        settings.provider == LlmProvider.OPENAI -> "Sign in with ChatGPT"
+        settings.provider == LlmProvider.ANTHROPIC -> "Sign in with Claude"
+        else -> "Sign in"
     }
     if (settings.signedIn) {
         Text(
