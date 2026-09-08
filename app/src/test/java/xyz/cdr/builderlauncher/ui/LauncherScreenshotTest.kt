@@ -247,6 +247,47 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun chat() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ChatChrome(
+                    messages = listOf(
+                        ChatBubble(user = true, body = "compare kotlin and rust"),
+                        ChatBubble(
+                            user = false,
+                            body = """
+                                # Quick take
+
+                                | Lang | GC |
+                                | --- | --- |
+                                | Kotlin | yes |
+                                | Rust | no |
+
+                                Use **Kotlin** on Android.
+                            """.trimIndent(),
+                        ),
+                    ),
+                    input = "",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun chatHistory() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ChatHistoryChrome(
+                    rows = listOf(
+                        ChatListRow("compare kotlin and rust", "7 Sep 15:42"),
+                        ChatListRow("weather tomorrow", "6 Sep 09:18"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun hub() {
         paparazzi.snapshot {
             BuilderTheme {

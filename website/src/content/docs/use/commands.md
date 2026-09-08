@@ -14,13 +14,13 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` saves and goes home |
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
-| `?` | `?weather tomorrow` | Ask the configured LLM inline |
+| `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; history lists past chats with a date and delete |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
 | | `hub` / `notes` / `apps` / `stocks` / `settings` / `help` | Built-ins |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 
-`help`, `/help`, and a lone `?` show the on-screen cheat sheet.
+`help` and `/help` show the on-screen cheat sheet. A lone `?` opens [Ask AI](ai/).
 
 `settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, and `stocks`.
 
@@ -29,5 +29,6 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 - Todos stay on [home](home/) and `… more tasks >`.
 - Notes stay on [notes](notes/).
 - Stocks stay on [stocks](stocks/).
+- AI chats stay on [Ask AI](ai/).
 - Notifications stay on the [hub](hub/).
 - Installed apps stay on [apps](apps/).

@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -92,6 +93,9 @@ import xyz.cdr.builderlauncher.commands.SlashCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.data.AccentColor
+import xyz.cdr.builderlauncher.data.ChatMessage
+import xyz.cdr.builderlauncher.data.ChatStore
+import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.WeatherUnits
@@ -124,13 +128,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, Chat, ChatHistory }
 
 @Composable
 fun BuilderRoot(
     settingsRepo: SettingsRepository,
     apps: InstalledApps,
     lists: LocalLists,
+    chats: ChatStore,
     pins: PinnedApps,
     contacts: PhoneContacts,
     llm: LlmClient,
@@ -143,6 +148,7 @@ fun BuilderRoot(
     val settings by settingsRepo.settings.collectAsState()
     val hub by HubStore.items.collectAsState()
     val local by lists.items.collectAsState()
+    val chatThreads by chats.threads.collectAsState()
     val forecast by weather.current.collectAsState()
     val watch by stocks.watch.collectAsState()
     val quotes by stocks.quotes.collectAsState()
@@ -150,8 +156,8 @@ fun BuilderRoot(
     var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
-    var aiText by remember { mutableStateOf<String?>(null) }
-    var aiBusy by remember { mutableStateOf(false) }
+    var chatId by remember { mutableStateOf<String?>(null) }
+    var chatBusy by remember { mutableStateOf(false) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var appQuery by remember { mutableStateOf(false) }
     var appsEpoch by remember { mutableIntStateOf(0) }
@@ -245,6 +251,41 @@ fun BuilderRoot(
         people = emptyList()
         appQuery = false
         page = Page.NoteEditor
+    }
+
+    fun sendAsk(question: String) {
+        val q = question.trim()
+        if (q.isEmpty() || chatBusy) return
+        val user = ChatMessage(role = "user", content = q)
+        val thread = chats.addMessage(chatId, user)
+        chatId = thread.id
+        prompt = '?'
+        input = ""
+        chatBusy = true
+        val snapshot = chats.get(thread.id) ?: thread
+        scope.launch {
+            val reply = runCatching { llm.ask(snapshot.messages) }
+                .getOrElse { "Could not reach the model." }
+            if (chats.get(thread.id) != null) {
+                chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
+            }
+            chatBusy = false
+        }
+    }
+
+    fun openAsk(question: String, id: String? = null) {
+        chatId = id
+        chatBusy = false
+        prompt = '?'
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Chat
+        if (id == null && question.isNotBlank()) {
+            sendAsk(question)
+        }
     }
 
     fun openNotesList() {
@@ -361,7 +402,11 @@ fun BuilderRoot(
     fun applyMode(next: PrefixCommands.Mode) {
         prompt = next.prompt
         val line = next.line
-        if (line.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps) {
+        if (line.startsWith(Chats.PREFIX) && page != Page.Chat && page != Page.ChatHistory && page != Page.NoteEditor && page != Page.Apps) {
+            openAsk(Chats.questionFromInput(line))
+            return
+        }
+        if (line.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps && page != Page.Chat && page != Page.ChatHistory) {
             openNoteEditor(id = null, draft = Notes.draftFromInput(line), fromList = false)
             return
         }
@@ -434,6 +479,16 @@ fun BuilderRoot(
             addTicker(q)
             return
         }
+        if (page == Page.Chat) {
+            val q = Chats.questionFromInput(line)
+            if (q.isEmpty()) {
+                prompt = '?'
+                input = ""
+                return
+            }
+            sendAsk(q)
+            return
+        }
         val draft = smsDraft
         if (draft != null) {
             if (line.isBlank() || line.equals("send", ignoreCase = true)) {
@@ -457,7 +512,6 @@ fun BuilderRoot(
             }
             ExecResult.ShowHelp -> {
                 help = true
-                aiText = null
             }
             ExecResult.NavigateSettings -> page = Page.Settings
             ExecResult.NavigateHub -> openHub()
@@ -468,16 +522,7 @@ fun BuilderRoot(
                 openStocksList()
                 addTicker(result.query)
             }
-            is ExecResult.Ask -> {
-                help = false
-                aiBusy = true
-                aiText = "…"
-                clearBar()
-                scope.launch {
-                    aiText = llm.ask(result.question)
-                    aiBusy = false
-                }
-            }
+            is ExecResult.Ask -> openAsk(result.question)
             is ExecResult.AppChoices -> {
                 choices = result.apps
                 pick = result.pick
@@ -544,10 +589,6 @@ fun BuilderRoot(
                     },
                 )
                 Spacer(Modifier.height(8.dp))
-                if (aiText != null) {
-                    Text(if (aiBusy) "…" else aiText!!, color = Accent, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(12.dp))
-                }
                 smsDraft?.let { draft ->
                     Text(
                         "Send to ${draft.contact.name} (${draft.contact.number})",
@@ -882,6 +923,134 @@ fun BuilderRoot(
                         .fillMaxWidth()
                         .focusRequester(focus),
                 )
+            }
+            Page.Chat -> {
+                val thread = chatId?.let { id -> chatThreads.find { it.id == id } }
+                val messages = thread?.messages.orEmpty()
+                val listState = rememberLazyListState()
+                LaunchedEffect(messages.size, chatBusy) {
+                    val target = if (chatBusy) messages.size else messages.lastIndex
+                    if (target >= 0) listState.scrollToItem(target)
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Chats.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                page = Page.Home
+                                clearBar()
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    HistoryIcon(
+                        Modifier
+                            .semantics { contentDescription = "history" }
+                            .clickable { page = Page.ChatHistory }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    if (messages.isEmpty() && !chatBusy) {
+                        item {
+                            Text("Ask a question.", color = Dim)
+                        }
+                    }
+                    items(messages, key = { "${it.role}-${it.createdAt}-${it.content.hashCode()}" }) { msg ->
+                        if (msg.fromUser) {
+                            Text(msg.content, color = Accent, style = MaterialTheme.typography.bodyLarge)
+                        } else {
+                            MarkdownDocument(msg.content)
+                        }
+                    }
+                    if (chatBusy) {
+                        item {
+                            Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = '?',
+                    value = input,
+                    hardware = hardware,
+                    onValue = { typed ->
+                        input = if (typed.startsWith(Chats.PREFIX)) typed.drop(1) else typed
+                    },
+                    onPick = { glyph ->
+                        page = Page.Home
+                        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), glyph))
+                    },
+                    onClearMode = {
+                        page = Page.Home
+                        clearBar()
+                    },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
+            Page.ChatHistory -> {
+                val rows = Chats.of(chatThreads)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Chats.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable { page = Page.Chat }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (rows.isEmpty()) {
+                        item {
+                            Text("No conversations yet.", color = Dim)
+                        }
+                    }
+                    items(rows, key = { it.id }) { item ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { openAsk("", id = item.id) }
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                Text(Chats.title(item.messages), color = Paper)
+                                Text(
+                                    Chats.editedLabel(item.updatedAt),
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            DeleteIcon(
+                                Modifier
+                                    .semantics { contentDescription = "delete conversation" }
+                                    .clickable {
+                                        chats.remove(item.id)
+                                        if (chatId == item.id) chatId = null
+                                    }
+                                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                            )
+                        }
+                    }
+                }
             }
             Page.Apps -> {
                 val listed = remember(input, appsEpoch) {
@@ -1564,7 +1733,7 @@ private fun HelpBlock() {
         "apps            all apps",
         "\$ticker         add a stock",
         "stocks          all stocks",
-        "?question       ask AI",
+        "?               ask AI",
         "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",

@@ -19,6 +19,7 @@ import xyz.cdr.builderlauncher.commands.CommandExecutor
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.LocalLists
+import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.HomeRole
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
         val settings = SettingsRepository(this)
         val apps = InstalledApps(this)
         val lists = LocalLists(this)
+        val chats = ChatStore(this)
         val pins = PinnedApps(this)
         val people = PhoneContacts(this)
         val sms = SmsSender(this)
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
                     settingsRepo = settings,
                     apps = apps,
                     lists = lists,
+                    chats = chats,
                     pins = pins,
                     contacts = people,
                     llm = llm,

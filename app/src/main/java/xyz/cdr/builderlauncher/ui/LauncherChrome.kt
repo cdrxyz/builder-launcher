@@ -33,6 +33,7 @@ import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
@@ -289,6 +290,88 @@ fun NoteEditorChrome(body: String) {
         Text(body, color = Paper, style = MaterialTheme.typography.bodyLarge)
     }
 }
+
+data class ChatListRow(
+    val title: String,
+    val edited: String,
+)
+
+@Composable
+fun ChatChrome(
+    messages: List<ChatBubble>,
+    input: String = "",
+    busy: Boolean = false,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            HistoryIcon(Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            if (messages.isEmpty() && !busy) {
+                Text("Ask a question.", color = Dim)
+            }
+            messages.forEach { msg ->
+                if (msg.user) {
+                    Text(msg.body, color = Accent, style = MaterialTheme.typography.bodyLarge)
+                } else {
+                    MarkdownDocument(msg.body)
+                }
+            }
+            if (busy) {
+                Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = "?")
+    }
+}
+
+@Composable
+fun ChatHistoryChrome(rows: List<ChatListRow>) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (rows.isEmpty()) {
+                Text("No conversations yet.", color = Dim)
+            } else {
+                rows.forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(row.title, color = Paper)
+                            Text(row.edited, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+data class ChatBubble(
+    val user: Boolean,
+    val body: String,
+)
 
 @Composable
 fun StocksChrome(
@@ -685,6 +768,31 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
             start = Offset(tail + size.width * 0.20f, pad + bodyH),
             end = Offset(tail - size.width * 0.14f, size.height - pad),
             strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun HistoryIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        val r = size.minDimension / 2f - stroke.width
+        val c = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(color = accent, radius = r, style = stroke)
+        drawLine(
+            color = accent,
+            start = c,
+            end = Offset(c.x, c.y - r * 0.45f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = accent,
+            start = c,
+            end = Offset(c.x + r * 0.38f, c.y + r * 0.18f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
         )
     }
 }
