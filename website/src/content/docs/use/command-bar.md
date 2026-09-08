@@ -9,9 +9,10 @@ The prompt is always at the bottom, just above the keyboard (or the hardware key
 
 - Type, then **Enter** / Go.
 - **D-pad right** opens the [hub](hub/).
-- A lone `>` with an empty bar: tap `>` to open the prefix menu.
+- Tap `>` (empty bar) to open the prefix menu.
+- The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
 
-![Prefix command menu: text, call, calendar, todo, note, ask AI](../../../assets/screenshots/command-menu.png)
+![Prefix command menu including stock](../../../assets/screenshots/command-menu.png)
 
 | Glyph | Label |
 | --- | --- |
@@ -20,8 +21,9 @@ The prompt is always at the bottom, just above the keyboard (or the hardware key
 | `*` | calendar |
 | `-` | todo |
 | `+` | note |
+| `$` | stock |
 | `?` | ask AI |
 
-Picking a row fills the bar with that glyph and a space so you can keep typing.
+Picking a row sets the prompt glyph. Type the rest of the command in the field.
 
 On hardware QWERTY, auto mode hides the software keyboard so the bar sits next to the keys. See [Keyboard](../configure/keyboard/).

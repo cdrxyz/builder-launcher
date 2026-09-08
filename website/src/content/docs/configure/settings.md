@@ -13,6 +13,7 @@ Tap the clock on home, or type `settings`.
 | Hermes base URL | Only for Hermes. Example `http://192.168.1.10:8642`. |
 | Sign in / API key | xAI SuperGrok device login, or paste a key. Keys stay on device. |
 | Model | Blank uses the provider default. |
+| Accent | Color chips for the cursor, `>` prompt, selected chips, and links. Default cyberpunk green. |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |

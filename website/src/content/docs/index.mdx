@@ -21,11 +21,18 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 import home from '../../assets/screenshots/home.png';
 import hub from '../../assets/screenshots/hub.png';
 import settings from '../../assets/screenshots/settings.png';
+import stocks from '../../assets/screenshots/stocks.png';
+import detail from '../../assets/screenshots/stock-detail.png';
 
 <div class="shot-row">
 	<img src={home.src} alt="Home: clock, weather, todos, command bar" width="240" />
 	<img src={hub.src} alt="Hub: granted notifications" width="240" />
-	<img src={settings.src} alt="Settings: AI provider, keyboard, weather" width="240" />
+	<img src={settings.src} alt="Settings: accent, AI provider, keyboard, weather" width="240" />
+</div>
+
+<div class="shot-row">
+	<img src={stocks.src} alt="Stocks watchlist with price and percent change" width="240" />
+	<img src={detail.src} alt="Ticker detail with chart, timeframes, and stats" width="240" />
 </div>
 
 ## What it is
@@ -41,7 +48,7 @@ Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz
 		[Obtainium](start/install/) or a signed APK from GitHub Releases.
 	</Card>
 	<Card title="Type to work" icon="seti:config">
-		Prefixes for text, call, calendar, todos, notes, and AI. See [commands](use/commands/).
+		Prefixes for text, call, calendar, todos, notes, stocks, and AI. See [commands](use/commands/).
 	</Card>
 	<Card title="Configure AI" icon="setting">
 		Hermes on your LAN, or xAI / OpenAI / Anthropic. [Providers](configure/ai-providers/).

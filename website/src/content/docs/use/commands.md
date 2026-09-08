@@ -12,19 +12,22 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `*` | `*dentist mar 24 9a` | Create a calendar event |
 | `-` | `-buy milk` | Save a todo on home and the tasks list |
 | `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` saves and goes home |
+| `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
+| | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | `?` | `?weather tomorrow` | Ask the configured LLM inline |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
-| | `hub` / `notes` / `apps` / `settings` / `help` | Built-ins |
+| | `hub` / `notes` / `apps` / `stocks` / `settings` / `help` | Built-ins |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 
 `help`, `/help`, and a lone `?` show the on-screen cheat sheet.
 
-`settings` and `/settings` open settings. Same for `hub`, `notes`, and `apps`.
+`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, and `stocks`.
 
 ## Where each thing lives
 
 - Todos stay on [home](home/) and `… more tasks >`.
 - Notes stay on [notes](notes/).
+- Stocks stay on [stocks](stocks/).
 - Notifications stay on the [hub](hub/).
 - Installed apps stay on [apps](apps/).
