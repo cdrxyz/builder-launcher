@@ -500,6 +500,15 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun aiProviders() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                AiProvidersChrome()
+            }
+        }
+    }
+
+    @Test
     fun clock() {
         paparazzi.snapshot {
             BuilderTheme {

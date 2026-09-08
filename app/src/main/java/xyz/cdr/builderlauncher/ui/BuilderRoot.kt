@@ -175,7 +175,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather, Usage }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, AiSettings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather, Usage }
 
 private var lastPage: Page = Page.Home
 
@@ -1776,9 +1776,17 @@ fun BuilderRoot(
                     settings = settings,
                     hardware = hardware,
                     onBack = { page = Page.Home },
+                    onOpenAi = { page = Page.AiSettings },
                     repo = settingsRepo,
                     weather = weather,
                     onRequestHome = onRequestHome,
+                )
+            }
+            Page.AiSettings -> {
+                AiProvidersPage(
+                    settings = settings,
+                    onBack = { page = Page.Settings },
+                    repo = settingsRepo,
                     oauth = oauth,
                 )
             }
@@ -2641,24 +2649,15 @@ private fun SettingsPage(
     settings: BuilderSettings,
     hardware: Boolean,
     onBack: () -> Unit,
+    onOpenAi: () -> Unit,
     repo: SettingsRepository,
     weather: WeatherRepository,
     onRequestHome: () -> Unit,
-    oauth: OAuthService,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val platform = AiPlatforms.of(settings.provider)
-    var hermes by remember { mutableStateOf(settings.hermesBaseUrl) }
-    var key by remember { mutableStateOf(settings.apiKey) }
-    var model by remember { mutableStateOf(settings.model) }
     var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
     var suggestions by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
-    var paste by remember { mutableStateOf("") }
-    var oauthMsg by remember { mutableStateOf<String?>(null) }
-    var pending by remember { mutableStateOf<DevicePending?>(null) }
-    var pkce by remember { mutableStateOf<PkceSession?>(null) }
-    var pollJob by remember { mutableStateOf<Job?>(null) }
     var accentDraft by remember { mutableStateOf(settings.accentHex) }
     LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
         val q = placeQuery.trim()
@@ -2668,21 +2667,6 @@ private fun SettingsPage(
         }
         kotlinx.coroutines.delay(280)
         suggestions = weather.suggest(q)
-    }
-
-    fun cancelAuth() {
-        pollJob?.cancel()
-        pollJob = null
-        pending = null
-        pkce = null
-        oauthMsg = null
-    }
-
-    fun openHttps(url: String) {
-        ctx.startActivity(
-            android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url))
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -2705,118 +2689,18 @@ private fun SettingsPage(
             }
         }
         Spacer(Modifier.height(16.dp))
-        Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            AiPlatforms.all.take(2).forEach { item ->
-                Text(
-                    item.label,
-                    color = if (settings.provider == item.provider) Accent else Dim,
-                    modifier = Modifier.clickable {
-                        cancelAuth()
-                        repo.setProvider(item.provider)
-                    },
-                )
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            AiPlatforms.all.drop(2).forEach { item ->
-                Text(
-                    item.label,
-                    color = if (settings.provider == item.provider) Accent else Dim,
-                    modifier = Modifier.clickable {
-                        cancelAuth()
-                        repo.setProvider(item.provider)
-                    },
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        if (settings.provider == LlmProvider.HERMES) {
-            LabeledField("Hermes base URL", hermes, "http://192.168.1.10:8642") {
-                hermes = it
-                repo.update { s -> s.copy(hermesBaseUrl = it) }
-            }
-        } else {
-            Text(
-                "${platform.apiBase} — sign in or paste an API key. Used only for ? questions.",
-                color = Dim,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            OauthBlock(
-                settings = settings,
-                platformLabel = platform.label,
-                spec = platform.oauth,
-                pending = pending,
-                pkce = pkce,
-                paste = paste,
-                message = oauthMsg,
-                onPaste = { paste = it },
-                onSignIn = {
-                    val spec = platform.oauth ?: return@OauthBlock
-                    oauthMsg = null
-                    pollJob?.cancel()
-                    pollJob = scope.launch {
-                        try {
-                            when (spec) {
-                                is OAuthSpec.Device -> {
-                                    val existing = pending
-                                    val next = if (existing != null) {
-                                        existing
-                                    } else {
-                                        oauth.beginDevice(settings.provider).also { started ->
-                                            pending = started
-                                            pkce = null
-                                            oauth.browserUrl(started, settings.provider)?.let { openHttps(it) }
-                                        }
-                                    }
-                                    oauth.pollUntilAuthorized(settings.provider, next)
-                                    pending = null
-                                    oauthMsg = "Signed in"
-                                }
-                                is OAuthSpec.PkcePaste -> {
-                                    val session = oauth.beginPkce(settings.provider)
-                                    pkce = session
-                                    pending = null
-                                    openHttps(session.authorizeUrl)
-                                    oauthMsg = "Authorize, then paste the code or callback URL."
-                                }
-                            }
-                        } catch (_: CancellationException) {
-                        } catch (e: Exception) {
-                            oauthMsg = e.message ?: "Sign-in failed"
-                            pending = null
-                        }
-                    }
-                },
-                onCompletePaste = {
-                    val session = pkce ?: return@OauthBlock
-                    scope.launch {
-                        try {
-                            oauth.completePkce(settings.provider, session, paste)
-                            pkce = null
-                            paste = ""
-                            oauthMsg = "Signed in"
-                        } catch (e: Exception) {
-                            oauthMsg = e.message ?: "Could not finish sign-in"
-                        }
-                    }
-                },
-                onSignOut = {
-                    cancelAuth()
-                    oauth.signOut()
-                    oauthMsg = "Signed out"
-                },
-            )
-        }
-        LabeledField("API key (stored on device)", key, if (settings.provider == LlmProvider.HERMES) "optional for local Hermes" else "optional if signed in") {
-            key = it
-            repo.update { s -> s.copy(apiKey = it) }
-        }
-        LabeledField("Model", model, platform.defaultModel) {
-            model = it
-            repo.update { s -> s.copy(model = it) }
-        }
+        CaretLink(
+            "… AI providers >",
+            modifier = Modifier
+                .clickable { onOpenAi() }
+                .padding(vertical = 6.dp)
+                .fillMaxWidth(),
+        )
+        Text(
+            AiPlatforms.of(settings.provider).label,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(16.dp))
         Text("Keyboard", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
@@ -2985,6 +2869,181 @@ private fun SettingsPage(
         )
         Spacer(Modifier.height(24.dp))
         Text("Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun AiProvidersPage(
+    settings: BuilderSettings,
+    onBack: () -> Unit,
+    repo: SettingsRepository,
+    oauth: OAuthService,
+) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val platform = AiPlatforms.of(settings.provider)
+    var baseUrl by remember { mutableStateOf(settings.hermesBaseUrl) }
+    var key by remember { mutableStateOf(settings.apiKey) }
+    var model by remember { mutableStateOf(settings.model) }
+    var paste by remember { mutableStateOf("") }
+    var oauthMsg by remember { mutableStateOf<String?>(null) }
+    var pending by remember { mutableStateOf<DevicePending?>(null) }
+    var pkce by remember { mutableStateOf<PkceSession?>(null) }
+    var pollJob by remember { mutableStateOf<Job?>(null) }
+    LaunchedEffect(settings.provider, settings.hermesBaseUrl, settings.apiKey, settings.model) {
+        baseUrl = settings.hermesBaseUrl
+        key = settings.apiKey
+        model = settings.model
+    }
+
+    fun cancelAuth() {
+        pollJob?.cancel()
+        pollJob = null
+        pending = null
+        pkce = null
+        oauthMsg = null
+    }
+
+    fun openHttps(url: String) {
+        ctx.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "<",
+                color = Accent,
+                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+            )
+            Text("AI", color = Accent)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Provider", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Spacer(Modifier.height(8.dp))
+        AiPlatforms.all.chunked(2).forEach { row ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            ) {
+                row.forEach { item ->
+                    Text(
+                        item.label,
+                        color = if (settings.provider == item.provider) Accent else Dim,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                cancelAuth()
+                                repo.setProvider(item.provider)
+                            },
+                    )
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        if (platform.needsBaseUrl) {
+            LabeledField(
+                "Base URL",
+                baseUrl,
+                platform.defaultLocalBase ?: "http://192.168.1.10:8642",
+            ) {
+                baseUrl = it
+                repo.update { s -> s.copy(hermesBaseUrl = it) }
+            }
+        } else {
+            Text(
+                "${platform.apiBase} — sign in or paste an API key. Used only for ? questions.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        OauthBlock(
+            settings = settings,
+            platformLabel = platform.label,
+            spec = platform.oauth,
+            pending = pending,
+            pkce = pkce,
+            paste = paste,
+            message = oauthMsg,
+            onPaste = { paste = it },
+            onSignIn = {
+                val spec = platform.oauth ?: return@OauthBlock
+                oauthMsg = null
+                pollJob?.cancel()
+                pollJob = scope.launch {
+                    try {
+                        when (spec) {
+                            is OAuthSpec.Device -> {
+                                val existing = pending
+                                val next = if (existing != null) {
+                                    existing
+                                } else {
+                                    oauth.beginDevice(settings.provider).also { started ->
+                                        pending = started
+                                        pkce = null
+                                        oauth.browserUrl(started, settings.provider)?.let { openHttps(it) }
+                                    }
+                                }
+                                oauth.pollUntilAuthorized(settings.provider, next)
+                                pending = null
+                                oauthMsg = "Signed in"
+                            }
+                            is OAuthSpec.PkcePaste -> {
+                                val session = oauth.beginPkce(settings.provider)
+                                pkce = session
+                                pending = null
+                                openHttps(session.authorizeUrl)
+                                oauthMsg = "Authorize, then paste the code or callback URL."
+                            }
+                        }
+                    } catch (_: CancellationException) {
+                    } catch (e: Exception) {
+                        oauthMsg = e.message ?: "Sign-in failed"
+                        pending = null
+                    }
+                }
+            },
+            onCompletePaste = {
+                val session = pkce ?: return@OauthBlock
+                scope.launch {
+                    try {
+                        oauth.completePkce(settings.provider, session, paste)
+                        pkce = null
+                        paste = ""
+                        oauthMsg = "Signed in"
+                    } catch (e: Exception) {
+                        oauthMsg = e.message ?: "Could not finish sign-in"
+                    }
+                }
+            },
+            onSignOut = {
+                cancelAuth()
+                oauth.signOut()
+                oauthMsg = "Signed out"
+            },
+        )
+        LabeledField(
+            "API key (stored on device)",
+            key,
+            if (platform.keyOptional) "optional" else "optional if signed in",
+        ) {
+            key = it
+            repo.update { s -> s.copy(apiKey = it) }
+        }
+        LabeledField("Model", model, platform.defaultModel) {
+            model = it
+            repo.update { s -> s.copy(model = it) }
+        }
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "Each provider keeps its own sign-in. Tokens stay on the device and are sent only as a Bearer token.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

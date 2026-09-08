@@ -65,7 +65,7 @@ class LlmClient(
         if (!EndpointPolicy.allowed(base)) {
             return LlmAnswer("HTTP is only allowed to private LAN hosts. Use HTTPS otherwise.")
         }
-        if (!CredentialResolver.readyForAsk(snapshot) && snapshot.provider != LlmProvider.HERMES) {
+        if (!CredentialResolver.readyForAsk(snapshot)) {
             return LlmAnswer(missingCreds(snapshot.provider))
         }
         val bearer = if (snapshot.provider == settings.settings.value.provider) {
@@ -73,14 +73,21 @@ class LlmClient(
         } else {
             CredentialResolver.bearer(snapshot)
         }
-        if (snapshot.provider != LlmProvider.HERMES && bearer.isNullOrBlank()) {
+        if (!platform.keyOptional && bearer.isNullOrBlank()) {
             return LlmAnswer(missingCreds(snapshot.provider))
         }
         val oauthLive = CredentialResolver.tokens(snapshot)
             ?.valid(System.currentTimeMillis()) == true
         val text = try {
             when (platform.chatKind) {
-                ChatKind.OPENAI_CHAT -> openaiChat(base, settings.effectiveModel(snapshot), turns, bearer, onDelta)
+                ChatKind.OPENAI_CHAT -> openaiChat(
+                    base,
+                    settings.effectiveModel(snapshot),
+                    turns,
+                    bearer,
+                    onDelta,
+                    platform.extraHeaders,
+                )
                 ChatKind.ANTHROPIC_MESSAGES -> anthropicMessages(
                     base,
                     settings.effectiveModel(snapshot),
@@ -102,8 +109,9 @@ class LlmClient(
         messages: List<ChatMessage>,
         bearer: String?,
         onDelta: ((String) -> Unit)?,
+        extraHeaders: Map<String, String> = emptyMap(),
     ): String {
-        val root = if (base.endsWith("/v1")) base else "$base/v1"
+        val root = AiPlatforms.chatRoot(base)
         val turns = messagesJson(messages)
         fun body(stream: Boolean) = """
             {
@@ -125,6 +133,7 @@ class LlmClient(
             if (!bearer.isNullOrBlank()) {
                 reqBuilder.header("Authorization", "Bearer $bearer")
             }
+            extraHeaders.forEach { (k, v) -> reqBuilder.header(k, v) }
             return reqBuilder.build()
         }
         return http.newCall(request(true)).execute().use { resp ->
@@ -266,9 +275,13 @@ class LlmClient(
 
     private fun llmError(code: Int, raw: String): String = "LLM error $code: ${raw.take(280)}"
 
-    private fun missingCreds(provider: LlmProvider): String = when (provider) {
-        LlmProvider.HERMES -> "Set a Hermes URL in settings."
-        else -> "Sign in or paste an API key in settings."
+    private fun missingCreds(provider: LlmProvider): String {
+        val platform = AiPlatforms.of(provider)
+        return when {
+            platform.needsBaseUrl && platform.keyOptional -> "Set a base URL in settings."
+            platform.needsBaseUrl -> "Set a base URL and API key in settings."
+            else -> "Sign in or paste an API key in settings."
+        }
     }
 
     private fun messagesJson(messages: List<ChatMessage>): String =

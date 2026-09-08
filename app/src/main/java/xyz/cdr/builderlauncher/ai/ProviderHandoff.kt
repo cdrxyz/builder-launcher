@@ -19,6 +19,14 @@ object ProviderHandoff {
         LlmProvider.XAI -> "Grok"
         LlmProvider.OPENAI -> "ChatGPT"
         LlmProvider.ANTHROPIC -> "Claude"
+        LlmProvider.GEMINI -> "Gemini"
+        LlmProvider.OPENROUTER -> "OpenRouter"
+        LlmProvider.GROQ -> "Groq"
+        LlmProvider.DEEPSEEK -> "DeepSeek"
+        LlmProvider.MISTRAL -> "Mistral"
+        LlmProvider.LMSTUDIO -> "LM Studio"
+        LlmProvider.OLLAMA -> "Ollama"
+        LlmProvider.GENERIC -> "OpenAI API"
         LlmProvider.HERMES -> "Hermes"
     }
 
@@ -28,7 +36,8 @@ object ProviderHandoff {
         LlmProvider.XAI -> "ai.x.grok"
         LlmProvider.OPENAI -> "com.openai.chatgpt"
         LlmProvider.ANTHROPIC -> "com.anthropic.claude"
-        LlmProvider.HERMES -> null
+        LlmProvider.GEMINI -> "com.google.android.apps.bard"
+        else -> null
     }
 
     fun webUrl(provider: LlmProvider, prompt: String, hermesBaseUrl: String?): String? {
@@ -37,10 +46,13 @@ object ProviderHandoff {
             LlmProvider.XAI -> site("https://grok.com/", q)
             LlmProvider.OPENAI -> site("https://chatgpt.com/", q)
             LlmProvider.ANTHROPIC -> site("https://claude.ai/new", q)
-            LlmProvider.HERMES -> {
+            LlmProvider.GEMINI -> site("https://gemini.google.com/app", q)
+            LlmProvider.OPENROUTER -> site("https://openrouter.ai/chat", q)
+            LlmProvider.HERMES, LlmProvider.LMSTUDIO, LlmProvider.OLLAMA, LlmProvider.GENERIC -> {
                 val base = hermesBaseUrl?.trim()?.trimEnd('/').orEmpty()
                 if (base.isEmpty()) null else "$base/"
             }
+            LlmProvider.GROQ, LlmProvider.DEEPSEEK, LlmProvider.MISTRAL -> null
         }
     }
 
