@@ -2265,6 +2265,7 @@ private fun ClockHeader(
                     minute = cal.get(Calendar.MINUTE),
                     second = cal.get(Calendar.SECOND),
                 )
+                Spacer(Modifier.height(16.dp))
                 Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
                 Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
             }
