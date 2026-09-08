@@ -7,7 +7,7 @@ object Stocks {
     const val BACK = "<"
     const val PREFIX = "$"
     const val COMMAND = "stocks"
-    const val MAX = 20
+    const val MAX = 100
 
     fun of(items: List<WatchItem>): List<WatchItem> = items
 

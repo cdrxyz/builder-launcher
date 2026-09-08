@@ -11,7 +11,7 @@ Prefix `$`. Type `stocks`, or tap `… all stocks >`.
 
 ![Watchlist with ticker, name, price, and today's percent](../../../assets/screenshots/stocks.png)
 
-Each row is ticker, company, last price, and today's percent (green up, red down). Cap is 20 names.
+Each row is ticker, company, last price, and today's percent (green up, red down). Cap is 100 names.
 
 - Tap a row for the chart.
 - Delete on the right removes it from the watchlist.
@@ -65,4 +65,4 @@ Accepted clipboard formats:
 | One ticker per line | `AAPL` |
 | `Symbol,Name` | `AAPL,Apple Inc.` |
 
-You can also Enter a CSV (or several lines) in the `$` bar on the watchlist. Duplicates collapse by ticker. Cap is 20.
+You can also Enter a CSV (or several lines) in the `$` bar on the watchlist. Duplicates collapse by ticker. Cap is 100.

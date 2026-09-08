@@ -888,23 +888,38 @@ fun CopyIcon(modifier: Modifier = Modifier) {
 fun GearIcon(modifier: Modifier = Modifier) {
     val accent = Accent
     Canvas(modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.6.dp.toPx())
+        val stroke = Stroke(
+            width = 1.6.dp.toPx(),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round,
+        )
         val cx = size.width / 2f
         val cy = size.height / 2f
-        val inner = size.minDimension * 0.18f
-        val mid = size.minDimension * 0.32f
-        val outer = size.minDimension * 0.46f
-        drawCircle(color = accent, radius = inner, style = stroke)
-        val teeth = 6
+        val hole = size.minDimension * 0.16f
+        val valley = size.minDimension * 0.30f
+        val tip = size.minDimension * 0.46f
+        val teeth = 8
+        val step = (Math.PI * 2.0 / teeth).toFloat()
+        val half = step * 0.28f
+        val path = Path()
         for (i in 0 until teeth) {
-            val a = Math.toRadians(i * 60.0 - 90.0).toFloat()
-            drawLine(
-                color = accent,
-                start = Offset(cx + kotlin.math.cos(a) * mid, cy + kotlin.math.sin(a) * mid),
-                end = Offset(cx + kotlin.math.cos(a) * outer, cy + kotlin.math.sin(a) * outer),
-                strokeWidth = stroke.width,
+            val a = i * step - (Math.PI / 2.0).toFloat()
+            val angles = floatArrayOf(
+                a - step / 2f + half,
+                a - half,
+                a + half,
+                a + step / 2f - half,
             )
+            val radii = floatArrayOf(valley, tip, tip, valley)
+            for (k in 0 until 4) {
+                val x = cx + kotlin.math.cos(angles[k]) * radii[k]
+                val y = cy + kotlin.math.sin(angles[k]) * radii[k]
+                if (i == 0 && k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
         }
+        path.close()
+        drawPath(path, color = accent, style = stroke)
+        drawCircle(color = accent, radius = hole, center = Offset(cx, cy), style = stroke)
     }
 }
 
