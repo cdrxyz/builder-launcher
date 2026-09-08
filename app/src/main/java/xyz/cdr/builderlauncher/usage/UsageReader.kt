@@ -39,14 +39,16 @@ class UsageReader(private val context: Context) {
         val overrides = store.overrides()
         return when (period) {
             UsagePeriod.W1 -> {
-                val previous = readBucket(usm, today - Usage.WEEK_MS, today - 1)
+                val previous = Usage.previousRange(today, period)?.let { (start, end) ->
+                    readBucket(usm, start, end)
+                }
                 Usage.build(
                     rawDays = buckets(usm, today, Usage.DAYS, Usage.DAY_MS, nowMs),
                     overrides = overrides,
                     period = period,
                     granted = true,
                     zone = zone,
-                    previousMs = Usage.totalOf(previous),
+                    previousMs = previous?.let { Usage.totalOf(it) },
                 )
             }
             UsagePeriod.M1 -> Usage.build(

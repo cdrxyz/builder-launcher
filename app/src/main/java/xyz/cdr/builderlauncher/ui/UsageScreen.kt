@@ -126,7 +126,7 @@ fun UsageBody(
         }
         Spacer(Modifier.height(8.dp))
         Text(Usage.formatDuration(total), style = MaterialTheme.typography.headlineLarge, color = Paper)
-        val subtitle = bar?.detail ?: Usage.vsLabel(snapshot.vsYesterdayMs)
+        val subtitle = bar?.detail ?: Usage.vsLabel(snapshot.vsLastWeekMs)
         if (subtitle.isNotEmpty()) {
             Text(
                 subtitle,

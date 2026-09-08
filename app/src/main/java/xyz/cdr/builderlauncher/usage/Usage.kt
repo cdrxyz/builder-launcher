@@ -53,7 +53,7 @@ data class UsageSnapshot(
     val productiveMs: Long,
     val distractingMs: Long,
     val otherMs: Long,
-    val vsYesterdayMs: Long?,
+    val vsLastWeekMs: Long?,
     val pickups: Int,
     val bars: List<UsageBar>,
     val apps: List<UsageApp>,
@@ -111,6 +111,16 @@ object Usage {
             deltaMs > 0 -> "${formatDuration(deltaMs)} more than last week"
             deltaMs < 0 -> "${formatDuration(-deltaMs)} less than last week"
             else -> "Same as last week"
+        }
+    }
+
+    fun previousRange(todayStart: Long, period: UsagePeriod): Pair<Long, Long>? {
+        return when (period) {
+            UsagePeriod.W1 -> {
+                val currentStart = todayStart - (DAYS - 1) * DAY_MS
+                (currentStart - WEEK_MS) to (currentStart - 1)
+            }
+            UsagePeriod.M1 -> null
         }
     }
 
@@ -212,7 +222,7 @@ object Usage {
             productiveMs = productive,
             distractingMs = distracting,
             otherMs = other,
-            vsYesterdayMs = vs,
+            vsLastWeekMs = vs,
             pickups = rawDays.sumOf { it.pickups },
             bars = bars,
             apps = apps,

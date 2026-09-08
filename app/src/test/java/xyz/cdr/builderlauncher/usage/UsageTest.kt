@@ -97,7 +97,7 @@ class UsageTest {
         assertEquals(3_600_000L, week.distractingMs)
         assertEquals(0L, week.otherMs)
         assertEquals(21, week.pickups)
-        assertEquals(30 * 60_000L, week.vsYesterdayMs)
+        assertEquals(30 * 60_000L, week.vsLastWeekMs)
         assertTrue(week.apps.none { it.packageName == "com.android.systemui" })
         assertEquals(UsageKind.PRODUCTIVE, week.apps.find { it.packageName == "org.mozilla.firefox" }?.kind)
         assertEquals("Tue", week.bars[3].label)
@@ -113,7 +113,19 @@ class UsageTest {
         val month = Usage.build(monthRaw, emptyMap(), UsagePeriod.M1, true, ZoneOffset.UTC)
         assertEquals(30, month.bars.size)
         assertEquals(30 * Usage.HOUR_MS, month.totalMs)
-        assertNull(month.vsYesterdayMs)
+        assertNull(month.vsLastWeekMs)
+    }
+
+    @Test
+    fun previousWeekDoesNotOverlapCurrentBars() {
+        val today = 1_725_667_200_000L
+        val currentStart = today - (Usage.DAYS - 1) * Usage.DAY_MS
+        val range = Usage.previousRange(today, UsagePeriod.W1)!!
+        assertEquals(currentStart - Usage.WEEK_MS, range.first)
+        assertEquals(currentStart - 1, range.second)
+        assertTrue(range.second < currentStart)
+        assertEquals(Usage.WEEK_MS - 1, range.second - range.first)
+        assertNull(Usage.previousRange(today, UsagePeriod.M1))
     }
 
     @Test
