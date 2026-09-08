@@ -73,7 +73,7 @@ data class UsageRawDay(
 
 object Usage {
     const val COMMAND = "usage"
-    const val BACK = "<"
+    const val BACK = ">"
     const val DAYS = 7
     const val TOP_APPS = 12
     const val MIN_MS = 1_000L

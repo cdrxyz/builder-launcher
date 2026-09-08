@@ -55,6 +55,7 @@ import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
 import xyz.cdr.builderlauncher.data.Notes
+import xyz.cdr.builderlauncher.hub.HubMessages
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlert
@@ -786,9 +787,13 @@ fun HubChrome(rows: List<HubRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(HubMessages.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             Text("hub", color = Accent)
-            Text("home", color = Dim)
         }
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -1168,8 +1173,15 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("usage", color = Accent)
+            Text(Usage.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f)) {
             UsageBody(snapshot = snapshot)
         }

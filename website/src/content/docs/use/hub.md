@@ -3,7 +3,7 @@ title: Hub
 description: Notification inbox. Tap to open, dismiss to clear. Todos and notes live elsewhere.
 ---
 
-Type `hub` or press D-pad right. Swipe right from home also opens the hub; swipe left from the hub returns home.
+Type `hub` or press D-pad right. Swipe right from home also opens the hub; swipe left from the hub returns home. `<` is top left; `hub` sits top right in the accent color.
 
 ![Hub showing granted notifications](../../../assets/screenshots/hub.png)
 

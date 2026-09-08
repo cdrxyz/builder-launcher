@@ -6,6 +6,7 @@ package xyz.cdr.builderlauncher.hub
  * otherwise it opens the same pending intent as tapping the row.
  */
 object HubMessages {
+    const val BACK = "<"
     const val CATEGORY_MESSAGE = "msg"
     const val MESSAGING_STYLE = "android.app.Notification\$MessagingStyle"
 

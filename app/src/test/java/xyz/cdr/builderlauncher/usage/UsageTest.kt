@@ -7,6 +7,11 @@ import java.time.ZoneOffset
 
 class UsageTest {
     @Test
+    fun backFacesHome() {
+        assertEquals(">", Usage.BACK)
+    }
+
+    @Test
     fun formatDuration() {
         assertEquals("0m", Usage.formatDuration(0))
         assertEquals("12s", Usage.formatDuration(12_000))

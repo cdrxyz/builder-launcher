@@ -43,15 +43,23 @@ fun UsageScreen(
     onCycleApp: (String) -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Text(
-            Usage.BACK,
-            color = Accent,
-            modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
-        )
-        Spacer(Modifier.height(8.dp))
-        if (!snapshot.granted) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text("usage", color = Accent)
-            Spacer(Modifier.height(12.dp))
+            Text(
+                Usage.BACK,
+                color = Accent,
+                modifier = Modifier
+                    .semantics { contentDescription = "back" }
+                    .clickable { onBack() }
+                    .padding(vertical = 6.dp),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        if (!snapshot.granted) {
             Text(
                 "Grant usage access to see how much time you spend in apps.",
                 color = Dim,
@@ -86,8 +94,6 @@ fun UsageBody(
     onCycleApp: (String) -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth()) {
-        Text("usage", color = Accent)
-        Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             UsagePeriod.entries.forEach { period ->
                 Text(

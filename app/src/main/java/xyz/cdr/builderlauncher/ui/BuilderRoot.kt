@@ -141,6 +141,7 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.BackPress
 import xyz.cdr.builderlauncher.home.BackResult
+import xyz.cdr.builderlauncher.hub.HubMessages
 import xyz.cdr.builderlauncher.hub.HubStore
 import xyz.cdr.builderlauncher.stocks.HomeTicker
 import xyz.cdr.builderlauncher.stocks.HomeTickerLine
@@ -1503,9 +1504,20 @@ fun BuilderRoot(
                 )
             }
             Page.Hub -> {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        HubMessages.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .semantics { contentDescription = "back" }
+                            .clickable { page = Page.Home }
+                            .padding(vertical = 6.dp),
+                    )
                     Text("hub", color = Accent)
-                    Text("home", color = Dim, modifier = Modifier.clickable { page = Page.Home })
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
