@@ -22,6 +22,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -873,6 +875,30 @@ fun BuilderRoot(
         ClockAlertService.stop(ctx)
     }
 
+    val onStrip = HomeStrip.contains(page)
+    val pagerState = rememberPagerState(
+        initialPage = HomeStrip.indexOf(page) ?: HomeStrip.HOME,
+        pageCount = { HomeStrip.COUNT },
+    )
+    LaunchedEffect(page) {
+        val target = HomeStrip.indexOf(page) ?: return@LaunchedEffect
+        if (pagerState.settledPage != target && !pagerState.isScrollInProgress) {
+            pagerState.animateScrollToPage(target)
+        }
+    }
+    LaunchedEffect(pagerState.settledPage) {
+        if (!HomeStrip.contains(page)) return@LaunchedEffect
+        val next = HomeStrip.pageAt(pagerState.settledPage)
+        if (next != page) {
+            when (next) {
+                Page.Usage -> openUsage()
+                Page.Hub -> openHub()
+                Page.Home -> page = Page.Home
+                else -> Unit
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
@@ -881,22 +907,17 @@ fun BuilderRoot(
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-            .then(
-                when (page) {
-                    Page.Home -> Modifier.horizontalSwipe(
-                        page,
-                        onRight = { openUsage() },
-                        onLeft = { openHub() },
-                    )
-                    Page.Hub -> Modifier.horizontalSwipe(page, onRight = { page = Page.Home })
-                    Page.Usage -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
-                    else -> Modifier
-                },
-            ),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        when (page) {
-            Page.Home -> {
+        if (onStrip) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
+            ) { index ->
+                Column(Modifier.fillMaxSize()) {
+                    when (HomeStrip.pageAt(index)) {
+                        Page.Home -> {
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
                 val ticker = HomeTicker.line(watch, quotes, tickerIndex)
                 ClockHeader(
@@ -1104,7 +1125,156 @@ fun BuilderRoot(
                     onHub = { openHub() },
                     onLeft = { openUsage() },
                 )
+                        }
+                        Page.Hub -> {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        HubMessages.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .semantics { contentDescription = "back" }
+                            .clickable { page = Page.Home }
+                            .padding(vertical = 6.dp),
+                    )
+                    Text("hub", color = Accent)
+                }
+                Spacer(Modifier.height(12.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(hub, key = { it.key }) { item ->
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .semantics { contentDescription = "open message" }
+                                        .clickable { HubStore.open(item.key) }
+                                        .padding(vertical = 6.dp),
+                                ) {
+                                    Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
+                                    Text(item.title, color = Paper)
+                                    if (item.body.isNotBlank()) {
+                                        Text(
+                                            item.body,
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                                ReplyIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "reply" }
+                                        .clickable {
+                                            if (item.canInlineReply) {
+                                                replyKey = item.key
+                                                replyText = ""
+                                            } else {
+                                                HubStore.open(item.key)
+                                            }
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                                DeleteIcon(
+                                    Modifier
+                                        .semantics { contentDescription = "dismiss" }
+                                        .clickable {
+                                            replyKey = null
+                                            replyText = ""
+                                            HubStore.dismiss(item.key)
+                                        }
+                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                )
+                            }
+                            if (replyKey == item.key && item.canInlineReply) {
+                                Spacer(Modifier.height(4.dp))
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(Modifier.weight(1f)) {
+                                        if (replyText.isEmpty()) {
+                                            Text(
+                                                "reply",
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = replyText,
+                                            onValueChange = { replyText = it },
+                                            singleLine = true,
+                                            cursorBrush = SolidColor(Accent),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+                                            keyboardOptions = KeyboardOptions(
+                                                capitalization = KeyboardCapitalization.Sentences,
+                                                imeAction = ImeAction.Send,
+                                            ),
+                                            keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                    SendIcon(
+                                        Modifier
+                                            .semantics { contentDescription = "send" }
+                                            .clickable { sendHubReply(item.key) }
+                                            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                    )
+                                }
+                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+                            }
+                        }
+                    }
+                    if (hub.isEmpty()) {
+                        item {
+                            Text(
+                                "Grant notification access in settings to fill the hub with messages you can reply to.",
+                                color = Dim,
+                            )
+                        }
+                    }
+                }
+                        }
+                        Page.Usage -> {
+                UsageScreen(
+                    snapshot = usageSnapshot,
+                    modifier = Modifier.weight(1f),
+                    onBack = { page = Page.Home },
+                    onPeriod = { next -> usagePeriod = next },
+                    onGrant = {
+                        runCatching { ctx.startActivity(usageReader.settingsIntent()) }
+                    },
+                    onCycleApp = { pkg ->
+                        usageStore.cycle(pkg)
+                        usageSnapshot = usageReader.load(usageStore, usagePeriod)
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { page = Page.Home },
+                )
+                        }
+                        else -> Unit
+                    }
+                }
             }
+        } else {
+            when (page) {
             Page.Todos -> {
                 val todos = HomeTodos.of(local)
                 val openTodos = HomeTodos.open(todos)
@@ -1556,122 +1726,6 @@ fun BuilderRoot(
                     onHub = { openHub() },
                 )
             }
-            Page.Hub -> {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        HubMessages.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .semantics { contentDescription = "back" }
-                            .clickable { page = Page.Home }
-                            .padding(vertical = 6.dp),
-                    )
-                    Text("hub", color = Accent)
-                }
-                Spacer(Modifier.height(12.dp))
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(hub, key = { it.key }) { item ->
-                        Column(Modifier.fillMaxWidth()) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(
-                                    Modifier
-                                        .weight(1f)
-                                        .semantics { contentDescription = "open message" }
-                                        .clickable { HubStore.open(item.key) }
-                                        .padding(vertical = 6.dp),
-                                ) {
-                                    Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
-                                    Text(item.title, color = Paper)
-                                    if (item.body.isNotBlank()) {
-                                        Text(
-                                            item.body,
-                                            color = Dim,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            maxLines = 3,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                }
-                                ReplyIcon(
-                                    Modifier
-                                        .semantics { contentDescription = "reply" }
-                                        .clickable {
-                                            if (item.canInlineReply) {
-                                                replyKey = item.key
-                                                replyText = ""
-                                            } else {
-                                                HubStore.open(item.key)
-                                            }
-                                        }
-                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                )
-                                DeleteIcon(
-                                    Modifier
-                                        .semantics { contentDescription = "dismiss" }
-                                        .clickable {
-                                            replyKey = null
-                                            replyText = ""
-                                            HubStore.dismiss(item.key)
-                                        }
-                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                )
-                            }
-                            if (replyKey == item.key && item.canInlineReply) {
-                                Spacer(Modifier.height(4.dp))
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(Modifier.weight(1f)) {
-                                        if (replyText.isEmpty()) {
-                                            Text(
-                                                "reply",
-                                                color = Dim,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                        }
-                                        BasicTextField(
-                                            value = replyText,
-                                            onValueChange = { replyText = it },
-                                            singleLine = true,
-                                            cursorBrush = SolidColor(Accent),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
-                                            keyboardOptions = KeyboardOptions(
-                                                capitalization = KeyboardCapitalization.Sentences,
-                                                imeAction = ImeAction.Send,
-                                            ),
-                                            keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                    }
-                                    SendIcon(
-                                        Modifier
-                                            .semantics { contentDescription = "send" }
-                                            .clickable { sendHubReply(item.key) }
-                                            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                    )
-                                }
-                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
-                            }
-                        }
-                    }
-                    if (hub.isEmpty()) {
-                        item {
-                            Text(
-                                "Grant notification access in settings to fill the hub with messages you can reply to.",
-                                color = Dim,
-                            )
-                        }
-                    }
-                }
-            }
             Page.Clock -> {
                 ClockScreen(
                     snapshot = clockState,
@@ -1742,33 +1796,6 @@ fun BuilderRoot(
                     onSubmit = { runCommand() },
                     onSlash = { pickSlash(it) },
                     onHub = { openHub() },
-                )
-            }
-            Page.Usage -> {
-                UsageScreen(
-                    snapshot = usageSnapshot,
-                    modifier = Modifier.weight(1f),
-                    onBack = { page = Page.Home },
-                    onPeriod = { next -> usagePeriod = next },
-                    onGrant = {
-                        runCatching { ctx.startActivity(usageReader.settingsIntent()) }
-                    },
-                    onCycleApp = { pkg ->
-                        usageStore.cycle(pkg)
-                        usageSnapshot = usageReader.load(usageStore, usagePeriod)
-                    },
-                )
-                Spacer(Modifier.height(8.dp))
-                CommandBar(
-                    prompt = prompt,
-                    value = input,
-                    hardware = hardware,
-                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
-                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
-                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
-                    onSubmit = { runCommand() },
-                    onSlash = { pickSlash(it) },
-                    onHub = { page = Page.Home },
                 )
             }
             Page.Settings -> {
@@ -2151,6 +2178,8 @@ fun BuilderRoot(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+            }
+                else -> Unit
             }
         }
     }

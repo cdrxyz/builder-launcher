@@ -13,7 +13,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 
 | Piece | What it does |
 | --- | --- |
-| Usage | Descending bar-chart mark, top left. Tap it for [usage](usage/) (screen time). Swipe from the left of home, or D-pad left, also opens it. |
+| Usage | Descending bar-chart mark, top left. Tap it for [usage](usage/) (screen time). Swipe from the left of home, or D-pad left, also opens it. The whole home screen slides with your finger. |
 | Weather | Condition icon over the temperature, on the left of the clock. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
 | Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
 | Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
