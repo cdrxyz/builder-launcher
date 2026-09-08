@@ -25,7 +25,8 @@ class LauncherScreenshotTest {
                     time = "15:42",
                     date = "Mon 7 Sep",
                     weather = "18° cloudy",
-                    input = "?summarize this PR",
+                    input = "summarize this PR",
+                    prompt = "?",
                     todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
                 )
             }
@@ -45,7 +46,7 @@ class LauncherScreenshotTest {
                         "review PR after lunch",
                     ),
                     doneTodos = listOf("mail keys"),
-                    input = "-",
+                    input = "",
                 )
             }
         }

@@ -61,6 +61,7 @@ fun HomeChrome(
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
+    prompt: String = ">",
 ) {
     Column(
         modifier = Modifier
@@ -93,7 +94,7 @@ fun HomeChrome(
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input, commandsOpen = commandsOpen)
+        CommandRow(input, commandsOpen = commandsOpen, prompt = prompt)
     }
 }
 
@@ -101,7 +102,8 @@ fun HomeChrome(
 fun TodosChrome(
     todos: List<String> = emptyList(),
     doneTodos: List<String> = emptyList(),
-    input: String = HomeTodos.TASK_PREFIX,
+    input: String = "",
+    prompt: String = HomeTodos.TASK_PREFIX,
 ) {
     Column(
         modifier = Modifier
@@ -140,7 +142,7 @@ fun TodosChrome(
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input)
+        CommandRow(input, prompt = prompt)
     }
 }
 
@@ -394,13 +396,13 @@ fun SettingsChrome(
 }
 
 @Composable
-private fun CommandRow(value: String, commandsOpen: Boolean = false) {
+private fun CommandRow(value: String, commandsOpen: Boolean = false, prompt: String = ">") {
     Column(modifier = Modifier.fillMaxWidth()) {
         if (commandsOpen) {
             CommandMenu()
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(">", color = Prompt, modifier = Modifier.padding(end = 10.dp))
+            Text(prompt, color = Prompt, modifier = Modifier.padding(end = 10.dp))
             Text(
                 value.ifEmpty { "" },
                 color = Paper,
