@@ -44,4 +44,18 @@ class HomeTodosTest {
         assertEquals(listOf("open-new", "open-older"), HomeTodos.open(todos).map { it.text })
         assertEquals(listOf("done-new", "done-mid", "done-old"), HomeTodos.completed(todos).map { it.text })
     }
+
+    @Test
+    fun todosScreenOpensInTaskMode() {
+        assertEquals("-", HomeTodos.enterDraft())
+        assertEquals("-", HomeTodos.keepDraft(""))
+        assertEquals("-buy milk", HomeTodos.keepDraft("-buy milk"))
+    }
+
+    @Test
+    fun leavingTodosClearsBareTaskPrefix() {
+        assertEquals("", HomeTodos.leaveDraft("-"))
+        assertEquals("", HomeTodos.leaveDraft("  "))
+        assertEquals("-buy milk", HomeTodos.leaveDraft("-buy milk"))
+    }
 }

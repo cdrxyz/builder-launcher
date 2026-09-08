@@ -40,8 +40,6 @@ fun HomeChrome(
     input: String,
     weather: String = "",
     todos: List<String> = emptyList(),
-    doneTodos: List<String> = emptyList(),
-    todosExpanded: Boolean = false,
     apps: List<String> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
@@ -58,36 +56,13 @@ fun HomeChrome(
             Text(weather, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
         Spacer(Modifier.height(8.dp))
-        if (!todosExpanded) {
-            todos.take(HomeTodos.PREVIEW).forEach { text ->
-                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-            }
-            Text(HomeTodos.MORE_TASKS, color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
-            Spacer(Modifier.height(8.dp))
+        todos.take(HomeTodos.PREVIEW).forEach { text ->
+            Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
         }
+        Text(HomeTodos.MORE_TASKS, color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (todosExpanded) {
-                todos.forEach { text ->
-                    Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
-                }
-                if (doneTodos.isNotEmpty()) {
-                    Text(
-                        "done",
-                        color = Dim,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                    )
-                    doneTodos.forEach { text ->
-                        Text(
-                            text,
-                            color = Dim,
-                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                        )
-                    }
-                }
-                Text("show less", color = Dim, modifier = Modifier.padding(vertical = 6.dp))
-            } else if (apps.isEmpty() && input.isBlank()) {
+            if (apps.isEmpty() && input.isBlank()) {
                 Text(hint, color = Dim)
             } else {
                 apps.forEach { label ->
@@ -97,6 +72,46 @@ fun HomeChrome(
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input, commandsOpen = commandsOpen)
+    }
+}
+
+@Composable
+fun TodosChrome(
+    todos: List<String> = emptyList(),
+    doneTodos: List<String> = emptyList(),
+    input: String = HomeTodos.TASK_PREFIX,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            todos.forEach { text ->
+                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+            }
+            if (doneTodos.isNotEmpty()) {
+                Text(
+                    "done",
+                    color = Dim,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                )
+                doneTodos.forEach { text ->
+                    Text(
+                        text,
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input)
     }
 }
 

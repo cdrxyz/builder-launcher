@@ -33,14 +33,10 @@ class LauncherScreenshotTest {
     }
 
     @Test
-    fun homeMoreTodos() {
+    fun todos() {
         paparazzi.snapshot {
             BuilderTheme {
-                HomeChrome(
-                    time = "15:42",
-                    date = "Mon 7 Sep",
-                    weather = "18° cloudy",
-                    input = "",
+                TodosChrome(
                     todos = listOf(
                         "buy milk",
                         "ship builder-launcher CI",
@@ -49,7 +45,7 @@ class LauncherScreenshotTest {
                         "review PR after lunch",
                     ),
                     doneTodos = listOf("mail keys"),
-                    todosExpanded = true,
+                    input = "-",
                 )
             }
         }
