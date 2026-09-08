@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.WeatherUnits
@@ -34,7 +35,7 @@ import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
-import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.ui.theme.Accent
 
 data class HubRow(
     val kind: String,
@@ -78,7 +79,7 @@ fun HomeChrome(
         todos.take(HomeTodos.PREVIEW).forEach { text ->
             Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
         }
-        Text(HomeTodos.MORE_TASKS, color = Prompt, modifier = Modifier.padding(vertical = 4.dp))
+        Text(HomeTodos.MORE_TASKS, color = Accent, modifier = Modifier.padding(vertical = 4.dp))
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (apps.isEmpty() && input.isBlank()) {
@@ -87,7 +88,7 @@ fun HomeChrome(
                 apps.forEach { label ->
                     Text(
                         label,
-                        color = if (label == Notes.MORE || label == AppList.MORE) Prompt else Paper,
+                        color = if (label == Notes.MORE || label == AppList.MORE) Accent else Paper,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     )
                 }
@@ -116,7 +117,7 @@ fun TodosChrome(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(HomeTodos.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            Text(HomeTodos.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             CopyIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
@@ -154,7 +155,7 @@ fun NotesChrome(rows: List<NoteListRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Notes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Text(Notes.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (rows.isEmpty()) {
@@ -188,7 +189,7 @@ fun AllAppsChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(AppList.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+        Text(AppList.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         Spacer(Modifier.height(8.dp))
         Column(
             modifier = Modifier.weight(1f),
@@ -232,7 +233,7 @@ fun NoteEditorChrome(body: String) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(Notes.BACK, color = Prompt, modifier = Modifier.padding(vertical = 6.dp))
+            Text(Notes.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             CopyIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
@@ -249,7 +250,7 @@ fun HubChrome(rows: List<HubRow>) {
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("hub", color = Prompt)
+            Text("hub", color = Accent)
             Text("home", color = Dim)
         }
         Spacer(Modifier.height(12.dp))
@@ -291,18 +292,21 @@ fun SettingsChrome(
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Prompt)
+            Text("settings", color = Accent)
             Text("home", color = Dim)
         }
         Spacer(Modifier.height(16.dp))
+        AccentPicker(hex = settings.accentHex)
+        Field("Hex", settings.accentHex, AccentColor.DEFAULT_HEX)
+        Spacer(Modifier.height(16.dp))
         Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            Text("Hermes", color = if (settings.provider == LlmProvider.HERMES) Prompt else Dim)
-            Text("xAI", color = if (settings.provider == LlmProvider.XAI) Prompt else Dim)
+            Text("Hermes", color = if (settings.provider == LlmProvider.HERMES) Accent else Dim)
+            Text("xAI", color = if (settings.provider == LlmProvider.XAI) Accent else Dim)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            Text("OpenAI", color = if (settings.provider == LlmProvider.OPENAI) Prompt else Dim)
-            Text("Anthropic", color = if (settings.provider == LlmProvider.ANTHROPIC) Prompt else Dim)
+            Text("OpenAI", color = if (settings.provider == LlmProvider.OPENAI) Accent else Dim)
+            Text("Anthropic", color = if (settings.provider == LlmProvider.ANTHROPIC) Accent else Dim)
         }
         if (settings.provider == LlmProvider.HERMES) {
             Field("Hermes base URL", hermes, "http://192.168.1.10:8642")
@@ -335,7 +339,7 @@ fun SettingsChrome(
             KeyboardMode.entries.forEach { mode ->
                 Text(
                     mode.name.lowercase(),
-                    color = if (settings.keyboardMode == mode) Prompt else Dim,
+                    color = if (settings.keyboardMode == mode) Accent else Dim,
                 )
             }
         }
@@ -369,7 +373,7 @@ fun SettingsChrome(
             WeatherUnits.entries.forEach { units ->
                 Text(
                     units.name.lowercase(),
-                    color = if (settings.weatherUnits == units) Prompt else Dim,
+                    color = if (settings.weatherUnits == units) Accent else Dim,
                 )
             }
         }
@@ -402,7 +406,7 @@ private fun CommandRow(value: String, commandsOpen: Boolean = false, prompt: Str
             CommandMenu()
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(prompt, color = Prompt, modifier = Modifier.padding(end = 10.dp))
+            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp))
             Text(
                 value.ifEmpty { "" },
                 color = Paper,
@@ -427,19 +431,20 @@ private fun Field(label: String, value: String, placeholder: String) {
 
 @Composable
 fun CopyIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val gap = size.minDimension * 0.28f
         val box = Size(size.width - gap, size.height - gap)
         drawRoundRect(
-            color = Prompt,
+            color = accent,
             topLeft = Offset(gap, 0f),
             size = box,
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke,
         )
         drawRoundRect(
-            color = Prompt,
+            color = accent,
             topLeft = Offset(0f, gap),
             size = box,
             cornerRadius = CornerRadius(2.dp.toPx()),

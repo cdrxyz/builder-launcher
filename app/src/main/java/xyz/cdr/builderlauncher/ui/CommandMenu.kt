@@ -16,7 +16,7 @@ import xyz.cdr.builderlauncher.commands.PrefixCommand
 import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Paper
-import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.ui.theme.Accent
 
 @Composable
 fun CommandMenu(
@@ -37,7 +37,7 @@ fun CommandMenu(
             ) {
                 Text(
                     cmd.glyph.toString(),
-                    color = Prompt,
+                    color = Accent,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(end = 10.dp),
                 )

@@ -27,6 +27,7 @@ data class BuilderSettings(
     val oauthRefresh: String = "",
     val oauthExpiresAtEpochMs: Long = 0L,
     val oauthAccount: String = "",
+    val accentHex: String = AccentColor.DEFAULT_HEX,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -119,6 +120,7 @@ class SettingsRepository(context: Context) {
             oauthRefresh = prefs.getString(KEY_OAUTH_REFRESH, "") ?: "",
             oauthExpiresAtEpochMs = prefs.getString(KEY_OAUTH_EXPIRES, "0")?.toLongOrNull() ?: 0L,
             oauthAccount = prefs.getString(KEY_OAUTH_ACCOUNT, "") ?: "",
+            accentHex = AccentColor.normalize(prefs.getString(KEY_ACCENT, AccentColor.DEFAULT_HEX)),
         )
     }
 
@@ -137,6 +139,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_OAUTH_REFRESH, next.oauthRefresh)
             .putString(KEY_OAUTH_EXPIRES, next.oauthExpiresAtEpochMs.toString())
             .putString(KEY_OAUTH_ACCOUNT, next.oauthAccount)
+            .putString(KEY_ACCENT, AccentColor.normalize(next.accentHex))
             .apply()
     }
 
@@ -156,6 +159,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_OAUTH_REFRESH = "oauth_refresh"
         private const val KEY_OAUTH_EXPIRES = "oauth_expires"
         private const val KEY_OAUTH_ACCOUNT = "oauth_account"
+        private const val KEY_ACCENT = "accent"
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {

@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = Path(__file__).resolve().parent
-INK, PAPER, DIM, PROMPT, LINE = "#0B0B0B", "#E8E4D9", "#8A867C", "#B7C9A8", "#2A2A2A"
+INK, PAPER, DIM, PROMPT, LINE = "#0B0B0B", "#E8E4D9", "#8A867C", "#00FF41", "#2A2A2A"
 W, H = 780, 1688
 PAD_X, PAD_T = 56, 108
 
@@ -85,6 +85,23 @@ def settings() -> None:
     d.text((PAD_X, PAD_T), "settings", font=F_BODY, fill=PROMPT)
     d.text((W - PAD_X - 80, PAD_T), "home", font=F_SMALL, fill=DIM)
     y = PAD_T + 80
+    d.text((PAD_X, y), "Accent", font=F_SMALL, fill=DIM)
+    y += 40
+    swatches = ["#00FF41", "#B7C9A8", "#FFB000", "#00E5FF", "#FF2BD6", "#E8E4D9"]
+    x = PAD_X
+    for i, color in enumerate(swatches):
+        d.rectangle((x, y, x + 28, y + 28), fill=color, outline="#E8E4D9" if i == 0 else LINE)
+        x += 40
+    y += 44
+    d.text((PAD_X, y), "cyberpunk green", font=F_MED, fill=PROMPT)
+    y += 36
+    d.text((PAD_X, y), "Cursor, the > prompt, and links like all notes.", font=F_MED, fill=DIM)
+    y += 48
+    d.text((PAD_X, y), "Hex", font=F_SMALL, fill=DIM)
+    y += 36
+    d.text((PAD_X, y), "#00FF41", font=F_MED, fill=PAPER)
+    d.line((PAD_X, y + 44, W - PAD_X, y + 44), fill=LINE, width=2)
+    y += 70
     d.text((PAD_X, y), "AI provider", font=F_SMALL, fill=DIM)
     y += 40
     d.text((PAD_X, y), "Hermes", font=F_MED, fill=PROMPT)

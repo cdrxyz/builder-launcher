@@ -89,6 +89,7 @@ import xyz.cdr.builderlauncher.commands.ExecResult
 import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
+import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.WeatherUnits
@@ -104,7 +105,7 @@ import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
-import xyz.cdr.builderlauncher.ui.theme.Prompt
+import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
@@ -379,13 +380,13 @@ fun BuilderRoot(
                 )
                 Spacer(Modifier.height(8.dp))
                 if (aiText != null) {
-                    Text(if (aiBusy) "…" else aiText!!, color = Prompt, style = MaterialTheme.typography.bodyMedium)
+                    Text(if (aiBusy) "…" else aiText!!, color = Accent, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(12.dp))
                 }
                 smsDraft?.let { draft ->
                     Text(
                         "Send to ${draft.contact.name} (${draft.contact.number})",
-                        color = Prompt,
+                        color = Accent,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(draft.body, color = Paper, style = MaterialTheme.typography.bodyMedium)
@@ -426,7 +427,7 @@ fun BuilderRoot(
                         if (Notes.matchesQuery(input)) {
                             Text(
                                 Notes.MORE,
-                                color = Prompt,
+                                color = Accent,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { openNotesList() }
@@ -454,7 +455,7 @@ fun BuilderRoot(
                         }
                         Text(
                             AppList.MORE,
-                            color = Prompt,
+                            color = Accent,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { openAppsList(keepQuery = true) }
@@ -557,7 +558,7 @@ fun BuilderRoot(
                 ) {
                     Text(
                         HomeTodos.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable {
                                 applyMode(
@@ -618,7 +619,7 @@ fun BuilderRoot(
                 ) {
                     Text(
                         Notes.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable { page = Page.Home }
                             .padding(vertical = 6.dp),
@@ -668,7 +669,7 @@ fun BuilderRoot(
                 ) {
                     Text(
                         Notes.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable { saveAndCloseNote() }
                             .padding(vertical = 6.dp),
@@ -680,11 +681,12 @@ fun BuilderRoot(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                val noteAccent = Accent
                 BasicTextField(
                     value = noteDraft,
                     onValueChange = { noteDraft = it },
-                    visualTransformation = MarkdownVisualTransformation,
-                    cursorBrush = SolidColor(Prompt),
+                    visualTransformation = remember(noteAccent) { MarkdownVisualTransformation(noteAccent) },
+                    cursorBrush = SolidColor(Accent),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
@@ -707,7 +709,7 @@ fun BuilderRoot(
                 ) {
                     Text(
                         AppList.BACK,
-                        color = Prompt,
+                        color = Accent,
                         modifier = Modifier
                             .clickable {
                                 page = Page.Home
@@ -774,7 +776,7 @@ fun BuilderRoot(
             }
             Page.Hub -> {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("hub", color = Prompt)
+                    Text("hub", color = Accent)
                     Text("home", color = Dim, modifier = Modifier.clickable { page = Page.Home })
                 }
                 Spacer(Modifier.height(12.dp))
@@ -858,7 +860,7 @@ private fun TodoPreview(
         }
         Text(
             HomeTodos.MORE_TASKS,
-            color = Prompt,
+            color = Accent,
             modifier = Modifier
                 .clickable { onMore() }
                 .padding(vertical = 4.dp),
@@ -920,7 +922,7 @@ private fun CommandBar(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
                 prompt.toString(),
-                color = Prompt,
+                color = Accent,
                 modifier = Modifier
                     .semantics { contentDescription = "commands" }
                     .clickable {
@@ -939,7 +941,7 @@ private fun CommandBar(
                     }
                 },
                 singleLine = true,
-                cursorBrush = SolidColor(Prompt),
+                cursorBrush = SolidColor(Accent),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.None,
@@ -1057,6 +1059,7 @@ private fun SettingsPage(
     var pending by remember { mutableStateOf<DevicePending?>(null) }
     var pkce by remember { mutableStateOf<PkceSession?>(null) }
     var pollJob by remember { mutableStateOf<Job?>(null) }
+    var accentDraft by remember { mutableStateOf(settings.accentHex) }
     LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
         val q = placeQuery.trim()
         if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
@@ -1084,8 +1087,22 @@ private fun SettingsPage(
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Prompt)
+            Text("settings", color = Accent)
             Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
+        }
+        Spacer(Modifier.height(16.dp))
+        AccentPicker(
+            hex = settings.accentHex,
+            onPick = { next ->
+                accentDraft = next
+                repo.update { it.copy(accentHex = next) }
+            },
+        )
+        LabeledField("Hex", accentDraft, AccentColor.DEFAULT_HEX) {
+            accentDraft = it
+            if (AccentColor.parse(it) != null) {
+                repo.update { s -> s.copy(accentHex = AccentColor.normalize(it)) }
+            }
         }
         Spacer(Modifier.height(16.dp))
         Text("AI provider", color = Dim, style = MaterialTheme.typography.labelSmall)
@@ -1093,7 +1110,7 @@ private fun SettingsPage(
             AiPlatforms.all.take(2).forEach { item ->
                 Text(
                     item.label,
-                    color = if (settings.provider == item.provider) Prompt else Dim,
+                    color = if (settings.provider == item.provider) Accent else Dim,
                     modifier = Modifier.clickable {
                         cancelAuth()
                         repo.setProvider(item.provider)
@@ -1105,7 +1122,7 @@ private fun SettingsPage(
             AiPlatforms.all.drop(2).forEach { item ->
                 Text(
                     item.label,
-                    color = if (settings.provider == item.provider) Prompt else Dim,
+                    color = if (settings.provider == item.provider) Accent else Dim,
                     modifier = Modifier.clickable {
                         cancelAuth()
                         repo.setProvider(item.provider)
@@ -1206,7 +1223,7 @@ private fun SettingsPage(
             KeyboardMode.entries.forEach { mode ->
                 Text(
                     mode.name.lowercase(),
-                    color = if (settings.keyboardMode == mode) Prompt else Dim,
+                    color = if (settings.keyboardMode == mode) Accent else Dim,
                     modifier = Modifier.clickable { repo.update { it.copy(keyboardMode = mode) } },
                 )
             }
@@ -1253,7 +1270,7 @@ private fun SettingsPage(
             WeatherUnits.entries.forEach { units ->
                 Text(
                     units.name.lowercase(),
-                    color = if (settings.weatherUnits == units) Prompt else Dim,
+                    color = if (settings.weatherUnits == units) Accent else Dim,
                     modifier = Modifier.clickable { repo.update { it.copy(weatherUnits = units) } },
                 )
             }
@@ -1318,19 +1335,19 @@ private fun OauthBlock(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(8.dp))
-        Text("Sign out", color = Prompt, modifier = Modifier.clickable { onSignOut() })
+        Text("Sign out", color = Accent, modifier = Modifier.clickable { onSignOut() })
     } else {
         Text(signInLabel, color = Paper, modifier = Modifier.clickable { onSignIn() })
     }
     pending?.let {
         Spacer(Modifier.height(8.dp))
         Text("Enter this code in the browser", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Text(it.userCode, color = Prompt, style = MaterialTheme.typography.headlineSmall)
+        Text(it.userCode, color = Accent, style = MaterialTheme.typography.headlineSmall)
         Text("Waiting for approval…", color = Dim, style = MaterialTheme.typography.bodyMedium)
     }
     if (pkce != null) {
         LabeledField("Paste code or callback URL", paste, "code from the page") { onPaste(it) }
-        Text("Finish sign-in", color = Prompt, modifier = Modifier.clickable { onCompletePaste() }.padding(vertical = 8.dp))
+        Text("Finish sign-in", color = Accent, modifier = Modifier.clickable { onCompletePaste() }.padding(vertical = 8.dp))
     }
     message?.let {
         Spacer(Modifier.height(6.dp))
@@ -1346,7 +1363,7 @@ private fun LabeledField(label: String, value: String, placeholder: String, onCh
         value = value,
         onValueChange = onChange,
         singleLine = true,
-        cursorBrush = SolidColor(Prompt),
+        cursorBrush = SolidColor(Accent),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
         decorationBox = { inner ->
             if (value.isEmpty()) Text(placeholder, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -1372,7 +1389,7 @@ private fun WeatherLocationField(
         value = query,
         onValueChange = onQuery,
         singleLine = true,
-        cursorBrush = SolidColor(Prompt),
+        cursorBrush = SolidColor(Accent),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
         decorationBox = { inner ->
             if (query.isEmpty()) Text("New York", color = Dim, style = MaterialTheme.typography.bodyMedium)

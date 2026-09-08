@@ -13,7 +13,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 <p align="center">
   <img src="docs/screenshots/home.png" alt="Home: clock, weather, todos, command bar" width="240" />
   <img src="docs/screenshots/hub.png" alt="Hub: granted notifications" width="240" />
-  <img src="docs/screenshots/settings.png" alt="Settings: Hermes or xAI, keyboard mode" width="240" />
+  <img src="docs/screenshots/settings.png" alt="Settings: accent color, Hermes or xAI, keyboard mode" width="240" />
 </p>
 
 <p align="center">
