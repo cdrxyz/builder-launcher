@@ -1,0 +1,245 @@
+package xyz.cdr.builderlauncher.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import xyz.cdr.builderlauncher.clock.Clock
+import xyz.cdr.builderlauncher.clock.ClockAlarm
+import xyz.cdr.builderlauncher.clock.ClockSnapshot
+import xyz.cdr.builderlauncher.clock.ClockTab
+import xyz.cdr.builderlauncher.clock.WorldClock
+import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Paper
+import xyz.cdr.builderlauncher.weather.WeatherPlace
+
+@Composable
+fun ClockScreen(
+    snapshot: ClockSnapshot,
+    tab: ClockTab,
+    zoneHits: List<WeatherPlace>,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onTab: (ClockTab) -> Unit,
+    onPreset: (Int) -> Unit,
+    onStartPause: () -> Unit,
+    onReset: () -> Unit,
+    onToggleAlarm: (String) -> Unit,
+    onRemoveAlarm: (String) -> Unit,
+    onPickZone: (WeatherPlace) -> Unit,
+    onRemoveZone: (String) -> Unit,
+) {
+    val now = remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(snapshot.timer.running) {
+        while (true) {
+            now.value = System.currentTimeMillis()
+            delay(if (snapshot.timer.running) 200 else 15_000)
+        }
+    }
+    Column(modifier.fillMaxWidth()) {
+        Text(
+            Clock.BACK,
+            color = Accent,
+            modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            ClockTab.entries.forEach { item ->
+                val label = when (item) {
+                    ClockTab.Timer -> "Timer"
+                    ClockTab.Alarm -> "Alarm"
+                    ClockTab.Zones -> "Time Zones"
+                }
+                Text(
+                    label,
+                    color = if (item == tab) Accent else Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.clickable { onTab(item) }.padding(vertical = 8.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        when (tab) {
+            ClockTab.Timer -> TimerPane(
+                display = Clock.formatTimer(Clock.remainingMs(snapshot.timer, now.value)),
+                running = snapshot.timer.running,
+                durationMs = snapshot.timer.durationMs,
+                onPreset = onPreset,
+                onStartPause = onStartPause,
+                onReset = onReset,
+            )
+            ClockTab.Alarm -> AlarmPane(
+                alarms = snapshot.alarms,
+                onToggle = onToggleAlarm,
+                onRemove = onRemoveAlarm,
+            )
+            ClockTab.Zones -> ZonePane(
+                zones = snapshot.zones,
+                hits = zoneHits,
+                now = now.value,
+                onPick = onPickZone,
+                onRemove = onRemoveZone,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimerPane(
+    display: String,
+    running: Boolean,
+    durationMs: Long,
+    onPreset: (Int) -> Unit,
+    onStartPause: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            display,
+            color = Paper,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 60.sp,
+            ),
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Clock.PRESETS_MIN.forEach { min ->
+                val selected = durationMs == min * 60_000L && !running
+                Text(
+                    min.toString(),
+                    color = if (selected) Accent else Dim,
+                    modifier = Modifier.clickable { onPreset(min) }.padding(vertical = 8.dp, horizontal = 4.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Text(
+                if (running) "pause" else "start",
+                color = Accent,
+                modifier = Modifier.clickable { onStartPause() }.padding(vertical = 8.dp),
+            )
+            Text(
+                "reset",
+                color = Dim,
+                modifier = Modifier.clickable { onReset() }.padding(vertical = 8.dp),
+            )
+        }
+        Text(
+            "Type minutes (5) or mm:ss, then Enter.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+    }
+}
+
+@Composable
+private fun AlarmPane(
+    alarms: List<ClockAlarm>,
+    onToggle: (String) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        if (alarms.isEmpty()) {
+            Text("Type 7:30 or 7:30am, then Enter.", color = Dim)
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                alarms.forEach { alarm ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .clickable { onToggle(alarm.id) }
+                                .padding(vertical = 8.dp),
+                        ) {
+                            Text(Clock.formatAlarm(alarm.hour, alarm.minute), color = Paper)
+                            Text(
+                                if (alarm.enabled) "on" else "off",
+                                color = if (alarm.enabled) Accent else Dim,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        DeleteIcon(
+                            Modifier
+                                .clickable { onRemove(alarm.id) }
+                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZonePane(
+    zones: List<WorldClock>,
+    hits: List<WeatherPlace>,
+    now: Long,
+    onPick: (WeatherPlace) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        if (hits.isNotEmpty()) {
+            hits.forEach { place ->
+                Text(
+                    place.label,
+                    color = Paper,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(place) }
+                        .padding(vertical = 8.dp),
+                )
+            }
+        } else if (zones.isEmpty()) {
+            Text("Type a city, then Enter.", color = Dim)
+        }
+        if (hits.isEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                zones.forEach { zone ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                            Text(Clock.formatZoneTime(zone.zoneId, now), color = Paper)
+                            Text(zone.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                Clock.formatZoneDate(zone.zoneId, now),
+                                color = Dim,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                        DeleteIcon(
+                            Modifier
+                                .clickable { onRemove(zone.id) }
+                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

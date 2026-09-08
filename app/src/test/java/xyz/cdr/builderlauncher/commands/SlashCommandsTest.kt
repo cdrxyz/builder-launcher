@@ -9,7 +9,7 @@ class SlashCommandsTest {
     @Test
     fun catalogIsAlphabetical() {
         assertEquals(
-            listOf("apps", "help", "hub", "notes", "settings", "stocks"),
+            listOf("apps", "clock", "help", "hub", "notes", "settings", "stocks", "weather"),
             SlashCommands.all.map { it.name },
         )
         assertTrue(SlashCommands.all.map { it.name } == SlashCommands.all.map { it.name }.sorted())
@@ -23,6 +23,7 @@ class SlashCommandsTest {
 
     @Test
     fun matchesPrefix() {
+        assertEquals(listOf("clock"), SlashCommands.matches("c").map { it.name })
         assertEquals(listOf("help", "hub"), SlashCommands.matches("h").map { it.name })
         assertEquals(listOf("settings"), SlashCommands.matches("set").map { it.name })
         assertEquals(emptyList<SlashCommand>(), SlashCommands.matches("zzz"))

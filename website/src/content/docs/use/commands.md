@@ -17,18 +17,20 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; history lists past chats with a date and delete |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin on the home list |
-| | `hub` / `notes` / `apps` / `stocks` / `settings` / `help` | Built-ins |
+| | `hub` / `notes` / `apps` / `stocks` / `clock` / `weather` / `settings` / `help` | Built-ins |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 
 `help` and `/help` show the on-screen cheat sheet. A lone `?` opens [Ask AI](ai/).
 
-`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, and `stocks`.
+`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `clock`, and `weather`.
 
 ## Where each thing lives
 
 - Todos stay on [home](home/) and `… more tasks >`.
 - Notes stay on [notes](notes/).
 - Stocks stay on [stocks](stocks/).
+- Clock stays on [clock](clock/).
+- Weather stays on [weather](weather/).
 - AI chats stay on [Ask AI](ai/).
 - Notifications stay on the [hub](hub/).
 - Installed apps stay on [apps](apps/).

@@ -16,6 +16,8 @@ import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.commands.CommandExecutor
+import xyz.cdr.builderlauncher.clock.ClockStore
+import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -55,6 +57,8 @@ class MainActivity : ComponentActivity() {
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         val stocks = StocksRepository(this)
+        val clock = ClockStore(this)
+        ClockScheduler.sync(this, clock.snapshot())
         setContent {
             val current by settings.settings.collectAsState()
             BuilderTheme(accent = accentColor(current.accentHex)) {
@@ -70,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     executor = executor,
                     weather = weather,
                     stocks = stocks,
+                    clock = clock,
                     onRequestHome = { askToBeHome(fromSettings = true) },
                 )
             }

@@ -9,8 +9,8 @@ Home is empty on purpose. There is no icon grid.
 
 | Piece | What it does |
 | --- | --- |
-| Clock | Large time, weekday, date. Tap it for [settings](../configure/settings/). |
-| Weather | Current condition under the date after you pick a city. [Configure weather](../configure/weather/). |
+| Clock | Large time, weekday, date. Tap it for [clock](clock/) (timer, alarm, time zones). |
+| Weather | Current condition under the date. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |
 | `… more tasks >` | Always on home. Opens the full tasks list (no clock). `<` returns home. |
 | Command bar | Bottom of the screen. Type, then Enter. |

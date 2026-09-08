@@ -7,11 +7,13 @@ object SlashCommands {
 
     val all: List<SlashCommand> = listOf(
         SlashCommand("apps", "all apps", Command.OpenApps),
+        SlashCommand("clock", "timer alarm zones", Command.OpenClock),
         SlashCommand("help", "commands", Command.Help),
         SlashCommand("hub", "hub", Command.OpenHub),
         SlashCommand("notes", "all notes", Command.OpenNotes),
         SlashCommand("settings", "settings", Command.OpenSettings),
         SlashCommand("stocks", "watchlist", Command.OpenStocks),
+        SlashCommand("weather", "forecast", Command.OpenWeather),
     ).sortedBy { it.name }
 
     fun exact(query: String): SlashCommand? {

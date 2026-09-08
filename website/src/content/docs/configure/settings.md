@@ -1,9 +1,9 @@
 ---
 title: Settings
-description: Tap the clock. AI, keyboard, weather, hub access, default Home.
+description: Type settings. AI, keyboard, weather, hub access, default Home.
 ---
 
-Tap the clock on home, or type `settings`.
+Type `settings` or `/settings`.
 
 ![Settings: AI provider, keyboard, weather city and units](../../../assets/screenshots/settings.png)
 

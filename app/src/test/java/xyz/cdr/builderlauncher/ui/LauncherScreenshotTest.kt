@@ -333,4 +333,37 @@ class LauncherScreenshotTest {
             }
         }
     }
+
+    @Test
+    fun clock() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockChrome(tab = "Timer", timer = "5:00")
+            }
+        }
+    }
+
+    @Test
+    fun clockAlarm() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockChrome(
+                    tab = "Alarm",
+                    alarms = listOf(
+                        xyz.cdr.builderlauncher.clock.ClockAlarm(id = "1", hour = 6, minute = 30, enabled = true),
+                        xyz.cdr.builderlauncher.clock.ClockAlarm(id = "2", hour = 7, minute = 15, enabled = false),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun weather() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                WeatherChrome()
+            }
+        }
+    }
 }

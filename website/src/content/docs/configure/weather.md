@@ -7,7 +7,7 @@ description: City autocomplete, no GPS required. Metric or imperial on the home 
 
 1. Settings → **Weather location**.
 2. Type a city (placeholder is New York). Pick a match from geocoding suggestions.
-3. Home shows `18° cloudy` (or similar) under the date.
+3. Home shows `18° cloudy` (or similar) under the date. Tap that line for the [full forecast](../use/weather/).
 
 ![Weather line under the clock on home](../../../assets/screenshots/home.png)
 
