@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.apps.AppList
@@ -682,7 +683,13 @@ fun HubChrome(rows: List<HubRow>) {
                             Text(row.kind, color = Dim, style = MaterialTheme.typography.labelSmall)
                             Text(row.title, color = Paper)
                             if (row.body.isNotBlank()) {
-                                Text(row.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    row.body,
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                         }
                         ReplyIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))

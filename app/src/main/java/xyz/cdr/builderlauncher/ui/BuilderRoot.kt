@@ -74,6 +74,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
@@ -1368,13 +1370,20 @@ fun BuilderRoot(
                                 Column(
                                     Modifier
                                         .weight(1f)
+                                        .semantics { contentDescription = "open message" }
                                         .clickable { HubStore.open(item.key) }
                                         .padding(vertical = 6.dp),
                                 ) {
                                     Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
                                     Text(item.title, color = Paper)
                                     if (item.body.isNotBlank()) {
-                                        Text(item.body, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            item.body,
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                     }
                                 }
                                 ReplyIcon(

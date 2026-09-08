@@ -360,7 +360,13 @@ class LauncherScreenshotTest {
                 HubChrome(
                     rows = listOf(
                         HubRow("Messages", "Jason", "on my way"),
-                        HubRow("Signal", "Lauren", "running late"),
+                        HubRow(
+                            "Signal",
+                            "Lauren",
+                            "running late — also can you grab milk, eggs, and the parcel " +
+                                "from the porch after you pick up the kids? the meeting ran over " +
+                                "and traffic downtown is a mess so I will be later than I said",
+                        ),
                     ),
                 )
             }
