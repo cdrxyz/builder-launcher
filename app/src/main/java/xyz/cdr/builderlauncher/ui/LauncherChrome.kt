@@ -715,28 +715,30 @@ private fun Field(label: String, value: String, placeholder: String) {
 fun ReplyIcon(modifier: Modifier = Modifier) {
     val accent = Accent
     Canvas(modifier.size(18.dp)) {
-        val w = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val pad = size.minDimension * 0.12f
-        val tip = Offset(pad, size.height * 0.28f)
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.16f
+        val stemX = pad + size.width * 0.08f
+        val topY = pad + size.height * 0.12f
+        val tip = Offset(size.width - pad, topY)
         val shaft = Path().apply {
-            moveTo(size.width - pad, size.height - pad)
-            lineTo(size.width * 0.46f, size.height - pad)
-            quadraticTo(pad, size.height - pad, pad, size.height * 0.48f)
+            moveTo(stemX, size.height - pad)
+            lineTo(stemX, topY)
             lineTo(tip.x, tip.y)
         }
-        drawPath(shaft, color = accent, style = w)
+        drawPath(shaft, color = accent, style = stroke)
+        val ah = size.minDimension * 0.28f
         drawLine(
             color = accent,
             start = tip,
-            end = Offset(pad + size.width * 0.30f, pad),
-            strokeWidth = w.width,
+            end = Offset(tip.x - ah, tip.y - ah * 0.55f),
+            strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = accent,
             start = tip,
-            end = Offset(pad + size.width * 0.30f, tip.y + size.height * 0.22f),
-            strokeWidth = w.width,
+            end = Offset(tip.x - ah, tip.y + ah * 0.55f),
+            strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
     }
