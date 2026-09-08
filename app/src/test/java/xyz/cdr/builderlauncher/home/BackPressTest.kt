@@ -13,10 +13,18 @@ class BackPressTest {
     }
 
     @Test
-    fun backOnHomeStays() {
+    fun backOnHomeStaysWhenPromptIsIdle() {
         assertEquals(
             BackResult.Stay,
-            BackPress.result(onHome = true, overlayOpen = false),
+            BackPress.result(onHome = true, overlayOpen = false, promptActive = false),
+        )
+    }
+
+    @Test
+    fun backOnHomeResetsActivePromptMode() {
+        assertEquals(
+            BackResult.ResetPrompt,
+            BackPress.result(onHome = true, overlayOpen = false, promptActive = true),
         )
     }
 
@@ -28,7 +36,7 @@ class BackPressTest {
         )
         assertEquals(
             BackResult.DismissUi,
-            BackPress.result(onHome = true, overlayOpen = true),
+            BackPress.result(onHome = true, overlayOpen = true, promptActive = true),
         )
     }
 }

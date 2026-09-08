@@ -238,6 +238,8 @@ fun BuilderRoot(
     var tickerIndex by remember { mutableIntStateOf(0) }
     var usagePeriod by remember { mutableStateOf(UsagePeriod.TODAY) }
     var usageSnapshot by remember { mutableStateOf(Usage.build(emptyList(), emptyMap(), UsagePeriod.TODAY, false)) }
+    var editingTodoId by remember { mutableStateOf<String?>(null) }
+    var wipeBarOnHome by remember { mutableStateOf(false) }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -257,6 +259,12 @@ fun BuilderRoot(
     }
     LaunchedEffect(page) {
         lastPage = page
+        if (page == Page.Home && wipeBarOnHome) {
+            wipeBarOnHome = false
+            prompt = PrefixCommands.DEFAULT_PROMPT
+            input = ""
+        }
+        if (page != Page.Todos) editingTodoId = null
     }
     LaunchedEffect(page, usagePeriod, appsEpoch) {
         if (page == Page.Usage) {
@@ -274,9 +282,14 @@ fun BuilderRoot(
                     choices.isNotEmpty() ||
                     people.isNotEmpty() ||
                     smsDraft != null,
+                promptActive = PrefixCommands.isModePrompt(prompt) || input.isNotBlank(),
             )
         ) {
             BackResult.Stay -> Unit
+            BackResult.ResetPrompt -> {
+                prompt = PrefixCommands.DEFAULT_PROMPT
+                input = ""
+            }
             BackResult.DismissUi -> {
                 help = false
                 choices = emptyList()
@@ -285,7 +298,14 @@ fun BuilderRoot(
                 smsDraft = null
                 appQuery = false
             }
-            BackResult.OpenHome -> page = Page.Home
+            BackResult.OpenHome -> {
+                page = Page.Home
+                if (wipeBarOnHome || prompt == SlashCommands.PROMPT) {
+                    wipeBarOnHome = false
+                    prompt = PrefixCommands.DEFAULT_PROMPT
+                    input = ""
+                }
+            }
         }
     }
     val hardware = remember(settings.keyboardMode) {
@@ -387,9 +407,15 @@ fun BuilderRoot(
             try {
                 val reply = llm.ask(snapshot.messages) { streamed ->
                     streamDraft = streamed
-                }.ifBlank { "Empty reply from the model." }
+                }
                 if (chats.get(thread.id) != null) {
-                    chats.addMessage(thread.id, ChatMessage(role = "assistant", content = reply))
+                    reply.notice?.let { notice ->
+                        chats.addMessage(thread.id, ChatMessage(role = "notice", content = notice))
+                    }
+                    chats.addMessage(
+                        thread.id,
+                        ChatMessage(role = "assistant", content = reply.text.ifBlank { "Empty reply from the model." }),
+                    )
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -726,6 +752,14 @@ fun BuilderRoot(
                 taskMode()
                 return
             }
+            val text = if (trimmed.startsWith(HomeTodos.TASK_PREFIX)) trimmed.drop(1).trim() else trimmed
+            val editId = editingTodoId
+            if (editId != null) {
+                lists.update(editId, text)
+                editingTodoId = null
+                taskMode()
+                return
+            }
         }
         if (page == Page.Stocks) {
             val q = Stocks.queryFromInput(line)
@@ -825,8 +859,13 @@ fun BuilderRoot(
     }
 
     fun pickSlash(cmd: SlashCommand) {
+        wipeBarOnHome = true
         applyMode(PrefixCommands.Mode(SlashCommands.PROMPT, cmd.name))
         runCommand()
+        if (page == Page.Home) {
+            wipeBarOnHome = false
+            clearBar()
+        }
     }
 
     fun clearClockAlert() {
@@ -847,11 +886,11 @@ fun BuilderRoot(
                 when (page) {
                     Page.Home -> Modifier.horizontalSwipe(
                         page,
-                        onRight = { openHub() },
-                        onLeft = { openUsage() },
+                        onRight = { openUsage() },
+                        onLeft = { openHub() },
                     )
-                    Page.Hub -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
-                    Page.Usage -> Modifier.horizontalSwipe(page, onRight = { page = Page.Home })
+                    Page.Hub -> Modifier.horizontalSwipe(page, onRight = { page = Page.Home })
+                    Page.Usage -> Modifier.horizontalSwipe(page, onLeft = { page = Page.Home })
                     else -> Modifier
                 },
             ),
@@ -1104,7 +1143,11 @@ fun BuilderRoot(
                 var dragY by remember { mutableFloatStateOf(0f) }
                 var rowHeight by remember { mutableFloatStateOf(0f) }
                 val gap = with(LocalDensity.current) { 6.dp.toPx() }
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    userScrollEnabled = dragFrom == null,
+                ) {
                     itemsIndexed(openTodos, key = { _, it -> "t" + it.id }) { index, item ->
                         val lifting = dragFrom == index
                         val stepPx = (rowHeight + gap).takeIf { it > 1f } ?: 0f
@@ -1118,41 +1161,45 @@ fun BuilderRoot(
                             item,
                             onToggle = { lists.toggleComplete(item.id) },
                             onDelete = { lists.remove(item.id) },
+                            onEdit = {
+                                editingTodoId = item.id
+                                applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
+                            },
                             modifier = Modifier
                                 .zIndex(if (lifting) 1f else 0f)
                                 .graphicsLayer { translationY = shift }
                                 .onSizeChanged { rowHeight = it.height.toFloat() }
-                                .then(if (dragFrom == null) Modifier.animateItem() else Modifier),
-                            textModifier = Modifier.pointerInput(item.id) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = {
-                                        dragFrom = index
-                                        dragTo = index
-                                        dragY = 0f
-                                    },
-                                    onDragEnd = {
-                                        val from = dragFrom
-                                        val to = dragTo
-                                        dragFrom = null
-                                        dragTo = null
-                                        dragY = 0f
-                                        if (from != null && to != null) lists.moveOpen(from, to)
-                                    },
-                                    onDragCancel = {
-                                        dragFrom = null
-                                        dragTo = null
-                                        dragY = 0f
-                                    },
-                                    onDrag = { change, amount ->
-                                        change.consume()
-                                        dragY += amount.y
-                                        val from = dragFrom ?: return@detectDragGesturesAfterLongPress
-                                        val step = (rowHeight + gap).takeIf { it > 1f }
-                                            ?: return@detectDragGesturesAfterLongPress
-                                        dragTo = ListReorder.targetIndex(from, dragY, step, openTodos.lastIndex)
-                                    },
-                                )
-                            },
+                                .then(if (dragFrom == null) Modifier.animateItem() else Modifier)
+                                .pointerInput(item.id, index, openTodos.size) {
+                                    detectTapOrLongDrag(
+                                        onTap = { lists.toggleComplete(item.id) },
+                                        onDragStart = {
+                                            dragFrom = index
+                                            dragTo = index
+                                            dragY = 0f
+                                        },
+                                        onDrag = { amount ->
+                                            dragY += amount
+                                            val from = dragFrom ?: return@detectTapOrLongDrag
+                                            val step = (rowHeight + gap).takeIf { it > 1f }
+                                                ?: return@detectTapOrLongDrag
+                                            dragTo = ListReorder.targetIndex(from, dragY, step, openTodos.lastIndex)
+                                        },
+                                        onDragEnd = {
+                                            val from = dragFrom
+                                            val to = dragTo
+                                            dragFrom = null
+                                            dragTo = null
+                                            dragY = 0f
+                                            if (from != null && to != null) lists.moveOpen(from, to)
+                                        },
+                                        onDragCancel = {
+                                            dragFrom = null
+                                            dragTo = null
+                                            dragY = 0f
+                                        },
+                                    )
+                                },
                         )
                     }
                     if (doneTodos.isNotEmpty()) {
@@ -1170,6 +1217,10 @@ fun BuilderRoot(
                             item,
                             onToggle = { lists.toggleComplete(item.id) },
                             onDelete = { lists.remove(item.id) },
+                            onEdit = {
+                                editingTodoId = item.id
+                                applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
+                            },
                         )
                     }
                 }
@@ -1352,6 +1403,8 @@ fun BuilderRoot(
                     items(messages, key = { "${it.role}-${it.createdAt}-${it.content.hashCode()}" }) { msg ->
                         if (msg.fromUser) {
                             Text(msg.content, color = Accent, style = MaterialTheme.typography.bodyLarge)
+                        } else if (msg.isNotice) {
+                            Text(msg.content, color = Dim, style = MaterialTheme.typography.bodyMedium)
                         } else {
                             MarkdownDocument(msg.content)
                         }
@@ -2250,6 +2303,7 @@ private fun TodoLine(
     onToggle: () -> Unit,
     compact: Boolean = false,
     onDelete: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     textModifier: Modifier = Modifier,
 ) {
@@ -2265,9 +2319,17 @@ private fun TodoLine(
             ),
             modifier = textModifier
                 .weight(1f)
-                .clickable { onToggle() }
+                .then(if (onEdit == null) Modifier.clickable { onToggle() } else Modifier)
                 .padding(vertical = if (compact) 4.dp else 6.dp),
         )
+        if (onEdit != null) {
+            EditIcon(
+                Modifier
+                    .semantics { contentDescription = "edit task" }
+                    .clickable { onEdit() }
+                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
         if (onDelete != null) {
             DeleteIcon(
                 Modifier

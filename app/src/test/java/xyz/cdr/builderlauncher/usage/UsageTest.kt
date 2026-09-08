@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.usage
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneOffset
@@ -48,54 +49,88 @@ class UsageTest {
     }
 
     @Test
+    fun indexAtHitsBarSlots() {
+        assertEquals(0, Usage.indexAt(-10f, 100f, 10))
+        assertEquals(0, Usage.indexAt(0f, 100f, 10))
+        assertEquals(4, Usage.indexAt(45f, 100f, 10))
+        assertEquals(9, Usage.indexAt(99f, 100f, 10))
+        assertEquals(9, Usage.indexAt(140f, 100f, 10))
+        assertEquals(0, Usage.indexAt(10f, 0f, 10))
+    }
+
+    @Test
+    fun periodLabelsMatchStocksChips() {
+        assertEquals(listOf("today", "1M", "3M", "6M"), UsagePeriod.entries.map { it.label })
+    }
+
+    @Test
     fun buildSplitsTodayAndMarksOverrides() {
-        val day = 86_400_000L
+        val hour = Usage.HOUR_MS
         val start = 1_725_667_200_000L
-        val raw = listOf(
-            UsageRawDay(
-                startMs = start,
-                apps = listOf(UsageRawApp("com.termux", "Termux", 2 * 3_600_000L)),
-                pickups = 10,
-            ),
-            UsageRawDay(
-                startMs = start + day,
-                apps = listOf(
-                    UsageRawApp("com.termux", "Termux", 3_600_000L),
-                    UsageRawApp("com.google.android.youtube", "YouTube", 3_600_000L),
-                    UsageRawApp("org.mozilla.firefox", "Firefox", 30 * 60_000L),
-                    UsageRawApp("com.android.systemui", "System", 9_000_000L),
-                ),
-                pickups = 21,
-            ),
-        )
+        val raw = (0 until 24).map { h ->
+            if (h != 14) {
+                UsageRawDay(start + h * hour, emptyList())
+            } else {
+                UsageRawDay(
+                    startMs = start + h * hour,
+                    apps = listOf(
+                        UsageRawApp("com.termux", "Termux", 3_600_000L),
+                        UsageRawApp("com.google.android.youtube", "YouTube", 3_600_000L),
+                        UsageRawApp("org.mozilla.firefox", "Firefox", 30 * 60_000L),
+                        UsageRawApp("com.android.systemui", "System", 9_000_000L),
+                    ),
+                    pickups = 21,
+                )
+            }
+        }
         val today = Usage.build(
             rawDays = raw,
             overrides = mapOf("org.mozilla.firefox" to UsageKind.PRODUCTIVE),
             period = UsagePeriod.TODAY,
             granted = true,
             zone = ZoneOffset.UTC,
+            previousMs = 2 * 3_600_000L,
         )
+        assertEquals(24, today.bars.size)
         assertEquals(2 * 3_600_000L + 30 * 60_000L, today.totalMs)
         assertEquals(3_600_000L + 30 * 60_000L, today.productiveMs)
         assertEquals(3_600_000L, today.distractingMs)
         assertEquals(0L, today.otherMs)
         assertEquals(21, today.pickups)
-        assertEquals(1_800_000L, today.vsYesterdayMs)
+        assertEquals(30 * 60_000L, today.vsYesterdayMs)
         assertTrue(today.apps.none { it.packageName == "com.android.systemui" })
         assertEquals(UsageKind.PRODUCTIVE, today.apps.find { it.packageName == "org.mozilla.firefox" }?.kind)
-
-        val week = Usage.build(raw, emptyMap(), UsagePeriod.WEEK, granted = true, zone = ZoneOffset.UTC)
-        assertEquals(raw.sumOf { it.apps.filterNot { app -> Usage.isNoise(app.packageName) }.sumOf { app -> app.millis } }, week.totalMs)
-        assertEquals(31, week.pickups)
+        assertEquals("14", today.bars[14].label)
+        assertTrue(today.bars[14].detail.contains("14:00"))
     }
 
     @Test
-    fun sampleIsGrantedToday() {
+    fun monthQuarterAndHalfBarCounts() {
+        val start = 1_725_667_200_000L
+        val monthRaw = (0 until 30).map { i ->
+            UsageRawDay(start + i * Usage.DAY_MS, listOf(UsageRawApp("com.termux", "Termux", Usage.HOUR_MS)))
+        }
+        val month = Usage.build(monthRaw, emptyMap(), UsagePeriod.M1, true, ZoneOffset.UTC)
+        assertEquals(30, month.bars.size)
+        assertEquals(30 * Usage.HOUR_MS, month.totalMs)
+        assertNull(month.vsYesterdayMs)
+
+        val quarter = Usage.sample(UsagePeriod.M3)
+        assertEquals(13, quarter.bars.size)
+        val half = Usage.sample(UsagePeriod.M6)
+        assertEquals(26, half.bars.size)
+    }
+
+    @Test
+    fun sampleIsGrantedTodayHourly() {
         val snap = Usage.sample()
         assertTrue(snap.granted)
         assertEquals(UsagePeriod.TODAY, snap.period)
+        assertEquals(24, snap.bars.size)
         assertTrue(snap.totalMs > 0)
-        assertEquals(7, snap.days.size)
         assertTrue(snap.apps.isNotEmpty())
+        assertTrue(Usage.axisLabel(0, 24, UsagePeriod.TODAY))
+        assertTrue(Usage.axisLabel(6, 24, UsagePeriod.TODAY))
+        assertTrue(!Usage.axisLabel(1, 24, UsagePeriod.TODAY))
     }
 }

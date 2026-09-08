@@ -299,6 +299,7 @@ fun TodosChrome(
                         color = Paper,
                         modifier = Modifier.weight(1f).padding(vertical = 6.dp),
                     )
+                    EditIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                     DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                 }
             }
@@ -320,6 +321,7 @@ fun TodosChrome(
                             style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
                             modifier = Modifier.weight(1f).padding(vertical = 6.dp),
                         )
+                        EditIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                         DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                     }
                 }
@@ -1166,7 +1168,7 @@ fun WeatherChrome(
 }
 
 @Composable
-fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
+fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1183,7 +1185,7 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample()) {
         }
         Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f)) {
-            UsageBody(snapshot = snapshot)
+            UsageBody(snapshot = snapshot, selectedIndex = selectedIndex)
         }
         Spacer(Modifier.height(8.dp))
         CommandRow("")
@@ -1564,6 +1566,35 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
             start = Offset(size.width - inset, inset),
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
+        )
+    }
+}
+
+@Composable
+fun EditIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        val inset = size.minDimension * 0.22f
+        drawLine(
+            color = Dim,
+            start = Offset(inset, size.height - inset),
+            end = Offset(size.width * 0.58f, size.height * 0.40f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = Dim,
+            start = Offset(size.width * 0.58f, size.height * 0.40f),
+            end = Offset(size.width - inset, inset),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = Dim,
+            start = Offset(size.width * 0.50f, size.height * 0.28f),
+            end = Offset(size.width * 0.72f, size.height * 0.50f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round,
         )
     }
 }
