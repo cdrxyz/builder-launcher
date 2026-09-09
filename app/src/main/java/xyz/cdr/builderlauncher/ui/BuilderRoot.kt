@@ -3472,7 +3472,8 @@ private fun CommandBar(
     }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val menuMax = commandMenuMaxHeight(maxHeight)
-        val bounded = maxHeight < Dp.Infinity
+        val overlay = slashMode || menuOpen
+        val bounded = overlay && maxHeight < Dp.Infinity
         Column(
             modifier = Modifier
                 .fillMaxWidth()

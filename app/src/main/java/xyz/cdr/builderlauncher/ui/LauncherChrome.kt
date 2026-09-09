@@ -1929,9 +1929,10 @@ private fun CommandRow(
     modifier: Modifier = Modifier,
 ) {
     val wrapField = wrap || prompt.singleOrNull()?.let { PrefixCommands.wrapsInput(it) } == true
+    val overlay = slashOpen || commandsOpen
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val menuMax = commandMenuMaxHeight(maxHeight)
-        val bounded = maxHeight < Dp.Infinity
+        val bounded = overlay && maxHeight < Dp.Infinity
         Column(
             modifier = Modifier
                 .fillMaxWidth()
