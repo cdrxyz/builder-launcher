@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -1937,13 +1938,13 @@ fun ReplyIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun MessagesIcon(modifier: Modifier = Modifier) {
-    val accent = Accent
+    val color = Paper
     Canvas(modifier.size(22.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val pad = size.minDimension * 0.08f
         val bodyH = size.height * 0.70f
         drawRoundRect(
-            color = accent,
+            color = color,
             topLeft = Offset(pad, pad),
             size = Size(size.width - pad * 2f, bodyH),
             cornerRadius = CornerRadius(3.dp.toPx()),
@@ -1951,13 +1952,13 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
         )
         val tail = size.width * 0.30f
         drawLine(
-            color = accent,
+            color = color,
             start = Offset(tail, pad + bodyH),
             end = Offset(tail - size.width * 0.14f, size.height - pad),
             strokeWidth = stroke.width,
         )
         drawLine(
-            color = accent,
+            color = color,
             start = Offset(tail + size.width * 0.20f, pad + bodyH),
             end = Offset(tail - size.width * 0.14f, size.height - pad),
             strokeWidth = stroke.width,
@@ -1967,7 +1968,7 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun UsageIcon(modifier: Modifier = Modifier) {
-    val accent = Accent
+    val color = Paper
     Canvas(modifier.size(22.dp)) {
         val w = size.width
         val h = size.height
@@ -1976,7 +1977,7 @@ fun UsageIcon(modifier: Modifier = Modifier) {
         val heights = listOf(h * 0.95f, h * 0.62f, h * 0.34f)
         heights.forEachIndexed { i, barH ->
             drawRect(
-                color = accent,
+                color = color,
                 topLeft = Offset(i * (bar + gap), h - barH),
                 size = Size(bar, barH),
             )
@@ -1987,15 +1988,15 @@ fun UsageIcon(modifier: Modifier = Modifier) {
 @Composable
 fun HomePodcastMarkIcon(mark: HomePodcastMark, modifier: Modifier = Modifier) {
     when (mark) {
-        HomePodcastMark.PAUSE -> PlayPauseIcon(playing = true, modifier = modifier)
-        HomePodcastMark.PLAY -> PlayPauseIcon(playing = false, modifier = modifier)
+        HomePodcastMark.PAUSE -> PlayPauseIcon(playing = true, modifier = modifier, color = Paper)
+        HomePodcastMark.PLAY -> PlayPauseIcon(playing = false, modifier = modifier, color = Paper)
         HomePodcastMark.HEADPHONES -> HeadphonesIcon(modifier)
     }
 }
 
 @Composable
 fun HeadphonesIcon(modifier: Modifier = Modifier) {
-    val accent = Accent
+    val color = Paper
     Canvas(modifier.size(22.dp)) {
         val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         val pad = size.minDimension * 0.08f
@@ -2007,18 +2008,18 @@ fun HeadphonesIcon(modifier: Modifier = Modifier) {
                 size.width - pad - size.width * 0.12f, size.height * 0.55f,
             )
         }
-        drawPath(band, color = accent, style = stroke)
+        drawPath(band, color = color, style = stroke)
         val cupW = size.width * 0.22f
         val cupH = size.height * 0.38f
         drawRoundRect(
-            color = accent,
+            color = color,
             topLeft = Offset(pad, size.height * 0.48f),
             size = Size(cupW, cupH),
             cornerRadius = CornerRadius(3.dp.toPx()),
             style = stroke,
         )
         drawRoundRect(
-            color = accent,
+            color = color,
             topLeft = Offset(size.width - pad - cupW, size.height * 0.48f),
             size = Size(cupW, cupH),
             cornerRadius = CornerRadius(3.dp.toPx()),
@@ -2253,13 +2254,12 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun PlayPauseIcon(playing: Boolean, modifier: Modifier = Modifier) {
-    if (playing) PauseIcon(modifier) else PlayIcon(modifier)
+fun PlayPauseIcon(playing: Boolean, modifier: Modifier = Modifier, color: Color = Accent) {
+    if (playing) PauseIcon(modifier, color) else PlayIcon(modifier, color)
 }
 
 @Composable
-fun PlayIcon(modifier: Modifier = Modifier) {
-    val accent = Accent
+fun PlayIcon(modifier: Modifier = Modifier, color: Color = Accent) {
     Canvas(modifier.size(22.dp)) {
         val pad = size.minDimension * 0.18f
         val path = Path().apply {
@@ -2268,13 +2268,12 @@ fun PlayIcon(modifier: Modifier = Modifier) {
             lineTo(pad, size.height - pad)
             close()
         }
-        drawPath(path, color = accent, style = Fill)
+        drawPath(path, color = color, style = Fill)
     }
 }
 
 @Composable
-fun PauseIcon(modifier: Modifier = Modifier) {
-    val accent = Accent
+fun PauseIcon(modifier: Modifier = Modifier, color: Color = Accent) {
     Canvas(modifier.size(22.dp)) {
         val w = size.width * 0.22f
         val gap = size.width * 0.16f
@@ -2282,8 +2281,8 @@ fun PauseIcon(modifier: Modifier = Modifier) {
         val x2 = size.width / 2f + gap / 2f
         val top = size.height * 0.16f
         val h = size.height * 0.68f
-        drawRect(color = accent, topLeft = Offset(x1, top), size = Size(w, h))
-        drawRect(color = accent, topLeft = Offset(x2, top), size = Size(w, h))
+        drawRect(color = color, topLeft = Offset(x1, top), size = Size(w, h))
+        drawRect(color = color, topLeft = Offset(x2, top), size = Size(w, h))
     }
 }
 
