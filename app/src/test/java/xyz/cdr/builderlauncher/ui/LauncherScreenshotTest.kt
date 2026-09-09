@@ -483,7 +483,6 @@ class LauncherScreenshotTest {
                     position = "12:00 of 1:02:03",
                     playing = true,
                     downloaded = true,
-                    downloadLabel = "downloaded",
                     progress = 0.19f,
                     speed = "1.4×",
                     notes = "0:00 Intro\n12:34 Deep cut\n1:02:03 Credits",

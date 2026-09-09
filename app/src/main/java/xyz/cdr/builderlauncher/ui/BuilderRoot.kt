@@ -2833,15 +2833,56 @@ fun BuilderRoot(
                 val pos = if (playingThis) playback.positionMs else prog?.positionMs ?: 0L
                 val dur = if (playingThis && playback.durationMs > 0) playback.durationMs else (prog?.durationMs ?: ep?.durationMs ?: 0L)
                 val downloaded = ep != null && podcastDownloads.containsKey(ep.id)
-                Text(
-                    Podcasts.BACK,
-                    color = Accent,
-                    modifier = Modifier
-                        .clickable {
-                            page = if (podcastShowUrl != null) Page.PodcastShow else Page.Podcasts
+                var speedMenu by remember(podcastEpisodeId) { mutableStateOf(false) }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Podcasts.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                page = if (podcastShowUrl != null) Page.PodcastShow else Page.Podcasts
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    if (ep != null) {
+                        val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
+                        val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
+                        val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (downloading) {
+                                Text(
+                                    if (downloadKnown) "$downloadPct%" else "…",
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                            }
+                            DownloadIcon(
+                                filled = downloaded,
+                                modifier = Modifier
+                                    .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
+                                    .clickable {
+                                        if (downloaded || downloading) return@clickable
+                                        scope.launch {
+                                            podcastDownloadBusy = true
+                                            val file = podcasts.download(ep)
+                                            podcastDownloadBusy = false
+                                            Toast.makeText(
+                                                ctx,
+                                                if (file != null) "Downloaded" else "Download failed",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                            )
                         }
-                        .padding(vertical = 6.dp),
-                )
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 if (ep == null) {
                     Text("Episode gone", color = Dim)
@@ -2850,9 +2891,6 @@ fun BuilderRoot(
                     Text(show?.title ?: "Podcast", color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Text(ep.title, color = Paper, style = MaterialTheme.typography.headlineLarge)
                     Spacer(Modifier.height(12.dp))
-                    val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
-                    val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
-                    val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2862,29 +2900,11 @@ fun BuilderRoot(
                             if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
                             color = Dim,
                         )
-                        Text(
-                            Podcasts.downloadLabel(
-                                downloaded = downloaded,
-                                busy = downloading,
-                                percent = downloadPct,
-                                knownTotal = downloadKnown,
-                            ),
-                            color = if (downloaded) Dim else Paper,
-                            modifier = Modifier
-                                .clickable {
-                                    if (downloaded || downloading) return@clickable
-                                    scope.launch {
-                                        podcastDownloadBusy = true
-                                        val file = podcasts.download(ep)
-                                        podcastDownloadBusy = false
-                                        Toast.makeText(
-                                            ctx,
-                                            if (file != null) "Downloaded" else "Download failed",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    }
-                                }
-                                .padding(vertical = 8.dp),
+                        PodcastSpeedMenu(
+                            speed = playback.speed,
+                            expanded = speedMenu,
+                            onExpanded = { speedMenu = it },
+                            onPick = { applyPodcastSpeed(it) },
                         )
                     }
                     Spacer(Modifier.height(12.dp))
@@ -2897,7 +2917,7 @@ fun BuilderRoot(
                         },
                     )
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "−15",
                             color = Paper,
@@ -2908,13 +2928,10 @@ fun BuilderRoot(
                                 }
                                 .padding(vertical = 8.dp),
                         )
-                        Text(
-                            when {
-                                playingThis && playback.playing -> "pause"
-                                else -> "play"
-                            },
-                            color = Accent,
+                        PlayPauseIcon(
+                            playing = playingThis && playback.playing,
                             modifier = Modifier
+                                .semantics { contentDescription = if (playingThis && playback.playing) "pause" else "play" }
                                 .clickable {
                                     if (playingThis && playback.playing) {
                                         PodcastPlayer.pause()
@@ -2944,15 +2961,6 @@ fun BuilderRoot(
                                 .padding(vertical = 8.dp),
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        Podcasts.formatSpeed(playback.speed),
-                        color = Accent,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .clickable { page = Page.PodcastSettings }
-                            .padding(vertical = 8.dp),
-                    )
                     if (ep.description.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
                         Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)

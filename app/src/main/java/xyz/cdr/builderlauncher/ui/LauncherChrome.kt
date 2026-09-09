@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +36,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -46,6 +49,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -767,10 +771,12 @@ fun PodcastNowPlayingBar(
             }
         }
         val toggleMod = if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier
-        Text(
-            text = if (playing) "pause" else "play",
-            color = Accent,
-            modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp).then(toggleMod),
+        PlayPauseIcon(
+            playing = playing,
+            modifier = Modifier
+                .padding(start = 12.dp, top = 8.dp, bottom = 8.dp)
+                .then(toggleMod)
+                .semantics { contentDescription = if (playing) "pause" else "play" },
         )
     }
 }
@@ -935,7 +941,7 @@ fun PodcastEpisodeChrome(
     position: String,
     playing: Boolean = false,
     downloaded: Boolean = false,
-    downloadLabel: String = if (downloaded) "downloaded" else "download",
+    downloadPercent: String = "",
     progress: Float = 0.2f,
     speed: String = "1×",
     notes: String = "",
@@ -946,7 +952,24 @@ fun PodcastEpisodeChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (downloadPercent.isNotBlank()) {
+                    Text(
+                        downloadPercent,
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                }
+                DownloadIcon(filled = downloaded, modifier = Modifier.padding(vertical = 6.dp))
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Text(show, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -958,23 +981,62 @@ fun PodcastEpisodeChrome(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(position, color = Dim)
-                Text(downloadLabel, color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
+                Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
             }
             Spacer(Modifier.height(12.dp))
             PodcastScrubBar(progress = progress)
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("−15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
-                Text(if (playing) "pause" else "play", color = Accent, modifier = Modifier.padding(vertical = 8.dp))
+                PlayPauseIcon(playing = playing, modifier = Modifier.padding(vertical = 8.dp).semantics { contentDescription = if (playing) "pause" else "play" })
                 Text("+15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
             }
-            Spacer(Modifier.height(8.dp))
-            Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
             if (notes.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
                 Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.height(8.dp))
                 PodcastNotesText(notes)
+            }
+        }
+    }
+}
+
+@Composable
+fun PodcastSpeedMenu(
+    speed: Float,
+    expanded: Boolean,
+    onExpanded: (Boolean) -> Unit,
+    onPick: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
+        Text(
+            Podcasts.formatSpeed(speed),
+            color = Accent,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .clickable { onExpanded(true) }
+                .padding(vertical = 8.dp)
+                .semantics { contentDescription = "playback speed" },
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpanded(false) },
+            containerColor = Ink,
+        ) {
+            Podcasts.SPEED_STEPS.forEach { step ->
+                Text(
+                    Podcasts.formatSpeed(step),
+                    color = if (Podcasts.snapSpeed(speed) == step) Accent else Paper,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onPick(step)
+                            onExpanded(false)
+                        }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
         }
     }
@@ -2179,6 +2241,80 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
         )
+    }
+}
+
+@Composable
+fun PlayPauseIcon(playing: Boolean, modifier: Modifier = Modifier) {
+    if (playing) PauseIcon(modifier) else PlayIcon(modifier)
+}
+
+@Composable
+fun PlayIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val pad = size.minDimension * 0.18f
+        val path = Path().apply {
+            moveTo(pad, pad)
+            lineTo(size.width - pad, size.height / 2f)
+            lineTo(pad, size.height - pad)
+            close()
+        }
+        drawPath(path, color = accent, style = Fill)
+    }
+}
+
+@Composable
+fun PauseIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val w = size.width * 0.22f
+        val gap = size.width * 0.16f
+        val x1 = size.width / 2f - gap / 2f - w
+        val x2 = size.width / 2f + gap / 2f
+        val top = size.height * 0.16f
+        val h = size.height * 0.68f
+        drawRect(color = accent, topLeft = Offset(x1, top), size = Size(w, h))
+        drawRect(color = accent, topLeft = Offset(x2, top), size = Size(w, h))
+    }
+}
+
+@Composable
+fun DownloadIcon(filled: Boolean, modifier: Modifier = Modifier) {
+    val color = if (filled) Accent else Paper
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.14f
+        val midX = size.width / 2f
+        val arrowTop = pad
+        val arrowBottom = size.height * 0.58f
+        val trayY = size.height - pad
+        val trayX = pad
+        val trayW = size.width - pad * 2f
+        val arrow = Path().apply {
+            moveTo(midX, arrowTop)
+            lineTo(midX, arrowBottom)
+        }
+        drawPath(arrow, color = color, style = stroke)
+        val head = size.minDimension * 0.22f
+        drawLine(color, Offset(midX, arrowBottom), Offset(midX - head, arrowBottom - head), stroke.width, StrokeCap.Round)
+        drawLine(color, Offset(midX, arrowBottom), Offset(midX + head, arrowBottom - head), stroke.width, StrokeCap.Round)
+        val tray = Path().apply {
+            moveTo(trayX, size.height * 0.62f)
+            lineTo(trayX, trayY)
+            lineTo(trayX + trayW, trayY)
+            lineTo(trayX + trayW, size.height * 0.62f)
+        }
+        if (filled) {
+            drawPath(tray, color = color, style = stroke)
+            drawRect(
+                color = color,
+                topLeft = Offset(trayX, size.height * 0.78f),
+                size = Size(trayW, trayY - size.height * 0.78f),
+            )
+        } else {
+            drawPath(tray, color = color, style = stroke)
+        }
     }
 }
 

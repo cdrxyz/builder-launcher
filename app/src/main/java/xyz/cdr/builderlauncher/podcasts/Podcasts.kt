@@ -27,7 +27,7 @@ object Podcasts {
     const val MEDIA_ACTION_FAST_FORWARD = 1L shl 6
     const val MEDIA_ACTION_SEEK = 1L shl 8
     const val MEDIA_ACTION_PLAY_PAUSE = 1L shl 9
-    val SPEED_STEPS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.2f, 2.4f, 2.6f, 2.8f, 3.0f)
+    val SPEED_STEPS = listOf(0.8f, 1.0f, 1.1f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.5f, 3.0f)
     val CACHE_PRESETS = listOf(
         1L * 1024 * 1024 * 1024,
         5L * 1024 * 1024 * 1024,

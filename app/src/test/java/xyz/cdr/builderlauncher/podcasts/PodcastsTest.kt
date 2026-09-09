@@ -167,22 +167,23 @@ class PodcastsTest {
     }
 
     @Test
-    fun speedStepsFromOneToThree() {
+    fun speedStepsFromPointEightToThree() {
         assertEquals(
-            listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.2f, 2.4f, 2.6f, 2.8f, 3.0f),
+            listOf(0.8f, 1.0f, 1.1f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.5f, 3.0f),
             Podcasts.SPEED_STEPS,
         )
-        assertEquals(1.0f, Podcasts.snapSpeed(0.5f))
+        assertEquals(0.8f, Podcasts.snapSpeed(0.5f), 0.001f)
         assertEquals(1.2f, Podcasts.snapSpeed(1.19f), 0.001f)
         assertEquals(3.0f, Podcasts.snapSpeed(9f))
+        assertEquals("0.8×", Podcasts.formatSpeed(0.8f))
         assertEquals("1×", Podcasts.formatSpeed(1.0f))
+        assertEquals("1.1×", Podcasts.formatSpeed(1.1f))
         assertEquals("1.4×", Podcasts.formatSpeed(1.4f))
         assertEquals("2×", Podcasts.formatSpeed(2.0f))
-        assertEquals(1.0f, Podcasts.speedAt(0f, 100f))
+        assertEquals("2.5×", Podcasts.formatSpeed(2.5f))
+        assertEquals(0.8f, Podcasts.speedAt(0f, 100f))
         assertEquals(3.0f, Podcasts.speedAt(100f, 100f))
-        assertEquals(2.0f, Podcasts.speedAt(50f, 100f))
-        assertEquals(0f, Podcasts.speedProgress(1.0f), 0.001f)
-        assertEquals(0.2f, Podcasts.speedProgress(1.4f), 0.001f)
+        assertEquals(0f, Podcasts.speedProgress(0.8f), 0.001f)
         assertEquals(1f, Podcasts.speedProgress(3.0f), 0.001f)
         assertEquals(1.0f, Podcasts.DEFAULT_SPEED)
     }
