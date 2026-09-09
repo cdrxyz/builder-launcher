@@ -1232,7 +1232,7 @@ fun BuilderRoot(
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
-                    onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
+                    onOpenTicker = { openStocksList() },
                     playing = playback.playing,
                     episodeLoaded = Podcasts.nowPlayingBarVisible(
                         playback.episodeId,
