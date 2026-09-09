@@ -693,8 +693,8 @@ fun PodcastsChrome(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
             GearIcon(Modifier.padding(vertical = 6.dp))
+            Text(Podcasts.HOME, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
         if (nowPlayingTitle.isNotBlank()) {
@@ -1838,8 +1838,8 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("usage", color = Accent)
             Text(Usage.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("usage", color = Accent)
         }
         Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f)) {

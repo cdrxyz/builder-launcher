@@ -15,7 +15,7 @@ There is no live Overcast account sync. Export OPML from Overcast (Settings → 
 
 Order:
 
-1. **now playing** bar under back/gear when an episode is loaded and not finished. Tap the title for the episode screen. Play/pause icons on the right. The bar stays up while you search.
+1. **now playing** bar under gear/`>` when an episode is loaded and not finished. Tap the title for the episode screen. Play/pause icons on the right. The bar stays up while you search.
 2. **recent** — up to 3 unfinished plays, most recently listened, excluding the current episode. Tap to play without leaving the list. × dismisses it (skipped, reversible).
 3. **next 5 episodes** — newest episodes that are not finished or skipped. Titles wrap to 3 lines. Show names stay on one line. Tap to play. × skips.
 4. **podcasts** — every subscription, A–Z. An × on the right unsubscribes, same as notes and todos.
@@ -24,8 +24,8 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
 - Type a show name to search the Apple podcast catalog. Hits show artwork on the left. Tap a hit to subscribe and open that show.
 - Paste an RSS URL in the bar to subscribe.
-- Gear opens podcasts settings.
-- `<` returns home.
+- Gear (top left) opens podcasts settings.
+- `>` (top right) returns home.
 
 ![Search hits with artwork on the left](../../../assets/screenshots/podcasts-search.png)
 

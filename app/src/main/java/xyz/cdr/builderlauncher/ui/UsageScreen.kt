@@ -57,7 +57,6 @@ fun UsageScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("usage", color = Accent)
             Text(
                 Usage.BACK,
                 color = Accent,
@@ -66,6 +65,7 @@ fun UsageScreen(
                     .clickable { onBack() }
                     .padding(vertical = 6.dp),
             )
+            Text("usage", color = Accent)
         }
         Spacer(Modifier.height(12.dp))
         if (!snapshot.granted) {
