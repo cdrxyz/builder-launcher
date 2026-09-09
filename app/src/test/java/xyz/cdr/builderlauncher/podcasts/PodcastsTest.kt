@@ -54,6 +54,12 @@ class PodcastsTest {
         assertEquals("5 GB", Podcasts.cacheLabel(Podcasts.DEFAULT_CACHE_BYTES))
         assertEquals("1 GB", Podcasts.cacheLabel(1L * 1024 * 1024 * 1024))
         assertEquals("512 MB", Podcasts.cacheLabel(512L * 1024 * 1024))
+        assertEquals("0 MB", Podcasts.cacheLabel(0))
+        assertEquals("0 MB", Podcasts.cacheLabel(512 * 1024L))
+        assertEquals("1.5 MB", Podcasts.cacheLabel((1536L * 1024)))
+        assertEquals("1.2 GB", Podcasts.cacheLabel((12L * 1024 * 1024 * 1024) / 10))
+        assertFalse(Podcasts.cacheLabel(0).endsWith(" B"))
+        assertFalse(Podcasts.cacheLabel(100).contains(" B"))
     }
 
     @Test

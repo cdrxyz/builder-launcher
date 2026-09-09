@@ -149,11 +149,13 @@ object Podcasts {
     fun cacheLabel(bytes: Long): String {
         val gb = 1024L * 1024L * 1024L
         val mb = 1024L * 1024L
+        val n = bytes.coerceAtLeast(0L)
         return when {
-            bytes >= gb && bytes % gb == 0L -> "${bytes / gb} GB"
-            bytes >= gb -> "%.1f GB".format(bytes / gb.toDouble())
-            bytes >= mb && bytes % mb == 0L -> "${bytes / mb} MB"
-            else -> "$bytes B"
+            n >= gb && n % gb == 0L -> "${n / gb} GB"
+            n >= gb -> "%.1f GB".format(n / gb.toDouble())
+            n >= mb && n % mb == 0L -> "${n / mb} MB"
+            n >= mb -> "%.1f MB".format(n / mb.toDouble())
+            else -> "0 MB"
         }
     }
 

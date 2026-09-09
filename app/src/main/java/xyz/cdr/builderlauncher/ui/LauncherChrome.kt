@@ -762,7 +762,7 @@ private fun PodcastRowChrome(row: PodcastListRow) {
 @Composable
 fun PodcastsSettingsChrome(
     cache: String = "5 GB",
-    used: String = "0 B",
+    used: String = "0 MB",
     count: Int = 2,
 ) {
     Column(
