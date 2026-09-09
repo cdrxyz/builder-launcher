@@ -126,7 +126,7 @@ class BackupService(
         if (!S3Signer.credentialsReady(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)) {
             return S3AccessReport.missingFields()
         }
-        return s3.probe(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)
+        return s3.probe(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey, s.s3EncryptionKey)
     }
 
     companion object {

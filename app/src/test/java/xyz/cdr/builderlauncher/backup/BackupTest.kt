@@ -227,4 +227,40 @@ class S3ClientTest {
         assertFalse(result.ok)
         assertEquals("S3 access denied", result.line)
     }
+
+    @Test
+    fun probeDecryptsPresentBackup() {
+        val blob = BackupCrypto.encrypt("payload".toByteArray(), "pass", java.security.SecureRandom())
+        val http = OkHttpClient.Builder().addInterceptor {
+            Response.Builder()
+                .request(it.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(blob.toResponseBody())
+                .build()
+        }.build()
+        val ok = S3Client(http).probe("https://abc.r2.cloudflarestorage.com", "b", "a", "s", "pass")
+        assertTrue(ok.ok)
+        assertEquals("S3 access good — backup decrypts", ok.line)
+        val bad = S3Client(http).probe("https://abc.r2.cloudflarestorage.com", "b", "a", "s", "nope")
+        assertFalse(bad.ok)
+        assertEquals("Wrong encryption key", bad.line)
+    }
+
+    @Test
+    fun probeAsksForEncryptionKeyWhenBackupPresent() {
+        val http = OkHttpClient.Builder().addInterceptor {
+            Response.Builder()
+                .request(it.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body("x".toByteArray().toResponseBody())
+                .build()
+        }.build()
+        val result = S3Client(http).probe("https://abc.r2.cloudflarestorage.com", "b", "a", "s", "")
+        assertTrue(result.ok)
+        assertEquals("S3 access good — backup present. Set encryption key to verify.", result.line)
+    }
 }

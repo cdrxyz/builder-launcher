@@ -15,6 +15,18 @@ object S3AccessReport {
         else -> S3Access.Done(false, "S3 HTTP $code")
     }
 
+    fun decrypt(body: ByteArray, encryptionKey: String): S3Access.Done {
+        if (encryptionKey.isBlank()) {
+            return S3Access.Done(true, "S3 access good — backup present. Set encryption key to verify.")
+        }
+        return try {
+            BackupCrypto.decrypt(body, encryptionKey)
+            S3Access.Done(true, "S3 access good — backup decrypts")
+        } catch (e: IllegalArgumentException) {
+            S3Access.Done(false, e.message ?: "Wrong encryption key")
+        }
+    }
+
     fun unreachable(): S3Access.Done = S3Access.Done(false, "Could not reach S3.")
 
     fun missingFields(): S3Access.Done = S3Access.Done(false, "Set endpoint, bucket, and keys.")

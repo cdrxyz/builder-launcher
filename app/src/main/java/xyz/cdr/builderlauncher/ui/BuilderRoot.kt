@@ -3503,7 +3503,7 @@ private fun SettingsPage(
     var backupBusy by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
     var s3Probe by remember { mutableStateOf<S3Access>(S3Access.Idle) }
-    LaunchedEffect(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey) {
+    LaunchedEffect(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey, settings.s3EncryptionKey) {
         if (!S3Signer.credentialsReady(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey)) {
             s3Probe = S3Access.Idle
             return@LaunchedEffect

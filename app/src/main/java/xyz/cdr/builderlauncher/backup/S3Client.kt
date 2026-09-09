@@ -82,6 +82,7 @@ class S3Client(
         bucket: String,
         accessKey: String,
         secretKey: String,
+        encryptionKey: String = "",
         nowMs: Long = System.currentTimeMillis(),
     ): S3Access.Done {
         if (!S3Signer.credentialsReady(endpoint, bucket, accessKey, secretKey)) {
@@ -91,7 +92,7 @@ class S3Client(
         val amzDate = amzDate(nowMs)
         val region = S3Signer.regionFor(endpoint)
         val signed = S3Signer.sign(
-            method = "HEAD",
+            method = "GET",
             url = url,
             accessKey = accessKey,
             secretKey = secretKey,
@@ -99,12 +100,13 @@ class S3Client(
             payload = ByteArray(0),
             amzDate = amzDate,
         )
-        val req = Request.Builder().url(url).head()
+        val req = Request.Builder().url(url).get()
         signed.forEach { (k, v) -> if (k != "host") req.header(headerName(k), v) }
         return try {
             http.newCall(req.build()).execute().use { resp ->
-                resp.body?.close()
-                S3AccessReport.fromHttp(resp.code)
+                val bytes = resp.body?.bytes() ?: ByteArray(0)
+                if (resp.code != 200) return@use S3AccessReport.fromHttp(resp.code)
+                S3AccessReport.decrypt(bytes, encryptionKey)
             }
         } catch (_: Exception) {
             S3AccessReport.unreachable()

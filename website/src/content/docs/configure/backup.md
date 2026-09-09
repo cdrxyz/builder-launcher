@@ -18,7 +18,7 @@ This is a snapshot, not two-way sync. The last successful upload wins. Restore r
 | Include AI credentials | Off by default. When on, the current provider API key is written into S3 backups and the JSON share. Do not enable unless you use encrypted S3 backups or you understand the risk. OAuth tokens never go in. |
 | Frequency | `off`, `daily`, or `weekly`. Daily/weekly run when you open the launcher if a backup is due. |
 
-Changing endpoint, bucket, access key, or secret key runs an S3 access test (same idea as the AI provider status line). `S3 access good` means the credentials can reach the bucket. A missing backup object is still a pass.
+Changing endpoint, bucket, access key, or secret key runs an S3 access test (same idea as the AI provider status line). `S3 access good` means the credentials can reach the bucket. A missing backup object is still a pass. If a backup is present, the test also tries your encryption key and reports `backup decrypts` or `Wrong encryption key`.
 
 **Backup now** uploads. **Restore from S3** asks once, then replaces todos, notes, chats, pins, watchlist, podcast subscriptions, alarms, world clocks, and settings. OAuth tokens and S3 credentials on this phone are left alone.
 
