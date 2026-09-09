@@ -23,10 +23,13 @@ object S3Signer {
         return "$base/${bucket.trim().trim('/')}/${key.trimStart('/')}"
     }
 
-    fun ready(endpoint: String, bucket: String, accessKey: String, secretKey: String, encryptionKey: String): Boolean =
+    fun credentialsReady(endpoint: String, bucket: String, accessKey: String, secretKey: String): Boolean =
         endpoint.isNotBlank() && bucket.isNotBlank() && accessKey.isNotBlank() &&
-            secretKey.isNotBlank() && encryptionKey.isNotBlank() &&
+            secretKey.isNotBlank() &&
             (endpoint.startsWith("https://") || endpoint.startsWith("http://"))
+
+    fun ready(endpoint: String, bucket: String, accessKey: String, secretKey: String, encryptionKey: String): Boolean =
+        credentialsReady(endpoint, bucket, accessKey, secretKey) && encryptionKey.isNotBlank()
 
     fun sign(
         method: String,

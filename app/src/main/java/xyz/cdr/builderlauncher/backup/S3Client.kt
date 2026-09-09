@@ -77,6 +77,40 @@ class S3Client(
         }
     }
 
+    fun probe(
+        endpoint: String,
+        bucket: String,
+        accessKey: String,
+        secretKey: String,
+        nowMs: Long = System.currentTimeMillis(),
+    ): S3Access.Done {
+        if (!S3Signer.credentialsReady(endpoint, bucket, accessKey, secretKey)) {
+            return S3AccessReport.missingFields()
+        }
+        val url = S3Signer.objectUrl(endpoint, bucket)
+        val amzDate = amzDate(nowMs)
+        val region = S3Signer.regionFor(endpoint)
+        val signed = S3Signer.sign(
+            method = "HEAD",
+            url = url,
+            accessKey = accessKey,
+            secretKey = secretKey,
+            region = region,
+            payload = ByteArray(0),
+            amzDate = amzDate,
+        )
+        val req = Request.Builder().url(url).head()
+        signed.forEach { (k, v) -> if (k != "host") req.header(headerName(k), v) }
+        return try {
+            http.newCall(req.build()).execute().use { resp ->
+                resp.body?.close()
+                S3AccessReport.fromHttp(resp.code)
+            }
+        } catch (_: Exception) {
+            S3AccessReport.unreachable()
+        }
+    }
+
     private fun headerName(key: String): String = when (key) {
         "authorization" -> "Authorization"
         "content-type" -> "Content-Type"

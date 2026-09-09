@@ -49,6 +49,7 @@ data class BuilderSettings(
     val s3EncryptionKey: String = "",
     val backupFrequency: BackupFrequency = BackupFrequency.OFF,
     val lastBackupAtEpochMs: Long = 0L,
+    val backupIncludeAiCredentials: Boolean = false,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -207,6 +208,7 @@ class SettingsRepository(context: Context) {
             s3EncryptionKey = prefs.getString(KEY_S3_ENCRYPTION, "") ?: "",
             backupFrequency = BackupFrequency.parse(prefs.getString(KEY_BACKUP_FREQ, BackupFrequency.OFF.name)),
             lastBackupAtEpochMs = prefs.getString(KEY_BACKUP_LAST, "0")?.toLongOrNull() ?: 0L,
+            backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
         )
     }
 
@@ -251,6 +253,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_S3_ENCRYPTION, next.s3EncryptionKey)
             .putString(KEY_BACKUP_FREQ, next.backupFrequency.name)
             .putString(KEY_BACKUP_LAST, next.lastBackupAtEpochMs.toString())
+            .putString(KEY_BACKUP_AI, if (next.backupIncludeAiCredentials) "true" else "false")
             .putString(KEY_ACCOUNTS, json.encodeToString(accounts))
             .apply()
     }
@@ -285,6 +288,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_S3_ENCRYPTION = "s3_encryption"
         private const val KEY_BACKUP_FREQ = "backup_frequency"
         private const val KEY_BACKUP_LAST = "backup_last"
+        private const val KEY_BACKUP_AI = "backup_include_ai"
         private const val KEY_ACCOUNTS = "provider_accounts"
 
         private fun createPrefs(context: Context): SharedPreferences {

@@ -115,6 +115,8 @@ import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.BackupService
+import xyz.cdr.builderlauncher.backup.S3Access
+import xyz.cdr.builderlauncher.backup.S3Signer
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
@@ -3500,6 +3502,16 @@ private fun SettingsPage(
     var backupMsg by remember { mutableStateOf<String?>(null) }
     var backupBusy by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
+    var s3Probe by remember { mutableStateOf<S3Access>(S3Access.Idle) }
+    LaunchedEffect(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey) {
+        if (!S3Signer.credentialsReady(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey)) {
+            s3Probe = S3Access.Idle
+            return@LaunchedEffect
+        }
+        s3Probe = S3Access.Testing
+        delay(700)
+        s3Probe = withContext(Dispatchers.IO) { backup.probe() }
+    }
     LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
         val q = placeQuery.trim()
         if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
@@ -3704,10 +3716,43 @@ private fun SettingsPage(
             s3Secret = it
             repo.update { s -> s.copy(s3SecretKey = it) }
         }
+        Spacer(Modifier.height(8.dp))
+        when (val result = s3Probe) {
+            S3Access.Idle -> Text(
+                "Set endpoint, bucket, and keys to test S3.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            S3Access.Testing -> Text("Testing S3 access…", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            is S3Access.Done -> Text(
+                result.line,
+                color = if (result.ok) Accent else Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         LabeledField("Encryption key", s3Encryption, "passphrase") {
             s3Encryption = it
             repo.update { s -> s.copy(s3EncryptionKey = it) }
         }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (settings.backupIncludeAiCredentials) "[x] Include AI credentials" else "[ ] Include AI credentials",
+            color = Paper,
+            modifier = Modifier
+                .clickable {
+                    repo.update { it.copy(backupIncludeAiCredentials = !it.backupIncludeAiCredentials) }
+                }
+                .padding(vertical = 8.dp),
+        )
+        Text(
+            if (settings.backupIncludeAiCredentials) {
+                "On. Do not enable unless you use encrypted S3 backups or you understand the risk. Applies to S3 and the JSON share. OAuth tokens still stay on this phone."
+            } else {
+                "Off. API keys stay out of S3 backups and the JSON share."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(8.dp))
         Text("Frequency", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {

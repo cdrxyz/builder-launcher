@@ -111,7 +111,7 @@ Nothing is sent anywhere until you type `?`. No analytics.
 
 ## Backup
 
-Settings → Backup. Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key, frequency `off` / `daily` / `weekly`. Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program) and omits keys and tokens.
+Settings → Backup. Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key, frequency `off` / `daily` / `weekly`. Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Include AI credentials** is off by default. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program).
 
 ## Keyboard phones
 

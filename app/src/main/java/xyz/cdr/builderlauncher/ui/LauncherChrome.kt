@@ -1382,6 +1382,8 @@ fun BackupChrome(
     accessKey: String = "••••",
     frequency: BackupFrequency = BackupFrequency.DAILY,
     lastBackup: String = "never",
+    includeAi: Boolean = false,
+    accessLine: String = "S3 access good — no backup yet",
 ) {
     Column(
         modifier = Modifier
@@ -1405,7 +1407,22 @@ fun BackupChrome(
         Field("Bucket", bucket, "bucket")
         Field("Access key", accessKey, "access key id")
         Field("Secret key", "", "secret access key")
+        Text(accessLine, color = Accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
         Field("Encryption key", "", "passphrase")
+        Text(
+            if (includeAi) "[x] Include AI credentials" else "[ ] Include AI credentials",
+            color = Paper,
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
+        Text(
+            if (includeAi) {
+                "On. Do not enable unless you use encrypted S3 backups or you understand the risk. Applies to S3 and the JSON share. OAuth tokens still stay on this phone."
+            } else {
+                "Off. API keys stay out of S3 backups and the JSON share."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(12.dp))
         Text("Frequency", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {

@@ -37,8 +37,9 @@ class BackupService(
         encodeDefaults = true
     },
 ) {
-    fun document(includeApiKey: Boolean, nowMs: Long = System.currentTimeMillis()): BackupDocument {
+    fun document(nowMs: Long = System.currentTimeMillis()): BackupDocument {
         val snap = clock.snapshot()
+        val current = settings.settings.value
         return BackupDocument(
             exportedAt = nowMs,
             items = lists.items.value,
@@ -48,7 +49,7 @@ class BackupService(
             podcasts = podcasts.exportBackup(),
             alarms = snap.alarms,
             zones = snap.zones,
-            settings = BackupSettings.from(settings.settings.value, includeApiKey),
+            settings = BackupSettings.from(current, includeApiKey = current.backupIncludeAiCredentials),
         )
     }
 
@@ -59,7 +60,7 @@ class BackupService(
     fun upload(nowMs: Long = System.currentTimeMillis()): String {
         val s = settings.settings.value
         requireReady(s)
-        val plain = encode(document(includeApiKey = true, nowMs = nowMs)).toByteArray(Charsets.UTF_8)
+        val plain = encode(document(nowMs = nowMs)).toByteArray(Charsets.UTF_8)
         val blob = BackupCrypto.encrypt(plain, s.s3EncryptionKey)
         s3.put(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey, blob, nowMs)
         settings.markBackup(nowMs)
@@ -95,7 +96,7 @@ class BackupService(
     }
 
     fun shareUnencrypted() {
-        val text = encode(document(includeApiKey = false))
+        val text = encode(document())
         val dir = File(context.cacheDir, "backups").apply { mkdirs() }
         val file = File(dir, "builder-launcher.json")
         file.writeText(text)
@@ -118,6 +119,14 @@ class BackupService(
         }
         if (!s.backupFrequency.due(nowMs, s.lastBackupAtEpochMs)) return null
         return runCatching { upload(nowMs) }.getOrElse { it.message }
+    }
+
+    fun probe(): S3Access.Done {
+        val s = settings.settings.value
+        if (!S3Signer.credentialsReady(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)) {
+            return S3AccessReport.missingFields()
+        }
+        return s3.probe(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)
     }
 
     companion object {

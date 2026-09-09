@@ -57,7 +57,7 @@ class BackupFrequencyTest {
 
 class BackupDocumentTest {
     @Test
-    fun shareOmitsApiKeyAndKeepsTodos() {
+    fun includeOffOmitsApiKey() {
         val settings = BackupSettings.from(
             xyz.cdr.builderlauncher.data.BuilderSettings(
                 provider = LlmProvider.XAI,
@@ -79,7 +79,7 @@ class BackupDocumentTest {
     }
 
     @Test
-    fun encryptedPayloadCanCarryApiKey() {
+    fun includeOnCarriesApiKey() {
         val settings = BackupSettings.from(
             xyz.cdr.builderlauncher.data.BuilderSettings(apiKey = "sk-secret"),
             includeApiKey = true,
@@ -108,11 +108,10 @@ class S3SignerTest {
     }
 
     @Test
-    fun readyRequiresHttpsOrHttpAndAllFields() {
-        assertFalse(S3Signer.ready("", "b", "a", "s", "e"))
-        assertFalse(S3Signer.ready("https://x", "", "a", "s", "e"))
-        assertTrue(S3Signer.ready("https://x", "b", "a", "s", "e"))
-        assertTrue(S3Signer.ready("http://10.0.0.5:9000", "b", "a", "s", "e"))
+    fun credentialsReadyDoesNotNeedEncryptionKey() {
+        assertTrue(S3Signer.credentialsReady("https://x", "b", "a", "s"))
+        assertFalse(S3Signer.credentialsReady("https://x", "b", "a", ""))
+        assertFalse(S3Signer.ready("https://x", "b", "a", "s", ""))
     }
 
     @Test
@@ -195,5 +194,37 @@ class S3ClientTest {
         } catch (e: IllegalStateException) {
             assertEquals("No backup in that bucket", e.message)
         }
+    }
+
+    @Test
+    fun probeTreats404AsReachable() {
+        val http = OkHttpClient.Builder().addInterceptor {
+            Response.Builder()
+                .request(it.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(404)
+                .message("Not Found")
+                .body(ByteArray(0).toResponseBody())
+                .build()
+        }.build()
+        val result = S3Client(http).probe("https://abc.r2.cloudflarestorage.com", "b", "a", "s")
+        assertTrue(result.ok)
+        assertEquals("S3 access good — no backup yet", result.line)
+    }
+
+    @Test
+    fun probeTreats403AsDenied() {
+        val http = OkHttpClient.Builder().addInterceptor {
+            Response.Builder()
+                .request(it.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(403)
+                .message("Forbidden")
+                .body(ByteArray(0).toResponseBody())
+                .build()
+        }.build()
+        val result = S3Client(http).probe("https://abc.r2.cloudflarestorage.com", "b", "a", "s")
+        assertFalse(result.ok)
+        assertEquals("S3 access denied", result.line)
     }
 }
