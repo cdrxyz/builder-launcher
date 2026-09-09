@@ -327,6 +327,7 @@ fun BuilderRoot(
     }
     LaunchedEffect(page) {
         lastPage = page
+        if (page != Page.Home) actionMenuOpen = false
         if (page == Page.Home && wipeBarOnHome) {
             wipeBarOnHome = false
             prompt = PrefixCommands.DEFAULT_PROMPT
@@ -1504,19 +1505,20 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
-                    prompt = prompt,
-                    value = input,
-                    hardware = hardware,
-                    grabFocus = onStrip && index == pagerState.currentPage,
-                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
-                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
-                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
-                    onSubmit = { runCommand() },
-                    onSlash = { pickSlash(it) },
-                    onHub = { openHub() },
-                    onLeft = { openPodcastsList() },
-                    modifier = if (overlayMenus) Modifier.weight(1f) else Modifier,
-                    onActionMenuChange = { actionMenuOpen = it },
+                prompt = prompt,
+                value = input,
+                hardware = hardware,
+                grabFocus = onStrip && index == pagerState.currentPage,
+                onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                onSubmit = { runCommand() },
+                onSlash = { pickSlash(it) },
+                onHub = { openHub() },
+                onLeft = { openPodcastsList() },
+                modifier = if (overlayMenus) Modifier.weight(1f) else Modifier,
+                actionMenuOpen = actionMenuOpen,
+                onActionMenuChange = { actionMenuOpen = it },
                 )
                         }
                         Page.Hub -> {
@@ -3417,19 +3419,18 @@ private fun CommandBar(
     onLeft: (() -> Unit)? = null,
     showSubmit: Boolean = false,
     modifier: Modifier = Modifier,
+    actionMenuOpen: Boolean? = null,
     onActionMenuChange: (Boolean) -> Unit = {},
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val ctx = LocalContext.current
     val reportActionMenu = rememberUpdatedState(onActionMenuChange)
-    var menuOpen by remember { mutableStateOf(false) }
+    var localMenuOpen by remember { mutableStateOf(false) }
+    val menuOpen = actionMenuOpen ?: localMenuOpen
     fun setMenuOpen(value: Boolean) {
-        menuOpen = value
+        if (actionMenuOpen == null) localMenuOpen = value
         reportActionMenu.value(value)
-    }
-    DisposableEffect(Unit) {
-        onDispose { reportActionMenu.value(false) }
     }
     var selected by remember { mutableStateOf(0) }
     var slashSelected by remember { mutableStateOf(0) }
@@ -3562,8 +3563,9 @@ private fun CommandBar(
                         if (slashMode) {
                             onClearMode()
                         } else {
-                            setMenuOpen(!menuOpen)
-                            if (menuOpen) selected = 0
+                            val next = !menuOpen
+                            if (next) selected = 0
+                            setMenuOpen(next)
                         }
                     }
                     .padding(end = 10.dp, top = if (wrapField) 2.dp else 0.dp),
@@ -3572,7 +3574,7 @@ private fun CommandBar(
                 value = value,
                 onValueChange = {
                     if (menuOpen) {
-                        setMenuOpen(false)
+                        if (it != value) setMenuOpen(false)
                     } else {
                         onValue(it)
                     }
