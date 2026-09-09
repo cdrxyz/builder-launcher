@@ -21,6 +21,7 @@ object Podcasts {
     const val TITLE_LINES = 3
     const val SHOW_LINES = 1
     const val DEFAULT_SPEED = 1.0f
+    const val DEFAULT_SKIP_SILENCE = true
     const val HOME_MARK_IDLE_MS = 8_000L
     const val MEDIA_ACTION_STOP = 1L
     const val MEDIA_ACTION_PAUSE = 1L shl 1
@@ -194,6 +195,8 @@ object Podcasts {
     fun snapSpeed(speed: Float): Float =
         SPEED_STEPS.minBy { kotlin.math.abs(it - speed) }
 
+    fun skipSilenceLabel(on: Boolean): String = if (on) "on" else "off"
+
     fun formatSpeed(speed: Float): String {
         val s = snapSpeed(speed)
         val whole = s.toInt()
@@ -206,6 +209,7 @@ object Podcasts {
         if (previous.episodeId != next.episodeId) return true
         if (previous.playing != next.playing) return true
         if (previous.speed != next.speed) return true
+        if (previous.skipSilence != next.skipSilence) return true
         if (previous.durationMs != next.durationMs) return true
         return previous.positionMs / POSITION_PUBLISH_MS != next.positionMs / POSITION_PUBLISH_MS
     }

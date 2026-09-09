@@ -26,6 +26,7 @@ private data class PodcastStore(
     val progress: List<EpisodeProgress> = emptyList(),
     val cacheBytes: Long = Podcasts.DEFAULT_CACHE_BYTES,
     val playbackSpeed: Float = Podcasts.DEFAULT_SPEED,
+    val skipSilence: Boolean = Podcasts.DEFAULT_SKIP_SILENCE,
     val downloads: List<PodcastDownload> = emptyList(),
 )
 
@@ -61,6 +62,8 @@ class PodcastsRepository(
     val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
     private val _playbackSpeed = MutableStateFlow(Podcasts.DEFAULT_SPEED)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+    private val _skipSilence = MutableStateFlow(Podcasts.DEFAULT_SKIP_SILENCE)
+    val skipSilence: StateFlow<Boolean> = _skipSilence.asStateFlow()
 
     init {
         val stored = load()
@@ -70,6 +73,7 @@ class PodcastsRepository(
         _downloads.value = stored.downloads.associateBy { it.episodeId }
         _cacheBytes.value = stored.cacheBytes.takeIf { it > 0L } ?: Podcasts.DEFAULT_CACHE_BYTES
         _playbackSpeed.value = Podcasts.snapSpeed(stored.playbackSpeed)
+        _skipSilence.value = stored.skipSilence
         cacheDir.mkdirs()
     }
 
@@ -120,6 +124,11 @@ class PodcastsRepository(
 
     fun setPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = Podcasts.snapSpeed(speed)
+        persist()
+    }
+
+    fun setSkipSilence(on: Boolean) {
+        _skipSilence.value = on
         persist()
     }
 
@@ -356,6 +365,7 @@ class PodcastsRepository(
             progress = _progress.value.values.toList(),
             cacheBytes = _cacheBytes.value,
             playbackSpeed = _playbackSpeed.value,
+            skipSilence = _skipSilence.value,
             downloads = _downloads.value.values.toList(),
         )
         file.writeText(json.encodeToString(stored))
