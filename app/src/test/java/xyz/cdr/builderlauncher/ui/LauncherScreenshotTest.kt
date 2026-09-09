@@ -673,6 +673,15 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun settingsBackup() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                BackupChrome()
+            }
+        }
+    }
+
+    @Test
     fun aiProviders() {
         paparazzi.snapshot {
             BuilderTheme {

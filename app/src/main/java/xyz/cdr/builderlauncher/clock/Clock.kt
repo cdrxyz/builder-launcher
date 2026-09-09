@@ -257,6 +257,7 @@ data class TimerFire(val timer: TimerState, val alert: ClockAlert)
 
 data class AlarmFire(val alarm: ClockAlarm, val alert: ClockAlert)
 
+@Serializable
 enum class ClockSound {
     PULSE,
     CHIME,

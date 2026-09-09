@@ -49,6 +49,10 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="application/json" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
             <data android:mimeType="text/plain" />
         </intent>
         <package android:name="ai.x.grok" />
@@ -106,5 +110,15 @@
             android:name=".podcasts.PodcastPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

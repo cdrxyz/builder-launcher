@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import xyz.cdr.builderlauncher.backup.PodcastBackup
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -69,6 +70,22 @@ class PodcastsRepository(
     }
 
     fun homeRows(): List<PodcastHomeRow> = Podcasts.homeRows(_shows.value, _episodes.value, _progress.value)
+
+    fun exportBackup(): PodcastBackup =
+        PodcastBackup(
+            shows = _shows.value,
+            episodes = _episodes.value,
+            progress = _progress.value.values.toList(),
+            cacheBytes = _cacheBytes.value,
+        )
+
+    fun importBackup(backup: PodcastBackup) {
+        _shows.value = backup.shows
+        _episodes.value = backup.episodes
+        _progress.value = backup.progress.associateBy { it.episodeId }
+        if (backup.cacheBytes > 0L) _cacheBytes.value = backup.cacheBytes
+        persist()
+    }
 
     fun show(feedUrl: String): PodcastShow? =
         _shows.value.find { it.feedUrl.equals(feedUrl, ignoreCase = true) }

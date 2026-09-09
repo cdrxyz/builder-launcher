@@ -65,6 +65,10 @@ class LocalLists(context: Context) {
         )
     }
 
+    fun replaceAll(next: List<LocalItem>) {
+        persist(next)
+    }
+
     private fun persist(next: List<LocalItem>) {
         _items.value = next
         file.writeText(json.encodeToString(next))

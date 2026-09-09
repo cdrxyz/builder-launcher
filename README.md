@@ -109,6 +109,10 @@ OAuth tokens are stored in encrypted prefs on the device and refreshed automatic
 
 Nothing is sent anywhere until you type `?`. No analytics.
 
+## Backup
+
+Settings → Backup. Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key, frequency `off` / `daily` / `weekly`. Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program) and omits keys and tokens.
+
 ## Keyboard phones
 
 Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite and most BlackBerry-style Androids. On a slab phone the software keyboard stays open under the command bar. On hardware-keyboard phones it stays out of the way.
