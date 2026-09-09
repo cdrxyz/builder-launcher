@@ -58,6 +58,23 @@ object HermesWebUi {
 
     fun authenticated(raw: String): Boolean = booleanField(raw, "authenticated") == true
 
+    fun alreadyAuthenticated(code: Int, body: String): Boolean =
+        code in 200..299 && authenticated(body)
+
+    fun needsLogin(code: Int, body: String): Boolean {
+        if (alreadyAuthenticated(code, body)) return false
+        if (code == 401 || code == 403) return true
+        return passwordRequired(body)
+    }
+
+    fun authFailed(text: String): Boolean {
+        val t = text.trim()
+        return t.startsWith("LLM error 401") ||
+            t.startsWith("LLM error 403") ||
+            t.startsWith("Web UI password was rejected") ||
+            t.startsWith("Web UI needs a password")
+    }
+
     fun loginBody(password: String): String = """{"password":${esc(password)}}"""
 
     fun startBody(sessionId: String, message: String): String =
@@ -82,20 +99,19 @@ object HermesWebUi {
         if (message.isBlank()) return "Ask a question."
         val authed = authenticate(http, root, password)
         if (authed != null) return authed
-        val sessionRaw = post(http, "$root/api/session/new", newSessionBody(model))
+        val sessionRaw = post(http, "$root/api/session/new", newSessionBody(model), password)
             ?: return "Could not reach the Web UI."
         if (sessionRaw.code !in 200..299) {
             return llmError(sessionRaw.code, sessionRaw.body)
         }
         val sessionId = sessionId(sessionRaw.body) ?: return "Web UI did not return a session."
-        val startRaw = post(http, "$root/api/chat/start", startBody(sessionId, message))
+        val startRaw = post(http, "$root/api/chat/start", startBody(sessionId, message), password)
             ?: return "Could not reach the Web UI."
         if (startRaw.code !in 200..299) {
             return llmError(startRaw.code, startRaw.body)
         }
         val streamId = streamId(startRaw.body) ?: return "Web UI did not return a stream."
-        val req = Request.Builder()
-            .url("$root/api/chat/stream?stream_id=$streamId")
+        val req = request("$root/api/chat/stream?stream_id=$streamId", password)
             .header("Accept", "text/event-stream")
             .get()
             .build()
@@ -113,36 +129,28 @@ object HermesWebUi {
 
     fun probe(http: OkHttpClient, base: String, password: String): Probe {
         val root = base.trim().trimEnd('/')
-        val status = get(http, "$root/api/auth/status")
-            ?: get(http, "$root/health")
+        val status = get(http, "$root/api/auth/status", password)
+            ?: get(http, "$root/health", password)
             ?: return Probe(false, "Web UI failed: could not reach the host.")
         if (status.code <= 0) return Probe(false, "Web UI failed: could not reach the host.")
         if (status.code !in 200..299 && status.code != 401 && status.code != 403) {
             return Probe(false, "Web UI failed: HTTP ${status.code}.")
         }
-        val needsPassword = status.code in 200..299 && passwordRequired(status.body)
-        val alreadyIn = status.code in 200..299 && authenticated(status.body)
-        if (needsPassword && !alreadyIn) {
-            if (password.isBlank()) {
-                return Probe(true, "Web UI reachable (sign-in required).")
-            }
-            val login = post(http, "$root/api/auth/login", loginBody(password))
-                ?: return Probe(false, "Web UI failed: could not reach the host.")
-            if (login.code == 401 || login.code == 403) {
-                return Probe(false, "Web UI password was rejected.")
-            }
-            if (login.code !in 200..299) {
-                return Probe(false, "Web UI failed: HTTP ${login.code}.")
-            }
-            return Probe(true, "Web UI signed in.")
+        if (alreadyAuthenticated(status.code, status.body) || !needsLogin(status.code, status.body)) {
+            return Probe(true, "Web UI reachable.")
         }
-        if (password.isNotBlank() && !alreadyIn) {
-            val login = post(http, "$root/api/auth/login", loginBody(password))
-            if (login != null && login.code in 200..299) {
-                return Probe(true, "Web UI signed in.")
-            }
+        if (password.isBlank()) {
+            return Probe(false, "Web UI needs a password in settings.")
         }
-        return Probe(true, "Web UI reachable.")
+        val login = post(http, "$root/api/auth/login", loginBody(password), password)
+            ?: return Probe(false, "Web UI failed: could not reach the host.")
+        if (login.code == 401 || login.code == 403) {
+            return Probe(false, "Web UI password was rejected.")
+        }
+        if (login.code !in 200..299) {
+            return Probe(false, "Web UI failed: HTTP ${login.code}.")
+        }
+        return Probe(true, "Web UI signed in.")
     }
 
     private suspend fun readStream(resp: Response, onDelta: ((String) -> Unit)?): String {
@@ -181,13 +189,12 @@ object HermesWebUi {
     }
 
     private fun authenticate(http: OkHttpClient, root: String, password: String): String? {
-        val status = get(http, "$root/api/auth/status")
+        val status = get(http, "$root/api/auth/status", password)
         if (status == null) return "Could not reach the Web UI."
-        val needs = status.code in 200..299 && passwordRequired(status.body)
-        val inAlready = status.code in 200..299 && authenticated(status.body)
-        if (!needs || inAlready) return null
+        if (alreadyAuthenticated(status.code, status.body)) return null
+        if (!needsLogin(status.code, status.body)) return null
         if (password.isBlank()) return "Web UI needs a password in settings."
-        val login = post(http, "$root/api/auth/login", loginBody(password))
+        val login = post(http, "$root/api/auth/login", loginBody(password), password)
             ?: return "Could not reach the Web UI."
         if (login.code == 401 || login.code == 403) return "Web UI password was rejected."
         if (login.code !in 200..299) return llmError(login.code, login.body)
@@ -196,18 +203,25 @@ object HermesWebUi {
 
     private data class HttpText(val code: Int, val body: String)
 
-    private fun get(http: OkHttpClient, url: String): HttpText? = try {
-        http.newCall(Request.Builder().url(url).get().build()).execute().use {
+    private fun request(url: String, password: String): Request.Builder {
+        val builder = Request.Builder().url(url)
+        if (password.isNotBlank()) {
+            builder.header("Authorization", "Bearer $password")
+        }
+        return builder
+    }
+
+    private fun get(http: OkHttpClient, url: String, password: String = ""): HttpText? = try {
+        http.newCall(request(url, password).get().build()).execute().use {
             HttpText(it.code, it.body?.string().orEmpty())
         }
     } catch (_: Throwable) {
         null
     }
 
-    private fun post(http: OkHttpClient, url: String, body: String): HttpText? = try {
+    private fun post(http: OkHttpClient, url: String, body: String, password: String = ""): HttpText? = try {
         http.newCall(
-            Request.Builder()
-                .url(url)
+            request(url, password)
                 .post(body.toRequestBody(JSON))
                 .header("Content-Type", "application/json")
                 .build(),

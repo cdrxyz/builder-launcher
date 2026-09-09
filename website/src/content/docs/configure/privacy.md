@@ -5,7 +5,7 @@ description: What leaves the device, and what never does.
 
 - **No analytics.**
 - **Todos and notes** stay in local storage on the phone.
-- **API keys and OAuth tokens** sit in encrypted SharedPreferences. They leave the device only as a Bearer token to the AI provider you chose, and only when you type `?`. The Hermes Web UI password is posted to `/api/auth/login` on your Web UI host (session cookie), not as a Bearer token on the API server.
+- **API keys and OAuth tokens** sit in encrypted SharedPreferences. They leave the device only as a Bearer token to the AI provider you chose, and only when you type `?`. The Hermes Web UI password is posted to `/api/auth/login` on your Web UI host (session cookie) and, when set, also sent as `Authorization: Bearer` on those requests. If Web UI auth fails, the same secret is sent as a Bearer token to the API server on `:8642`.
 - **Weather** calls Open-Meteo with the coordinates of the city you picked (or a last GPS point if you never set a city and the OS already has a location).
 - **Stocks** call Yahoo Finance for ticker search, quotes, charts, and fundamentals (P/E, yield, market cap, EPS, volume). The watchlist itself stays on the device. CSV copy/paste never leaves the phone.
 - **SMS** is sent through the Android SMS APIs to the number you chose. Contacts are read only to complete `@` and `#`.

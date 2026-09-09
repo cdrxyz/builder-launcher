@@ -44,7 +44,7 @@ object AccessReport {
 
     fun fromWebUi(code: Int): Probe {
         if (code in 200..299) return Probe(true, "Web UI reachable.")
-        if (code == 401 || code == 403) return Probe(true, "Web UI reachable (sign-in required).")
+        if (code == 401 || code == 403) return Probe(false, "Web UI needs a password in settings.")
         if (code <= 0) return Probe(false, "Web UI failed: could not reach the host.")
         return Probe(false, "Web UI failed: HTTP $code.")
     }
@@ -53,6 +53,13 @@ object AccessReport {
         val parts = listOfNotNull(api?.detail, web?.detail)
         if (parts.isEmpty()) return AccessCheck.Done(false, "Set a base URL in settings.")
         val ok = (api?.ok ?: true) && (web?.ok ?: true)
+        return AccessCheck.Done(ok, parts.joinToString(". "))
+    }
+
+    fun either(api: Probe?, web: Probe?): AccessCheck.Done {
+        val parts = listOfNotNull(api?.detail, web?.detail)
+        if (parts.isEmpty()) return AccessCheck.Done(false, "Set a Web UI URL in settings.")
+        val ok = api?.ok == true || web?.ok == true
         return AccessCheck.Done(ok, parts.joinToString(". "))
     }
 
@@ -83,7 +90,14 @@ class ProviderAccess(
                 if (webUi.isBlank()) {
                     return@withContext AccessCheck.Done(false, missingCreds(snapshot.provider))
                 }
-                return@withContext AccessReport.combine(null, probeWebUi(webUi, snapshot.apiKey))
+                val web = probeWebUi(webUi, snapshot.apiKey)
+                val apiBase = HermesUrls.apiBase(snapshot)
+                val api = if (apiBase.isNotBlank() && apiBase != webUi) {
+                    probeApi(snapshot, platform, apiBase)
+                } else {
+                    null
+                }
+                return@withContext AccessReport.either(api, web)
             }
             val apiBase = settings.effectiveBaseUrl(snapshot)
             if (apiBase.isBlank()) {

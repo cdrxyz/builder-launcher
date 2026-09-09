@@ -23,7 +23,11 @@ object AiFallback {
             t.startsWith("Sign in or paste an API key") ||
             t.startsWith("Could not reach") ||
             t.startsWith("HTTP is only allowed") ||
+            t.startsWith("LLM error 401") ||
+            t.startsWith("LLM error 403") ||
             t.startsWith("LLM error 5") ||
+            t.startsWith("Web UI password") ||
+            t.startsWith("Web UI needs a password") ||
             t.startsWith("Empty reply")
     }
 

@@ -77,7 +77,22 @@ class LlmClient(
             } catch (_: Throwable) {
                 "Could not reach the Web UI."
             }
-            return LlmAnswer(text)
+            if (!HermesWebUi.authFailed(text)) return LlmAnswer(text)
+            val api = HermesUrls.apiBase(snapshot)
+            if (api.isBlank() || !EndpointPolicy.allowed(api)) return LlmAnswer(text)
+            val bearer = snapshot.apiKey.trim().ifBlank { null }
+            val viaApi = try {
+                openaiChat(
+                    api,
+                    settings.effectiveModel(snapshot),
+                    turns,
+                    bearer,
+                    onDelta,
+                )
+            } catch (_: Throwable) {
+                text
+            }
+            return LlmAnswer(if (HermesWebUi.authFailed(viaApi)) text else viaApi)
         }
         val base = settings.effectiveBaseUrl(snapshot)
         if (base.isBlank()) {

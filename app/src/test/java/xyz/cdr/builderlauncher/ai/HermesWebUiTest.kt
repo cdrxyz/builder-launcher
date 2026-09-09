@@ -46,6 +46,23 @@ class HermesWebUiTest {
     }
 
     @Test
+    fun needsLoginOn401EvenWithoutPasswordRequiredFlag() {
+        val gated = """{"error":"Authentication required"}"""
+        assertTrue(HermesWebUi.needsLogin(401, gated))
+        assertFalse(HermesWebUi.alreadyAuthenticated(401, gated))
+        assertTrue(HermesWebUi.needsLogin(200, """{"authenticated":false,"password_required":true}"""))
+        assertFalse(HermesWebUi.needsLogin(200, """{"authenticated":true,"password_required":false}"""))
+        assertFalse(HermesWebUi.needsLogin(200, """{"authenticated":false,"password_required":false}"""))
+    }
+
+    @Test
+    fun authFailedMatchesQuestion401() {
+        assertTrue(HermesWebUi.authFailed("""LLM error 401: {"error":"Authentication required"}"""))
+        assertTrue(HermesWebUi.authFailed("Web UI needs a password in settings."))
+        assertFalse(HermesWebUi.authFailed("Here is a short answer."))
+    }
+
+    @Test
     fun loginPostsTheWebUiPasswordNotABearerToken() {
         assertEquals(
             """{"password":"hunter2"}""",
