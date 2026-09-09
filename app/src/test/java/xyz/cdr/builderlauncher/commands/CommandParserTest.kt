@@ -69,6 +69,9 @@ class CommandParserTest {
         assertEquals(Command.OpenApps, CommandParser.parse("/apps"))
         assertEquals(Command.OpenStocks, CommandParser.parse("stocks"))
         assertEquals(Command.OpenStocks, CommandParser.parse("/stocks"))
+        assertEquals(Command.OpenPodcasts, CommandParser.parse("podcasts"))
+        assertEquals(Command.OpenPodcasts, CommandParser.parse("/podcasts"))
+        assertEquals(Command.OpenPodcasts, CommandParser.parse("podcast"))
         assertEquals(Command.OpenClock, CommandParser.parse("clock"))
         assertEquals(Command.OpenClock, CommandParser.parse("/clock"))
         assertEquals(Command.OpenWeather, CommandParser.parse("weather"))
@@ -91,6 +94,8 @@ class CommandParserTest {
         assertEquals(Command.Empty, CommandParser.parse("/unknown"))
         assertEquals(Command.OpenStocks, CommandParser.parse("/stocks"))
         assertEquals(Command.OpenStocks, CommandParser.parse("/stock"))
+        assertEquals(Command.OpenPodcasts, CommandParser.parse("/podcasts"))
+        assertEquals(Command.OpenPodcasts, CommandParser.parse("/podcast"))
         assertEquals(Command.Pin("Termux"), CommandParser.parse("/pin Termux"))
     }
 

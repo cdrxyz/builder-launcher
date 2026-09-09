@@ -9,7 +9,7 @@ class SlashCommandsTest {
     @Test
     fun catalogIsAlphabetical() {
         assertEquals(
-            listOf("apps", "clock", "help", "hub", "notes", "settings", "stocks", "usage", "weather"),
+            listOf("apps", "clock", "help", "hub", "notes", "podcasts", "settings", "stocks", "usage", "weather"),
             SlashCommands.all.map { it.name },
         )
         assertTrue(SlashCommands.all.map { it.name } == SlashCommands.all.map { it.name }.sorted())

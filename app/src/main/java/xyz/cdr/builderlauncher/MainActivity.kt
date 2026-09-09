@@ -36,6 +36,7 @@ import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
+import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 
 class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         val stocks = StocksRepository(this)
+        val podcasts = PodcastsRepository(this)
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
         ClockScheduler.sync(this, clock.snapshot())
@@ -84,6 +86,7 @@ class MainActivity : ComponentActivity() {
                     executor = executor,
                     weather = weather,
                     stocks = stocks,
+                    podcasts = podcasts,
                     calendar = calendar,
                     clock = clock,
                     homePresses = homePresses,
