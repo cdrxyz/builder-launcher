@@ -5,7 +5,7 @@ description: Watchlist with live quotes, ticker charts, and CSV import/export.
 
 Prefix `$`. Type `stocks`, or tap `… all stocks >`.
 
-Home shows one watchlist name at a time to the right of the clock (today's percent in green or red). It swaps every 5 seconds. Tap it for that ticker's chart. Hidden when the list is empty.
+Home shows one watchlist name at a time to the right of the clock (today's percent in green or red). It swaps every 5 seconds. Tap it for the watchlist. Hidden when the list is empty.
 
 ![Typing stocks shows the all-stocks shortcut](../../../assets/screenshots/home-stocks.png)
 
