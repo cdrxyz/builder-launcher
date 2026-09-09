@@ -214,7 +214,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, AiSettings, Apps, Stocks, StockDetail, StockSettings, Podcasts, PodcastShow, PodcastEpisode, PodcastSettings, Chat, ChatHistory, Clock, Weather, Usage }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, AiSettings, BackupSettings, Apps, Stocks, StockDetail, StockSettings, Podcasts, PodcastShow, PodcastEpisode, PodcastSettings, Chat, ChatHistory, Clock, Weather, Usage }
 
 private var lastPage: Page = Page.Home
 
@@ -2439,9 +2439,9 @@ fun BuilderRoot(
                     hardware = hardware,
                     onBack = { page = Page.Home },
                     onOpenAi = { page = Page.AiSettings },
+                    onOpenBackup = { page = Page.BackupSettings },
                     repo = settingsRepo,
                     weather = weather,
-                    backup = backup,
                     onRequestHome = onRequestHome,
                 )
             }
@@ -2451,6 +2451,14 @@ fun BuilderRoot(
                     onBack = { page = Page.Settings },
                     repo = settingsRepo,
                     oauth = oauth,
+                )
+            }
+            Page.BackupSettings -> {
+                BackupSettingsPage(
+                    settings = settings,
+                    onBack = { page = Page.Settings },
+                    repo = settingsRepo,
+                    backup = backup,
                 )
             }
             Page.Stocks -> {
@@ -3714,9 +3722,9 @@ private fun SettingsPage(
     hardware: Boolean,
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
+    onOpenBackup: () -> Unit,
     repo: SettingsRepository,
     weather: WeatherRepository,
-    backup: BackupService,
     onRequestHome: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -3724,24 +3732,6 @@ private fun SettingsPage(
     var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
     var suggestions by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var accentDraft by remember { mutableStateOf(settings.accentHex) }
-    var s3Endpoint by remember { mutableStateOf(settings.s3Endpoint) }
-    var s3Bucket by remember { mutableStateOf(settings.s3Bucket) }
-    var s3Access by remember { mutableStateOf(settings.s3AccessKey) }
-    var s3Secret by remember { mutableStateOf(settings.s3SecretKey) }
-    var s3Encryption by remember { mutableStateOf(settings.s3EncryptionKey) }
-    var backupMsg by remember { mutableStateOf<String?>(null) }
-    var backupBusy by remember { mutableStateOf(false) }
-    var confirmRestore by remember { mutableStateOf(false) }
-    var s3Probe by remember { mutableStateOf<S3Access>(S3Access.Idle) }
-    LaunchedEffect(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey, settings.s3EncryptionKey) {
-        if (!S3Signer.credentialsReady(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey)) {
-            s3Probe = S3Access.Idle
-            return@LaunchedEffect
-        }
-        s3Probe = S3Access.Testing
-        delay(700)
-        s3Probe = withContext(Dispatchers.IO) { backup.probe() }
-    }
     LaunchedEffect(placeQuery, settings.weatherPlace, settings.weatherLat) {
         val q = placeQuery.trim()
         if (q.length < 2 || (q == settings.weatherPlace && settings.weatherLat != null)) {
@@ -3941,13 +3931,93 @@ private fun SettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        CaretLink(
+            "… backup >",
+            modifier = Modifier
+                .clickable { onOpenBackup() }
+                .padding(vertical = 6.dp)
+                .fillMaxWidth(),
+        )
+        Text(
+            "Last backup: ${BackupService.lastBackupLabel(settings.lastBackupAtEpochMs)}",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
-        Text("Backup", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            "Notification access (hub)",
+            color = Paper,
+            modifier = Modifier.clickable {
+                ctx.startActivity(
+                    android.content.Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            },
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Usage access",
+            color = Paper,
+            modifier = Modifier.clickable {
+                ctx.startActivity(
+                    android.content.Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            },
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Set as default home app",
+            color = Paper,
+            modifier = Modifier.clickable { onRequestHome() },
+        )
+        Spacer(Modifier.height(24.dp))
+        Text("Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun BackupSettingsPage(
+    settings: BuilderSettings,
+    onBack: () -> Unit,
+    repo: SettingsRepository,
+    backup: BackupService,
+) {
+    val scope = rememberCoroutineScope()
+    var s3Endpoint by remember { mutableStateOf(settings.s3Endpoint) }
+    var s3Bucket by remember { mutableStateOf(settings.s3Bucket) }
+    var s3Access by remember { mutableStateOf(settings.s3AccessKey) }
+    var s3Secret by remember { mutableStateOf(settings.s3SecretKey) }
+    var s3Encryption by remember { mutableStateOf(settings.s3EncryptionKey) }
+    var backupMsg by remember { mutableStateOf<String?>(null) }
+    var backupBusy by remember { mutableStateOf(false) }
+    var confirmRestore by remember { mutableStateOf(false) }
+    var s3Probe by remember { mutableStateOf<S3Access>(S3Access.Idle) }
+    LaunchedEffect(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey, settings.s3EncryptionKey) {
+        if (!S3Signer.credentialsReady(settings.s3Endpoint, settings.s3Bucket, settings.s3AccessKey, settings.s3SecretKey)) {
+            s3Probe = S3Access.Idle
+            return@LaunchedEffect
+        }
+        s3Probe = S3Access.Testing
+        delay(700)
+        s3Probe = withContext(Dispatchers.IO) { backup.probe() }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "<",
+                color = Accent,
+                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+            )
+            Text("Backup", color = Accent)
+        }
+        Spacer(Modifier.height(16.dp))
         Text(
             "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces todos, notes, chats, pins, stocks, podcasts, alarms, and settings. OAuth tokens stay on this phone.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 6.dp),
         )
         LabeledField("Endpoint", s3Endpoint, "https://ACCOUNT.r2.cloudflarestorage.com") {
             s3Endpoint = it
@@ -4069,36 +4139,6 @@ private fun SettingsPage(
         backupMsg?.let {
             Text(it, color = Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
         }
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "Notification access (hub)",
-            color = Paper,
-            modifier = Modifier.clickable {
-                ctx.startActivity(
-                    android.content.Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            },
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "Usage access",
-            color = Paper,
-            modifier = Modifier.clickable {
-                ctx.startActivity(
-                    android.content.Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            },
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "Set as default home app",
-            color = Paper,
-            modifier = Modifier.clickable { onRequestHome() },
-        )
-        Spacer(Modifier.height(24.dp))
-        Text("Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.", color = Dim, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
