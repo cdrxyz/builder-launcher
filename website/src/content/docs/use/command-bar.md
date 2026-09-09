@@ -9,8 +9,9 @@ The prompt is always at the bottom. On a slab phone the software keyboard stays 
 
 - Type, then **Enter** / Go.
 - **D-pad right** opens the [hub](hub/). **D-pad left** opens [podcasts](podcasts/).
-- Tap `>` (empty bar) to open the prefix menu.
-- The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
+- Tap `>` (empty bar) to open the prefix menu. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Both lists scroll when they do not fit.
+
+The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
 
 ![Prefix command menu including stock](../../../assets/screenshots/command-menu.png)
 
@@ -25,7 +26,7 @@ The prompt is always at the bottom. On a slab phone the software keyboard stays 
 | `?` | ask AI |
 | `/` | slash |
 
-Picking a row sets the prompt glyph. Type the rest of the command in the field. Pick **slash** to list slash commands above the bar.
+Picking a row sets the prompt glyph. Type the rest of the command in the field. Pick **slash** to list slash commands above the bar. The list scrolls if there are more rows than fit.
 
 Software keyboards keep autocorrect **off** in default `>` mode so live calculator expressions (`2+2`, `3*7`) are not rewritten. Autocorrect turns **on** for `-` todos, `+` notes, and `?` AI, and in the full-screen note editor.
 

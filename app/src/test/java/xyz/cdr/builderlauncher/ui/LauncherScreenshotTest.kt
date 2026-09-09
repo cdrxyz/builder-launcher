@@ -189,6 +189,7 @@ class LauncherScreenshotTest {
                     weather = "18° cloudy",
                     input = "",
                     todos = listOf("buy milk", "ship builder-launcher CI"),
+                    pins = listOf("Termux", "Signal"),
                     commandsOpen = true,
                 )
             }
@@ -206,6 +207,7 @@ class LauncherScreenshotTest {
                     input = "",
                     prompt = "/",
                     todos = listOf("buy milk", "ship builder-launcher CI"),
+                    pins = listOf("Termux", "Signal"),
                     slashOpen = true,
                 )
             }

@@ -21,6 +21,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
@@ -260,6 +262,7 @@ fun BuilderRoot(
     val homePressCount by homePresses.collectAsState()
     var page by remember { mutableStateOf(lastPage) }
     var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
+    var actionMenuOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var help by remember { mutableStateOf(false) }
     var chatId by remember { mutableStateOf<String?>(null) }
@@ -1304,6 +1307,8 @@ fun BuilderRoot(
                         }
                     },
                 )
+                val overlayMenus = actionMenuOpen || prompt == SlashCommands.PROMPT
+                if (!overlayMenus) {
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
                     open = previewTodos,
@@ -1328,6 +1333,7 @@ fun BuilderRoot(
                     HelpBlock()
                     Spacer(Modifier.height(12.dp))
                 }
+                }
                 val pinned = remember(pinPkgs, appsEpoch) {
                     val all = apps.all()
                     pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
@@ -1348,6 +1354,7 @@ fun BuilderRoot(
                         apps.launch(app)
                     }
                 }
+                if (!overlayMenus) {
                 if (filtering) {
                     Column(
                         modifier = Modifier.weight(1f),
@@ -1494,6 +1501,7 @@ fun BuilderRoot(
                     }
                     }
                 }
+                }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
                     prompt = prompt,
@@ -1507,6 +1515,8 @@ fun BuilderRoot(
                     onSlash = { pickSlash(it) },
                     onHub = { openHub() },
                     onLeft = { openPodcastsList() },
+                    modifier = if (overlayMenus) Modifier.weight(1f) else Modifier,
+                    onActionMenuChange = { actionMenuOpen = it },
                 )
                         }
                         Page.Hub -> {
@@ -3406,11 +3416,21 @@ private fun CommandBar(
     onHub: () -> Unit,
     onLeft: (() -> Unit)? = null,
     showSubmit: Boolean = false,
+    modifier: Modifier = Modifier,
+    onActionMenuChange: (Boolean) -> Unit = {},
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val ctx = LocalContext.current
+    val reportActionMenu = rememberUpdatedState(onActionMenuChange)
     var menuOpen by remember { mutableStateOf(false) }
+    fun setMenuOpen(value: Boolean) {
+        menuOpen = value
+        reportActionMenu.value(value)
+    }
+    DisposableEffect(Unit) {
+        onDispose { reportActionMenu.value(false) }
+    }
     var selected by remember { mutableStateOf(0) }
     var slashSelected by remember { mutableStateOf(0) }
     val slashMode = prompt == SlashCommands.PROMPT
@@ -3432,14 +3452,14 @@ private fun CommandBar(
     }
     LaunchedEffect(prompt) {
         slashSelected = 0
-        if (slashMode) menuOpen = false
+        if (slashMode) setMenuOpen(false)
     }
     LaunchedEffect(slashMatches.size, value) {
         if (slashSelected >= slashMatches.size) slashSelected = 0
     }
     fun pick(index: Int) {
         val cmd = PrefixCommands.all.getOrNull(index) ?: return
-        menuOpen = false
+        setMenuOpen(false)
         selected = 0
         onPick(cmd.glyph)
         focus.requestFocus()
@@ -3449,24 +3469,51 @@ private fun CommandBar(
         onSlash(cmd)
         focus.requestFocus()
     }
-    Column(modifier = Modifier.fillMaxWidth()) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val menuMax = commandMenuMaxHeight(maxHeight)
+        val bounded = maxHeight < Dp.Infinity
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (bounded) Modifier.fillMaxSize() else Modifier),
+        ) {
         if (slashMode) {
-            SlashCommandMenu(
-                commands = slashMatches,
-                selected = slashSelected,
-                onSelect = { cmd ->
-                    val index = slashMatches.indexOf(cmd)
-                    if (index >= 0) pickSlash(index)
-                },
-            )
+            val menu: @Composable (Modifier) -> Unit = { menuMod ->
+                SlashCommandMenu(
+                    commands = slashMatches,
+                    selected = slashSelected,
+                    onSelect = { cmd ->
+                        val index = slashMatches.indexOf(cmd)
+                        if (index >= 0) pickSlash(index)
+                    },
+                    modifier = menuMod,
+                )
+            }
+            if (bounded) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+                    menu(Modifier.heightIn(max = menuMax))
+                }
+            } else {
+                menu(Modifier.heightIn(max = menuMax))
+            }
         } else if (menuOpen) {
-            CommandMenu(
-                selected = selected,
-                onSelect = { cmd ->
-                    val index = PrefixCommands.all.indexOf(cmd)
-                    if (index >= 0) pick(index)
-                },
-            )
+            val menu: @Composable (Modifier) -> Unit = { menuMod ->
+                CommandMenu(
+                    selected = selected,
+                    onSelect = { cmd ->
+                        val index = PrefixCommands.all.indexOf(cmd)
+                        if (index >= 0) pick(index)
+                    },
+                    modifier = menuMod,
+                )
+            }
+            if (bounded) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+                    menu(Modifier.heightIn(max = menuMax))
+                }
+            } else {
+                menu(Modifier.heightIn(max = menuMax))
+            }
         }
         val calc = if (
             (prompt == PrefixCommands.DEFAULT_PROMPT || prompt == '?') &&
@@ -3515,7 +3562,7 @@ private fun CommandBar(
                         if (slashMode) {
                             onClearMode()
                         } else {
-                            menuOpen = !menuOpen
+                            setMenuOpen(!menuOpen)
                             if (menuOpen) selected = 0
                         }
                     }
@@ -3525,7 +3572,7 @@ private fun CommandBar(
                 value = value,
                 onValueChange = {
                     if (menuOpen) {
-                        menuOpen = false
+                        setMenuOpen(false)
                     } else {
                         onValue(it)
                     }
@@ -3608,11 +3655,11 @@ private fun CommandBar(
                                     true
                                 }
                                 KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> {
-                                    menuOpen = false
+                                    setMenuOpen(false)
                                     true
                                 }
                                 else -> {
-                                    menuOpen = false
+                                    setMenuOpen(false)
                                     true
                                 }
                             }
@@ -3644,7 +3691,7 @@ private fun CommandBar(
                                 }
                                 else -> {
                                     if (value.isEmpty() && ch == '>') {
-                                        menuOpen = true
+                                        setMenuOpen(true)
                                         selected = 0
                                         true
                                     } else {
@@ -3665,6 +3712,7 @@ private fun CommandBar(
             }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
 
