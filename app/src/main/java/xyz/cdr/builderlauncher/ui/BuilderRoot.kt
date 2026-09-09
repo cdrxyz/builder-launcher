@@ -2,10 +2,10 @@
 
 package xyz.cdr.builderlauncher.ui
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.res.Configuration
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.provider.Settings
@@ -16,6 +16,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
@@ -52,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -63,6 +65,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.ColorFilter
@@ -361,13 +364,15 @@ fun BuilderRoot(
             }
         }
     }
-    val hardware = remember(settings.keyboardMode) {
-        when (settings.keyboardMode) {
-            KeyboardMode.HARDWARE -> true
-            KeyboardMode.SOFTWARE -> false
-            KeyboardMode.AUTO ->
-                ctx.resources.configuration.keyboard == Configuration.KEYBOARD_QWERTY
-        }
+    val hardware = remember(settings.keyboardMode, ctx.resources.configuration.keyboard) {
+        KeyboardPresence.usesHardwareKeys(
+            settings.keyboardMode,
+            ctx.resources.configuration.keyboard,
+        )
+    }
+    val window = (ctx as? Activity)?.window
+    SideEffect {
+        window?.setSoftInputMode(KeyboardPresence.softInputMode(hardware))
     }
     LaunchedEffect(settings.weatherLat, settings.weatherLon) {
         weather.refresh()
@@ -1149,11 +1154,11 @@ fun BuilderRoot(
         Box(Modifier.fillMaxSize()) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().clipToBounds(),
                 userScrollEnabled = onStrip,
                 beyondViewportPageCount = 1,
             ) { index ->
-                Column(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().clipToBounds().background(Ink)) {
                     when (HomeStrip.pageAt(index)) {
                         Page.Home -> {
                 val previewTodos = HomeTodos.preview(HomeTodos.of(local))
@@ -1165,7 +1170,9 @@ fun BuilderRoot(
                     ticker = ticker,
                     event = upcoming,
                     timer = clockState.timer,
-                    analog = settings.clockFace == ClockFace.ANALOG,
+                    analog = settings.clockFace == ClockFace.ANALOG &&
+                        index == pagerState.currentPage &&
+                        !HomeStrip.coversPager(page),
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
@@ -1375,6 +1382,7 @@ fun BuilderRoot(
                     prompt = prompt,
                     value = input,
                     hardware = hardware,
+                    grabFocus = onStrip && index == pagerState.currentPage,
                     onValue = { applyMode(PrefixCommands.type(mode(), it)) },
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
@@ -1519,6 +1527,7 @@ fun BuilderRoot(
                     prompt = prompt,
                     value = input,
                     hardware = hardware,
+                    grabFocus = onStrip && index == pagerState.currentPage,
                     onValue = { applyMode(PrefixCommands.type(mode(), it)) },
                     onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
                     onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
@@ -1532,7 +1541,16 @@ fun BuilderRoot(
                 }
             }
             if (HomeStrip.coversPager(page)) {
-            Column(Modifier.fillMaxSize().background(Ink)) {
+            Column(
+                Modifier
+                    .zIndex(1f)
+                    .fillMaxSize()
+                    .background(Ink)
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                    ) {},
+            ) {
             when (page) {
             Page.Todos -> {
                 val todos = HomeTodos.of(local)
@@ -2962,7 +2980,7 @@ private fun ClockHeader(
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     val cal = Calendar.getInstance().apply { timeInMillis = now.value }
     val eventLine = event?.let { UpcomingEvents.line(it, now.value) }
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().clipToBounds()) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -3016,7 +3034,8 @@ private fun ClockHeader(
         Column(
             Modifier
                 .align(Alignment.TopCenter)
-                .padding(horizontal = 56.dp),
+                .padding(horizontal = 56.dp)
+                .clipToBounds(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
@@ -3136,6 +3155,7 @@ private fun CommandBar(
     value: String,
     hardware: Boolean,
     wrap: Boolean = false,
+    grabFocus: Boolean = true,
     onValue: (String) -> Unit,
     onPick: (Char) -> Unit,
     onClearMode: () -> Unit,
@@ -3154,9 +3174,19 @@ private fun CommandBar(
     val slashMode = prompt == SlashCommands.PROMPT
     val slashMatches = if (slashMode) SlashCommands.matches(value) else emptyList()
     val wrapField = wrap || PrefixCommands.wrapsInput(prompt)
-    LaunchedEffect(hardware) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var resumeTick by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumeTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(hardware, grabFocus, resumeTick) {
+        if (!grabFocus) return@LaunchedEffect
         focus.requestFocus()
-        if (hardware) keyboard?.hide()
+        if (hardware) keyboard?.hide() else keyboard?.show()
     }
     LaunchedEffect(prompt) {
         slashSelected = 0
@@ -3508,7 +3538,7 @@ private fun SettingsPage(
             if (hardware) {
                 "Hardware keyboard detected — command bar sits at the bottom, above the keys."
             } else {
-                "Slab mode — command bar sits at the bottom, just above the keyboard."
+                "Slab mode — software keyboard stays open under the command bar."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,

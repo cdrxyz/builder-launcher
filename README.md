@@ -111,7 +111,7 @@ Nothing is sent anywhere until you type `?`. No analytics.
 
 ## Keyboard phones
 
-Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite and most BlackBerry-style Androids. The command bar always sits at the bottom, just above the keyboard. On hardware-keyboard phones the software keyboard stays out of the way.
+Keyboard mode: `auto` (default), `hardware`, or `software`. Auto treats a hardware QWERTY as present — Titan 2 Elite and most BlackBerry-style Androids. On a slab phone the software keyboard stays open under the command bar. On hardware-keyboard phones it stays out of the way.
 
 ## Releases and CI
 

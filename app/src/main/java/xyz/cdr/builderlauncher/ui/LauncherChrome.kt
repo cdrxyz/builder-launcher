@@ -1267,7 +1267,7 @@ fun SettingsChrome(
             if (hardware) {
                 "Hardware keyboard detected — command bar sits at the bottom, above the keys."
             } else {
-                "Slab mode — command bar sits at the bottom, just above the keyboard."
+                "Slab mode — software keyboard stays open under the command bar."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,

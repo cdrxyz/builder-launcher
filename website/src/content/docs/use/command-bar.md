@@ -5,7 +5,7 @@ description: Type at the bottom of home. Tap > for the prefix menu. Hardware key
 
 ![Command bar at the bottom of home](../../../assets/screenshots/commands.png)
 
-The prompt is always at the bottom, just above the keyboard (or the hardware keys).
+The prompt is always at the bottom. On a slab phone the software keyboard stays open under the bar. On hardware keys it stays out of the way.
 
 - Type, then **Enter** / Go.
 - **D-pad right** opens the [hub](hub/). **D-pad left** opens [usage](usage/).

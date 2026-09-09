@@ -12,6 +12,6 @@ description: What to do the first time Builder Launcher opens.
 5. Optional: grant **notification access** so the hub fills with messages and calendar alerts.
 6. Optional: pick an AI provider before you use `?`. Nothing is sent until you ask.
 
-The command bar always sits at the bottom. On a hardware QWERTY (auto or hardware mode) the software keyboard stays out of the way.
+The command bar always sits at the bottom. On a slab phone the software keyboard stays open. On a hardware QWERTY (auto or hardware mode) it stays out of the way.
 
 Next: [Home](../use/home/) and [Commands](../use/commands/).
