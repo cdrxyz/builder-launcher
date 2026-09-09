@@ -7,7 +7,11 @@ import org.junit.Test
 class ProviderAccountsTest {
     @Test
     fun rememberKeepsEachProviderWhenSwitching() {
-        val hermes = BuilderSettings(provider = LlmProvider.HERMES, hermesBaseUrl = "http://192.168.1.10:8642")
+        val hermes = BuilderSettings(
+            provider = LlmProvider.HERMES,
+            hermesBaseUrl = "http://192.168.1.10:8642",
+            hermesOpenInHermex = true,
+        )
         val grok = hermes.copy(
             provider = LlmProvider.XAI,
             apiKey = "sk-x",
@@ -23,6 +27,7 @@ class ProviderAccountsTest {
         val back = ProviderAccounts.view(stored, grok, LlmProvider.HERMES)
         assertEquals(LlmProvider.HERMES, back.provider)
         assertEquals("http://192.168.1.10:8642", back.hermesBaseUrl)
+        assertTrue(back.hermesOpenInHermex)
         val xai = ProviderAccounts.view(stored, back, LlmProvider.XAI)
         assertEquals("sk-x", xai.apiKey)
         assertEquals("tok", xai.oauthAccess)

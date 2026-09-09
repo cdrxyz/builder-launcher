@@ -20,6 +20,7 @@ enum class LlmProvider {
 data class BuilderSettings(
     val provider: LlmProvider = LlmProvider.HERMES,
     val hermesBaseUrl: String = "",
+    val hermesOpenInHermex: Boolean = false,
     val apiKey: String = "",
     val model: String = "",
     val keyboardMode: KeyboardMode = KeyboardMode.AUTO,
@@ -142,6 +143,7 @@ class SettingsRepository(context: Context) {
         return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
+            hermesOpenInHermex = prefs.getBoolean(KEY_HERMES_HERMEX, false),
             apiKey = prefs.getString(KEY_API, "") ?: "",
             model = prefs.getString(KEY_MODEL, "") ?: "",
             keyboardMode = kb,
@@ -177,6 +179,7 @@ class SettingsRepository(context: Context) {
         prefs.edit()
             .putString(KEY_PROVIDER, next.provider.name)
             .putString(KEY_HERMES, next.hermesBaseUrl)
+            .putBoolean(KEY_HERMES_HERMEX, next.hermesOpenInHermex)
             .putString(KEY_API, next.apiKey)
             .putString(KEY_MODEL, next.model)
             .putString(KEY_KB, next.keyboardMode.name)
@@ -202,6 +205,7 @@ class SettingsRepository(context: Context) {
         private const val PREFS = "builder.secure"
         private const val KEY_PROVIDER = "provider"
         private const val KEY_HERMES = "hermes_base"
+        private const val KEY_HERMES_HERMEX = "hermes_open_hermex"
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_KB = "keyboard"

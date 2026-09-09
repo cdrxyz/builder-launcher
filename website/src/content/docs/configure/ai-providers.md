@@ -13,6 +13,11 @@ Each account stays on the device when you switch. If Hermes is selected and the 
 
 Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
 
+**Open question in** chooses where the Hermes mark on `?` chat sends the current prompt:
+
+- **web ui** (default) — opens your Hermes URL in the browser.
+- **hermex** — shares the question into the Hermex app the same way Grok gets `ACTION_SEND`. Hermex does not take a `?q=` deep link; `hermex://new-chat` and `hermes-agent://new-chat` only open a blank composer. If Hermex is not installed, the mark falls back to your Hermes URL.
+
 ## xAI
 
 Sign in with SuperGrok / X Premium+ (device-code OAuth at `auth.x.ai`) or paste an API key.
