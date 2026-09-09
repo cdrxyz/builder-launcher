@@ -231,7 +231,7 @@ fun HomeChrome(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (analog) {
-                    AnalogClock(hour = hour, minute = minute)
+                    AnalogClock(hour = hour, minute = minute, modifier = Modifier.padding(top = 8.dp))
                     Spacer(Modifier.height(16.dp))
                     Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -668,6 +668,8 @@ data class PodcastListRow(
     val maxSubtitleLines: Int = Int.MAX_VALUE,
     val metaBelow: Boolean = false,
     val deletable: Boolean = false,
+    val downloadable: Boolean = false,
+    val downloaded: Boolean = false,
     val dimmed: Boolean = false,
 )
 
@@ -833,6 +835,12 @@ private fun PodcastRowChrome(row: PodcastListRow) {
         }
         if (!row.metaBelow && row.meta.isNotBlank()) {
             Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (row.downloadable) {
+            DownloadIcon(
+                filled = row.downloaded,
+                modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
         }
         if (row.deletable) {
             DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
@@ -2122,9 +2130,10 @@ fun AnalogClock(
     val dim = Dim
     val accent = Accent
     Canvas(modifier.size(faceSize)) {
-        val r = size.minDimension / 2f
+        val ring = 1.6.dp.toPx()
+        val r = size.minDimension / 2f - ring / 2f
         val c = Offset(size.width / 2f, size.height / 2f)
-        drawCircle(color = dim, radius = r, style = Stroke(width = 1.6.dp.toPx()))
+        drawCircle(color = dim, radius = r, style = Stroke(width = ring))
         for (i in 0 until 12) {
             val a = Math.toRadians((i * 30).toDouble() - 90.0)
             val inner = r * 0.82f

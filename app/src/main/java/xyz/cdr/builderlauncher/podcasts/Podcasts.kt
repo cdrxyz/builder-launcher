@@ -233,6 +233,8 @@ object Podcasts {
 
     fun skipped(progress: EpisodeProgress?): Boolean = progress?.skipped == true
 
+    fun episodeListDimmed(skipped: Boolean, finished: Boolean): Boolean = skipped || finished
+
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
 
@@ -363,6 +365,22 @@ object Podcasts {
             EpisodeOrder.NEWEST -> episodes.sortedByDescending { it.pubDate }
             EpisodeOrder.OLDEST -> episodes.sortedBy { it.pubDate }
         }
+
+    fun nextEpisode(
+        episodes: List<PodcastEpisode>,
+        currentId: String,
+        progress: Map<String, EpisodeProgress>,
+    ): PodcastEpisode? {
+        val start = episodes.indexOfFirst { it.id == currentId }
+        if (start < 0) return null
+        for (i in start + 1 until episodes.size) {
+            val episode = episodes[i]
+            val seen = progress[episode.id]
+            if (finished(seen) || skipped(seen)) continue
+            return episode
+        }
+        return null
+    }
 
     fun episodeOrderLabel(order: EpisodeOrder): String = when (order) {
         EpisodeOrder.NEWEST -> "newest first"

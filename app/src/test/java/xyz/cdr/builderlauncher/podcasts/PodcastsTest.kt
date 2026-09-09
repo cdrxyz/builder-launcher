@@ -219,6 +219,9 @@ class PodcastsTest {
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = null))
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = ""))
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = "e", finished = true))
+        assertTrue(Podcasts.episodeListDimmed(skipped = true, finished = false))
+        assertTrue(Podcasts.episodeListDimmed(skipped = false, finished = true))
+        assertFalse(Podcasts.episodeListDimmed(skipped = false, finished = false))
         assertFalse(Podcasts.playbackEnded(playing = true, positionMs = 3_580_000, durationMs = 3_600_000))
         assertTrue(Podcasts.playbackEnded(playing = false, positionMs = 3_580_000, durationMs = 3_600_000))
         assertEquals(
@@ -345,6 +348,43 @@ class PodcastsTest {
                 PodcastShow(feed, "ATP", episodeOrder = EpisodeOrder.OLDEST),
                 PodcastShow(feed, "Accidental Tech Podcast", author = "Marco"),
             ).title,
+        )
+    }
+
+    @Test
+    fun playsNextEpisodeInShowOrder() {
+        val feed = "https://atp.fm/rss"
+        val eps = listOf(
+            episode("a", feed, "First", pubDate = 1_000),
+            episode("b", feed, "Middle", pubDate = 2_000),
+            episode("c", feed, "Latest", pubDate = 3_000),
+        )
+        val oldest = Podcasts.sortEpisodes(eps, EpisodeOrder.OLDEST)
+        val newest = Podcasts.sortEpisodes(eps, EpisodeOrder.NEWEST)
+        val doneA = mapOf("a" to EpisodeProgress("a", 1, 1, finished = true))
+        assertEquals("b", Podcasts.nextEpisode(oldest, "a", doneA)?.id)
+        assertEquals("b", Podcasts.nextEpisode(newest, "c", emptyMap())?.id)
+        assertEquals(
+            "c",
+            Podcasts.nextEpisode(
+                oldest,
+                "a",
+                mapOf("b" to EpisodeProgress("b", 0, 1, skipped = true)),
+            )?.id,
+        )
+        assertEquals(null, Podcasts.nextEpisode(oldest, "c", emptyMap())?.id)
+        assertEquals(null, Podcasts.nextEpisode(newest, "a", emptyMap())?.id)
+        assertEquals(null, Podcasts.nextEpisode(oldest, "missing", emptyMap())?.id)
+        assertEquals(
+            null,
+            Podcasts.nextEpisode(
+                oldest,
+                "a",
+                mapOf(
+                    "b" to EpisodeProgress("b", 1, 1, finished = true),
+                    "c" to EpisodeProgress("c", 0, 1, skipped = true),
+                ),
+            )?.id,
         )
     }
 
