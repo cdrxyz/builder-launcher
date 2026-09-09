@@ -9,7 +9,7 @@ The prompt is always at the bottom. On a slab phone the software keyboard stays 
 
 - Type, then **Enter** / Go.
 - **D-pad right** opens the [hub](hub/). **D-pad left** opens [podcasts](podcasts/).
-- Tap `>` (empty bar) to open the prefix menu. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Both lists scroll when they do not fit.
+- Tap the prompt glyph (`>`) to open the prefix menu. The glyph is a large tap target so it does not steal taps into the field. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Both lists scroll when they do not fit.
 
 The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
 

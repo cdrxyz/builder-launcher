@@ -3555,21 +3555,18 @@ private fun CommandBar(
             verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                prompt.toString(),
-                color = Accent,
-                modifier = Modifier
-                    .semantics { contentDescription = "commands" }
-                    .clickable {
-                        if (slashMode) {
-                            onClearMode()
-                        } else {
-                            val next = !menuOpen
-                            if (next) selected = 0
-                            setMenuOpen(next)
-                        }
+            PromptGlyph(
+                prompt = prompt.toString(),
+                wrapField = wrapField,
+                onClick = {
+                    if (slashMode) {
+                        onClearMode()
+                    } else {
+                        val next = !menuOpen
+                        if (next) selected = 0
+                        setMenuOpen(next)
                     }
-                    .padding(end = 10.dp, top = if (wrapField) 2.dp else 0.dp),
+                },
             )
             BasicTextField(
                 value = value,
