@@ -41,6 +41,7 @@ data class BuilderSettings(
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
+    val pinUsage: Boolean = false,
     val clockFace: ClockFace = ClockFace.ANALOG,
     val s3Endpoint: String = "",
     val s3Bucket: String = "",
@@ -145,6 +146,7 @@ class SettingsRepository(context: Context) {
                 stockInsert = restored.stockInsert,
                 clockSound = restored.clockSound,
                 appIcons = restored.appIcons,
+                pinUsage = restored.pinUsage,
                 clockFace = restored.clockFace,
             )
         }
@@ -200,6 +202,7 @@ class SettingsRepository(context: Context) {
             stockInsert = insert,
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
             appIcons = appIcons,
+            pinUsage = prefs.getBoolean(KEY_PIN_USAGE, false),
             clockFace = clockFace,
             s3Endpoint = prefs.getString(KEY_S3_ENDPOINT, "") ?: "",
             s3Bucket = prefs.getString(KEY_S3_BUCKET, "") ?: "",
@@ -245,6 +248,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
+            .putBoolean(KEY_PIN_USAGE, next.pinUsage)
             .putString(KEY_CLOCK_FACE, next.clockFace.name)
             .putString(KEY_S3_ENDPOINT, next.s3Endpoint)
             .putString(KEY_S3_BUCKET, next.s3Bucket)
@@ -280,6 +284,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_STOCK_INSERT = "stock_insert"
         private const val KEY_CLOCK_SOUND = "clock_sound"
         private const val KEY_APP_ICONS = "app_icons"
+        private const val KEY_PIN_USAGE = "pin_usage"
         private const val KEY_CLOCK_FACE = "clock_face"
         private const val KEY_S3_ENDPOINT = "s3_endpoint"
         private const val KEY_S3_BUCKET = "s3_bucket"

@@ -23,4 +23,6 @@ Android keeps the totals. Builder Launcher does not upload them. Grant **Usage a
 
 YouTube, Instagram, and similar apps start as distracting. Termux, Slack, Gmail, calendars, and maps start as productive. Everything else starts as other, including this launcher and browsers.
 
+Settings → **Home apps** → **Pin time** `on` also shows today's minutes and share of phone time under each pin on home, as `30m (17%)`. Green if productive, red if not.
+
 `<` or Back returns home.

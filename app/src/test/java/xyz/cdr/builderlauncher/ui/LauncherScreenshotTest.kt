@@ -14,6 +14,7 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockQuote
 import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.usage.PinUsageMark
 
 class LauncherScreenshotTest {
     @get:Rule
@@ -273,6 +274,51 @@ class LauncherScreenshotTest {
                     todos = listOf("buy milk", "ship builder-launcher CI"),
                     pins = listOf("Phone", "Messages", "Maps", "Camera"),
                     appIcons = true,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homePinnedUsage() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    pins = listOf("Phone", "Messages", "Maps", "Camera"),
+                    pinUsage = listOf(
+                        PinUsageMark("12m (7%)", false),
+                        PinUsageMark("45m (25%)", false),
+                        PinUsageMark("30m (17%)", true),
+                        PinUsageMark("8m (4%)", true),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homePinnedIconsUsage() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    pins = listOf("Phone", "Messages", "Maps", "Camera"),
+                    appIcons = true,
+                    pinUsage = listOf(
+                        PinUsageMark("12m (7%)", false),
+                        PinUsageMark("45m (25%)", false),
+                        PinUsageMark("30m (17%)", true),
+                        PinUsageMark("8m (4%)", true),
+                    ),
                 )
             }
         }

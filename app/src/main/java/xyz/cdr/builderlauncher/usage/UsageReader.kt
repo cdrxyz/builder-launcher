@@ -61,6 +61,19 @@ class UsageReader(private val context: Context) {
         }
     }
 
+    fun loadToday(
+        store: UsageStore,
+        nowMs: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): UsageToday {
+        if (!granted()) return Usage.todayOf(UsageRawDay(0L, emptyList()), emptyMap(), granted = false)
+        val usm = context.getSystemService(UsageStatsManager::class.java)
+            ?: return Usage.todayOf(UsageRawDay(0L, emptyList()), emptyMap(), granted = false)
+        val start = InstantDay.start(nowMs, zone)
+        val end = nowMs.coerceAtLeast(start)
+        return Usage.todayOf(readBucket(usm, start, end), store.overrides(), granted = true)
+    }
+
     private fun buckets(
         usm: UsageStatsManager,
         todayStart: Long,

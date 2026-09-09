@@ -96,6 +96,7 @@ import xyz.cdr.builderlauncher.weather.WeatherForecast
 import xyz.cdr.builderlauncher.weather.WeatherHour
 import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherNow
+import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsageSnapshot
 import xyz.cdr.builderlauncher.ui.theme.Dim
@@ -191,6 +192,7 @@ fun HomeChrome(
     apps: List<String> = emptyList(),
     pins: List<String> = emptyList(),
     appIcons: Boolean = false,
+    pinUsage: List<PinUsageMark> = emptyList(),
     hint: String = "Type to work. help for commands. Then put it down.",
     commandsOpen: Boolean = false,
     slashOpen: Boolean = false,
@@ -255,8 +257,11 @@ fun HomeChrome(
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             ) {
-                pins.forEach { _ ->
-                    AppMark(size = 48.dp)
+                pins.forEachIndexed { index, _ ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        AppMark(size = 48.dp)
+                        pinUsage.getOrNull(index)?.let { ChromePinUsage(it) }
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -266,8 +271,11 @@ fun HomeChrome(
                 Text(hint, color = Dim)
             } else {
                 if (!appIcons) {
-                    pins.forEach { label ->
-                        Text(label, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                    pins.forEachIndexed { index, label ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                            Text(label, color = Paper)
+                            pinUsage.getOrNull(index)?.let { ChromePinUsage(it) }
+                        }
                     }
                 }
                 apps.forEach { label ->
@@ -295,6 +303,17 @@ fun HomeChrome(
         Spacer(Modifier.height(8.dp))
         CommandRow(input, commandsOpen = commandsOpen, slashOpen = slashOpen, prompt = prompt)
     }
+}
+
+@Composable
+private fun ChromePinUsage(mark: PinUsageMark) {
+    Text(
+        mark.line,
+        color = if (mark.productive) Gain else Loss,
+        style = MaterialTheme.typography.labelSmall,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
@@ -1463,6 +1482,20 @@ fun SettingsChrome(
             } else {
                 "Pinned apps and home search as names."
             },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 8.dp),
+        ) {
+            Text("Pin time", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            Text("off", color = if (!settings.pinUsage) Accent else Dim)
+            Text("on", color = if (settings.pinUsage) Accent else Dim)
+        }
+        Text(
+            "Minutes today under each pin, as 30m (17%). Green if productive, red if not.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

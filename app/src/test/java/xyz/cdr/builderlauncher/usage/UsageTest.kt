@@ -32,6 +32,40 @@ class UsageTest {
     }
 
     @Test
+    fun pinLineIsMinutesAndShare() {
+        assertEquals("30m (17%)", Usage.pinLine(30 * 60_000L, 180 * 60_000L))
+        assertEquals("0m (0%)", Usage.pinLine(0, 0))
+        assertEquals("0m (0%)", Usage.pinLine(12_000, 180 * 60_000L))
+        assertEquals("120m (50%)", Usage.pinLine(2 * 3_600_000L, 4 * 3_600_000L))
+    }
+
+    @Test
+    fun todayMarksPinsByKind() {
+        val today = Usage.todayOf(
+            UsageRawDay(
+                startMs = 1L,
+                apps = listOf(
+                    UsageRawApp("com.termux", "Termux", 30 * 60_000L),
+                    UsageRawApp("com.google.android.youtube", "YouTube", 90 * 60_000L),
+                    UsageRawApp("org.mozilla.firefox", "Firefox", 60 * 60_000L),
+                    UsageRawApp("com.android.systemui", "System", 9_000_000L),
+                ),
+            ),
+            overrides = mapOf("org.mozilla.firefox" to UsageKind.PRODUCTIVE),
+            granted = true,
+        )
+        assertEquals(180 * 60_000L, today.totalMs)
+        assertEquals("30m (17%)", today.mark("com.termux")?.line)
+        assertEquals(true, today.mark("com.termux")?.productive)
+        assertEquals("90m (50%)", today.mark("com.google.android.youtube")?.line)
+        assertEquals(false, today.mark("com.google.android.youtube")?.productive)
+        assertEquals(true, today.mark("org.mozilla.firefox")?.productive)
+        assertEquals("0m (0%)", today.mark("com.android.camera")?.line)
+        assertEquals(false, today.mark("com.android.camera")?.productive)
+        assertEquals(null, Usage.todayOf(UsageRawDay(0, emptyList()), emptyMap(), granted = false).mark("com.termux"))
+    }
+
+    @Test
     fun defaultKinds() {
         assertEquals(UsageKind.PRODUCTIVE, Usage.defaultKind("com.termux"))
         assertEquals(UsageKind.PRODUCTIVE, Usage.defaultKind("com.slack"))

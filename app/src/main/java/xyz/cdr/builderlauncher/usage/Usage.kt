@@ -76,6 +76,27 @@ data class UsageRawDay(
     val pickups: Int = 0,
 )
 
+data class PinUsageMark(
+    val line: String,
+    val productive: Boolean,
+)
+
+data class UsageToday(
+    val granted: Boolean,
+    val totalMs: Long = 0L,
+    val millisByPackage: Map<String, Long> = emptyMap(),
+    val overrides: Map<String, UsageKind> = emptyMap(),
+) {
+    fun mark(packageName: String): PinUsageMark? {
+        if (!granted) return null
+        val ms = millisByPackage[packageName] ?: 0L
+        return PinUsageMark(
+            line = Usage.pinLine(ms, totalMs),
+            productive = Usage.kindOf(packageName, overrides) == UsageKind.PRODUCTIVE,
+        )
+    }
+}
+
 object Usage {
     const val COMMAND = "usage"
     const val BACK = "<"
@@ -104,6 +125,32 @@ object Usage {
     fun percent(part: Long, total: Long): Int {
         if (total <= 0L) return 0
         return ((part.toDouble() / total.toDouble()) * 100.0).roundToInt().coerceIn(0, 100)
+    }
+
+    fun pinLine(ms: Long, totalMs: Long): String {
+        val minutes = ms.coerceAtLeast(0L) / 60_000L
+        return "${minutes}m (${percent(ms, totalMs)}%)"
+    }
+
+    fun todayOf(
+        raw: UsageRawDay,
+        overrides: Map<String, UsageKind>,
+        granted: Boolean,
+    ): UsageToday {
+        if (!granted) return UsageToday(granted = false)
+        val millis = linkedMapOf<String, Long>()
+        var total = 0L
+        raw.apps.forEach { app ->
+            if (app.millis < MIN_MS || isNoise(app.packageName)) return@forEach
+            millis[app.packageName] = (millis[app.packageName] ?: 0L) + app.millis
+            total += app.millis
+        }
+        return UsageToday(
+            granted = true,
+            totalMs = total,
+            millisByPackage = millis,
+            overrides = overrides,
+        )
     }
 
     fun vsLabel(deltaMs: Long?): String {
