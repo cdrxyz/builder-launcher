@@ -231,6 +231,7 @@ fun BuilderRoot(
     clock: ClockStore,
     backup: BackupService,
     homePresses: StateFlow<Int> = MutableStateFlow(0),
+    nowPlayingRequests: StateFlow<Int> = MutableStateFlow(0),
     onRequestHome: () -> Unit = {},
 ) {
     val settings by settingsRepo.settings.collectAsState()
@@ -253,6 +254,7 @@ fun BuilderRoot(
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
+    val nowPlayingRequestCount by nowPlayingRequests.collectAsState()
     var page by remember { mutableStateOf(lastPage) }
     var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
     var input by remember { mutableStateOf("") }
@@ -1184,6 +1186,11 @@ fun BuilderRoot(
         if (homePressCount > 0) {
             openHomeDefault()
             pagerState.scrollToPage(HomeStrip.HOME)
+        }
+    }
+    LaunchedEffect(nowPlayingRequestCount) {
+        if (nowPlayingRequestCount > 0) {
+            playback.episodeId?.let { openPodcastEpisode(it) }
         }
     }
     LaunchedEffect(page) {

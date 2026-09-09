@@ -27,9 +27,13 @@ object Podcasts {
     const val MEDIA_ACTION_PAUSE = 1L shl 1
     const val MEDIA_ACTION_PLAY = 1L shl 2
     const val MEDIA_ACTION_REWIND = 1L shl 3
+    const val MEDIA_ACTION_SKIP_TO_PREVIOUS = 1L shl 4
+    const val MEDIA_ACTION_SKIP_TO_NEXT = 1L shl 5
     const val MEDIA_ACTION_FAST_FORWARD = 1L shl 6
     const val MEDIA_ACTION_SEEK = 1L shl 8
     const val MEDIA_ACTION_PLAY_PAUSE = 1L shl 9
+    const val ACTION_NOW_PLAYING = "xyz.cdr.builderlauncher.podcasts.NOW_PLAYING"
+    const val EXTRA_OPEN_NOW_PLAYING = "open_now_playing"
     val SPEED_STEPS = listOf(0.8f, 1.0f, 1.1f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.5f, 3.0f)
     val CACHE_PRESETS = listOf(
         1L * 1024 * 1024 * 1024,
@@ -298,9 +302,15 @@ object Podcasts {
 
     fun mediaActions(playing: Boolean): Long {
         val common = MEDIA_ACTION_PLAY_PAUSE or MEDIA_ACTION_STOP or MEDIA_ACTION_SEEK or
-            MEDIA_ACTION_REWIND or MEDIA_ACTION_FAST_FORWARD
+            MEDIA_ACTION_REWIND or MEDIA_ACTION_FAST_FORWARD or
+            MEDIA_ACTION_SKIP_TO_PREVIOUS or MEDIA_ACTION_SKIP_TO_NEXT
         return common or if (playing) MEDIA_ACTION_PAUSE else MEDIA_ACTION_PLAY
     }
+
+    fun mediaSkipMs(forward: Boolean): Long = if (forward) SKIP_MS else -SKIP_MS
+
+    fun shouldOpenNowPlaying(action: String?, openExtra: Boolean): Boolean =
+        action == ACTION_NOW_PLAYING || openExtra
 
     fun searchRowShowsArt(artworkUrl: String): Boolean = artworkUrl.trim().isNotEmpty()
 

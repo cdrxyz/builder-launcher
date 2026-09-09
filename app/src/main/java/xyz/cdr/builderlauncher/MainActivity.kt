@@ -37,6 +37,7 @@ import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
+import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 
 class MainActivity : ComponentActivity() {
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult(),
     ) { }
     private val homePresses = MutableStateFlow(0)
+    private val nowPlayingRequests = MutableStateFlow(0)
     private var stopped = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,10 +95,12 @@ class MainActivity : ComponentActivity() {
                     clock = clock,
                     backup = backup,
                     homePresses = homePresses,
+                    nowPlayingRequests = nowPlayingRequests,
                     onRequestHome = { askToBeHome(fromSettings = true) },
                 )
             }
         }
+        applyNowPlaying(intent)
     }
 
     override fun onStop() {
@@ -108,6 +112,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         applyAlertWindow()
+        applyNowPlaying(intent)
         if (HomeGesture.shouldOpenHome(stopped, intent.action, intent.categories)) {
             homePresses.value += 1
         }
@@ -123,6 +128,13 @@ class MainActivity : ComponentActivity() {
             return
         }
         askToBeHome(fromSettings = false)
+    }
+
+    private fun applyNowPlaying(intent: Intent?) {
+        val open = intent?.getBooleanExtra(Podcasts.EXTRA_OPEN_NOW_PLAYING, false) == true
+        if (Podcasts.shouldOpenNowPlaying(intent?.action, open)) {
+            nowPlayingRequests.value += 1
+        }
     }
 
     private fun applyAlertWindow() {
