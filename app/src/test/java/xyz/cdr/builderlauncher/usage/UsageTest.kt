@@ -102,6 +102,13 @@ class UsageTest {
         assertEquals(UsageKind.PRODUCTIVE, week.apps.find { it.packageName == "org.mozilla.firefox" }?.kind)
         assertEquals("Tue", week.bars[3].label)
         assertTrue(week.bars[3].detail.contains("Tue"))
+        assertEquals(
+            listOf("com.termux", "com.google.android.youtube", "org.mozilla.firefox"),
+            week.bars[3].apps.map { it.packageName },
+        )
+        assertEquals(3_600_000L, week.bars[3].apps.find { it.packageName == "com.termux" }?.millis)
+        assertTrue(week.bars[0].apps.isEmpty())
+        assertEquals(week.apps.map { it.packageName }, week.bars[3].apps.map { it.packageName })
     }
 
     @Test
@@ -136,6 +143,8 @@ class UsageTest {
         assertEquals(7, snap.bars.size)
         assertTrue(snap.totalMs > 0)
         assertTrue(snap.apps.isNotEmpty())
+        assertTrue(snap.bars[3].apps.isNotEmpty())
+        assertTrue(snap.bars[3].apps.map { it.packageName } != snap.apps.map { it.packageName })
         assertTrue(Usage.axisLabel(0, 7, UsagePeriod.W1))
         assertTrue(Usage.axisLabel(3, 7, UsagePeriod.W1))
         assertTrue(Usage.axisLabel(1, 30, UsagePeriod.M1) == false)

@@ -42,6 +42,7 @@ data class UsageBar(
     val productiveMs: Long,
     val distractingMs: Long,
     val otherMs: Long,
+    val apps: List<UsageApp> = emptyList(),
 ) {
     val totalMs: Long get() = productiveMs + distractingMs + otherMs
 }
@@ -207,6 +208,7 @@ object Usage {
                 productiveMs = productive,
                 distractingMs = distracting,
                 otherMs = other,
+                apps = aggregateApps(listOf(raw), overrides),
             )
         }
         val apps = aggregateApps(rawDays, overrides)
