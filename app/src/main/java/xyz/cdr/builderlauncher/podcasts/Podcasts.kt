@@ -13,11 +13,14 @@ object Podcasts {
     const val FINISH_REMAINING_MS = 30_000L
     const val SKIP_MS = 15_000L
     const val BAR_SIDE_DP = 36
-    const val SECTION_NOW = "now playing"
+    const val SECTION_RECENT = "recent"
     const val SECTION_NEXT = "next 5 episodes"
     const val SECTION_SHOWS = "podcasts"
     const val ART_DP = 36
     const val TITLE_LINES = 3
+    const val SHOW_LINES = 1
+    const val DEFAULT_SPEED = 1.0f
+    const val HOME_MARK_IDLE_MS = 8_000L
     const val MEDIA_ACTION_STOP = 1L
     const val MEDIA_ACTION_PAUSE = 1L shl 1
     const val MEDIA_ACTION_PLAY = 1L shl 2
@@ -25,7 +28,7 @@ object Podcasts {
     const val MEDIA_ACTION_FAST_FORWARD = 1L shl 6
     const val MEDIA_ACTION_SEEK = 1L shl 8
     const val MEDIA_ACTION_PLAY_PAUSE = 1L shl 9
-    val SPEED_STEPS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.2f, 2.4f, 2.6f, 2.8f, 3.0f)
+    val SPEED_STEPS = listOf(0.8f, 1.0f, 1.1f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.5f, 3.0f)
     val CACHE_PRESETS = listOf(
         1L * 1024 * 1024 * 1024,
         5L * 1024 * 1024 * 1024,
@@ -58,10 +61,12 @@ object Podcasts {
         shows: List<PodcastShow>,
         episodes: List<PodcastEpisode>,
         progress: Map<String, EpisodeProgress>,
+        currentEpisodeId: String? = null,
     ): List<PodcastHomeRow> {
         val showById = shows.associateBy { it.feedUrl }
+        val currentId = currentEpisodeId?.takeIf { it.isNotBlank() }
         val continueRows = progress.values
-            .filter { !finished(it) && it.lastPlayedAt > 0L }
+            .filter { !finished(it) && !skipped(it) && it.lastPlayedAt > 0L && it.episodeId != currentId }
             .sortedByDescending { it.lastPlayedAt }
             .mapNotNull { p ->
                 val episode = episodes.find { it.id == p.episodeId } ?: return@mapNotNull null
@@ -69,12 +74,12 @@ object Podcasts {
                 PodcastHomeRow.Continue(episode, show, p)
             }
             .take(CONTINUE)
-        val continueIds = continueRows.map { it.episode.id }.toSet()
+        val skipIds = continueRows.map { it.episode.id }.toSet() + setOfNotNull(currentId)
         val fresh = episodes
             .sortedByDescending { it.pubDate }
             .mapNotNull { episode ->
-                if (episode.id in continueIds) return@mapNotNull null
-                if (finished(progress[episode.id])) return@mapNotNull null
+                if (episode.id in skipIds) return@mapNotNull null
+                if (finished(progress[episode.id]) || skipped(progress[episode.id])) return@mapNotNull null
                 val show = showById[episode.showId] ?: return@mapNotNull null
                 PodcastHomeRow.Fresh(episode, show)
             }
@@ -83,7 +88,7 @@ object Podcasts {
             .map { PodcastHomeRow.Subscription(it) }
         val rows = mutableListOf<PodcastHomeRow>()
         if (continueRows.isNotEmpty()) {
-            rows += PodcastHomeRow.Header(SECTION_NOW)
+            rows += PodcastHomeRow.Header(SECTION_RECENT)
             rows += continueRows
         }
         if (fresh.isNotEmpty()) {
@@ -204,8 +209,56 @@ object Podcasts {
         return previous.positionMs / POSITION_PUBLISH_MS != next.positionMs / POSITION_PUBLISH_MS
     }
 
+    fun speedProgress(speed: Float): Float =
+        fraction(
+            SPEED_STEPS.indexOf(snapSpeed(speed)).coerceAtLeast(0).toLong(),
+            SPEED_STEPS.lastIndex.toLong(),
+        )
+
+    fun formatEpisodeDate(
+        pubDate: Long,
+        locale: java.util.Locale = java.util.Locale.US,
+        timeZone: java.util.TimeZone = java.util.TimeZone.getDefault(),
+    ): String {
+        if (pubDate <= 0L) return ""
+        val fmt = java.text.SimpleDateFormat("d MMM yyyy", locale)
+        fmt.timeZone = timeZone
+        return fmt.format(java.util.Date(pubDate))
+    }
+
+    fun skipped(progress: EpisodeProgress?): Boolean = progress?.skipped == true
+
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
+
+    fun homePodcastMark(
+        playing: Boolean,
+        episodeLoaded: Boolean,
+        pausedForMs: Long?,
+        idleMs: Long = HOME_MARK_IDLE_MS,
+    ): HomePodcastMark = when {
+        playing && episodeLoaded -> HomePodcastMark.PAUSE
+        episodeLoaded && pausedForMs != null && pausedForMs < idleMs -> HomePodcastMark.PLAY
+        else -> HomePodcastMark.HEADPHONES
+    }
+
+    fun nowPlayingBarVisible(episodeId: String?, finished: Boolean = false): Boolean =
+        !episodeId.isNullOrBlank() && !finished
+
+    fun playbackEnded(playing: Boolean, positionMs: Long, durationMs: Long): Boolean =
+        !playing && finished(EpisodeProgress("", positionMs, durationMs))
+
+    fun episodeLeftMeta(progress: EpisodeProgress?, durationMs: Long): String {
+        if (skipped(progress)) {
+            return if (durationMs > 0) formatDuration(durationMs) else ""
+        }
+        if (progress != null && !finished(progress) && progress.positionMs > 0L) {
+            val dur = progress.durationMs.takeIf { it > 0L } ?: durationMs
+            return if (dur > 0L) formatPosition(progress.positionMs, dur) else ""
+        }
+        val dur = progress?.durationMs?.takeIf { it > 0L } ?: durationMs
+        return if (dur > 0L) formatDuration(dur) else ""
+    }
 
     fun downloadPercent(received: Long, total: Long): Int {
         if (total <= 0L) return 0
@@ -247,6 +300,8 @@ object Podcasts {
     fun searchRowShowsArt(artworkUrl: String): Boolean = artworkUrl.trim().isNotEmpty()
 
     fun titleMaxLines(home: Boolean): Int = if (home) TITLE_LINES else Int.MAX_VALUE
+
+    fun showMaxLines(nextEpisodes: Boolean): Int = if (nextEpisodes) SHOW_LINES else Int.MAX_VALUE
 
     fun pickNotes(encoded: String, summary: String, description: String): String {
         val raw = listOf(encoded, summary, description).firstOrNull { it.isNotBlank() }.orEmpty()
@@ -342,6 +397,12 @@ enum class EpisodeOrder {
     OLDEST,
 }
 
+enum class HomePodcastMark {
+    HEADPHONES,
+    PLAY,
+    PAUSE,
+}
+
 @Serializable
 data class PodcastShow(
     val feedUrl: String,
@@ -370,6 +431,7 @@ data class EpisodeProgress(
     val durationMs: Long = 0L,
     val lastPlayedAt: Long = 0L,
     val finished: Boolean = false,
+    val skipped: Boolean = false,
 )
 
 data class PodcastCacheFile(

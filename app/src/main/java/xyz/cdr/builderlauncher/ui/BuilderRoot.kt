@@ -177,6 +177,7 @@ import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.stocks.WatchItem
+import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.EpisodeOrder
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastArtwork
@@ -247,6 +248,7 @@ fun BuilderRoot(
     val podcastDownloads by podcasts.downloads.collectAsState()
     val podcastTransfer by podcasts.downloadProgress.collectAsState()
     val podcastCache by podcasts.cacheBytes.collectAsState()
+    val podcastSpeed by podcasts.playbackSpeed.collectAsState()
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
@@ -379,6 +381,9 @@ fun BuilderRoot(
     val window = (ctx as? Activity)?.window
     SideEffect {
         window?.setSoftInputMode(KeyboardPresence.softInputMode(hardware))
+    }
+    LaunchedEffect(Unit) {
+        PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
     }
     LaunchedEffect(settings.weatherLat, settings.weatherLon) {
         weather.refresh()
@@ -622,11 +627,49 @@ fun BuilderRoot(
     }
 
     fun playEpisode(episode: PodcastEpisode) {
+        podcasts.setSkipped(episode.id, false, episode.durationMs)
         val start = podcastProgress[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
+        PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
         PodcastPlayer.play(episode, file, start)
         val show = podcasts.show(episode.showId)
         PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
+    }
+
+    fun togglePlayback() {
+        val ep = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } } ?: return
+        if (playback.playing) {
+            PodcastPlayer.pause()
+            PodcastPlaybackService.pause(ctx)
+        } else {
+            playEpisode(ep)
+        }
+    }
+
+    fun skipEpisode(episode: PodcastEpisode) {
+        if (playback.episodeId == episode.id) {
+            PodcastPlayer.stop()
+            PodcastPlaybackService.stop(ctx)
+        }
+        podcasts.setSkipped(episode.id, true, episode.durationMs)
+    }
+
+    fun applyPodcastSpeed(speed: Float) {
+        podcasts.setPlaybackSpeed(speed)
+        PodcastPlayer.setSpeed(speed)
+    }
+
+    fun unsubscribeShow(feedUrl: String) {
+        val current = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
+        if (current != null && current.showId.equals(feedUrl, ignoreCase = true)) {
+            PodcastPlayer.stop()
+            PodcastPlaybackService.stop(ctx)
+        }
+        podcasts.unsubscribe(feedUrl)
+        if (podcastShowUrl.equals(feedUrl, ignoreCase = true)) {
+            podcastShowUrl = null
+            if (page == Page.PodcastShow) page = Page.Podcasts
+        }
     }
 
     fun seekEpisode(episode: PodcastEpisode, positionMs: Long) {
@@ -664,6 +707,8 @@ fun BuilderRoot(
             val show = podcasts.subscribe(hit.feedUrl, hit.title, hit.author, hit.artworkUrl)
             if (show == null) {
                 Toast.makeText(ctx, "Could not subscribe", Toast.LENGTH_SHORT).show()
+            } else {
+                openPodcastShow(hit.feedUrl)
             }
             podcastHits = emptyList()
         }
@@ -1189,8 +1234,14 @@ fun BuilderRoot(
                     onOpenHub = { openHub() },
                     onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
-                    playing = Podcasts.nowPlayingVisible(playback.playing, playback.episodeId),
-                    onOpenNowPlaying = { playback.episodeId?.let { openPodcastEpisode(it) } },
+                    playing = playback.playing,
+                    episodeLoaded = Podcasts.nowPlayingBarVisible(
+                        playback.episodeId,
+                        Podcasts.finished(playback.episodeId?.let { podcastProgress[it] }) ||
+                            Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs),
+                    ),
+                    onOpenPodcasts = { openPodcastsList() },
+                    onTogglePlayback = { togglePlayback() },
                     onOpenEvent = {
                         val item = upcoming ?: return@ClockHeader
                         try {
@@ -2505,8 +2556,8 @@ fun BuilderRoot(
             }
             Page.Podcasts -> {
                 val searching = input.trim().isNotEmpty()
-                val rows = remember(podcastShows, podcastEpisodes, podcastProgress) {
-                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress)
+                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
+                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
                 }
                 Row(
                     Modifier.fillMaxWidth(),
@@ -2531,6 +2582,21 @@ fun BuilderRoot(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                val nowEpisode = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
+                val nowEnded = nowEpisode != null && (
+                    Podcasts.finished(podcastProgress[nowEpisode.id]) ||
+                        Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs)
+                    )
+                if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
+                    PodcastNowPlayingBar(
+                        title = nowEpisode.title,
+                        show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
+                        playing = playback.playing,
+                        onOpen = { openPodcastEpisode(nowEpisode.id) },
+                        onToggle = { togglePlayback() },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (searching) {
                         if (podcastHits.isEmpty()) {
@@ -2573,11 +2639,14 @@ fun BuilderRoot(
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clickable { openPodcastEpisode(ep.id) }
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Column(Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { playEpisode(ep) },
+                                        ) {
                                             Text(
                                                 ep.title,
                                                 color = Accent,
@@ -2595,6 +2664,12 @@ fun BuilderRoot(
                                             color = Dim,
                                             style = MaterialTheme.typography.bodyMedium,
                                         )
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "dismiss episode" }
+                                                .clickable { skipEpisode(ep) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
                                     }
                                 }
                                 is PodcastHomeRow.Fresh -> {
@@ -2602,11 +2677,14 @@ fun BuilderRoot(
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clickable { openPodcastEpisode(ep.id) }
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Column(Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { playEpisode(ep) },
+                                        ) {
                                             Text(
                                                 ep.title,
                                                 color = Paper,
@@ -2617,6 +2695,8 @@ fun BuilderRoot(
                                                 row.show.title,
                                                 color = Dim,
                                                 style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = Podcasts.showMaxLines(nextEpisodes = true),
+                                                overflow = TextOverflow.Ellipsis,
                                             )
                                         }
                                         if (ep.durationMs > 0) {
@@ -2626,17 +2706,26 @@ fun BuilderRoot(
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
                                         }
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "dismiss episode" }
+                                                .clickable { skipEpisode(ep) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
                                     }
                                 }
                                 is PodcastHomeRow.Subscription -> {
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clickable { openPodcastShow(row.show.feedUrl) }
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Column(Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { openPodcastShow(row.show.feedUrl) },
+                                        ) {
                                             Text(row.show.title, color = Paper)
                                             if (row.show.author.isNotBlank()) {
                                                 Text(
@@ -2646,6 +2735,12 @@ fun BuilderRoot(
                                                 )
                                             }
                                         }
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "unsubscribe" }
+                                                .clickable { unsubscribeShow(row.show.feedUrl) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
                                     }
                                 }
                             }
@@ -2696,41 +2791,58 @@ fun BuilderRoot(
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(eps, key = { it.id }) { ep ->
                         val prog = podcastProgress[ep.id]
-                        val downloaded = podcastDownloads.containsKey(ep.id)
+                        val skipped = Podcasts.skipped(prog)
+                        val inProgress = prog != null && !Podcasts.finished(prog) && !skipped
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { openPodcastEpisode(ep.id) }
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(ep.title, color = if (prog != null && !Podcasts.finished(prog)) Accent else Paper)
-                                Text(
-                                    when {
-                                        Podcasts.finished(prog) -> "played"
-                                        prog != null -> Podcasts.formatPosition(prog.positionMs, prog.durationMs.takeIf { it > 0 } ?: ep.durationMs)
-                                        ep.durationMs > 0 -> Podcasts.formatDuration(ep.durationMs)
-                                        else -> if (downloaded) "downloaded" else ""
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        if (skipped) podcasts.setSkipped(ep.id, false, ep.durationMs)
+                                        else openPodcastEpisode(ep.id)
                                     },
-                                    color = Dim,
-                                    style = MaterialTheme.typography.bodyMedium,
+                            ) {
+                                Text(
+                                    ep.title,
+                                    color = when {
+                                        skipped -> Dim
+                                        inProgress -> Accent
+                                        else -> Paper
+                                    },
                                 )
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        Podcasts.episodeLeftMeta(prog, ep.durationMs),
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    val date = Podcasts.formatEpisodeDate(ep.pubDate)
+                                    if (date.isNotBlank()) {
+                                        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
                             }
+                            DeleteIcon(
+                                Modifier
+                                    .semantics { contentDescription = if (skipped) "restore episode" else "dismiss episode" }
+                                    .clickable {
+                                        if (skipped) podcasts.setSkipped(ep.id, false, ep.durationMs)
+                                        else skipEpisode(ep)
+                                    }
+                                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                            )
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "unsubscribe",
-                    color = Paper,
-                    modifier = Modifier
-                        .clickable {
-                            podcasts.unsubscribe(feed)
-                            page = Page.Podcasts
-                        }
-                        .padding(vertical = 8.dp),
-                )
             }
             Page.PodcastEpisode -> {
                 val ep = podcastEpisodes.find { it.id == podcastEpisodeId }
@@ -2740,15 +2852,56 @@ fun BuilderRoot(
                 val pos = if (playingThis) playback.positionMs else prog?.positionMs ?: 0L
                 val dur = if (playingThis && playback.durationMs > 0) playback.durationMs else (prog?.durationMs ?: ep?.durationMs ?: 0L)
                 val downloaded = ep != null && podcastDownloads.containsKey(ep.id)
-                Text(
-                    Podcasts.BACK,
-                    color = Accent,
-                    modifier = Modifier
-                        .clickable {
-                            page = if (podcastShowUrl != null) Page.PodcastShow else Page.Podcasts
+                var speedMenu by remember(podcastEpisodeId) { mutableStateOf(false) }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Podcasts.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                page = if (podcastShowUrl != null) Page.PodcastShow else Page.Podcasts
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    if (ep != null) {
+                        val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
+                        val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
+                        val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (downloading) {
+                                Text(
+                                    if (downloadKnown) "$downloadPct%" else "…",
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                            }
+                            DownloadIcon(
+                                filled = downloaded,
+                                modifier = Modifier
+                                    .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
+                                    .clickable {
+                                        if (downloaded || downloading) return@clickable
+                                        scope.launch {
+                                            podcastDownloadBusy = true
+                                            val file = podcasts.download(ep)
+                                            podcastDownloadBusy = false
+                                            Toast.makeText(
+                                                ctx,
+                                                if (file != null) "Downloaded" else "Download failed",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                            )
                         }
-                        .padding(vertical = 6.dp),
-                )
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 if (ep == null) {
                     Text("Episode gone", color = Dim)
@@ -2757,10 +2910,22 @@ fun BuilderRoot(
                     Text(show?.title ?: "Podcast", color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Text(ep.title, color = Paper, style = MaterialTheme.typography.headlineLarge)
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
-                        color = Dim,
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
+                            color = Dim,
+                        )
+                        PodcastSpeedMenu(
+                            speed = playback.speed,
+                            expanded = speedMenu,
+                            onExpanded = { speedMenu = it },
+                            onPick = { applyPodcastSpeed(it) },
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     PodcastScrubBar(
                         progress = Podcasts.fraction(pos, dur),
@@ -2771,7 +2936,7 @@ fun BuilderRoot(
                         },
                     )
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "−15",
                             color = Paper,
@@ -2782,13 +2947,10 @@ fun BuilderRoot(
                                 }
                                 .padding(vertical = 8.dp),
                         )
-                        Text(
-                            when {
-                                playingThis && playback.playing -> "pause"
-                                else -> "play"
-                            },
-                            color = Accent,
+                        PlayPauseIcon(
+                            playing = playingThis && playback.playing,
                             modifier = Modifier
+                                .semantics { contentDescription = if (playingThis && playback.playing) "pause" else "play" }
                                 .clickable {
                                     if (playingThis && playback.playing) {
                                         PodcastPlayer.pause()
@@ -2818,45 +2980,6 @@ fun BuilderRoot(
                                 .padding(vertical = 8.dp),
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(Podcasts.formatSpeed(playback.speed), color = Accent, style = MaterialTheme.typography.bodyMedium)
-                    PodcastSpeedBar(
-                        progress = Podcasts.fraction(
-                            Podcasts.SPEED_STEPS.indexOf(Podcasts.snapSpeed(playback.speed)).coerceAtLeast(0).toLong(),
-                            (Podcasts.SPEED_STEPS.lastIndex).toLong(),
-                        ),
-                        onSpeedFraction = { frac ->
-                            PodcastPlayer.setSpeed(Podcasts.speedAt(frac, 1f))
-                        },
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
-                    val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
-                    val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
-                    Text(
-                        Podcasts.downloadLabel(
-                            downloaded = downloaded,
-                            busy = downloading,
-                            percent = downloadPct,
-                            knownTotal = downloadKnown,
-                        ),
-                        color = if (downloaded) Dim else Paper,
-                        modifier = Modifier
-                            .clickable {
-                                if (downloaded || downloading) return@clickable
-                                scope.launch {
-                                    podcastDownloadBusy = true
-                                    val file = podcasts.download(ep)
-                                    podcastDownloadBusy = false
-                                    Toast.makeText(
-                                        ctx,
-                                        if (file != null) "Downloaded" else "Download failed",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            }
-                            .padding(vertical = 8.dp),
-                    )
                     if (ep.description.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
                         Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)
@@ -2890,6 +3013,24 @@ fun BuilderRoot(
                         Text("podcasts", color = Dim)
                     }
                     Spacer(Modifier.height(16.dp))
+                    Text("Playback speed", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        Podcasts.formatSpeed(podcastSpeed),
+                        color = Accent,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    PodcastSpeedBar(
+                        progress = Podcasts.speedProgress(podcastSpeed),
+                        onSpeedFraction = { frac -> applyPodcastSpeed(Podcasts.speedAt(frac, 1f)) },
+                    )
+                    Text(
+                        "Applies to every show.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
                     Text("Download cache", color = Dim, style = MaterialTheme.typography.labelSmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                         Podcasts.CACHE_PRESETS.forEach { bytes ->
@@ -2977,7 +3118,9 @@ private fun ClockHeader(
     onOpenTicker: () -> Unit,
     onOpenEvent: () -> Unit,
     playing: Boolean = false,
-    onOpenNowPlaying: () -> Unit = {},
+    episodeLoaded: Boolean = false,
+    onOpenPodcasts: () -> Unit = {},
+    onTogglePlayback: () -> Unit = {},
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timer.running, timer.endsAt, analog) {
@@ -2992,6 +3135,24 @@ private fun ClockHeader(
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     val cal = Calendar.getInstance().apply { timeInMillis = now.value }
     val eventLine = event?.let { UpcomingEvents.line(it, now.value) }
+    var pausedForMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(playing, episodeLoaded) {
+        if (playing && episodeLoaded) {
+            pausedForMs = null
+        } else if (episodeLoaded) {
+            val start = System.currentTimeMillis()
+            pausedForMs = 0L
+            while (true) {
+                delay(200)
+                val elapsed = System.currentTimeMillis() - start
+                pausedForMs = elapsed
+                if (elapsed >= Podcasts.HOME_MARK_IDLE_MS) break
+            }
+        } else {
+            pausedForMs = null
+        }
+    }
+    val mark = Podcasts.homePodcastMark(playing, episodeLoaded, pausedForMs)
     Box(Modifier.fillMaxWidth().clipToBounds()) {
         Row(
             Modifier.fillMaxWidth(),
@@ -3005,6 +3166,24 @@ private fun ClockHeader(
                         .clickable { onOpenUsage() }
                         .padding(top = 6.dp, end = 8.dp, bottom = 6.dp),
                 )
+                HomePodcastMarkIcon(
+                    mark,
+                    Modifier
+                        .semantics {
+                            contentDescription = when (mark) {
+                                HomePodcastMark.PAUSE -> "pause"
+                                HomePodcastMark.PLAY -> "play"
+                                HomePodcastMark.HEADPHONES -> "podcasts"
+                            }
+                        }
+                        .clickable {
+                            when (mark) {
+                                HomePodcastMark.HEADPHONES -> onOpenPodcasts()
+                                HomePodcastMark.PLAY, HomePodcastMark.PAUSE -> onTogglePlayback()
+                            }
+                        }
+                        .padding(top = 10.dp, end = 4.dp, bottom = 6.dp),
+                )
                 if (!weather.isNullOrBlank()) {
                     HomeWeatherMark(
                         weather = weather,
@@ -3013,14 +3192,6 @@ private fun ClockHeader(
                         modifier = Modifier
                             .semantics { contentDescription = weather }
                             .clickable { onOpenWeather() },
-                    )
-                }
-                if (playing) {
-                    HeadphonesIcon(
-                        Modifier
-                            .semantics { contentDescription = "now playing" }
-                            .clickable { onOpenNowPlaying() }
-                            .padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
                     )
                 }
             }

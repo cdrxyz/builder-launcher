@@ -35,9 +35,9 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
   <img src="docs/screenshots/stock-detail-scrub.png" alt="Dragging across a ticker chart updates price, date, and percent" width="240" />
   <img src="docs/screenshots/stocks-settings.png" alt="Stocks settings: new tickers, copy, paste, replace" width="240" />
   <img src="docs/screenshots/home-podcasts.png" alt="Typing podcasts shows … all podcasts >" width="240" />
-  <img src="docs/screenshots/podcasts.png" alt="Podcasts: unfinished plays, new episodes, subscriptions" width="240" />
+  <img src="docs/screenshots/podcasts.png" alt="Podcasts: now playing bar, unfinished plays, new episodes, subscriptions" width="240" />
   <img src="docs/screenshots/podcast-episode.png" alt="Podcast episode with play, position, and download" width="240" />
-  <img src="docs/screenshots/podcasts-settings.png" alt="Podcasts settings: cache size and Overcast OPML paste" width="240" />
+  <img src="docs/screenshots/podcasts-settings.png" alt="Podcasts settings: playback speed, cache size, and Overcast OPML paste" width="240" />
   <img src="docs/screenshots/chat.png" alt="Full-screen AI chat with a markdown table answer" width="240" />
   <img src="docs/screenshots/chat-history.png" alt="Past AI conversations with dates and delete" width="240" />
 </p>
