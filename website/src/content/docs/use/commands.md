@@ -16,7 +16,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >`. Search, subscribe, stream, download. [Podcasts](podcasts/) |
 | `?` | `?` then write | Full-screen AI [chat](ai/). Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; long-press the mark to switch providers; history lists past chats with a date and delete |
-| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). Also in the [command menu](command-bar/) |
+| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). The list scrolls; on home it hides todos and pins. Also in the [command menu](command-bar/) |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin. Names on home; icons if settings says so |
 | | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `settings` / `help` | Built-ins. Screen time is `/usage` |

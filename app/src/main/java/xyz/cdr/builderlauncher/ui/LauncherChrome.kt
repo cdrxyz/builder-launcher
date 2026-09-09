@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -246,62 +247,71 @@ fun HomeChrome(
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        todos.take(HomeTodos.PREVIEW).forEach { text ->
-            Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        }
-        CaretLink(HomeTodos.MORE_TASKS, modifier = Modifier.padding(vertical = 4.dp))
-        Spacer(Modifier.height(8.dp))
-        if (appIcons && pins.isNotEmpty() && apps.isEmpty()) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            ) {
-                pins.forEachIndexed { index, _ ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AppMark(size = 48.dp)
-                        pinUsage.getOrNull(index)?.let { ChromePinUsage(it) }
-                    }
-                }
-            }
+        val overlayMenus = commandsOpen || slashOpen
+        if (!overlayMenus) {
             Spacer(Modifier.height(8.dp))
-        }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (apps.isEmpty() && input.isBlank() && (pins.isEmpty() || appIcons)) {
-                Text(hint, color = Dim)
-            } else {
-                if (!appIcons) {
-                    pins.forEachIndexed { index, label ->
-                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            Text(label, color = Paper)
+            todos.take(HomeTodos.PREVIEW).forEach { text ->
+                Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            }
+            CaretLink(HomeTodos.MORE_TASKS, modifier = Modifier.padding(vertical = 4.dp))
+            Spacer(Modifier.height(8.dp))
+            if (appIcons && pins.isNotEmpty() && apps.isEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                ) {
+                    pins.forEachIndexed { index, _ ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            AppMark(size = 48.dp)
                             pinUsage.getOrNull(index)?.let { ChromePinUsage(it) }
                         }
                     }
                 }
-                apps.forEach { label ->
-                    val shortcut = label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE || label == Podcasts.MORE
-                    if (appIcons && !shortcut) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            AppMark(Modifier.padding(end = 12.dp))
-                            Text(label, color = Paper)
+                Spacer(Modifier.height(8.dp))
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (apps.isEmpty() && input.isBlank() && (pins.isEmpty() || appIcons)) {
+                    Text(hint, color = Dim)
+                } else {
+                    if (!appIcons) {
+                        pins.forEachIndexed { index, label ->
+                            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                                Text(label, color = Paper)
+                                pinUsage.getOrNull(index)?.let { ChromePinUsage(it) }
+                            }
                         }
-                    } else if (shortcut) {
-                        CaretLink(label, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
-                    } else {
-                        Text(
-                            label,
-                            color = Paper,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                        )
+                    }
+                    apps.forEach { label ->
+                        val shortcut = label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE || label == Podcasts.MORE
+                        if (appIcons && !shortcut) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AppMark(Modifier.padding(end = 12.dp))
+                                Text(label, color = Paper)
+                            }
+                        } else if (shortcut) {
+                            CaretLink(label, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                        } else {
+                            Text(
+                                label,
+                                color = Paper,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            )
+                        }
                     }
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
-        CommandRow(input, commandsOpen = commandsOpen, slashOpen = slashOpen, prompt = prompt)
+        CommandRow(
+            input,
+            commandsOpen = commandsOpen,
+            slashOpen = slashOpen,
+            prompt = prompt,
+            modifier = if (overlayMenus) Modifier.weight(1f) else Modifier,
+        )
     }
 }
 
@@ -1916,13 +1926,34 @@ private fun CommandRow(
     prompt: String = ">",
     wrap: Boolean = false,
     confirm: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     val wrapField = wrap || prompt.singleOrNull()?.let { PrefixCommands.wrapsInput(it) } == true
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val overlay = slashOpen || commandsOpen
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val menuMax = commandMenuMaxHeight(maxHeight)
+        val bounded = overlay && maxHeight < Dp.Infinity
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (bounded) Modifier.fillMaxSize() else Modifier),
+        ) {
         if (slashOpen) {
-            SlashCommandMenu()
+            if (bounded) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+                    SlashCommandMenu(modifier = Modifier.heightIn(max = menuMax))
+                }
+            } else {
+                SlashCommandMenu(modifier = Modifier.heightIn(max = menuMax))
+            }
         } else if (commandsOpen) {
-            CommandMenu()
+            if (bounded) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+                    CommandMenu(modifier = Modifier.heightIn(max = menuMax))
+                }
+            } else {
+                CommandMenu(modifier = Modifier.heightIn(max = menuMax))
+            }
         }
         val calc = if ((prompt == ">" || prompt == "?") && !commandsOpen && !slashOpen) {
             Calculator.preview(value)
@@ -1958,6 +1989,7 @@ private fun CommandRow(
             }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
 
