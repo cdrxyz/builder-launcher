@@ -2,6 +2,7 @@
 
 package xyz.cdr.builderlauncher.ui
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.Configuration
@@ -108,6 +109,9 @@ import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
+import xyz.cdr.builderlauncher.calendar.CalendarRepository
+import xyz.cdr.builderlauncher.calendar.UpcomingEvent
+import xyz.cdr.builderlauncher.calendar.UpcomingEvents
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.clock.ClockScheduler
@@ -199,6 +203,7 @@ fun BuilderRoot(
     executor: CommandExecutor,
     weather: WeatherRepository,
     stocks: StocksRepository,
+    calendar: CalendarRepository,
     clock: ClockStore,
     homePresses: StateFlow<Int> = MutableStateFlow(0),
     onRequestHome: () -> Unit = {},
@@ -212,6 +217,7 @@ fun BuilderRoot(
     val clockState by clock.state.collectAsState()
     val watch by stocks.watch.collectAsState()
     val quotes by stocks.quotes.collectAsState()
+    val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
     var page by remember { mutableStateOf(lastPage) }
     var prompt by remember { mutableStateOf(PrefixCommands.DEFAULT_PROMPT) }
@@ -259,6 +265,13 @@ fun BuilderRoot(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    DisposableEffect(calendar) {
+        val stop = calendar.observe { scope.launch { calendar.refresh() } }
+        onDispose { stop() }
+    }
+    LaunchedEffect(appsEpoch) {
+        calendar.refresh()
     }
     DisposableEffect(page) {
         if (page != Page.Settings) ClockSoundPlayer.stopPreview()
@@ -963,6 +976,7 @@ fun BuilderRoot(
                     weatherKind = forecast?.kind(),
                     isDay = forecast?.isDay ?: true,
                     ticker = ticker,
+                    event = upcoming,
                     timer = clockState.timer,
                     analog = settings.clockFace == ClockFace.ANALOG,
                     onOpenClock = { openClock() },
@@ -970,6 +984,14 @@ fun BuilderRoot(
                     onOpenHub = { openHub() },
                     onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
+                    onOpenEvent = {
+                        val item = upcoming ?: return@ClockHeader
+                        try {
+                            ctx.startActivity(calendar.viewIntent(item))
+                        } catch (_: ActivityNotFoundException) {
+                            Toast.makeText(ctx, "No calendar app", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                 )
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
@@ -2284,6 +2306,7 @@ private fun ClockHeader(
     weatherKind: WeatherKind? = null,
     isDay: Boolean = true,
     ticker: HomeTickerLine?,
+    event: UpcomingEvent?,
     timer: TimerState,
     analog: Boolean,
     onOpenClock: () -> Unit,
@@ -2291,6 +2314,7 @@ private fun ClockHeader(
     onOpenHub: () -> Unit,
     onOpenUsage: () -> Unit,
     onOpenTicker: () -> Unit,
+    onOpenEvent: () -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timer.running, timer.endsAt, analog) {
@@ -2304,6 +2328,7 @@ private fun ClockHeader(
     val time = Clock.homeClockLabel(timer, now.value, clockText)
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     val cal = Calendar.getInstance().apply { timeInMillis = now.value }
+    val eventLine = event?.let { UpcomingEvents.line(it, now.value) }
     Box(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth(),
@@ -2350,21 +2375,38 @@ private fun ClockHeader(
         Column(
             Modifier
                 .align(Alignment.TopCenter)
-                .clickable { onOpenClock() },
+                .padding(horizontal = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (timer.running || !analog) {
-                Text(time, style = MaterialTheme.typography.headlineLarge)
-                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-            } else {
-                AnalogClock(
-                    hour = cal.get(Calendar.HOUR),
-                    minute = cal.get(Calendar.MINUTE),
-                    second = cal.get(Calendar.SECOND),
+            Column(
+                Modifier.clickable { onOpenClock() },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (timer.running || !analog) {
+                    Text(time, style = MaterialTheme.typography.headlineLarge)
+                    Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    AnalogClock(
+                        hour = cal.get(Calendar.HOUR),
+                        minute = cal.get(Calendar.MINUTE),
+                        second = cal.get(Calendar.SECOND),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                    Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            if (!eventLine.isNullOrBlank()) {
+                Text(
+                    eventLine,
+                    color = Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .semantics { contentDescription = eventLine }
+                        .clickable { onOpenEvent() },
                 )
-                Spacer(Modifier.height(16.dp))
-                Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
-                Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

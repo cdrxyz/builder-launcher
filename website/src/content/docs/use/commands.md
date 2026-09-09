@@ -28,6 +28,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 ## Where each thing lives
 
 - Todos stay on [home](home/) and `… more tasks >`.
+- The next [calendar](calendar/) event stays under the clock on [home](home/).
 - Notes stay on [notes](notes/).
 - Stocks stay on [stocks](stocks/).
 - Clock stays on [clock](clock/).

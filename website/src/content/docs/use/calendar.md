@@ -1,7 +1,20 @@
 ---
 title: Calendar
-description: Create a calendar event with *title and a time.
+description: Next event under the home clock, and create events with *title and a time.
 ---
+
+Home shows the next event from the calendars on the phone, under the date:
+
+| Kind | Line |
+| --- | --- |
+| Timed, today | `dentist · 09:00` |
+| Timed, later | `dentist · Tue 09:00` |
+| All-day, today | `dentist · today` |
+| All-day, later | `dentist · Tue` |
+
+Android asks for calendar access once, with contacts. Deny it and the line stays hidden — there is no prompt on home. Grant it and the next event (or the meeting you are already in) appears. Recurring meetings are included. Tap the line to open that event in the calendar app.
+
+`*` still creates events. It does not write the calendar itself.
 
 Prefix `*`.
 
