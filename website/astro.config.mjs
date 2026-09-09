@@ -52,6 +52,7 @@ export default defineConfig({
 						{ label: 'Weather', slug: 'use/weather' },
 						{ label: 'Notes', slug: 'use/notes' },
 						{ label: 'Stocks', slug: 'use/stocks' },
+						{ label: 'Podcasts', slug: 'use/podcasts' },
 						{ label: 'Hub', slug: 'use/hub' },
 						{ label: 'Ask AI', slug: 'use/ai' },
 					],

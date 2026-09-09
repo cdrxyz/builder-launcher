@@ -23,6 +23,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | README / docs PNG | Typical Paparazzi test |
 | --- | --- |
 | `home.png` | `home` |
+| `home-playing.png` | `homePlaying` |
 | `home-timer.png` | `homeTimer` |
 | `home-ticker.png` | `homeTicker` |
 | `home-todo-wrap.png` | `homeTodoWrap` |
@@ -37,6 +38,10 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `home-pinned-icons.png` | `homePinnedIcons` |
 | `all-apps.png` | `allApps` |
 | `home-stocks.png` | `homeStocksShortcut` |
+| `home-podcasts.png` | `homePodcastsShortcut` |
+| `podcasts.png` | `podcasts` |
+| `podcasts-settings.png` | `podcastsSettings` |
+| `podcast-episode.png` | `podcastEpisode` |
 | `stocks.png` | `stocks` |
 | `stocks-settings.png` | `stocksSettings` |
 | `stock-detail.png` | `stockDetail` |

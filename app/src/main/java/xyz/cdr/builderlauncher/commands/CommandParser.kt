@@ -8,6 +8,7 @@ sealed class Command {
     data object OpenNotes : Command()
     data object OpenApps : Command()
     data object OpenStocks : Command()
+    data object OpenPodcasts : Command()
     data object OpenClock : Command()
     data object OpenWeather : Command()
     data object OpenUsage : Command()
@@ -80,6 +81,7 @@ object CommandParser {
         SlashCommands.exact(lower)?.let { return it.command }
         when (lower) {
             "stock" -> return Command.OpenStocks
+            "podcast" -> return Command.OpenPodcasts
             "pin", "unpin" -> return Command.Help
         }
         if (lower.startsWith("pin ")) {

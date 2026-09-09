@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,11 +29,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -74,6 +81,7 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.StockStatLine
 import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.weather.WeatherCodes
 import xyz.cdr.builderlauncher.weather.WeatherDay
 import xyz.cdr.builderlauncher.weather.WeatherForecast
@@ -184,6 +192,7 @@ fun HomeChrome(
     tickerUp: Boolean = true,
     analog: Boolean = true,
     event: String = "",
+    playing: Boolean = false,
 ) {
     val (hour, minute) = parseHomeClock(time)
     Column(
@@ -202,6 +211,9 @@ fun HomeChrome(
                     UsageIcon(Modifier.padding(top = 6.dp, end = 8.dp, bottom = 6.dp))
                     if (weather.isNotBlank()) {
                         HomeWeatherMark(weather)
+                    }
+                    if (playing) {
+                        HeadphonesIcon(Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp))
                     }
                 }
                 Row(verticalAlignment = Alignment.Top) {
@@ -254,7 +266,7 @@ fun HomeChrome(
                     }
                 }
                 apps.forEach { label ->
-                    val shortcut = label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE
+                    val shortcut = label == Notes.MORE || label == AppList.MORE || label == Stocks.MORE || label == Podcasts.MORE
                     if (appIcons && !shortcut) {
                         Row(
                             Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -638,6 +650,230 @@ fun StocksSettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+    }
+}
+
+data class PodcastListRow(
+    val title: String,
+    val subtitle: String,
+    val meta: String = "",
+    val highlight: Boolean = false,
+)
+
+@Composable
+fun PodcastsChrome(
+    continueRows: List<PodcastListRow> = emptyList(),
+    newRows: List<PodcastListRow> = emptyList(),
+    shows: List<PodcastListRow> = emptyList(),
+    hits: List<PodcastListRow> = emptyList(),
+    input: String = "",
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            GearIcon(Modifier.padding(vertical = 6.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hits.isNotEmpty()) {
+                hits.forEach { PodcastRowChrome(it) }
+            } else if (continueRows.isEmpty() && newRows.isEmpty() && shows.isEmpty()) {
+                Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
+            } else {
+                continueRows.forEach { PodcastRowChrome(it) }
+                newRows.forEach { PodcastRowChrome(it) }
+                shows.forEach { PodcastRowChrome(it) }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = ">")
+    }
+}
+
+@Composable
+private fun PodcastRowChrome(row: PodcastListRow) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(row.title, color = if (row.highlight) Accent else Paper)
+            if (row.subtitle.isNotBlank()) {
+                Text(row.subtitle, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        if (row.meta.isNotBlank()) {
+            Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+fun PodcastsSettingsChrome(
+    cache: String = "5 GB",
+    used: String = "0 B",
+    count: Int = 2,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("podcasts", color = Dim)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Download cache", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            listOf("1 GB", "5 GB", "10 GB", "20 GB").forEach { label ->
+                Text(label, color = if (label == cache) Accent else Dim)
+            }
+        }
+        Text(
+            "$used used of $cache. Oldest downloads delete first.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(20.dp))
+        Text("Overcast / OPML", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            "$count of ${Podcasts.MAX_SHOWS} shows",
+            color = Paper,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+        )
+        Text("paste OPML", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Overcast: Settings → Export OPML, copy the file, then paste here. RSS feed URLs also subscribe from the podcasts bar.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+fun PodcastEpisodeChrome(
+    show: String,
+    title: String,
+    position: String,
+    playing: Boolean = false,
+    downloaded: Boolean = false,
+    progress: Float = 0.2f,
+    speed: String = "1×",
+    speedProgress: Float = 0f,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(show, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        Spacer(Modifier.height(12.dp))
+        Text(position, color = Dim)
+        Spacer(Modifier.height(12.dp))
+        PodcastScrubBar(progress = progress)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("−15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+            Text(if (playing) "pause" else "play", color = Accent, modifier = Modifier.padding(vertical = 8.dp))
+            Text("+15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
+        PodcastSpeedBar(progress = speedProgress)
+        Spacer(Modifier.height(16.dp))
+        Text(if (downloaded) "downloaded" else "download", color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
+    }
+}
+
+@Composable
+fun PodcastScrubBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    onSeekFraction: ((Float) -> Unit)? = null,
+) {
+    val accent = Accent
+    val dim = Dim
+    val paper = Paper
+    val t = progress.coerceIn(0f, 1f)
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(28.dp)
+            .then(
+                if (onSeekFraction == null) Modifier
+                else Modifier.pointerInput(onSeekFraction) {
+                    detectTapGestures { offset ->
+                        onSeekFraction((offset.x / size.width).coerceIn(0f, 1f))
+                    }
+                }.pointerInput(onSeekFraction) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        onSeekFraction((change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                },
+            ),
+    ) {
+        val y = size.height / 2f
+        val stroke = 3.dp.toPx()
+        drawLine(dim, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(accent, Offset(0f, y), Offset(size.width * t, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawCircle(paper, radius = 5.dp.toPx(), center = Offset(size.width * t, y))
+    }
+}
+
+@Composable
+fun PodcastSpeedBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    onSpeedFraction: ((Float) -> Unit)? = null,
+) {
+    val accent = Accent
+    val dim = Dim
+    val t = progress.coerceIn(0f, 1f)
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(28.dp)
+            .then(
+                if (onSpeedFraction == null) Modifier
+                else Modifier.pointerInput(onSpeedFraction) {
+                    detectTapGestures { offset ->
+                        onSpeedFraction((offset.x / size.width).coerceIn(0f, 1f))
+                    }
+                }.pointerInput(onSpeedFraction) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        onSpeedFraction((change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                },
+            ),
+    ) {
+        val y = size.height / 2f
+        val stroke = 3.dp.toPx()
+        drawLine(dim, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(accent, Offset(0f, y), Offset(size.width * t, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawCircle(accent, radius = 5.dp.toPx(), center = Offset(size.width * t, y))
     }
 }
 
@@ -1468,6 +1704,40 @@ fun UsageIcon(modifier: Modifier = Modifier) {
                 size = Size(bar, barH),
             )
         }
+    }
+}
+
+@Composable
+fun HeadphonesIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.08f
+        val band = Path().apply {
+            moveTo(pad + size.width * 0.12f, size.height * 0.55f)
+            cubicTo(
+                pad + size.width * 0.12f, pad,
+                size.width - pad - size.width * 0.12f, pad,
+                size.width - pad - size.width * 0.12f, size.height * 0.55f,
+            )
+        }
+        drawPath(band, color = accent, style = stroke)
+        val cupW = size.width * 0.22f
+        val cupH = size.height * 0.38f
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(pad, size.height * 0.48f),
+            size = Size(cupW, cupH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(size.width - pad - cupW, size.height * 0.48f),
+            size = Size(cupW, cupH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
     }
 }
 

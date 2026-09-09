@@ -39,6 +39,24 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homePlaying() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "summarize this PR",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    event = "dentist · 09:00",
+                    playing = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeTimer() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -338,6 +356,70 @@ class LauncherScreenshotTest {
                     input = "stocks",
                     todos = listOf("buy milk", "ship builder-launcher CI"),
                     apps = listOf("… all stocks >"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homePodcastsShortcut() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "podcasts",
+                    todos = listOf("buy milk", "ship builder-launcher CI"),
+                    apps = listOf("… all podcasts >"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun podcasts() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastsChrome(
+                    continueRows = listOf(
+                        PodcastListRow("Playing analog", "The Talk Show", "12:00 of 45:00", highlight = true),
+                    ),
+                    newRows = listOf(
+                        PodcastListRow("Newest", "Accidental Tech Podcast", "1:02:03"),
+                        PodcastListRow("New two", "The Talk Show", "45:00"),
+                    ),
+                    shows = listOf(
+                        PodcastListRow("Accidental Tech Podcast", "Marco Arment"),
+                        PodcastListRow("The Talk Show", "John Gruber"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun podcastsSettings() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastsSettingsChrome(cache = "5 GB", used = "1.2 GB", count = 2)
+            }
+        }
+    }
+
+    @Test
+    fun podcastEpisode() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastEpisodeChrome(
+                    show = "Accidental Tech Podcast",
+                    title = "Episode 1: Hello",
+                    position = "12:00 of 1:02:03",
+                    playing = true,
+                    downloaded = true,
+                    progress = 0.19f,
+                    speed = "1.4×",
+                    speedProgress = 0.2f,
                 )
             }
         }

@@ -167,6 +167,16 @@ import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.stocks.WatchItem
+import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
+import xyz.cdr.builderlauncher.podcasts.PodcastHit
+import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
+import xyz.cdr.builderlauncher.podcasts.PodcastOpml
+import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
+import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
+import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
+import xyz.cdr.builderlauncher.podcasts.Podcasts
+import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Gain
 import xyz.cdr.builderlauncher.ui.theme.Loss
@@ -186,7 +196,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, AiSettings, Apps, Stocks, StockDetail, StockSettings, Chat, ChatHistory, Clock, Weather, Usage }
+enum class Page { Home, Todos, Notes, NoteEditor, Hub, Settings, AiSettings, Apps, Stocks, StockDetail, StockSettings, Podcasts, PodcastShow, PodcastEpisode, PodcastSettings, Chat, ChatHistory, Clock, Weather, Usage }
 
 private var lastPage: Page = Page.Home
 
@@ -203,6 +213,7 @@ fun BuilderRoot(
     executor: CommandExecutor,
     weather: WeatherRepository,
     stocks: StocksRepository,
+    podcasts: PodcastsRepository,
     calendar: CalendarRepository,
     clock: ClockStore,
     homePresses: StateFlow<Int> = MutableStateFlow(0),
@@ -217,6 +228,12 @@ fun BuilderRoot(
     val clockState by clock.state.collectAsState()
     val watch by stocks.watch.collectAsState()
     val quotes by stocks.quotes.collectAsState()
+    val podcastShows by podcasts.shows.collectAsState()
+    val podcastEpisodes by podcasts.episodes.collectAsState()
+    val podcastProgress by podcasts.progress.collectAsState()
+    val podcastDownloads by podcasts.downloads.collectAsState()
+    val podcastCache by podcasts.cacheBytes.collectAsState()
+    val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
     var page by remember { mutableStateOf(lastPage) }
@@ -246,6 +263,11 @@ fun BuilderRoot(
     var stockChart by remember { mutableStateOf<StockChartData?>(null) }
     var stockDetails by remember { mutableStateOf<StockDetails?>(null) }
     var stockScrub by remember { mutableStateOf<Int?>(null) }
+    var podcastHits by remember { mutableStateOf<List<PodcastHit>>(emptyList()) }
+    var podcastBusy by remember { mutableStateOf(false) }
+    var podcastShowUrl by remember { mutableStateOf<String?>(null) }
+    var podcastEpisodeId by remember { mutableStateOf<String?>(null) }
+    var podcastDownloadBusy by remember { mutableStateOf(false) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
@@ -405,6 +427,45 @@ fun BuilderRoot(
         }
         stockDetails = stocks.details(symbol)
     }
+    LaunchedEffect(page, input) {
+        if (page != Page.Podcasts) {
+            if (page != Page.PodcastShow && page != Page.PodcastEpisode && page != Page.PodcastSettings) {
+                podcastHits = emptyList()
+            }
+            return@LaunchedEffect
+        }
+        val q = input.trim()
+        if (q.isEmpty() || Podcasts.looksLikeFeedUrl(q) || PodcastOpml.looksLike(q)) {
+            podcastHits = emptyList()
+            podcastBusy = false
+            return@LaunchedEffect
+        }
+        podcastBusy = true
+        kotlinx.coroutines.delay(280)
+        podcastHits = podcasts.search(q)
+        podcastBusy = false
+    }
+    LaunchedEffect(page) {
+        if (page == Page.Podcasts || page == Page.PodcastShow) {
+            podcasts.refreshAll()
+        }
+    }
+    LaunchedEffect(playback.playing, playback.episodeId) {
+        if (!playback.playing) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(500)
+            PodcastPlayer.poll()
+        }
+    }
+    DisposableEffect(Unit) {
+        PodcastPlayer.onProgress = { id, pos, dur, done ->
+            podcasts.saveProgress(id, pos, dur, done)
+        }
+        onDispose {
+            PodcastPlayer.persist()
+            PodcastPlayer.onProgress = null
+        }
+    }
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
         noteId = id
@@ -503,6 +564,77 @@ fun BuilderRoot(
         help = false
         appQuery = false
         page = Page.Stocks
+    }
+
+    fun openPodcastsList() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        podcastHits = emptyList()
+        page = Page.Podcasts
+    }
+
+    fun openPodcastShow(feedUrl: String) {
+        podcastShowUrl = feedUrl
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.PodcastShow
+        scope.launch { podcasts.refreshShow(feedUrl) }
+    }
+
+    fun openPodcastEpisode(id: String) {
+        podcastEpisodeId = id
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.PodcastEpisode
+    }
+
+    fun playEpisode(episode: PodcastEpisode) {
+        val start = podcastProgress[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
+        val file = podcasts.downloadedFile(episode.id)
+        PodcastPlayer.play(episode, file, start)
+        val show = podcasts.show(episode.showId)
+        PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title)
+    }
+
+    fun importOpml(raw: String) {
+        val hits = PodcastOpml.parse(raw)
+        if (hits.isEmpty()) {
+            Toast.makeText(ctx, "No shows in OPML", Toast.LENGTH_SHORT).show()
+            return
+        }
+        scope.launch {
+            val count = podcasts.importHits(hits)
+            Toast.makeText(
+                ctx,
+                if (count == 0) "Already subscribed" else "Added $count",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+        input = ""
+        podcastHits = emptyList()
+    }
+
+    fun subscribeHit(hit: PodcastHit) {
+        scope.launch {
+            val show = podcasts.subscribe(hit.feedUrl, hit.title, hit.author, hit.artworkUrl)
+            if (show == null) {
+                Toast.makeText(ctx, "Could not subscribe", Toast.LENGTH_SHORT).show()
+            }
+            podcastHits = emptyList()
+        }
+        input = ""
     }
 
     fun openClock() {
@@ -682,7 +814,9 @@ fun BuilderRoot(
             appQuery = false
             return
         }
-        if (page == Page.Clock || page == Page.Weather || page == Page.Usage) {
+        if (page == Page.Clock || page == Page.Weather || page == Page.Usage ||
+            page == Page.Podcasts || page == Page.PodcastShow || page == Page.PodcastEpisode || page == Page.PodcastSettings
+        ) {
             choices = emptyList()
             people = emptyList()
             appQuery = false
@@ -819,6 +953,41 @@ fun BuilderRoot(
             addTicker(q)
             return
         }
+        if (page == Page.Podcasts) {
+            val q = line.trim()
+            if (q.isEmpty()) {
+                input = ""
+                return
+            }
+            if (PodcastOpml.looksLike(q) || PodcastOpml.looksLike(line)) {
+                importOpml(line)
+                return
+            }
+            if (Podcasts.looksLikeFeedUrl(q)) {
+                scope.launch {
+                    val show = podcasts.subscribe(q)
+                    if (show == null) Toast.makeText(ctx, "Could not subscribe", Toast.LENGTH_SHORT).show()
+                    else Toast.makeText(ctx, "Subscribed", Toast.LENGTH_SHORT).show()
+                }
+                input = ""
+                podcastHits = emptyList()
+                return
+            }
+            val hit = podcastHits.singleOrNull()
+                ?: podcastHits.find { it.title.equals(q, true) }
+            if (hit != null) {
+                subscribeHit(hit)
+                return
+            }
+            scope.launch {
+                podcastBusy = true
+                podcastHits = podcasts.search(q)
+                podcastBusy = false
+                val only = podcastHits.singleOrNull()
+                if (only != null) subscribeHit(only)
+            }
+            return
+        }
         if (page == Page.Chat) {
             val q = Chats.questionFromInput(line)
             if (q.isEmpty()) {
@@ -867,6 +1036,7 @@ fun BuilderRoot(
             ExecResult.NavigateNotes -> openNotesList()
             ExecResult.NavigateApps -> openAppsList(keepQuery = false)
             ExecResult.NavigateStocks -> openStocksList()
+            ExecResult.NavigatePodcasts -> openPodcastsList()
             ExecResult.NavigateClock -> openClock()
             ExecResult.NavigateWeather -> openWeather()
             ExecResult.NavigateUsage -> openUsage()
@@ -984,6 +1154,8 @@ fun BuilderRoot(
                     onOpenHub = { openHub() },
                     onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
+                    playing = Podcasts.nowPlayingVisible(playback.playing, playback.episodeId),
+                    onOpenNowPlaying = { playback.episodeId?.let { openPodcastEpisode(it) } },
                     onOpenEvent = {
                         val item = upcoming ?: return@ClockHeader
                         try {
@@ -1057,6 +1229,15 @@ fun BuilderRoot(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { openStocksList() }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                        if (Podcasts.matchesQuery(input)) {
+                            CaretLink(
+                                Podcasts.MORE,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { openPodcastsList() }
                                     .padding(vertical = 6.dp),
                             )
                         }
@@ -2275,6 +2456,384 @@ fun BuilderRoot(
                     )
                 }
             }
+            Page.Podcasts -> {
+                val searching = input.trim().isNotEmpty()
+                val rows = remember(podcastShows, podcastEpisodes, podcastProgress) {
+                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress)
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Podcasts.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                clearBar()
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    GearIcon(
+                        Modifier
+                            .semantics { contentDescription = "podcasts settings" }
+                            .clickable { page = Page.PodcastSettings }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (searching) {
+                        if (podcastHits.isEmpty()) {
+                            item {
+                                Text(if (podcastBusy) "Searching shows…" else "No show matches", color = Dim)
+                            }
+                        }
+                        items(podcastHits, key = { "h" + it.feedUrl }) { hit ->
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { subscribeHit(hit) }
+                                    .padding(vertical = 6.dp),
+                            ) {
+                                Text(hit.title, color = Paper)
+                                Text(
+                                    hit.author.ifBlank { hit.feedUrl },
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    } else {
+                        if (rows.isEmpty()) {
+                            item {
+                                Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
+                            }
+                        }
+                        itemsIndexed(rows) { _, row ->
+                            when (row) {
+                                is PodcastHomeRow.Continue -> {
+                                    val ep = row.episode
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable { openPodcastEpisode(ep.id) }
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(ep.title, color = Accent)
+                                            Text(
+                                                row.show.title,
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                        Text(
+                                            Podcasts.formatPosition(row.progress.positionMs, row.progress.durationMs.takeIf { it > 0 } ?: ep.durationMs),
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
+                                }
+                                is PodcastHomeRow.Fresh -> {
+                                    val ep = row.episode
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable { openPodcastEpisode(ep.id) }
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(ep.title, color = Paper)
+                                            Text(
+                                                row.show.title,
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                        if (ep.durationMs > 0) {
+                                            Text(
+                                                Podcasts.formatDuration(ep.durationMs),
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                    }
+                                }
+                                is PodcastHomeRow.Subscription -> {
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable { openPodcastShow(row.show.feedUrl) }
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(row.show.title, color = Paper)
+                                            if (row.show.author.isNotBlank()) {
+                                                Text(
+                                                    row.show.author,
+                                                    color = Dim,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
+            Page.PodcastShow -> {
+                val feed = podcastShowUrl.orEmpty()
+                val show = podcastShows.find { it.feedUrl == feed }
+                val eps = podcastEpisodes.filter { it.showId == feed }.sortedByDescending { it.pubDate }
+                Text(
+                    Podcasts.BACK,
+                    color = Accent,
+                    modifier = Modifier
+                        .clickable { page = Page.Podcasts }
+                        .padding(vertical = 6.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(show?.title ?: "Podcast", color = Paper, style = MaterialTheme.typography.headlineLarge)
+                show?.author?.takeIf { it.isNotBlank() }?.let { author ->
+                    Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.height(12.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(eps, key = { it.id }) { ep ->
+                        val prog = podcastProgress[ep.id]
+                        val downloaded = podcastDownloads.containsKey(ep.id)
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { openPodcastEpisode(ep.id) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(ep.title, color = if (prog != null && !Podcasts.finished(prog)) Accent else Paper)
+                                Text(
+                                    when {
+                                        Podcasts.finished(prog) -> "played"
+                                        prog != null -> Podcasts.formatPosition(prog.positionMs, prog.durationMs.takeIf { it > 0 } ?: ep.durationMs)
+                                        ep.durationMs > 0 -> Podcasts.formatDuration(ep.durationMs)
+                                        else -> if (downloaded) "downloaded" else ""
+                                    },
+                                    color = Dim,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "unsubscribe",
+                    color = Paper,
+                    modifier = Modifier
+                        .clickable {
+                            podcasts.unsubscribe(feed)
+                            page = Page.Podcasts
+                        }
+                        .padding(vertical = 8.dp),
+                )
+            }
+            Page.PodcastEpisode -> {
+                val ep = podcastEpisodes.find { it.id == podcastEpisodeId }
+                val show = ep?.let { podcasts.show(it.showId) }
+                val prog = ep?.let { podcastProgress[it.id] }
+                val playingThis = playback.episodeId == ep?.id
+                val pos = if (playingThis) playback.positionMs else prog?.positionMs ?: 0L
+                val dur = if (playingThis && playback.durationMs > 0) playback.durationMs else (prog?.durationMs ?: ep?.durationMs ?: 0L)
+                val downloaded = ep != null && podcastDownloads.containsKey(ep.id)
+                Text(
+                    Podcasts.BACK,
+                    color = Accent,
+                    modifier = Modifier
+                        .clickable {
+                            page = if (podcastShowUrl != null) Page.PodcastShow else Page.Podcasts
+                        }
+                        .padding(vertical = 6.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                if (ep == null) {
+                    Text("Episode gone", color = Dim)
+                } else {
+                    Text(show?.title ?: "Podcast", color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    Text(ep.title, color = Paper, style = MaterialTheme.typography.headlineLarge)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
+                        color = Dim,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    PodcastScrubBar(
+                        progress = Podcasts.fraction(pos, dur),
+                        onSeekFraction = { frac ->
+                            val next = Podcasts.progressAt(frac, 1f, dur)
+                            if (playingThis) PodcastPlayer.seek(next)
+                            else podcasts.saveProgress(ep.id, next, dur)
+                        },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            "−15",
+                            color = Paper,
+                            modifier = Modifier
+                                .clickable {
+                                    if (playingThis) PodcastPlayer.skip(-Podcasts.SKIP_MS)
+                                    else podcasts.saveProgress(ep.id, Podcasts.skip(pos, dur, -Podcasts.SKIP_MS), dur)
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                        Text(
+                            when {
+                                playingThis && playback.playing -> "pause"
+                                else -> "play"
+                            },
+                            color = Accent,
+                            modifier = Modifier
+                                .clickable {
+                                    if (playingThis && playback.playing) {
+                                        PodcastPlayer.pause()
+                                        PodcastPlaybackService.pause(ctx)
+                                    } else if (playingThis) {
+                                        PodcastPlayer.resume()
+                                        PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", ep.title)
+                                    } else {
+                                        playEpisode(ep)
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                        Text(
+                            "+15",
+                            color = Paper,
+                            modifier = Modifier
+                                .clickable {
+                                    if (playingThis) PodcastPlayer.skip(Podcasts.SKIP_MS)
+                                    else podcasts.saveProgress(ep.id, Podcasts.skip(pos, dur, Podcasts.SKIP_MS), dur)
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(Podcasts.formatSpeed(playback.speed), color = Accent, style = MaterialTheme.typography.bodyMedium)
+                    PodcastSpeedBar(
+                        progress = Podcasts.fraction(
+                            Podcasts.SPEED_STEPS.indexOf(Podcasts.snapSpeed(playback.speed)).coerceAtLeast(0).toLong(),
+                            (Podcasts.SPEED_STEPS.lastIndex).toLong(),
+                        ),
+                        onSpeedFraction = { frac ->
+                            PodcastPlayer.setSpeed(Podcasts.speedAt(frac, 1f))
+                        },
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        when {
+                            podcastDownloadBusy -> "downloading…"
+                            downloaded -> "downloaded"
+                            else -> "download"
+                        },
+                        color = if (downloaded) Dim else Paper,
+                        modifier = Modifier
+                            .clickable {
+                                if (downloaded || podcastDownloadBusy) return@clickable
+                                scope.launch {
+                                    podcastDownloadBusy = true
+                                    val file = podcasts.download(ep)
+                                    podcastDownloadBusy = false
+                                    Toast.makeText(
+                                        ctx,
+                                        if (file != null) "Downloaded" else "Download failed",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                    )
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+            Page.PodcastSettings -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            Podcasts.BACK,
+                            color = Accent,
+                            modifier = Modifier
+                                .clickable { page = Page.Podcasts }
+                                .padding(vertical = 6.dp),
+                        )
+                        Text("podcasts", color = Dim)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("Download cache", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                        Podcasts.CACHE_PRESETS.forEach { bytes ->
+                            Text(
+                                Podcasts.cacheLabel(bytes),
+                                color = if (podcastCache == bytes) Accent else Dim,
+                                modifier = Modifier.clickable { podcasts.setCacheBytes(bytes) },
+                            )
+                        }
+                    }
+                    Text(
+                        "${Podcasts.cacheLabel(podcasts.cacheUsedBytes())} used of ${Podcasts.cacheLabel(podcastCache)}. Oldest downloads delete first.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Text("Overcast / OPML", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "${podcastShows.size} of ${Podcasts.MAX_SHOWS} shows",
+                        color = Paper,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                    )
+                    Text(
+                        "paste OPML",
+                        color = Paper,
+                        modifier = Modifier
+                            .clickable { importOpml(clipboardText()) }
+                            .padding(vertical = 8.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Overcast: Settings → Export OPML, copy the file, then paste here. RSS feed URLs also subscribe from the podcasts bar.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
                 else -> Unit
             }
             }
@@ -2323,6 +2882,8 @@ private fun ClockHeader(
     onOpenUsage: () -> Unit,
     onOpenTicker: () -> Unit,
     onOpenEvent: () -> Unit,
+    playing: Boolean = false,
+    onOpenNowPlaying: () -> Unit = {},
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timer.running, timer.endsAt, analog) {
@@ -2358,6 +2919,14 @@ private fun ClockHeader(
                         modifier = Modifier
                             .semantics { contentDescription = weather }
                             .clickable { onOpenWeather() },
+                    )
+                }
+                if (playing) {
+                    HeadphonesIcon(
+                        Modifier
+                            .semantics { contentDescription = "now playing" }
+                            .clickable { onOpenNowPlaying() }
+                            .padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
                     )
                 }
             }
@@ -2787,11 +3356,12 @@ private fun HelpBlock() {
         "apps            all apps",
         "\$ticker         add a stock",
         "stocks          all stocks",
+        "podcasts        all podcasts",
         "?               ask AI",
         "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / apps / stocks / clock / weather / usage / settings",
+        "hub / notes / apps / stocks / podcasts / clock / weather / usage / settings",
         "2+2             calculator",
         "type a name     launch app",
         "hold an app     pin or unpin",

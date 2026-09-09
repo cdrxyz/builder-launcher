@@ -102,5 +102,9 @@
             android:name=".clock.ClockAlertService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <service
+            android:name=".podcasts.PodcastPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 </manifest>
