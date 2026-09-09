@@ -32,6 +32,7 @@ class LauncherScreenshotTest {
                     input = "summarize this PR",
                     prompt = "?",
                     todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    event = "dentist · 09:00",
                 )
             }
         }

@@ -1,9 +1,9 @@
 ---
 title: Home
-description: Analog clock, weather on the left, usage, rotating watchlist ticker, three open todos, pinned apps, and the command bar.
+description: Analog clock, next calendar event, weather on the left, usage, rotating watchlist ticker, three open todos, pinned apps, and the command bar.
 ---
 
-![Home with clock, weather, last three todos, and the command bar](../../../assets/screenshots/home.png)
+![Home with clock, next calendar event, weather, last three todos, and the command bar](../../../assets/screenshots/home.png)
 
 ![Home with a running timer in place of the clock](../../../assets/screenshots/home-timer.png)
 
@@ -16,6 +16,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 | Usage | Descending bar-chart mark, top left. Tap it for [usage](usage/) (screen time). Swipe from the left of home, or D-pad left, also opens it. The whole home screen slides with your finger. |
 | Weather | Condition icon over the temperature, on the left of the clock. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
 | Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). |
+| Next event | Under the date. Title and time from the device calendar (`dentist · 09:00`, or `dentist · Tue 09:00` if it is not today). All-day events say `today` or the weekday. Hidden until you grant calendar access, and while nothing is upcoming. Tap it to open that event. See [Calendar](calendar/). |
 | Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for that ticker's chart. |
 | Hub | Messages icon, top right. Tap, swipe from the right of home, or D-pad right opens the [hub](hub/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. |

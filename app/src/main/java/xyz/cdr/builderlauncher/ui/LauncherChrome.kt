@@ -183,6 +183,7 @@ fun HomeChrome(
     tickerChange: String? = null,
     tickerUp: Boolean = true,
     analog: Boolean = true,
+    event: String = "",
 ) {
     val (hour, minute) = parseHomeClock(time)
     Column(
@@ -220,6 +221,9 @@ fun HomeChrome(
                 } else {
                     Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+                if (event.isNotBlank()) {
+                    Text(event, color = Dim, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

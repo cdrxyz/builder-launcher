@@ -33,6 +33,7 @@ import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 import xyz.cdr.builderlauncher.ui.theme.accentColor
+import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 
@@ -47,7 +48,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
-        val needed = listOf(Manifest.permission.READ_CONTACTS)
+        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.READ_CALENDAR)
             .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
@@ -64,6 +65,7 @@ class MainActivity : ComponentActivity() {
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
         val stocks = StocksRepository(this)
+        val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
         ClockScheduler.sync(this, clock.snapshot())
         applyAlertWindow()
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
                     executor = executor,
                     weather = weather,
                     stocks = stocks,
+                    calendar = calendar,
                     clock = clock,
                     homePresses = homePresses,
                     onRequestHome = { askToBeHome(fromSettings = true) },
