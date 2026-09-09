@@ -216,6 +216,23 @@ class PodcastsTest {
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = "e", finished = true))
         assertFalse(Podcasts.playbackEnded(playing = true, positionMs = 3_580_000, durationMs = 3_600_000))
         assertTrue(Podcasts.playbackEnded(playing = false, positionMs = 3_580_000, durationMs = 3_600_000))
+        assertEquals(
+            HomePodcastMark.HEADPHONES,
+            Podcasts.homePodcastMark(playing = false, episodeLoaded = false, pausedForMs = null),
+        )
+        assertEquals(
+            HomePodcastMark.PAUSE,
+            Podcasts.homePodcastMark(playing = true, episodeLoaded = true, pausedForMs = null),
+        )
+        assertEquals(
+            HomePodcastMark.PLAY,
+            Podcasts.homePodcastMark(playing = false, episodeLoaded = true, pausedForMs = 1_000L),
+        )
+        assertEquals(
+            HomePodcastMark.HEADPHONES,
+            Podcasts.homePodcastMark(playing = false, episodeLoaded = true, pausedForMs = Podcasts.HOME_MARK_IDLE_MS),
+        )
+        assertEquals(8_000L, Podcasts.HOME_MARK_IDLE_MS)
         assertEquals("12:00 of 45:00", Podcasts.episodeLeftMeta(EpisodeProgress("e", 12 * 60 * 1000L, 45 * 60 * 1000L, lastPlayedAt = 1), 45 * 60 * 1000L))
         assertEquals("45:00", Podcasts.episodeLeftMeta(null, 45 * 60 * 1000L))
         assertEquals("45:00", Podcasts.episodeLeftMeta(EpisodeProgress("e", 0, 45 * 60 * 1000L, skipped = true), 45 * 60 * 1000L))

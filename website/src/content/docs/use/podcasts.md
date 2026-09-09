@@ -46,7 +46,7 @@ Open a subscription. Episode titles are shown in full. Length (or resume positio
 - Position is saved. Play again resumes where you left off. Near the end counts as finished and hides the now playing bar.
 - **Show notes** from the feed sit under the player. Timestamps (`0:00`, `12:34`, `1:02:03`) are links; tap one to jump there.
 
-While audio is playing, a headphones mark sits next to weather on home. Tap it for the current episode. Lock screen and headset controls use Android media playback (title, show, play/pause).
+While audio is playing, a pause icon sits next to weather on home; tap it to pause. After pause it becomes play, then after 8 seconds the headphones mark again. Headphones is always there otherwise — tap it for podcasts. Lock screen and headset controls use Android media playback (title, show, play/pause).
 
 ![Headphones beside weather while a podcast plays](../../../assets/screenshots/home-playing.png)
 

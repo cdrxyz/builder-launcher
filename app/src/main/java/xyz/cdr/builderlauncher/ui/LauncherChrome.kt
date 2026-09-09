@@ -86,6 +86,7 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.StockStatLine
 import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.weather.WeatherCodes
 import xyz.cdr.builderlauncher.weather.WeatherDay
@@ -197,7 +198,7 @@ fun HomeChrome(
     tickerUp: Boolean = true,
     analog: Boolean = true,
     event: String = "",
-    playing: Boolean = false,
+    podcastMark: HomePodcastMark = HomePodcastMark.HEADPHONES,
 ) {
     val (hour, minute) = parseHomeClock(time)
     Column(
@@ -217,9 +218,7 @@ fun HomeChrome(
                     if (weather.isNotBlank()) {
                         HomeWeatherMark(weather)
                     }
-                    if (playing) {
-                        HeadphonesIcon(Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp))
-                    }
+                    HomePodcastMarkIcon(podcastMark, Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp))
                 }
                 Row(verticalAlignment = Alignment.Top) {
                     HomeTickerMark(ticker, tickerChange, tickerUp)
@@ -1982,6 +1981,15 @@ fun UsageIcon(modifier: Modifier = Modifier) {
                 size = Size(bar, barH),
             )
         }
+    }
+}
+
+@Composable
+fun HomePodcastMarkIcon(mark: HomePodcastMark, modifier: Modifier = Modifier) {
+    when (mark) {
+        HomePodcastMark.PAUSE -> PlayPauseIcon(playing = true, modifier = modifier)
+        HomePodcastMark.PLAY -> PlayPauseIcon(playing = false, modifier = modifier)
+        HomePodcastMark.HEADPHONES -> HeadphonesIcon(modifier)
     }
 }
 

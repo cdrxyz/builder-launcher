@@ -172,6 +172,7 @@ import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.stocks.WatchItem
+import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.EpisodeOrder
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastArtwork
@@ -1222,8 +1223,14 @@ fun BuilderRoot(
                     onOpenHub = { openHub() },
                     onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
-                    playing = Podcasts.nowPlayingVisible(playback.playing, playback.episodeId),
-                    onOpenNowPlaying = { playback.episodeId?.let { openPodcastEpisode(it) } },
+                    playing = playback.playing,
+                    episodeLoaded = Podcasts.nowPlayingBarVisible(
+                        playback.episodeId,
+                        Podcasts.finished(playback.episodeId?.let { podcastProgress[it] }) ||
+                            Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs),
+                    ),
+                    onOpenPodcasts = { openPodcastsList() },
+                    onTogglePlayback = { togglePlayback() },
                     onOpenEvent = {
                         val item = upcoming ?: return@ClockHeader
                         try {
@@ -3099,7 +3106,9 @@ private fun ClockHeader(
     onOpenTicker: () -> Unit,
     onOpenEvent: () -> Unit,
     playing: Boolean = false,
-    onOpenNowPlaying: () -> Unit = {},
+    episodeLoaded: Boolean = false,
+    onOpenPodcasts: () -> Unit = {},
+    onTogglePlayback: () -> Unit = {},
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timer.running, timer.endsAt, analog) {
@@ -3114,6 +3123,24 @@ private fun ClockHeader(
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     val cal = Calendar.getInstance().apply { timeInMillis = now.value }
     val eventLine = event?.let { UpcomingEvents.line(it, now.value) }
+    var pausedForMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(playing, episodeLoaded) {
+        if (playing && episodeLoaded) {
+            pausedForMs = null
+        } else if (episodeLoaded) {
+            val start = System.currentTimeMillis()
+            pausedForMs = 0L
+            while (true) {
+                delay(200)
+                val elapsed = System.currentTimeMillis() - start
+                pausedForMs = elapsed
+                if (elapsed >= Podcasts.HOME_MARK_IDLE_MS) break
+            }
+        } else {
+            pausedForMs = null
+        }
+    }
+    val mark = Podcasts.homePodcastMark(playing, episodeLoaded, pausedForMs)
     Box(Modifier.fillMaxWidth().clipToBounds()) {
         Row(
             Modifier.fillMaxWidth(),
@@ -3137,14 +3164,24 @@ private fun ClockHeader(
                             .clickable { onOpenWeather() },
                     )
                 }
-                if (playing) {
-                    HeadphonesIcon(
-                        Modifier
-                            .semantics { contentDescription = "now playing" }
-                            .clickable { onOpenNowPlaying() }
-                            .padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
-                    )
-                }
+                HomePodcastMarkIcon(
+                    mark,
+                    Modifier
+                        .semantics {
+                            contentDescription = when (mark) {
+                                HomePodcastMark.PAUSE -> "pause"
+                                HomePodcastMark.PLAY -> "play"
+                                HomePodcastMark.HEADPHONES -> "podcasts"
+                            }
+                        }
+                        .clickable {
+                            when (mark) {
+                                HomePodcastMark.HEADPHONES -> onOpenPodcasts()
+                                HomePodcastMark.PLAY, HomePodcastMark.PAUSE -> onTogglePlayback()
+                            }
+                        }
+                        .padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
+                )
             }
             Row(verticalAlignment = Alignment.Top) {
                 if (ticker != null) {

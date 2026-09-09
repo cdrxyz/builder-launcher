@@ -20,6 +20,7 @@ object Podcasts {
     const val TITLE_LINES = 3
     const val SHOW_LINES = 1
     const val DEFAULT_SPEED = 1.0f
+    const val HOME_MARK_IDLE_MS = 8_000L
     const val MEDIA_ACTION_STOP = 1L
     const val MEDIA_ACTION_PAUSE = 1L shl 1
     const val MEDIA_ACTION_PLAY = 1L shl 2
@@ -230,6 +231,17 @@ object Podcasts {
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
 
+    fun homePodcastMark(
+        playing: Boolean,
+        episodeLoaded: Boolean,
+        pausedForMs: Long?,
+        idleMs: Long = HOME_MARK_IDLE_MS,
+    ): HomePodcastMark = when {
+        playing && episodeLoaded -> HomePodcastMark.PAUSE
+        episodeLoaded && pausedForMs != null && pausedForMs < idleMs -> HomePodcastMark.PLAY
+        else -> HomePodcastMark.HEADPHONES
+    }
+
     fun nowPlayingBarVisible(episodeId: String?, finished: Boolean = false): Boolean =
         !episodeId.isNullOrBlank() && !finished
 
@@ -383,6 +395,12 @@ object Podcasts {
 enum class EpisodeOrder {
     NEWEST,
     OLDEST,
+}
+
+enum class HomePodcastMark {
+    HEADPHONES,
+    PLAY,
+    PAUSE,
 }
 
 @Serializable

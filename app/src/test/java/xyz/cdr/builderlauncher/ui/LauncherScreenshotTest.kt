@@ -7,6 +7,7 @@ import org.junit.Test
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.stocks.StockCagr
 import xyz.cdr.builderlauncher.stocks.StockPoint
@@ -51,7 +52,7 @@ class LauncherScreenshotTest {
                     prompt = "?",
                     todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
                     event = "dentist · 09:00",
-                    playing = true,
+                    podcastMark = HomePodcastMark.PAUSE,
                 )
             }
         }
