@@ -54,6 +54,12 @@ class PodcastsTest {
         assertEquals("5 GB", Podcasts.cacheLabel(Podcasts.DEFAULT_CACHE_BYTES))
         assertEquals("1 GB", Podcasts.cacheLabel(1L * 1024 * 1024 * 1024))
         assertEquals("512 MB", Podcasts.cacheLabel(512L * 1024 * 1024))
+        assertEquals("0 MB", Podcasts.cacheLabel(0))
+        assertEquals("0 MB", Podcasts.cacheLabel(512 * 1024L))
+        assertEquals("1.5 MB", Podcasts.cacheLabel((1536L * 1024)))
+        assertEquals("1.2 GB", Podcasts.cacheLabel((12L * 1024 * 1024 * 1024) / 10))
+        assertFalse(Podcasts.cacheLabel(0).endsWith(" B"))
+        assertFalse(Podcasts.cacheLabel(100).contains(" B"))
     }
 
     @Test
@@ -106,6 +112,13 @@ class PodcastsTest {
         assertFalse(newIds.contains("play"))
         val showTitles = rows.filterIsInstance<PodcastHomeRow.Subscription>().map { it.show.title }
         assertEquals(listOf("Accidental Tech Podcast", "The Talk Show", "Zed Show"), showTitles)
+        val headers = rows.filterIsInstance<PodcastHomeRow.Header>().map { it.title }
+        assertEquals(
+            listOf(Podcasts.SECTION_NOW, Podcasts.SECTION_NEXT, Podcasts.SECTION_SHOWS),
+            headers,
+        )
+        assertTrue(rows[0] is PodcastHomeRow.Header)
+        assertEquals(Podcasts.SECTION_NOW, (rows[0] as PodcastHomeRow.Header).title)
     }
 
     @Test
@@ -157,6 +170,144 @@ class PodcastsTest {
         assertTrue(Podcasts.nowPlayingVisible(playing = true, episodeId = "e"))
         assertFalse(Podcasts.nowPlayingVisible(playing = false, episodeId = "e"))
         assertFalse(Podcasts.nowPlayingVisible(playing = true, episodeId = null))
+    }
+
+    @Test
+    fun scrubAndSpeedBarsInsetFromScreenEdges() {
+        assertEquals(36, Podcasts.BAR_SIDE_DP)
+        assertTrue(Podcasts.BAR_SIDE_DP > 20)
+    }
+
+    @Test
+    fun sectionCopy() {
+        assertEquals("now playing", Podcasts.SECTION_NOW)
+        assertEquals("next 5 episodes", Podcasts.SECTION_NEXT)
+        assertEquals("podcasts", Podcasts.SECTION_SHOWS)
+    }
+
+    @Test
+    fun downloadPercentAndLabel() {
+        assertEquals(0, Podcasts.downloadPercent(0, 0))
+        assertEquals(0, Podcasts.downloadPercent(10, 0))
+        assertEquals(37, Podcasts.downloadPercent(37, 100))
+        assertEquals(100, Podcasts.downloadPercent(150, 100))
+        assertEquals("download", Podcasts.downloadLabel(downloaded = false, busy = false, percent = 0, knownTotal = false))
+        assertEquals("downloaded", Podcasts.downloadLabel(downloaded = true, busy = false, percent = 100, knownTotal = true))
+        assertEquals("downloading…", Podcasts.downloadLabel(downloaded = false, busy = true, percent = 0, knownTotal = false))
+        assertEquals("downloading 37%", Podcasts.downloadLabel(downloaded = false, busy = true, percent = 37, knownTotal = true))
+    }
+
+    @Test
+    fun deletesPlayedDownloadsAndKeepsUnfinished() {
+        val progress = mapOf(
+            "done" to EpisodeProgress("done", 3_600_000, 3_600_000, finished = true),
+            "play" to EpisodeProgress("play", 10_000, 3_600_000, lastPlayedAt = 1),
+        )
+        assertEquals(
+            listOf("done"),
+            Podcasts.playedDownloadsToDelete(setOf("done", "play", "fresh"), progress),
+        )
+        assertEquals(emptyList<String>(), Podcasts.playedDownloadsToDelete(setOf("play"), progress))
+    }
+
+    @Test
+    fun lockScreenKeepsSessionWhilePaused() {
+        assertTrue(Podcasts.mediaSessionActive(episodeId = "e", stopped = false))
+        assertTrue(Podcasts.mediaSessionActive(episodeId = "e", stopped = false, playing = false))
+        assertFalse(Podcasts.mediaSessionActive(episodeId = null, stopped = false, playing = true))
+        assertFalse(Podcasts.mediaSessionActive(episodeId = "e", stopped = true))
+        assertEquals(
+            Podcasts.MEDIA_ACTION_PLAY or Podcasts.MEDIA_ACTION_PLAY_PAUSE or
+                Podcasts.MEDIA_ACTION_STOP or Podcasts.MEDIA_ACTION_SEEK or
+                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD,
+            Podcasts.mediaActions(playing = false),
+        )
+        assertEquals(
+            Podcasts.MEDIA_ACTION_PAUSE or Podcasts.MEDIA_ACTION_PLAY_PAUSE or
+                Podcasts.MEDIA_ACTION_STOP or Podcasts.MEDIA_ACTION_SEEK or
+                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD,
+            Podcasts.mediaActions(playing = true),
+        )
+    }
+
+    @Test
+    fun searchRowShowsArtWhenUrlPresent() {
+        assertTrue(Podcasts.searchRowShowsArt("https://img/atp.jpg"))
+        assertFalse(Podcasts.searchRowShowsArt(""))
+        assertFalse(Podcasts.searchRowShowsArt("   "))
+    }
+
+    @Test
+    fun sortsShowEpisodesNewestOrOldest() {
+        val feed = "https://atp.fm/rss"
+        val eps = listOf(
+            episode("a", feed, "First", pubDate = 1_000),
+            episode("b", feed, "Middle", pubDate = 2_000),
+            episode("c", feed, "Latest", pubDate = 3_000),
+        )
+        assertEquals(
+            listOf("c", "b", "a"),
+            Podcasts.sortEpisodes(eps, EpisodeOrder.NEWEST).map { it.id },
+        )
+        assertEquals(
+            listOf("a", "b", "c"),
+            Podcasts.sortEpisodes(eps, EpisodeOrder.OLDEST).map { it.id },
+        )
+        assertEquals(EpisodeOrder.NEWEST, PodcastShow(feed, "ATP").episodeOrder)
+        assertEquals("newest first", Podcasts.episodeOrderLabel(EpisodeOrder.NEWEST))
+        assertEquals("oldest first", Podcasts.episodeOrderLabel(EpisodeOrder.OLDEST))
+        assertEquals(EpisodeOrder.NEWEST, Podcasts.parseEpisodeOrder(null))
+        assertEquals(EpisodeOrder.OLDEST, Podcasts.parseEpisodeOrder("oldest"))
+        assertEquals(EpisodeOrder.NEWEST, Podcasts.parseEpisodeOrder("newest"))
+        assertEquals(
+            EpisodeOrder.OLDEST,
+            Podcasts.mergeShow(
+                PodcastShow(feed, "ATP", episodeOrder = EpisodeOrder.OLDEST),
+                PodcastShow(feed, "Accidental Tech Podcast", author = "Marco"),
+            ).episodeOrder,
+        )
+        assertEquals(
+            "Accidental Tech Podcast",
+            Podcasts.mergeShow(
+                PodcastShow(feed, "ATP", episodeOrder = EpisodeOrder.OLDEST),
+                PodcastShow(feed, "Accidental Tech Podcast", author = "Marco"),
+            ).title,
+        )
+    }
+
+    @Test
+    fun homeEpisodeTitlesCapAtThreeLines() {
+        assertEquals(3, Podcasts.TITLE_LINES)
+        assertEquals(3, Podcasts.titleMaxLines(home = true))
+        assertEquals(Int.MAX_VALUE, Podcasts.titleMaxLines(home = false))
+    }
+
+    @Test
+    fun stripsHtmlShowNotes() {
+        val html = "<p>Hello<br/>world</p><p>More &amp; more</p>"
+        assertEquals("Hello\nworld\n\nMore & more", Podcasts.plainNotes(html))
+        assertEquals("plain", Podcasts.plainNotes("plain"))
+        assertEquals("", Podcasts.plainNotes("   "))
+        assertEquals(
+            "encoded wins",
+            Podcasts.pickNotes(encoded = "<p>encoded wins</p>", summary = "sum", description = "desc"),
+        )
+        assertEquals("sum", Podcasts.pickNotes(encoded = "", summary = "sum", description = "desc"))
+        assertEquals("desc", Podcasts.pickNotes(encoded = "", summary = "", description = "desc"))
+    }
+
+    @Test
+    fun parsesLinkableTimestamps() {
+        val notes = "0:00 Intro\n12:34 Mid\n1:02:03 End\n[4:05] Bracket\n(0:45) Paren"
+        val hits = Podcasts.timestamps(notes)
+        assertEquals(listOf(0L, 754_000L, 3_723_000L, 245_000L, 45_000L), hits.map { it.positionMs })
+        assertEquals("0:00", hits[0].raw)
+        assertEquals("1:02:03", hits[2].raw)
+        assertEquals(0L, Podcasts.timestampAt(notes, 0))
+        assertEquals(754_000L, Podcasts.timestampAt(notes, notes.indexOf("12:34")))
+        assertEquals(null, Podcasts.timestampAt(notes, notes.indexOf("Intro")))
+        assertEquals(3_723_000L, Podcasts.parseTimestamp("1:02:03"))
+        assertEquals(null, Podcasts.parseTimestamp("2024"))
     }
 
     private fun episode(id: String, showId: String, title: String, pubDate: Long) = PodcastEpisode(
@@ -228,6 +379,24 @@ class PodcastRssTest {
         assertEquals("https://cdn.example/1.mp3", ep.enclosureUrl)
         assertEquals(3_723_000L, ep.durationMs)
         assertTrue(ep.pubDate > 0)
+        assertEquals("First show", ep.description)
+    }
+
+    @Test
+    fun prefersContentEncodedShowNotes() {
+        val xml = """
+            <rss><channel><title>X</title>
+            <item>
+              <title>One</title>
+              <enclosure url="https://cdn.example/one.mp3" type="audio/mpeg" />
+              <description><![CDATA[<p>short</p>]]></description>
+              <itunes:summary>summary</itunes:summary>
+              <content:encoded><![CDATA[<p>0:00 Intro</p><p>12:34 Deep cut</p>]]></content:encoded>
+            </item>
+            </channel></rss>
+        """.trimIndent()
+        val ep = PodcastRss.parse(xml, "https://x.fm/rss")!!.episodes.single()
+        assertEquals("0:00 Intro\n\n12:34 Deep cut", ep.description)
     }
 
     @Test

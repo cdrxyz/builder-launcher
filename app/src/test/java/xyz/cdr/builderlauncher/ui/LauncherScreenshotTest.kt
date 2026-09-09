@@ -7,6 +7,7 @@ import org.junit.Test
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.stocks.StockCagr
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockQuote
@@ -383,16 +384,37 @@ class LauncherScreenshotTest {
             BuilderTheme {
                 PodcastsChrome(
                     continueRows = listOf(
-                        PodcastListRow("Playing analog", "The Talk Show", "12:00 of 45:00", highlight = true),
+                        PodcastListRow(
+                            "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
+                            "The Talk Show",
+                            "12:00 of 45:00",
+                            highlight = true,
+                            maxTitleLines = Podcasts.TITLE_LINES,
+                        ),
                     ),
                     newRows = listOf(
-                        PodcastListRow("Newest", "Accidental Tech Podcast", "1:02:03"),
-                        PodcastListRow("New two", "The Talk Show", "45:00"),
+                        PodcastListRow("Newest", "Accidental Tech Podcast", "1:02:03", maxTitleLines = Podcasts.TITLE_LINES),
+                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES),
                     ),
                     shows = listOf(
                         PodcastListRow("Accidental Tech Podcast", "Marco Arment"),
                         PodcastListRow("The Talk Show", "John Gruber"),
                     ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun podcastsSearch() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastsChrome(
+                    hits = listOf(
+                        PodcastListRow("Accidental Tech Podcast", "Marco Arment", art = true),
+                        PodcastListRow("The Talk Show", "John Gruber", art = true),
+                    ),
+                    input = "tech",
                 )
             }
         }
@@ -408,6 +430,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun podcastShow() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastShowChrome(
+                    show = "Accidental Tech Podcast",
+                    author = "Marco Arment",
+                    order = "oldest first",
+                    episodes = listOf(
+                        PodcastListRow("Episode 1: Hello with the full title shown on the show screen even when it is long", "1:02:03"),
+                        PodcastListRow("Episode 2", "45:00"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun podcastEpisode() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -417,9 +456,11 @@ class LauncherScreenshotTest {
                     position = "12:00 of 1:02:03",
                     playing = true,
                     downloaded = true,
+                    downloadLabel = "downloaded",
                     progress = 0.19f,
                     speed = "1.4×",
                     speedProgress = 0.2f,
+                    notes = "0:00 Intro\n12:34 Deep cut\n1:02:03 Credits",
                 )
             }
         }

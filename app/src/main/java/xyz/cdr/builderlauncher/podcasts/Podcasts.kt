@@ -12,6 +12,19 @@ object Podcasts {
     const val MAX_SHOWS = 200
     const val FINISH_REMAINING_MS = 30_000L
     const val SKIP_MS = 15_000L
+    const val BAR_SIDE_DP = 36
+    const val SECTION_NOW = "now playing"
+    const val SECTION_NEXT = "next 5 episodes"
+    const val SECTION_SHOWS = "podcasts"
+    const val ART_DP = 36
+    const val TITLE_LINES = 3
+    const val MEDIA_ACTION_STOP = 1L
+    const val MEDIA_ACTION_PAUSE = 1L shl 1
+    const val MEDIA_ACTION_PLAY = 1L shl 2
+    const val MEDIA_ACTION_REWIND = 1L shl 3
+    const val MEDIA_ACTION_FAST_FORWARD = 1L shl 6
+    const val MEDIA_ACTION_SEEK = 1L shl 8
+    const val MEDIA_ACTION_PLAY_PAUSE = 1L shl 9
     val SPEED_STEPS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.2f, 2.4f, 2.6f, 2.8f, 3.0f)
     val CACHE_PRESETS = listOf(
         1L * 1024 * 1024 * 1024,
@@ -68,7 +81,20 @@ object Podcasts {
             .take(NEW)
         val subs = shows.sortedBy { it.title.lowercase() }
             .map { PodcastHomeRow.Subscription(it) }
-        return continueRows + fresh + subs
+        val rows = mutableListOf<PodcastHomeRow>()
+        if (continueRows.isNotEmpty()) {
+            rows += PodcastHomeRow.Header(SECTION_NOW)
+            rows += continueRows
+        }
+        if (fresh.isNotEmpty()) {
+            rows += PodcastHomeRow.Header(SECTION_NEXT)
+            rows += fresh
+        }
+        if (subs.isNotEmpty()) {
+            rows += PodcastHomeRow.Header(SECTION_SHOWS)
+            rows += subs
+        }
+        return rows
     }
 
     fun filesToDelete(
@@ -123,11 +149,13 @@ object Podcasts {
     fun cacheLabel(bytes: Long): String {
         val gb = 1024L * 1024L * 1024L
         val mb = 1024L * 1024L
+        val n = bytes.coerceAtLeast(0L)
         return when {
-            bytes >= gb && bytes % gb == 0L -> "${bytes / gb} GB"
-            bytes >= gb -> "%.1f GB".format(bytes / gb.toDouble())
-            bytes >= mb && bytes % mb == 0L -> "${bytes / mb} MB"
-            else -> "$bytes B"
+            n >= gb && n % gb == 0L -> "${n / gb} GB"
+            n >= gb -> "%.1f GB".format(n / gb.toDouble())
+            n >= mb && n % mb == 0L -> "${n / mb} MB"
+            n >= mb -> "%.1f MB".format(n / mb.toDouble())
+            else -> "0 MB"
         }
     }
 
@@ -169,11 +197,139 @@ object Podcasts {
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
 
+    fun downloadPercent(received: Long, total: Long): Int {
+        if (total <= 0L) return 0
+        return ((received * 100) / total).toInt().coerceIn(0, 100)
+    }
+
+    fun downloadLabel(
+        downloaded: Boolean,
+        busy: Boolean,
+        percent: Int,
+        knownTotal: Boolean,
+    ): String = when {
+        downloaded && !busy -> "downloaded"
+        busy && knownTotal -> "downloading $percent%"
+        busy -> "downloading…"
+        else -> "download"
+    }
+
+    fun playedDownloadsToDelete(
+        downloads: Set<String>,
+        progress: Map<String, EpisodeProgress>,
+    ): List<String> = downloads.filter { finished(progress[it]) }
+
+    fun mediaSessionActive(
+        episodeId: String?,
+        stopped: Boolean,
+        playing: Boolean = true,
+    ): Boolean {
+        if (stopped || episodeId.isNullOrBlank()) return false
+        return true
+    }
+
+    fun mediaActions(playing: Boolean): Long {
+        val common = MEDIA_ACTION_PLAY_PAUSE or MEDIA_ACTION_STOP or MEDIA_ACTION_SEEK or
+            MEDIA_ACTION_REWIND or MEDIA_ACTION_FAST_FORWARD
+        return common or if (playing) MEDIA_ACTION_PAUSE else MEDIA_ACTION_PLAY
+    }
+
+    fun searchRowShowsArt(artworkUrl: String): Boolean = artworkUrl.trim().isNotEmpty()
+
+    fun titleMaxLines(home: Boolean): Int = if (home) TITLE_LINES else Int.MAX_VALUE
+
+    fun pickNotes(encoded: String, summary: String, description: String): String {
+        val raw = listOf(encoded, summary, description).firstOrNull { it.isNotBlank() }.orEmpty()
+        return plainNotes(raw)
+    }
+
+    fun plainNotes(raw: String): String {
+        if (raw.isBlank()) return ""
+        var t = raw.replace("\r\n", "\n")
+        t = BR.replace(t, "\n")
+        t = BLOCK_END.replace(t, "\n\n")
+        t = TAG.replace(t, "")
+        t = t.replace("&nbsp;", " ", ignoreCase = true)
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+        t = ENTITY.replace(t) { m ->
+            val num = m.groupValues[1].toIntOrNull() ?: return@replace m.value
+            if (num in 1..0x10FFFF) String(Character.toChars(num)) else m.value
+        }
+        t = t.replace(Regex("[ \\t]+"), " ")
+        t = t.replace(Regex(" *\\n *"), "\n")
+        t = t.replace(Regex("\\n{3,}"), "\n\n")
+        return t.trim()
+    }
+
+    fun parseTimestamp(raw: String): Long? {
+        val t = raw.trim().trim('[', ']', '(', ')')
+        if (!t.contains(':')) return null
+        val parts = t.split(':')
+        if (parts.size !in 2..3) return null
+        if (parts.any { it.toLongOrNull() == null }) return null
+        val ms = parseDuration(t)
+        return ms.takeIf { it >= 0L }
+    }
+
+    fun timestamps(text: String): List<TimestampHit> {
+        if (text.isBlank()) return emptyList()
+        return CLOCK.findAll(text).mapNotNull { m ->
+            val raw = m.value
+            val ms = parseTimestamp(raw) ?: return@mapNotNull null
+            TimestampHit(m.range.first, m.range.last + 1, ms, raw)
+        }.toList()
+    }
+
+    fun timestampAt(text: String, index: Int): Long? =
+        timestamps(text).firstOrNull { index in it.start until it.end }?.positionMs
+
+    fun sortEpisodes(episodes: List<PodcastEpisode>, order: EpisodeOrder): List<PodcastEpisode> =
+        when (order) {
+            EpisodeOrder.NEWEST -> episodes.sortedByDescending { it.pubDate }
+            EpisodeOrder.OLDEST -> episodes.sortedBy { it.pubDate }
+        }
+
+    fun episodeOrderLabel(order: EpisodeOrder): String = when (order) {
+        EpisodeOrder.NEWEST -> "newest first"
+        EpisodeOrder.OLDEST -> "oldest first"
+    }
+
+    fun parseEpisodeOrder(raw: String?): EpisodeOrder = when (raw?.trim()?.lowercase()) {
+        "oldest", "oldest first", "ascending", "asc" -> EpisodeOrder.OLDEST
+        else -> EpisodeOrder.NEWEST
+    }
+
+    fun mergeShow(existing: PodcastShow?, incoming: PodcastShow): PodcastShow {
+        if (existing == null) return incoming
+        return incoming.copy(
+            subscribedAt = existing.subscribedAt.takeIf { it > 0L } ?: incoming.subscribedAt,
+            artworkUrl = incoming.artworkUrl.ifBlank { existing.artworkUrl },
+            episodeOrder = existing.episodeOrder,
+        )
+    }
+
     private fun indexAt(x: Float, width: Float, count: Int): Int {
         if (count <= 1 || width <= 0f) return 0
         val t = (x / width).coerceIn(0f, 1f)
         return kotlin.math.round(t * (count - 1)).toInt().coerceIn(0, count - 1)
     }
+
+    private val BR = Regex("(?i)<br\\s*/?>")
+    private val BLOCK_END = Regex("(?i)</(p|div|h[1-6]|li|tr|blockquote)>")
+    private val TAG = Regex("<[^>]+>")
+    private val ENTITY = Regex("&#(\\d+);")
+    private val CLOCK = Regex("(?<!\\d)(?:\\d{1,2}:)?\\d{1,2}:\\d{2}(?!\\d)")
+}
+
+@Serializable
+enum class EpisodeOrder {
+    NEWEST,
+    OLDEST,
 }
 
 @Serializable
@@ -183,6 +339,7 @@ data class PodcastShow(
     val author: String = "",
     val artworkUrl: String = "",
     val subscribedAt: Long = 0L,
+    val episodeOrder: EpisodeOrder = EpisodeOrder.NEWEST,
 )
 
 @Serializable
@@ -211,6 +368,19 @@ data class PodcastCacheFile(
     val lastAccessAt: Long,
 )
 
+data class DownloadProgress(
+    val episodeId: String? = null,
+    val receivedBytes: Long = 0L,
+    val totalBytes: Long = 0L,
+)
+
+data class TimestampHit(
+    val start: Int,
+    val end: Int,
+    val positionMs: Long,
+    val raw: String,
+)
+
 data class PodcastHit(
     val title: String,
     val author: String = "",
@@ -224,6 +394,8 @@ data class PodcastFeed(
 )
 
 sealed class PodcastHomeRow {
+    data class Header(val title: String) : PodcastHomeRow()
+
     data class Continue(
         val episode: PodcastEpisode,
         val show: PodcastShow,

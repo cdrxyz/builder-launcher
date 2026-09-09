@@ -53,6 +53,8 @@ class PodcastsRepository(
     val progress: StateFlow<Map<String, EpisodeProgress>> = _progress.asStateFlow()
     private val _downloads = MutableStateFlow<Map<String, PodcastDownload>>(emptyMap())
     val downloads: StateFlow<Map<String, PodcastDownload>> = _downloads.asStateFlow()
+    private val _downloadProgress = MutableStateFlow(DownloadProgress())
+    val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
     private val _cacheBytes = MutableStateFlow(Podcasts.DEFAULT_CACHE_BYTES)
     val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
 
@@ -71,9 +73,13 @@ class PodcastsRepository(
     fun show(feedUrl: String): PodcastShow? =
         _shows.value.find { it.feedUrl.equals(feedUrl, ignoreCase = true) }
 
-    fun episodesFor(feedUrl: String): List<PodcastEpisode> =
-        _episodes.value.filter { it.showId.equals(feedUrl, ignoreCase = true) }
-            .sortedByDescending { it.pubDate }
+    fun episodesFor(feedUrl: String): List<PodcastEpisode> {
+        val order = show(feedUrl)?.episodeOrder ?: EpisodeOrder.NEWEST
+        return Podcasts.sortEpisodes(
+            _episodes.value.filter { it.showId.equals(feedUrl, ignoreCase = true) },
+            order,
+        )
+    }
 
     fun episode(id: String): PodcastEpisode? = _episodes.value.find { it.id == id }
 
@@ -89,6 +95,13 @@ class PodcastsRepository(
         _cacheBytes.value = bytes.coerceAtLeast(1L * 1024 * 1024)
         persist()
         evict()
+    }
+
+    fun setEpisodeOrder(feedUrl: String, order: EpisodeOrder) {
+        _shows.value = _shows.value.map {
+            if (it.feedUrl.equals(feedUrl, ignoreCase = true)) it.copy(episodeOrder = order) else it
+        }
+        persist()
     }
 
     suspend fun search(query: String): List<PodcastHit> = withContext(Dispatchers.IO) {
@@ -162,10 +175,7 @@ class PodcastsRepository(
     suspend fun refreshShow(feedUrl: String) = withContext(Dispatchers.IO) {
         val xml = fetchText(feedUrl) ?: return@withContext
         val feed = PodcastRss.parse(xml, feedUrl) ?: return@withContext
-        val mergedShow = feed.show.copy(
-            subscribedAt = show(feedUrl)?.subscribedAt ?: System.currentTimeMillis(),
-            artworkUrl = feed.show.artworkUrl.ifBlank { show(feedUrl)?.artworkUrl.orEmpty() },
-        )
+        val mergedShow = Podcasts.mergeShow(show(feedUrl), feed.show)
         _shows.value = _shows.value.map {
             if (it.feedUrl.equals(feedUrl, ignoreCase = true)) mergedShow else it
         }
@@ -174,7 +184,10 @@ class PodcastsRepository(
         val incoming = feed.episodes.map { ep ->
             val old = byId[ep.id]
             if (old == null) ep
-            else ep.copy(durationMs = if (ep.durationMs > 0) ep.durationMs else old.durationMs)
+            else ep.copy(
+                durationMs = if (ep.durationMs > 0) ep.durationMs else old.durationMs,
+                description = ep.description.ifBlank { old.description },
+            )
         }
         _episodes.value = keepOther + incoming
         persist()
@@ -196,6 +209,10 @@ class PodcastsRepository(
             finished = done,
         ))
         persist()
+        if (done) {
+            Podcasts.playedDownloadsToDelete(_downloads.value.keys, _progress.value)
+                .forEach { deleteDownload(it) }
+        }
     }
 
     suspend fun download(episode: PodcastEpisode): File? = withContext(Dispatchers.IO) {
@@ -208,16 +225,31 @@ class PodcastsRepository(
             return@withContext dest
         }
         val tmp = File(cacheDir, dest.name + ".part")
+        _downloadProgress.value = DownloadProgress(episode.id, 0L, 0L)
         val ok = runCatching {
             http.newCall(request(url)).execute().use { resp ->
                 if (!resp.isSuccessful) return@use false
                 val body = resp.body ?: return@use false
-                tmp.outputStream().use { out -> body.byteStream().copyTo(out) }
+                val total = body.contentLength()
+                tmp.outputStream().use { out ->
+                    body.byteStream().use { input ->
+                        val buf = ByteArray(64 * 1024)
+                        var received = 0L
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            received += n
+                            _downloadProgress.value = DownloadProgress(episode.id, received, total)
+                        }
+                    }
+                }
                 true
             }
         }.getOrDefault(false)
         if (!ok) {
             tmp.delete()
+            _downloadProgress.value = DownloadProgress()
             return@withContext null
         }
         if (dest.exists()) dest.delete()
@@ -227,6 +259,7 @@ class PodcastsRepository(
         }
         touchDownload(episode.id, dest.length())
         evict(keepIds = setOf(episode.id))
+        _downloadProgress.value = DownloadProgress()
         dest.takeIf { it.exists() }
     }
 
