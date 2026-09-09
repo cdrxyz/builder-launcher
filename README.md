@@ -94,7 +94,7 @@ Home always shows a centered analog clock (digital time and date below; settings
 
 Settings (`settings` or `/settings`) → **… AI providers >**:
 
-- **Hermes** — Web UI URL, example `http://192.168.1.10:9119` or `http://192.168.1.10:8787`. Paste the Web UI password (not an API server key). **Open question in**: **web ui** opens that URL; **hermex** shares the question into Hermex (`com.uzairansar.hermex`). Changing provider, URL, password, or model runs an access test. Password optional if the instance is open. Cleartext LAN URLs are allowed so a home box works.
+- **Hermes** — Web UI URL, example `http://192.168.1.10:8787`. Paste the Web UI password. `?` logs in for a session cookie and also sends `Authorization: Bearer` when a password is set. If that host is `hermes dashboard` (`:9119`) and login 401s, `?` retries the API server on `:8642` with the same password. **Open question in**: **web ui** opens that URL; **hermex** shares the question into Hermex (`com.uzairansar.hermex`). Changing provider, URL, password, or model runs an access test. Password optional if the instance is open. Cleartext LAN URLs are allowed so a home box works.
 - **xAI** — Sign in with SuperGrok / X Premium+ (device-code OAuth at `auth.x.ai`) or paste an API key. Default model `grok-4.6`. Hits `https://api.x.ai/v1`.
 - **OpenAI** — Paste an API key. Default model `gpt-4o`. Hits `https://api.openai.com/v1`.
 - **Anthropic** — Paste an API key. Default model `claude-sonnet-4-5`. Hits `https://api.anthropic.com`.

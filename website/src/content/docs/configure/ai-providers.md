@@ -13,7 +13,7 @@ Changing provider, URL, key, model, or sign-in runs an access test and shows **A
 
 ## Hermes
 
-Web UI URL, example `http://192.168.1.10:9119` (`hermes dashboard`) or `http://192.168.1.10:8787` (Hermes Web UI). `?` talks to that Web UI: it posts the password to `/api/auth/login` (session cookie), not as a Bearer token on the API server. Password optional if the instance is open. Cleartext LAN URLs are allowed so a home box works.
+Web UI URL, example `http://192.168.1.10:8787` (Hermes Web UI). `?` logs in with the Web UI password (`/api/auth/login` session cookie) and also sends it as `Authorization: Bearer` when a password is set. `hermes dashboard` on `:9119` is not the Web UI — if login returns 401, `?` retries the API server on `:8642` with the same password as a Bearer token. Password optional if the Web UI is open. Cleartext LAN URLs are allowed so a home box works.
 
 **Open question in** chooses where the Hermes mark on `?` chat sends the current prompt:
 

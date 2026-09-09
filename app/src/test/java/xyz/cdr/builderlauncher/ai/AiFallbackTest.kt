@@ -23,6 +23,8 @@ class AiFallbackTest {
         assertTrue(AiFallback.failed("Set a base URL in settings."))
         assertTrue(AiFallback.failed("Could not reach the model."))
         assertTrue(AiFallback.failed("LLM error 503: overloaded"))
+        assertTrue(AiFallback.failed("""LLM error 401: {"error":"Authentication required"}"""))
+        assertTrue(AiFallback.failed("Web UI needs a password in settings."))
         assertTrue(AiFallback.failed(""))
         assertFalse(AiFallback.failed("Here is a short answer."))
         assertFalse(AiFallback.failed("LLM error 400: bad request"))

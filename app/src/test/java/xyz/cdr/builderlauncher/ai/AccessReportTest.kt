@@ -36,11 +36,29 @@ class AccessReportTest {
     }
 
     @Test
-    fun webUiOkAndAuthRequiredStillCountAsReachable() {
+    fun webUi401IsNotASuccessfulAccessTest() {
         assertEquals("Web UI reachable.", AccessReport.fromWebUi(200).detail)
         val gated = AccessReport.fromWebUi(401)
-        assertTrue(gated.ok)
-        assertEquals("Web UI reachable (sign-in required).", gated.detail)
+        assertFalse(gated.ok)
+        assertEquals("Web UI needs a password in settings.", gated.detail)
+    }
+
+    @Test
+    fun eitherSucceedsIfApiOrWebUiWorks() {
+        val done = AccessReport.either(
+            Probe(true, "Access good — hermes-agent"),
+            Probe(false, "Web UI needs a password in settings."),
+        )
+        assertTrue(done.ok)
+        assertEquals(
+            "Access good — hermes-agent. Web UI needs a password in settings.",
+            done.line,
+        )
+        val bothBad = AccessReport.either(
+            Probe(false, "Access failed: unauthorized. Check the API key."),
+            Probe(false, "Web UI needs a password in settings."),
+        )
+        assertFalse(bothBad.ok)
     }
 
     @Test
