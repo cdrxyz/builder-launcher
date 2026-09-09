@@ -405,8 +405,8 @@ class LauncherScreenshotTest {
                         PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES),
                     ),
                     shows = listOf(
-                        PodcastListRow("Accidental Tech Podcast", "Marco Arment"),
-                        PodcastListRow("The Talk Show", "John Gruber"),
+                        PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
+                        PodcastListRow("The Talk Show", "John Gruber", deletable = true),
                     ),
                 )
             }

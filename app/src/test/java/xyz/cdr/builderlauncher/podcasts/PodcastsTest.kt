@@ -114,11 +114,25 @@ class PodcastsTest {
         assertEquals(listOf("Accidental Tech Podcast", "The Talk Show", "Zed Show"), showTitles)
         val headers = rows.filterIsInstance<PodcastHomeRow.Header>().map { it.title }
         assertEquals(
-            listOf(Podcasts.SECTION_NOW, Podcasts.SECTION_NEXT, Podcasts.SECTION_SHOWS),
+            listOf(Podcasts.SECTION_RECENT, Podcasts.SECTION_NEXT, Podcasts.SECTION_SHOWS),
             headers,
         )
         assertTrue(rows[0] is PodcastHomeRow.Header)
-        assertEquals(Podcasts.SECTION_NOW, (rows[0] as PodcastHomeRow.Header).title)
+        assertEquals(Podcasts.SECTION_RECENT, (rows[0] as PodcastHomeRow.Header).title)
+        val withoutCurrent = Podcasts.homeRows(
+            shows = listOf(zed, analog, atp),
+            episodes = listOf(
+                oldUnfinished, playing, playing2, playing3, playing4,
+                newest, new2, new3, new4, new5, new6, done,
+            ),
+            progress = progress,
+            currentEpisodeId = "play",
+        )
+        assertEquals(
+            listOf("play2", "play3", "old"),
+            withoutCurrent.filterIsInstance<PodcastHomeRow.Continue>().map { it.episode.id },
+        )
+        assertFalse(withoutCurrent.filterIsInstance<PodcastHomeRow.Fresh>().any { it.episode.id == "play" })
     }
 
     @Test
@@ -198,7 +212,7 @@ class PodcastsTest {
 
     @Test
     fun sectionCopy() {
-        assertEquals("now playing", Podcasts.SECTION_NOW)
+        assertEquals("recent", Podcasts.SECTION_RECENT)
         assertEquals("next 5 episodes", Podcasts.SECTION_NEXT)
         assertEquals("podcasts", Podcasts.SECTION_SHOWS)
     }

@@ -15,11 +15,10 @@ There is no live Overcast account sync. Export OPML from Overcast (Settings → 
 
 Order, each under a light section title:
 
-1. **now playing** — up to 3 unfinished plays, most recently listened, in accent. Episode titles wrap to 3 lines.
-2. **next 5 episodes** — newest episodes that are not finished. Titles wrap to 3 lines. Show names stay on one line.
-3. **podcasts** — every subscription, A–Z.
-
-When an episode is loaded (playing or paused), a **now playing** bar sits under the back/gear row. Tap it to open that episode.
+1. **now playing** bar under back/gear when an episode is loaded (playing or paused). Tap it to open that episode. One bar only.
+2. **recent** — up to 3 unfinished plays, most recently listened, excluding the current episode. In accent. Episode titles wrap to 3 lines.
+3. **next 5 episodes** — newest episodes that are not finished. Titles wrap to 3 lines. Show names stay on one line.
+4. **podcasts** — every subscription, A–Z. An × on the right unsubscribes, same as notes and todos.
 
 Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 

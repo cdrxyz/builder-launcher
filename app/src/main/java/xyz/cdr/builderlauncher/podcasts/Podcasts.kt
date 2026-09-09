@@ -13,7 +13,7 @@ object Podcasts {
     const val FINISH_REMAINING_MS = 30_000L
     const val SKIP_MS = 15_000L
     const val BAR_SIDE_DP = 36
-    const val SECTION_NOW = "now playing"
+    const val SECTION_RECENT = "recent"
     const val SECTION_NEXT = "next 5 episodes"
     const val SECTION_SHOWS = "podcasts"
     const val ART_DP = 36
@@ -60,10 +60,12 @@ object Podcasts {
         shows: List<PodcastShow>,
         episodes: List<PodcastEpisode>,
         progress: Map<String, EpisodeProgress>,
+        currentEpisodeId: String? = null,
     ): List<PodcastHomeRow> {
         val showById = shows.associateBy { it.feedUrl }
+        val currentId = currentEpisodeId?.takeIf { it.isNotBlank() }
         val continueRows = progress.values
-            .filter { !finished(it) && it.lastPlayedAt > 0L }
+            .filter { !finished(it) && it.lastPlayedAt > 0L && it.episodeId != currentId }
             .sortedByDescending { it.lastPlayedAt }
             .mapNotNull { p ->
                 val episode = episodes.find { it.id == p.episodeId } ?: return@mapNotNull null
@@ -71,11 +73,11 @@ object Podcasts {
                 PodcastHomeRow.Continue(episode, show, p)
             }
             .take(CONTINUE)
-        val continueIds = continueRows.map { it.episode.id }.toSet()
+        val skipIds = continueRows.map { it.episode.id }.toSet() + setOfNotNull(currentId)
         val fresh = episodes
             .sortedByDescending { it.pubDate }
             .mapNotNull { episode ->
-                if (episode.id in continueIds) return@mapNotNull null
+                if (episode.id in skipIds) return@mapNotNull null
                 if (finished(progress[episode.id])) return@mapNotNull null
                 val show = showById[episode.showId] ?: return@mapNotNull null
                 PodcastHomeRow.Fresh(episode, show)
@@ -85,7 +87,7 @@ object Podcasts {
             .map { PodcastHomeRow.Subscription(it) }
         val rows = mutableListOf<PodcastHomeRow>()
         if (continueRows.isNotEmpty()) {
-            rows += PodcastHomeRow.Header(SECTION_NOW)
+            rows += PodcastHomeRow.Header(SECTION_RECENT)
             rows += continueRows
         }
         if (fresh.isNotEmpty()) {

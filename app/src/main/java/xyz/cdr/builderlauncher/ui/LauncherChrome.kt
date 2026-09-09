@@ -663,6 +663,7 @@ data class PodcastListRow(
     val maxTitleLines: Int = Int.MAX_VALUE,
     val maxSubtitleLines: Int = Int.MAX_VALUE,
     val metaBelow: Boolean = false,
+    val deletable: Boolean = false,
 )
 
 @Composable
@@ -701,7 +702,7 @@ fun PodcastsChrome(
                 Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
             } else {
                 if (continueRows.isNotEmpty()) {
-                    PodcastSectionHeader(Podcasts.SECTION_NOW)
+                    PodcastSectionHeader(Podcasts.SECTION_RECENT)
                     continueRows.forEach { PodcastRowChrome(it) }
                 }
                 if (newRows.isNotEmpty()) {
@@ -805,6 +806,9 @@ private fun PodcastRowChrome(row: PodcastListRow) {
         }
         if (!row.metaBelow && row.meta.isNotBlank()) {
             Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (row.deletable) {
+            DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
     }
 }

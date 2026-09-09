@@ -628,6 +628,19 @@ fun BuilderRoot(
         PodcastPlayer.setSpeed(speed)
     }
 
+    fun unsubscribeShow(feedUrl: String) {
+        val current = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
+        if (current != null && current.showId.equals(feedUrl, ignoreCase = true)) {
+            PodcastPlayer.stop()
+            PodcastPlaybackService.stop(ctx)
+        }
+        podcasts.unsubscribe(feedUrl)
+        if (podcastShowUrl.equals(feedUrl, ignoreCase = true)) {
+            podcastShowUrl = null
+            if (page == Page.PodcastShow) page = Page.Podcasts
+        }
+    }
+
     fun seekEpisode(episode: PodcastEpisode, positionMs: Long) {
         val dur = if (playback.episodeId == episode.id && playback.durationMs > 0) {
             playback.durationMs
@@ -2503,8 +2516,8 @@ fun BuilderRoot(
             }
             Page.Podcasts -> {
                 val searching = input.trim().isNotEmpty()
-                val rows = remember(podcastShows, podcastEpisodes, podcastProgress) {
-                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress)
+                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
+                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
                 }
                 Row(
                     Modifier.fillMaxWidth(),
@@ -2641,11 +2654,14 @@ fun BuilderRoot(
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clickable { openPodcastShow(row.show.feedUrl) }
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Column(Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { openPodcastShow(row.show.feedUrl) },
+                                        ) {
                                             Text(row.show.title, color = Paper)
                                             if (row.show.author.isNotBlank()) {
                                                 Text(
@@ -2655,6 +2671,12 @@ fun BuilderRoot(
                                                 )
                                             }
                                         }
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "unsubscribe" }
+                                                .clickable { unsubscribeShow(row.show.feedUrl) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
                                     }
                                 }
                             }
@@ -2738,10 +2760,7 @@ fun BuilderRoot(
                     "unsubscribe",
                     color = Paper,
                     modifier = Modifier
-                        .clickable {
-                            podcasts.unsubscribe(feed)
-                            page = Page.Podcasts
-                        }
+                        .clickable { unsubscribeShow(feed) }
                         .padding(vertical = 8.dp),
                 )
             }
