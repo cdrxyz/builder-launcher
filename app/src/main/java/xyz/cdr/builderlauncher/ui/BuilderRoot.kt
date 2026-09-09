@@ -200,10 +200,12 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsagePeriod
 import xyz.cdr.builderlauncher.usage.UsageReader
 import xyz.cdr.builderlauncher.usage.UsageStore
+import xyz.cdr.builderlauncher.usage.UsageToday
 import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 import xyz.cdr.builderlauncher.weather.WeatherRepository
@@ -293,6 +295,7 @@ fun BuilderRoot(
     var tickerIndex by remember { mutableIntStateOf(0) }
     var usagePeriod by remember { mutableStateOf(UsagePeriod.W1) }
     var usageSnapshot by remember { mutableStateOf(Usage.build(emptyList(), emptyMap(), UsagePeriod.W1, false)) }
+    var usageToday by remember { mutableStateOf(UsageToday(granted = false)) }
     var editingTodoId by remember { mutableStateOf<String?>(null) }
     var wipeBarOnHome by remember { mutableStateOf(false) }
     val pinPkgs by pins.packages.collectAsState()
@@ -331,6 +334,11 @@ fun BuilderRoot(
     LaunchedEffect(page, usagePeriod, appsEpoch) {
         if (page == Page.Usage) {
             usageSnapshot = usageReader.load(usageStore, usagePeriod)
+        }
+    }
+    LaunchedEffect(page, appsEpoch, settings.pinUsage) {
+        if (page == Page.Home && settings.pinUsage) {
+            usageToday = usageReader.loadToday(usageStore)
         }
     }
 
@@ -1403,12 +1411,14 @@ fun BuilderRoot(
                             PinnedAppsRow(
                                 apps = pinned,
                                 icon = { apps.icon(it) },
+                                usage = { if (settings.pinUsage) usageToday.mark(it.packageName) else null },
                                 onLaunch = { apps.launch(it) },
                                 onMove = { from, to -> pins.moveVisible(pinned.map { it.packageName }, from, to) },
                             )
                         } else {
                             PinnedAppsTextList(
                                 apps = pinned,
+                                usage = { if (settings.pinUsage) usageToday.mark(it.packageName) else null },
                                 onLaunch = { apps.launch(it) },
                                 onMove = { from, to -> pins.moveVisible(pinned.map { it.packageName }, from, to) },
                             )
@@ -3814,6 +3824,25 @@ private fun SettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 8.dp),
+        ) {
+            Text("Pin time", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            listOf(false to "off", true to "on").forEach { (on, label) ->
+                Text(
+                    label,
+                    color = if (settings.pinUsage == on) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(pinUsage = on) } },
+                )
+            }
+        }
+        Text(
+            "Minutes today under each pin, as 30m (17%). Green if productive, red if not.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(16.dp))
         Text("Clock face", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
@@ -4471,6 +4500,7 @@ private fun HomeAppRow(
 @Composable
 private fun PinnedAppsTextList(
     apps: List<LaunchableApp>,
+    usage: (LaunchableApp) -> PinUsageMark? = { null },
     onLaunch: (LaunchableApp) -> Unit,
     onMove: (Int, Int) -> Unit,
 ) {
@@ -4490,9 +4520,7 @@ private fun PinnedAppsTextList(
                     ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
                 else -> 0f
             }
-            Text(
-                app.label,
-                color = Paper,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(if (lifting) 1f else 0f)
@@ -4534,7 +4562,10 @@ private fun PinnedAppsTextList(
                     }
                     .clickable { onLaunch(app) }
                     .padding(vertical = 6.dp),
-            )
+            ) {
+                Text(app.label, color = Paper)
+                PinUsageCaption(usage(app))
+            }
         }
     }
 }
@@ -4543,6 +4574,7 @@ private fun PinnedAppsTextList(
 private fun PinnedAppsRow(
     apps: List<LaunchableApp>,
     icon: (LaunchableApp) -> Drawable?,
+    usage: (LaunchableApp) -> PinUsageMark? = { null },
     onLaunch: (LaunchableApp) -> Unit,
     onMove: (Int, Int) -> Unit,
 ) {
@@ -4565,11 +4597,9 @@ private fun PinnedAppsRow(
                     ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
                 else -> 0f
             }
-            AppIcon(
-                drawable = icon(app),
-                grayscale = true,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .size(48.dp)
                     .onSizeChanged { cellWidth = it.width.toFloat() }
                     .zIndex(if (lifting) 1f else 0f)
                     .graphicsLayer { translationX = shift }
@@ -4609,9 +4639,28 @@ private fun PinnedAppsRow(
                         )
                     }
                     .clickable { onLaunch(app) },
-            )
+            ) {
+                AppIcon(
+                    drawable = icon(app),
+                    grayscale = true,
+                    modifier = Modifier.size(48.dp),
+                )
+                PinUsageCaption(usage(app))
+            }
         }
     }
+}
+
+@Composable
+private fun PinUsageCaption(mark: PinUsageMark?) {
+    if (mark == null) return
+    Text(
+        mark.line,
+        color = if (mark.productive) Gain else Loss,
+        style = MaterialTheme.typography.labelSmall,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 private val GrayscaleFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })

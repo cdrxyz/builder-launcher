@@ -57,6 +57,7 @@ data class BackupSettings(
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
+    val pinUsage: Boolean = false,
     val clockFace: ClockFace = ClockFace.ANALOG,
 ) {
     companion object {
@@ -76,6 +77,7 @@ data class BackupSettings(
             stockInsert = settings.stockInsert,
             clockSound = settings.clockSound,
             appIcons = settings.appIcons,
+            pinUsage = settings.pinUsage,
             clockFace = settings.clockFace,
         )
     }
