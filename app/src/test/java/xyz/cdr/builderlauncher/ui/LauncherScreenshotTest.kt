@@ -385,6 +385,7 @@ class LauncherScreenshotTest {
                 PodcastsChrome(
                     nowPlayingTitle = "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
                     nowPlayingShow = "The Talk Show",
+                    nowPlaying = true,
                     continueRows = listOf(
                         PodcastListRow(
                             "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
@@ -392,6 +393,7 @@ class LauncherScreenshotTest {
                             "12:00 of 45:00",
                             highlight = true,
                             maxTitleLines = Podcasts.TITLE_LINES,
+                            deletable = true,
                         ),
                     ),
                     newRows = listOf(
@@ -401,8 +403,9 @@ class LauncherScreenshotTest {
                             "1:02:03",
                             maxTitleLines = Podcasts.TITLE_LINES,
                             maxSubtitleLines = Podcasts.SHOW_LINES,
+                            deletable = true,
                         ),
-                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES),
+                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true),
                     ),
                     shows = listOf(
                         PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
@@ -418,6 +421,9 @@ class LauncherScreenshotTest {
         paparazzi.snapshot {
             BuilderTheme {
                 PodcastsChrome(
+                    nowPlayingTitle = "Playing analog",
+                    nowPlayingShow = "The Talk Show",
+                    nowPlaying = true,
                     hits = listOf(
                         PodcastListRow("Accidental Tech Podcast", "Marco Arment", art = true),
                         PodcastListRow("The Talk Show", "John Gruber", art = true),
@@ -448,11 +454,19 @@ class LauncherScreenshotTest {
                     episodes = listOf(
                         PodcastListRow(
                             "Episode 1: Hello with the full title shown on the show screen even when it is long",
-                            "1:02:03",
+                            "12:00 of 1:02:03",
                             meta = "15 Dec 2023",
                             metaBelow = true,
+                            deletable = true,
                         ),
-                        PodcastListRow("Episode 2", "45:00", meta = "1 Jan 2024", metaBelow = true),
+                        PodcastListRow(
+                            "Episode 2",
+                            "45:00",
+                            meta = "1 Jan 2024",
+                            metaBelow = true,
+                            deletable = true,
+                            dimmed = true,
+                        ),
                     ),
                 )
             }
@@ -472,7 +486,6 @@ class LauncherScreenshotTest {
                     downloadLabel = "downloaded",
                     progress = 0.19f,
                     speed = "1.4×",
-                    speedProgress = 0.2f,
                     notes = "0:00 Intro\n12:34 Deep cut\n1:02:03 Credits",
                 )
             }

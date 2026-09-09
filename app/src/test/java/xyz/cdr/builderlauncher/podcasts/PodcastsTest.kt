@@ -133,6 +133,16 @@ class PodcastsTest {
             withoutCurrent.filterIsInstance<PodcastHomeRow.Continue>().map { it.episode.id },
         )
         assertFalse(withoutCurrent.filterIsInstance<PodcastHomeRow.Fresh>().any { it.episode.id == "play" })
+        val skippedRows = Podcasts.homeRows(
+            shows = listOf(zed, analog, atp),
+            episodes = listOf(
+                oldUnfinished, playing, playing2, playing3, playing4,
+                newest, new2, new3, new4, new5, new6, done,
+            ),
+            progress = progress + ("n1" to EpisodeProgress("n1", skipped = true)),
+        )
+        assertFalse(skippedRows.filterIsInstance<PodcastHomeRow.Fresh>().any { it.episode.id == "n1" })
+        assertEquals("n2", skippedRows.filterIsInstance<PodcastHomeRow.Fresh>().first().episode.id)
     }
 
     @Test
@@ -202,6 +212,14 @@ class PodcastsTest {
         assertTrue(Podcasts.nowPlayingBarVisible(episodeId = "e"))
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = null))
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = ""))
+        assertFalse(Podcasts.nowPlayingBarVisible(episodeId = "e", finished = true))
+        assertFalse(Podcasts.playbackEnded(playing = true, positionMs = 3_580_000, durationMs = 3_600_000))
+        assertTrue(Podcasts.playbackEnded(playing = false, positionMs = 3_580_000, durationMs = 3_600_000))
+        assertEquals("12:00 of 45:00", Podcasts.episodeLeftMeta(EpisodeProgress("e", 12 * 60 * 1000L, 45 * 60 * 1000L, lastPlayedAt = 1), 45 * 60 * 1000L))
+        assertEquals("45:00", Podcasts.episodeLeftMeta(null, 45 * 60 * 1000L))
+        assertEquals("45:00", Podcasts.episodeLeftMeta(EpisodeProgress("e", 0, 45 * 60 * 1000L, skipped = true), 45 * 60 * 1000L))
+        assertTrue(Podcasts.skipped(EpisodeProgress("e", skipped = true)))
+        assertFalse(Podcasts.skipped(null))
     }
 
     @Test

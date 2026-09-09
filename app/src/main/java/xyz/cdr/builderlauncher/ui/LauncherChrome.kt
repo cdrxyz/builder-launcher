@@ -664,6 +664,7 @@ data class PodcastListRow(
     val maxSubtitleLines: Int = Int.MAX_VALUE,
     val metaBelow: Boolean = false,
     val deletable: Boolean = false,
+    val dimmed: Boolean = false,
 )
 
 @Composable
@@ -675,6 +676,7 @@ fun PodcastsChrome(
     input: String = "",
     nowPlayingTitle: String = "",
     nowPlayingShow: String = "",
+    nowPlaying: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -692,7 +694,7 @@ fun PodcastsChrome(
         }
         Spacer(Modifier.height(8.dp))
         if (nowPlayingTitle.isNotBlank()) {
-            PodcastNowPlayingBar(title = nowPlayingTitle, show = nowPlayingShow)
+            PodcastNowPlayingBar(title = nowPlayingTitle, show = nowPlayingShow, playing = nowPlaying)
             Spacer(Modifier.height(8.dp))
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -741,20 +743,35 @@ fun PodcastSectionHeader(title: String) {
 fun PodcastNowPlayingBar(
     title: String,
     show: String = "",
+    playing: Boolean = false,
     modifier: Modifier = Modifier,
+    onOpen: (() -> Unit)? = null,
+    onToggle: (() -> Unit)? = null,
 ) {
-    Column(modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text("now playing", color = Accent, style = MaterialTheme.typography.labelSmall)
-        Text(title, color = Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (show.isNotBlank()) {
-            Text(
-                show,
-                color = Dim,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+    Row(
+        modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val openMod = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier
+        Column(Modifier.weight(1f).then(openMod)) {
+            Text("now playing", color = Accent, style = MaterialTheme.typography.labelSmall)
+            Text(title, color = Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (show.isNotBlank()) {
+                Text(
+                    show,
+                    color = Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+        val toggleMod = if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier
+        Text(
+            text = if (playing) "pause" else "play",
+            color = Accent,
+            modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp).then(toggleMod),
+        )
     }
 }
 
@@ -775,7 +792,11 @@ private fun PodcastRowChrome(row: PodcastListRow) {
         Column(Modifier.weight(1f)) {
             Text(
                 row.title,
-                color = if (row.highlight) Accent else Paper,
+                color = when {
+                    row.dimmed -> Dim
+                    row.highlight -> Accent
+                    else -> Paper
+                },
                 maxLines = row.maxTitleLines,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -904,8 +925,6 @@ fun PodcastShowChrome(
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             episodes.forEach { PodcastRowChrome(it) }
         }
-        Spacer(Modifier.height(8.dp))
-        Text("unsubscribe", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
     }
 }
 
@@ -919,7 +938,6 @@ fun PodcastEpisodeChrome(
     downloadLabel: String = if (downloaded) "downloaded" else "download",
     progress: Float = 0.2f,
     speed: String = "1×",
-    speedProgress: Float = 0f,
     notes: String = "",
 ) {
     Column(
@@ -952,7 +970,6 @@ fun PodcastEpisodeChrome(
             }
             Spacer(Modifier.height(8.dp))
             Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
-            PodcastSpeedBar(progress = speedProgress)
             if (notes.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
                 Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)

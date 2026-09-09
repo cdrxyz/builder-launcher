@@ -216,12 +216,27 @@ class PodcastsRepository(
             durationMs = dur,
             lastPlayedAt = now,
             finished = done,
+            skipped = if (done) false else (prev?.skipped == true),
         ))
         persist()
         if (done) {
             Podcasts.playedDownloadsToDelete(_downloads.value.keys, _progress.value)
                 .forEach { deleteDownload(it) }
         }
+    }
+
+    fun setSkipped(episodeId: String, skipped: Boolean, durationMs: Long = 0L) {
+        val prev = _progress.value[episodeId]
+        val dur = durationMs.takeIf { it > 0L } ?: prev?.durationMs ?: 0L
+        _progress.value = _progress.value + (episodeId to EpisodeProgress(
+            episodeId = episodeId,
+            positionMs = prev?.positionMs ?: 0L,
+            durationMs = dur,
+            lastPlayedAt = prev?.lastPlayedAt ?: 0L,
+            finished = prev?.finished == true,
+            skipped = skipped,
+        ))
+        persist()
     }
 
     suspend fun download(episode: PodcastEpisode): File? = withContext(Dispatchers.IO) {

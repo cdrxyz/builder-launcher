@@ -65,7 +65,7 @@ object Podcasts {
         val showById = shows.associateBy { it.feedUrl }
         val currentId = currentEpisodeId?.takeIf { it.isNotBlank() }
         val continueRows = progress.values
-            .filter { !finished(it) && it.lastPlayedAt > 0L && it.episodeId != currentId }
+            .filter { !finished(it) && !skipped(it) && it.lastPlayedAt > 0L && it.episodeId != currentId }
             .sortedByDescending { it.lastPlayedAt }
             .mapNotNull { p ->
                 val episode = episodes.find { it.id == p.episodeId } ?: return@mapNotNull null
@@ -78,7 +78,7 @@ object Podcasts {
             .sortedByDescending { it.pubDate }
             .mapNotNull { episode ->
                 if (episode.id in skipIds) return@mapNotNull null
-                if (finished(progress[episode.id])) return@mapNotNull null
+                if (finished(progress[episode.id]) || skipped(progress[episode.id])) return@mapNotNull null
                 val show = showById[episode.showId] ?: return@mapNotNull null
                 PodcastHomeRow.Fresh(episode, show)
             }
@@ -225,10 +225,28 @@ object Podcasts {
         return fmt.format(java.util.Date(pubDate))
     }
 
+    fun skipped(progress: EpisodeProgress?): Boolean = progress?.skipped == true
+
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
 
-    fun nowPlayingBarVisible(episodeId: String?): Boolean = !episodeId.isNullOrBlank()
+    fun nowPlayingBarVisible(episodeId: String?, finished: Boolean = false): Boolean =
+        !episodeId.isNullOrBlank() && !finished
+
+    fun playbackEnded(playing: Boolean, positionMs: Long, durationMs: Long): Boolean =
+        !playing && finished(EpisodeProgress("", positionMs, durationMs))
+
+    fun episodeLeftMeta(progress: EpisodeProgress?, durationMs: Long): String {
+        if (skipped(progress)) {
+            return if (durationMs > 0) formatDuration(durationMs) else ""
+        }
+        if (progress != null && !finished(progress) && progress.positionMs > 0L) {
+            val dur = progress.durationMs.takeIf { it > 0L } ?: durationMs
+            return if (dur > 0L) formatPosition(progress.positionMs, dur) else ""
+        }
+        val dur = progress?.durationMs?.takeIf { it > 0L } ?: durationMs
+        return if (dur > 0L) formatDuration(dur) else ""
+    }
 
     fun downloadPercent(received: Long, total: Long): Int {
         if (total <= 0L) return 0
@@ -395,6 +413,7 @@ data class EpisodeProgress(
     val durationMs: Long = 0L,
     val lastPlayedAt: Long = 0L,
     val finished: Boolean = false,
+    val skipped: Boolean = false,
 )
 
 data class PodcastCacheFile(

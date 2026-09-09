@@ -615,12 +615,31 @@ fun BuilderRoot(
     }
 
     fun playEpisode(episode: PodcastEpisode) {
+        podcasts.setSkipped(episode.id, false, episode.durationMs)
         val start = podcastProgress[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
         PodcastPlayer.play(episode, file, start)
         val show = podcasts.show(episode.showId)
         PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
+    }
+
+    fun togglePlayback() {
+        val ep = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } } ?: return
+        if (playback.playing) {
+            PodcastPlayer.pause()
+            PodcastPlaybackService.pause(ctx)
+        } else {
+            playEpisode(ep)
+        }
+    }
+
+    fun skipEpisode(episode: PodcastEpisode) {
+        if (playback.episodeId == episode.id) {
+            PodcastPlayer.stop()
+            PodcastPlaybackService.stop(ctx)
+        }
+        podcasts.setSkipped(episode.id, true, episode.durationMs)
     }
 
     fun applyPodcastSpeed(speed: Float) {
@@ -676,6 +695,8 @@ fun BuilderRoot(
             val show = podcasts.subscribe(hit.feedUrl, hit.title, hit.author, hit.artworkUrl)
             if (show == null) {
                 Toast.makeText(ctx, "Could not subscribe", Toast.LENGTH_SHORT).show()
+            } else {
+                openPodcastShow(hit.feedUrl)
             }
             podcastHits = emptyList()
         }
@@ -2543,11 +2564,17 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 val nowEpisode = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
-                if (Podcasts.nowPlayingBarVisible(playback.episodeId) && nowEpisode != null) {
+                val nowEnded = nowEpisode != null && (
+                    Podcasts.finished(podcastProgress[nowEpisode.id]) ||
+                        Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs)
+                    )
+                if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
                     PodcastNowPlayingBar(
                         title = nowEpisode.title,
                         show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
-                        modifier = Modifier.clickable { openPodcastEpisode(nowEpisode.id) },
+                        playing = playback.playing,
+                        onOpen = { openPodcastEpisode(nowEpisode.id) },
+                        onToggle = { togglePlayback() },
                     )
                     Spacer(Modifier.height(8.dp))
                 }
@@ -2593,11 +2620,14 @@ fun BuilderRoot(
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clickable { openPodcastEpisode(ep.id) }
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Column(Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { playEpisode(ep) },
+                                        ) {
                                             Text(
                                                 ep.title,
                                                 color = Accent,
@@ -2615,6 +2645,12 @@ fun BuilderRoot(
                                             color = Dim,
                                             style = MaterialTheme.typography.bodyMedium,
                                         )
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "dismiss episode" }
+                                                .clickable { skipEpisode(ep) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
                                     }
                                 }
                                 is PodcastHomeRow.Fresh -> {
@@ -2622,11 +2658,14 @@ fun BuilderRoot(
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clickable { openPodcastEpisode(ep.id) }
                                             .padding(vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Column(Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { playEpisode(ep) },
+                                        ) {
                                             Text(
                                                 ep.title,
                                                 color = Paper,
@@ -2648,6 +2687,12 @@ fun BuilderRoot(
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
                                         }
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "dismiss episode" }
+                                                .clickable { skipEpisode(ep) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
                                     }
                                 }
                                 is PodcastHomeRow.Subscription -> {
@@ -2727,22 +2772,37 @@ fun BuilderRoot(
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(eps, key = { it.id }) { ep ->
                         val prog = podcastProgress[ep.id]
+                        val skipped = Podcasts.skipped(prog)
+                        val inProgress = prog != null && !Podcasts.finished(prog) && !skipped
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { openPodcastEpisode(ep.id) }
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(ep.title, color = if (prog != null && !Podcasts.finished(prog)) Accent else Paper)
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        if (skipped) podcasts.setSkipped(ep.id, false, ep.durationMs)
+                                        else openPodcastEpisode(ep.id)
+                                    },
+                            ) {
+                                Text(
+                                    ep.title,
+                                    color = when {
+                                        skipped -> Dim
+                                        inProgress -> Accent
+                                        else -> Paper
+                                    },
+                                )
                                 Row(
                                     Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
-                                        if (ep.durationMs > 0) Podcasts.formatDuration(ep.durationMs) else "",
+                                        Podcasts.episodeLeftMeta(prog, ep.durationMs),
                                         color = Dim,
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
@@ -2752,17 +2812,18 @@ fun BuilderRoot(
                                     }
                                 }
                             }
+                            DeleteIcon(
+                                Modifier
+                                    .semantics { contentDescription = if (skipped) "restore episode" else "dismiss episode" }
+                                    .clickable {
+                                        if (skipped) podcasts.setSkipped(ep.id, false, ep.durationMs)
+                                        else skipEpisode(ep)
+                                    }
+                                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                            )
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "unsubscribe",
-                    color = Paper,
-                    modifier = Modifier
-                        .clickable { unsubscribeShow(feed) }
-                        .padding(vertical = 8.dp),
-                )
             }
             Page.PodcastEpisode -> {
                 val ep = podcastEpisodes.find { it.id == podcastEpisodeId }
@@ -2884,12 +2945,13 @@ fun BuilderRoot(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text(Podcasts.formatSpeed(playback.speed), color = Accent, style = MaterialTheme.typography.bodyMedium)
-                    PodcastSpeedBar(
-                        progress = Podcasts.speedProgress(playback.speed),
-                        onSpeedFraction = { frac ->
-                            applyPodcastSpeed(Podcasts.speedAt(frac, 1f))
-                        },
+                    Text(
+                        Podcasts.formatSpeed(playback.speed),
+                        color = Accent,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .clickable { page = Page.PodcastSettings }
+                            .padding(vertical = 8.dp),
                     )
                     if (ep.description.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
