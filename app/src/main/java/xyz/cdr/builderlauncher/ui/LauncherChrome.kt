@@ -803,6 +803,40 @@ fun PodcastsSettingsChrome(
 }
 
 @Composable
+fun PodcastShowChrome(
+    show: String = "Accidental Tech Podcast",
+    author: String = "Marco Arment",
+    order: String = "oldest first",
+    episodes: List<PodcastListRow> = emptyList(),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(show, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        if (author.isNotBlank()) {
+            Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Episodes", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            listOf("newest first", "oldest first").forEach { label ->
+                Text(label, color = if (label == order) Accent else Dim)
+            }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            episodes.forEach { PodcastRowChrome(it) }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("unsubscribe", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+    }
+}
+
+@Composable
 fun PodcastEpisodeChrome(
     show: String,
     title: String,

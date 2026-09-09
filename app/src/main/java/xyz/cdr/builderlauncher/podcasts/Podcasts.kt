@@ -233,11 +233,42 @@ object Podcasts {
 
     fun searchRowShowsArt(artworkUrl: String): Boolean = artworkUrl.trim().isNotEmpty()
 
+    fun sortEpisodes(episodes: List<PodcastEpisode>, order: EpisodeOrder): List<PodcastEpisode> =
+        when (order) {
+            EpisodeOrder.NEWEST -> episodes.sortedByDescending { it.pubDate }
+            EpisodeOrder.OLDEST -> episodes.sortedBy { it.pubDate }
+        }
+
+    fun episodeOrderLabel(order: EpisodeOrder): String = when (order) {
+        EpisodeOrder.NEWEST -> "newest first"
+        EpisodeOrder.OLDEST -> "oldest first"
+    }
+
+    fun parseEpisodeOrder(raw: String?): EpisodeOrder = when (raw?.trim()?.lowercase()) {
+        "oldest", "oldest first", "ascending", "asc" -> EpisodeOrder.OLDEST
+        else -> EpisodeOrder.NEWEST
+    }
+
+    fun mergeShow(existing: PodcastShow?, incoming: PodcastShow): PodcastShow {
+        if (existing == null) return incoming
+        return incoming.copy(
+            subscribedAt = existing.subscribedAt.takeIf { it > 0L } ?: incoming.subscribedAt,
+            artworkUrl = incoming.artworkUrl.ifBlank { existing.artworkUrl },
+            episodeOrder = existing.episodeOrder,
+        )
+    }
+
     private fun indexAt(x: Float, width: Float, count: Int): Int {
         if (count <= 1 || width <= 0f) return 0
         val t = (x / width).coerceIn(0f, 1f)
         return kotlin.math.round(t * (count - 1)).toInt().coerceIn(0, count - 1)
     }
+}
+
+@Serializable
+enum class EpisodeOrder {
+    NEWEST,
+    OLDEST,
 }
 
 @Serializable
@@ -247,6 +278,7 @@ data class PodcastShow(
     val author: String = "",
     val artworkUrl: String = "",
     val subscribedAt: Long = 0L,
+    val episodeOrder: EpisodeOrder = EpisodeOrder.NEWEST,
 )
 
 @Serializable

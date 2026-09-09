@@ -73,9 +73,13 @@ class PodcastsRepository(
     fun show(feedUrl: String): PodcastShow? =
         _shows.value.find { it.feedUrl.equals(feedUrl, ignoreCase = true) }
 
-    fun episodesFor(feedUrl: String): List<PodcastEpisode> =
-        _episodes.value.filter { it.showId.equals(feedUrl, ignoreCase = true) }
-            .sortedByDescending { it.pubDate }
+    fun episodesFor(feedUrl: String): List<PodcastEpisode> {
+        val order = show(feedUrl)?.episodeOrder ?: EpisodeOrder.NEWEST
+        return Podcasts.sortEpisodes(
+            _episodes.value.filter { it.showId.equals(feedUrl, ignoreCase = true) },
+            order,
+        )
+    }
 
     fun episode(id: String): PodcastEpisode? = _episodes.value.find { it.id == id }
 
@@ -91,6 +95,13 @@ class PodcastsRepository(
         _cacheBytes.value = bytes.coerceAtLeast(1L * 1024 * 1024)
         persist()
         evict()
+    }
+
+    fun setEpisodeOrder(feedUrl: String, order: EpisodeOrder) {
+        _shows.value = _shows.value.map {
+            if (it.feedUrl.equals(feedUrl, ignoreCase = true)) it.copy(episodeOrder = order) else it
+        }
+        persist()
     }
 
     suspend fun search(query: String): List<PodcastHit> = withContext(Dispatchers.IO) {
@@ -164,10 +175,7 @@ class PodcastsRepository(
     suspend fun refreshShow(feedUrl: String) = withContext(Dispatchers.IO) {
         val xml = fetchText(feedUrl) ?: return@withContext
         val feed = PodcastRss.parse(xml, feedUrl) ?: return@withContext
-        val mergedShow = feed.show.copy(
-            subscribedAt = show(feedUrl)?.subscribedAt ?: System.currentTimeMillis(),
-            artworkUrl = feed.show.artworkUrl.ifBlank { show(feedUrl)?.artworkUrl.orEmpty() },
-        )
+        val mergedShow = Podcasts.mergeShow(show(feedUrl), feed.show)
         _shows.value = _shows.value.map {
             if (it.feedUrl.equals(feedUrl, ignoreCase = true)) mergedShow else it
         }

@@ -28,6 +28,12 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
 ![Search hits with artwork on the left](../../../assets/screenshots/podcasts-search.png)
 
+## Show
+
+Open a subscription. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show.
+
+![Oldest first on a show](../../../assets/screenshots/podcast-show.png)
+
 ## Episode
 
 ![Play, position, and download](../../../assets/screenshots/podcast-episode.png)

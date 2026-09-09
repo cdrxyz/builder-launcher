@@ -169,6 +169,7 @@ import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.stocks.WatchItem
+import xyz.cdr.builderlauncher.podcasts.EpisodeOrder
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastArtwork
 import xyz.cdr.builderlauncher.podcasts.PodcastHit
@@ -2615,7 +2616,8 @@ fun BuilderRoot(
             Page.PodcastShow -> {
                 val feed = podcastShowUrl.orEmpty()
                 val show = podcastShows.find { it.feedUrl == feed }
-                val eps = podcastEpisodes.filter { it.showId == feed }.sortedByDescending { it.pubDate }
+                val eps = podcasts.episodesFor(feed)
+                val order = show?.episodeOrder ?: EpisodeOrder.NEWEST
                 Text(
                     Podcasts.BACK,
                     color = Accent,
@@ -2629,6 +2631,16 @@ fun BuilderRoot(
                     Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 }
                 Spacer(Modifier.height(12.dp))
+                Text("Episodes", color = Dim, style = MaterialTheme.typography.labelSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                    listOf(EpisodeOrder.NEWEST, EpisodeOrder.OLDEST).forEach { option ->
+                        Text(
+                            Podcasts.episodeOrderLabel(option),
+                            color = if (order == option) Accent else Dim,
+                            modifier = Modifier.clickable { podcasts.setEpisodeOrder(feed, option) },
+                        )
+                    }
+                }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(eps, key = { it.id }) { ep ->
                         val prog = podcastProgress[ep.id]

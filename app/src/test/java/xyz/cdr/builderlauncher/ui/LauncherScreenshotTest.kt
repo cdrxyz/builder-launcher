@@ -423,6 +423,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun podcastShow() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastShowChrome(
+                    show = "Accidental Tech Podcast",
+                    author = "Marco Arment",
+                    order = "oldest first",
+                    episodes = listOf(
+                        PodcastListRow("Episode 1: Hello", "1:02:03"),
+                        PodcastListRow("Episode 2", "45:00"),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun podcastEpisode() {
         paparazzi.snapshot {
             BuilderTheme {

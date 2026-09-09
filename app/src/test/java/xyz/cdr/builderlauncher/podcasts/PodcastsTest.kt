@@ -231,6 +231,44 @@ class PodcastsTest {
         assertFalse(Podcasts.searchRowShowsArt("   "))
     }
 
+    @Test
+    fun sortsShowEpisodesNewestOrOldest() {
+        val feed = "https://atp.fm/rss"
+        val eps = listOf(
+            episode("a", feed, "First", pubDate = 1_000),
+            episode("b", feed, "Middle", pubDate = 2_000),
+            episode("c", feed, "Latest", pubDate = 3_000),
+        )
+        assertEquals(
+            listOf("c", "b", "a"),
+            Podcasts.sortEpisodes(eps, EpisodeOrder.NEWEST).map { it.id },
+        )
+        assertEquals(
+            listOf("a", "b", "c"),
+            Podcasts.sortEpisodes(eps, EpisodeOrder.OLDEST).map { it.id },
+        )
+        assertEquals(EpisodeOrder.NEWEST, PodcastShow(feed, "ATP").episodeOrder)
+        assertEquals("newest first", Podcasts.episodeOrderLabel(EpisodeOrder.NEWEST))
+        assertEquals("oldest first", Podcasts.episodeOrderLabel(EpisodeOrder.OLDEST))
+        assertEquals(EpisodeOrder.NEWEST, Podcasts.parseEpisodeOrder(null))
+        assertEquals(EpisodeOrder.OLDEST, Podcasts.parseEpisodeOrder("oldest"))
+        assertEquals(EpisodeOrder.NEWEST, Podcasts.parseEpisodeOrder("newest"))
+        assertEquals(
+            EpisodeOrder.OLDEST,
+            Podcasts.mergeShow(
+                PodcastShow(feed, "ATP", episodeOrder = EpisodeOrder.OLDEST),
+                PodcastShow(feed, "Accidental Tech Podcast", author = "Marco"),
+            ).episodeOrder,
+        )
+        assertEquals(
+            "Accidental Tech Podcast",
+            Podcasts.mergeShow(
+                PodcastShow(feed, "ATP", episodeOrder = EpisodeOrder.OLDEST),
+                PodcastShow(feed, "Accidental Tech Podcast", author = "Marco"),
+            ).title,
+        )
+    }
+
     private fun episode(id: String, showId: String, title: String, pubDate: Long) = PodcastEpisode(
         id = id,
         showId = showId,
