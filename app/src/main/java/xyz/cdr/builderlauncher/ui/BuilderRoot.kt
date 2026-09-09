@@ -240,8 +240,8 @@ fun BuilderRoot(
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
-    var usagePeriod by remember { mutableStateOf(UsagePeriod.TODAY) }
-    var usageSnapshot by remember { mutableStateOf(Usage.build(emptyList(), emptyMap(), UsagePeriod.TODAY, false)) }
+    var usagePeriod by remember { mutableStateOf(UsagePeriod.W1) }
+    var usageSnapshot by remember { mutableStateOf(Usage.build(emptyList(), emptyMap(), UsagePeriod.W1, false)) }
     var editingTodoId by remember { mutableStateOf<String?>(null) }
     var wipeBarOnHome by remember { mutableStateOf(false) }
     val pinPkgs by pins.packages.collectAsState()
@@ -275,9 +275,7 @@ fun BuilderRoot(
             usageSnapshot = usageReader.load(usageStore, usagePeriod)
         }
     }
-    LaunchedEffect(homePressCount) {
-        if (homePressCount > 0) page = Page.Home
-    }
+
     BackHandler {
         when (
             BackPress.result(
@@ -303,11 +301,19 @@ fun BuilderRoot(
                 appQuery = false
             }
             BackResult.OpenHome -> {
-                page = Page.Home
-                if (wipeBarOnHome || prompt == SlashCommands.PROMPT) {
+                if (page == Page.Todos) {
+                    editingTodoId = null
                     wipeBarOnHome = false
                     prompt = PrefixCommands.DEFAULT_PROMPT
                     input = ""
+                    page = HomeStrip.homeAfterOverlay()
+                } else {
+                    page = Page.Home
+                    if (wipeBarOnHome || prompt == SlashCommands.PROMPT) {
+                        wipeBarOnHome = false
+                        prompt = PrefixCommands.DEFAULT_PROMPT
+                        input = ""
+                    }
                 }
             }
         }
@@ -697,6 +703,13 @@ fun BuilderRoot(
         applyMode(PrefixCommands.pick(PrefixCommands.Mode(), '-'))
     }
 
+    fun openHomeDefault() {
+        editingTodoId = null
+        wipeBarOnHome = false
+        clearBar()
+        page = HomeStrip.homeAfterOverlay()
+    }
+
     fun addWorldClock(place: WeatherPlace) {
         val zone = place.timezone
         if (zone.isNullOrBlank()) {
@@ -882,22 +895,30 @@ fun BuilderRoot(
         initialPage = HomeStrip.indexOf(page) ?: HomeStrip.HOME,
         pageCount = { HomeStrip.COUNT },
     )
+    LaunchedEffect(homePressCount) {
+        if (homePressCount > 0) {
+            openHomeDefault()
+            pagerState.scrollToPage(HomeStrip.HOME)
+        }
+    }
     LaunchedEffect(page) {
         val target = HomeStrip.indexOf(page) ?: return@LaunchedEffect
         if (pagerState.settledPage != target && !pagerState.isScrollInProgress) {
             pagerState.animateScrollToPage(target)
         }
     }
-    LaunchedEffect(pagerState.settledPage) {
-        if (!HomeStrip.contains(page)) return@LaunchedEffect
-        val next = HomeStrip.pageAt(pagerState.settledPage)
-        if (next != page) {
-            when (next) {
-                Page.Usage -> openUsage()
-                Page.Hub -> openHub()
-                Page.Home -> page = Page.Home
-                else -> Unit
-            }
+    LaunchedEffect(pagerState.settledPage, pagerState.currentPage, pagerState.isScrollInProgress, page) {
+        val next = HomeStrip.followSettled(
+            page = page,
+            settledIndex = pagerState.settledPage,
+            currentIndex = pagerState.currentPage,
+            scrolling = pagerState.isScrollInProgress,
+        ) ?: return@LaunchedEffect
+        when (next) {
+            Page.Usage -> openUsage()
+            Page.Hub -> openHub()
+            Page.Home -> page = Page.Home
+            else -> Unit
         }
     }
 
@@ -911,10 +932,11 @@ fun BuilderRoot(
             .imePadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        if (onStrip) {
+        Box(Modifier.fillMaxSize()) {
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = onStrip,
                 beyondViewportPageCount = 1,
             ) { index ->
                 Column(Modifier.fillMaxSize()) {
@@ -1275,7 +1297,8 @@ fun BuilderRoot(
                     }
                 }
             }
-        } else {
+            if (HomeStrip.coversPager(page)) {
+            Column(Modifier.fillMaxSize().background(Ink)) {
             when (page) {
             Page.Todos -> {
                 val todos = HomeTodos.of(local)
@@ -1290,15 +1313,7 @@ fun BuilderRoot(
                         HomeTodos.BACK,
                         color = Accent,
                         modifier = Modifier
-                            .clickable {
-                                applyMode(
-                                    PrefixCommands.type(
-                                        PrefixCommands.Mode(),
-                                        HomeTodos.leaveDraft(mode().line),
-                                    ),
-                                )
-                                page = Page.Home
-                            }
+                            .clickable { openHomeDefault() }
                             .padding(vertical = 6.dp),
                     )
                     CopyIcon(
@@ -1410,6 +1425,7 @@ fun BuilderRoot(
                     onSubmit = { runCommand() },
                     onSlash = { pickSlash(it) },
                     onHub = { openHub() },
+                    showSubmit = editingTodoId != null,
                 )
             }
             Page.Notes -> {
@@ -2217,6 +2233,8 @@ fun BuilderRoot(
             }
                 else -> Unit
             }
+            }
+            }
         }
     }
         clockState.alert?.let { alert ->
@@ -2428,6 +2446,7 @@ private fun CommandBar(
     onSlash: (SlashCommand) -> Unit,
     onHub: () -> Unit,
     onLeft: (() -> Unit)? = null,
+    showSubmit: Boolean = false,
 ) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -2666,6 +2685,14 @@ private fun CommandBar(
                         }
                     },
             )
+            if (showSubmit) {
+                CheckIcon(
+                    Modifier
+                        .semantics { contentDescription = "save task" }
+                        .clickable { onSubmit() }
+                        .padding(start = 12.dp, top = if (wrap) 2.dp else 0.dp),
+                )
+            }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
     }

@@ -14,11 +14,13 @@ Prefix `-`. Example: `-buy milk`.
 
 ![Full tasks page with open and completed items](../../../assets/screenshots/todos.png)
 
+![Editing a task with a pencil and a check to save](../../../assets/screenshots/todos-edit.png)
+
 On the tasks page:
 
 - Command bar starts with `-` so the next Enter saves another todo.
-- `<` returns home.
-- Pencil on the right (before delete) loads that task into the bar. Enter saves the edit.
+- Pencil on the right (before delete) loads that task into the bar. A check on the right of the bar saves the edit.
+- `<` or Back returns home in default command-bar mode (not task mode).
 - Long-press and drag an open row across the list to reorder. Other rows slide out of the way as you pass them. Order is saved on the device. Home preview stays tap-only.
 - Copy icon writes open todos to the clipboard as:
 

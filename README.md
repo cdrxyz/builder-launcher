@@ -16,7 +16,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
   <img src="docs/screenshots/home.png" alt="Home: analog clock, weather on the left, usage mark, command bar" width="240" />
   <img src="docs/screenshots/home-timer.png" alt="Home with a running timer in place of the clock" width="240" />
   <img src="docs/screenshots/home-ticker.png" alt="Home with weather on the left and watchlist ticker on the right" width="240" />
-  <img src="docs/screenshots/usage.png" alt="Usage: today / 1M / 3M / 6M chart, productive vs distracting, most-used apps" width="240" />
+  <img src="docs/screenshots/usage.png" alt="Usage: 1W / 1M chart, productive vs distracting, most-used apps" width="240" />
   <img src="docs/screenshots/hub.png" alt="Hub: messages you can reply to" width="240" />
   <img src="docs/screenshots/settings.png" alt="Settings: accent color, Hermes or xAI, keyboard mode" width="240" />
 </p>

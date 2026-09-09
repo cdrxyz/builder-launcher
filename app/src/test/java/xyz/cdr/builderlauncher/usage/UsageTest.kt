@@ -25,10 +25,10 @@ class UsageTest {
     fun percentAndVs() {
         assertEquals(0, Usage.percent(10, 0))
         assertEquals(25, Usage.percent(15, 60))
-        assertEquals("Same as yesterday", Usage.vsLabel(0))
-        assertEquals("1h more than yesterday", Usage.vsLabel(3_600_000L))
-        assertEquals("20m less than yesterday", Usage.vsLabel(-20 * 60_000L))
-        assertEquals("No yesterday yet", Usage.vsLabel(null))
+        assertEquals("Same as last week", Usage.vsLabel(0))
+        assertEquals("1h more than last week", Usage.vsLabel(3_600_000L))
+        assertEquals("20m less than last week", Usage.vsLabel(-20 * 60_000L))
+        assertEquals("", Usage.vsLabel(null))
     }
 
     @Test
@@ -59,20 +59,20 @@ class UsageTest {
     }
 
     @Test
-    fun periodLabelsMatchStocksChips() {
-        assertEquals(listOf("today", "1M", "3M", "6M"), UsagePeriod.entries.map { it.label })
+    fun periodLabelsAreWeekAndMonth() {
+        assertEquals(listOf("1W", "1M"), UsagePeriod.entries.map { it.label })
+        assertEquals(UsagePeriod.W1, UsagePeriod.entries.first())
     }
 
     @Test
-    fun buildSplitsTodayAndMarksOverrides() {
-        val hour = Usage.HOUR_MS
+    fun buildSplitsWeekDaysAndMarksOverrides() {
         val start = 1_725_667_200_000L
-        val raw = (0 until 24).map { h ->
-            if (h != 14) {
-                UsageRawDay(start + h * hour, emptyList())
+        val raw = (0 until 7).map { d ->
+            if (d != 3) {
+                UsageRawDay(start + d * Usage.DAY_MS, emptyList())
             } else {
                 UsageRawDay(
-                    startMs = start + h * hour,
+                    startMs = start + d * Usage.DAY_MS,
                     apps = listOf(
                         UsageRawApp("com.termux", "Termux", 3_600_000L),
                         UsageRawApp("com.google.android.youtube", "YouTube", 3_600_000L),
@@ -83,29 +83,29 @@ class UsageTest {
                 )
             }
         }
-        val today = Usage.build(
+        val week = Usage.build(
             rawDays = raw,
             overrides = mapOf("org.mozilla.firefox" to UsageKind.PRODUCTIVE),
-            period = UsagePeriod.TODAY,
+            period = UsagePeriod.W1,
             granted = true,
             zone = ZoneOffset.UTC,
             previousMs = 2 * 3_600_000L,
         )
-        assertEquals(24, today.bars.size)
-        assertEquals(2 * 3_600_000L + 30 * 60_000L, today.totalMs)
-        assertEquals(3_600_000L + 30 * 60_000L, today.productiveMs)
-        assertEquals(3_600_000L, today.distractingMs)
-        assertEquals(0L, today.otherMs)
-        assertEquals(21, today.pickups)
-        assertEquals(30 * 60_000L, today.vsYesterdayMs)
-        assertTrue(today.apps.none { it.packageName == "com.android.systemui" })
-        assertEquals(UsageKind.PRODUCTIVE, today.apps.find { it.packageName == "org.mozilla.firefox" }?.kind)
-        assertEquals("14", today.bars[14].label)
-        assertTrue(today.bars[14].detail.contains("14:00"))
+        assertEquals(7, week.bars.size)
+        assertEquals(2 * 3_600_000L + 30 * 60_000L, week.totalMs)
+        assertEquals(3_600_000L + 30 * 60_000L, week.productiveMs)
+        assertEquals(3_600_000L, week.distractingMs)
+        assertEquals(0L, week.otherMs)
+        assertEquals(21, week.pickups)
+        assertEquals(30 * 60_000L, week.vsLastWeekMs)
+        assertTrue(week.apps.none { it.packageName == "com.android.systemui" })
+        assertEquals(UsageKind.PRODUCTIVE, week.apps.find { it.packageName == "org.mozilla.firefox" }?.kind)
+        assertEquals("Tue", week.bars[3].label)
+        assertTrue(week.bars[3].detail.contains("Tue"))
     }
 
     @Test
-    fun monthQuarterAndHalfBarCounts() {
+    fun monthBarCountHasNoWeekDelta() {
         val start = 1_725_667_200_000L
         val monthRaw = (0 until 30).map { i ->
             UsageRawDay(start + i * Usage.DAY_MS, listOf(UsageRawApp("com.termux", "Termux", Usage.HOUR_MS)))
@@ -113,24 +113,32 @@ class UsageTest {
         val month = Usage.build(monthRaw, emptyMap(), UsagePeriod.M1, true, ZoneOffset.UTC)
         assertEquals(30, month.bars.size)
         assertEquals(30 * Usage.HOUR_MS, month.totalMs)
-        assertNull(month.vsYesterdayMs)
-
-        val quarter = Usage.sample(UsagePeriod.M3)
-        assertEquals(13, quarter.bars.size)
-        val half = Usage.sample(UsagePeriod.M6)
-        assertEquals(26, half.bars.size)
+        assertNull(month.vsLastWeekMs)
     }
 
     @Test
-    fun sampleIsGrantedTodayHourly() {
+    fun previousWeekDoesNotOverlapCurrentBars() {
+        val today = 1_725_667_200_000L
+        val currentStart = today - (Usage.DAYS - 1) * Usage.DAY_MS
+        val range = Usage.previousRange(today, UsagePeriod.W1)!!
+        assertEquals(currentStart - Usage.WEEK_MS, range.first)
+        assertEquals(currentStart - 1, range.second)
+        assertTrue(range.second < currentStart)
+        assertEquals(Usage.WEEK_MS - 1, range.second - range.first)
+        assertNull(Usage.previousRange(today, UsagePeriod.M1))
+    }
+
+    @Test
+    fun sampleIsGrantedWeekDaily() {
         val snap = Usage.sample()
         assertTrue(snap.granted)
-        assertEquals(UsagePeriod.TODAY, snap.period)
-        assertEquals(24, snap.bars.size)
+        assertEquals(UsagePeriod.W1, snap.period)
+        assertEquals(7, snap.bars.size)
         assertTrue(snap.totalMs > 0)
         assertTrue(snap.apps.isNotEmpty())
-        assertTrue(Usage.axisLabel(0, 24, UsagePeriod.TODAY))
-        assertTrue(Usage.axisLabel(6, 24, UsagePeriod.TODAY))
-        assertTrue(!Usage.axisLabel(1, 24, UsagePeriod.TODAY))
+        assertTrue(Usage.axisLabel(0, 7, UsagePeriod.W1))
+        assertTrue(Usage.axisLabel(3, 7, UsagePeriod.W1))
+        assertTrue(Usage.axisLabel(1, 30, UsagePeriod.M1) == false)
+        assertTrue(Usage.axisLabel(0, 30, UsagePeriod.M1))
     }
 }

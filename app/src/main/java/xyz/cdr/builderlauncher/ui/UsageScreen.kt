@@ -126,11 +126,14 @@ fun UsageBody(
         }
         Spacer(Modifier.height(8.dp))
         Text(Usage.formatDuration(total), style = MaterialTheme.typography.headlineLarge, color = Paper)
-        Text(
-            bar?.detail ?: Usage.vsLabel(snapshot.vsYesterdayMs),
-            color = Dim,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        val subtitle = bar?.detail ?: Usage.vsLabel(snapshot.vsLastWeekMs)
+        if (subtitle.isNotEmpty()) {
+            Text(
+                subtitle,
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         if (bar == null && snapshot.pickups > 0) {
             Text(
                 "${snapshot.pickups} pickups",
@@ -157,7 +160,7 @@ fun UsageBody(
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "Tap a bar to read that hour, day, or week. Tap an app to mark it productive, distracting, or other.",
+            "Tap a bar to read that day. Tap an app to mark it productive, distracting, or other.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
