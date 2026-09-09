@@ -76,7 +76,7 @@ class CommandParserTest {
         assertEquals(Command.OpenClock, CommandParser.parse("/clock"))
         assertEquals(Command.OpenWeather, CommandParser.parse("weather"))
         assertEquals(Command.OpenWeather, CommandParser.parse("/weather"))
-        assertEquals(Command.OpenUsage, CommandParser.parse("usage"))
+        assertEquals(Command.LaunchApp("usage"), CommandParser.parse("usage"))
         assertEquals(Command.OpenUsage, CommandParser.parse("/usage"))
         assertEquals(Command.OpenStocks, CommandParser.parse("$"))
         assertEquals(Command.Stock("AAPL"), CommandParser.parse("\$AAPL"))

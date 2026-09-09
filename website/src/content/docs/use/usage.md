@@ -7,7 +7,7 @@ description: Screen time on the phone. Productive vs distracting, 1W / 1M, most-
 
 ![Press a bar to see that day and its apps](../../../assets/screenshots/usage-scrub.png)
 
-Type `usage` or `/usage`, tap the descending bar chart at the top left of [home](home/), swipe from the left of home, or press D-pad left.
+Type `/usage` on [home](home/). There is no unprefixed `usage` command, home mark, or swipe.
 
 Android keeps the totals. Builder Launcher does not upload them. Grant **Usage access** the first time (also in [settings](../../configure/settings/)).
 
@@ -23,4 +23,4 @@ Android keeps the totals. Builder Launcher does not upload them. Grant **Usage a
 
 YouTube, Instagram, and similar apps start as distracting. Termux, Slack, Gmail, calendars, and maps start as productive. Everything else starts as other, including this launcher and browsers.
 
-`usage` sits top left in the accent color. Swipe left, `>` (top right), or Back returns home.
+`<` or Back returns home.

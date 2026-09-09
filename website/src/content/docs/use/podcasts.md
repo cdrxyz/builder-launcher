@@ -3,7 +3,7 @@ title: Podcasts
 description: Search, subscribe, stream, and download podcasts with a capped cache and Overcast OPML import.
 ---
 
-Type `podcasts`, `/podcasts`, or tap `… all podcasts >`.
+Type `podcasts`, `/podcasts`, tap the headphones mark at the top left of [home](home/), swipe from the left of home, press D-pad left, or tap `… all podcasts >`.
 
 There is no live Overcast account sync. Export OPML from Overcast (Settings → Export OPML), copy it, and paste on podcasts settings.
 
@@ -46,7 +46,7 @@ Open a subscription. Episode titles are shown in full. Length (or resume positio
 - Position is saved. Play again resumes where you left off. Near the end counts as finished and hides the now playing bar.
 - **Show notes** from the feed sit under the player. Timestamps (`0:00`, `12:34`, `1:02:03`) are links; tap one to jump there.
 
-While audio is playing, a pause icon sits next to usage on home; tap it to pause. After pause it becomes play, then after 8 seconds the headphones mark again. Headphones is always there otherwise — tap it for podcasts. Weather sits to the right of that mark. Lock screen and headset controls use Android media playback (title, show, play/pause).
+While audio is playing, a pause icon sits at the top left of home; tap it to pause. After pause it becomes play, then after 8 seconds the headphones mark again. Headphones is always there otherwise — tap it for podcasts. Weather sits to the right of that mark. Lock screen and headset controls use Android media playback (title, show, play/pause).
 
 ![Headphones then weather on home](../../../assets/screenshots/home-playing.png)
 

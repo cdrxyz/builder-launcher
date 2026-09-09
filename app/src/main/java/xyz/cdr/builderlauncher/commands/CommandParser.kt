@@ -78,7 +78,9 @@ object CommandParser {
     private fun parseNamed(raw: String): Command? {
         val trimmed = raw.trim()
         val lower = trimmed.lowercase()
-        SlashCommands.exact(lower)?.let { return it.command }
+        SlashCommands.exact(lower)?.let { named ->
+            if (named.command != Command.OpenUsage) return named.command
+        }
         when (lower) {
             "stock" -> return Command.OpenStocks
             "podcast" -> return Command.OpenPodcasts
