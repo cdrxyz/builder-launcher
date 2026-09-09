@@ -70,6 +70,7 @@ class ProviderAccess(
     private val settings: SettingsRepository,
     private val oauth: OAuthService,
     private val http: OkHttpClient = OkHttpClient.Builder()
+        .cookieJar(MemoryCookieJar())
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build(),
@@ -77,14 +78,18 @@ class ProviderAccess(
     suspend fun check(snapshot: BuilderSettings = settings.settings.value): AccessCheck.Done =
         withContext(Dispatchers.IO) {
             val platform = AiPlatforms.of(snapshot.provider)
+            if (snapshot.provider == LlmProvider.HERMES) {
+                val webUi = HermesUrls.webUi(snapshot)
+                if (webUi.isBlank()) {
+                    return@withContext AccessCheck.Done(false, missingCreds(snapshot.provider))
+                }
+                return@withContext AccessReport.combine(null, probeWebUi(webUi, snapshot.apiKey))
+            }
             val apiBase = settings.effectiveBaseUrl(snapshot)
-            val webUi = if (snapshot.provider == LlmProvider.HERMES) HermesUrls.webUi(snapshot) else ""
-            if (apiBase.isBlank() && webUi.isBlank()) {
+            if (apiBase.isBlank()) {
                 return@withContext AccessCheck.Done(false, missingCreds(snapshot.provider))
             }
-            val api = if (apiBase.isNotBlank()) probeApi(snapshot, platform, apiBase) else null
-            val web = if (webUi.isNotBlank()) probeWebUi(webUi) else null
-            AccessReport.combine(api, web)
+            AccessReport.combine(probeApi(snapshot, platform, apiBase), null)
         }
 
     private fun probeApi(snapshot: BuilderSettings, platform: AiPlatform, base: String): Probe {
@@ -130,23 +135,11 @@ class ProviderAccess(
         }
     }
 
-    private fun probeWebUi(base: String): Probe {
+    private fun probeWebUi(base: String, password: String): Probe {
         if (!EndpointPolicy.allowed(base)) {
             return Probe(false, "Web UI blocked: HTTP is only allowed to private LAN hosts.")
         }
-        val root = base.trim().trimEnd('/')
-        var last = Probe(false, "Web UI failed: could not reach the host.")
-        for (path in listOf("/api/status", "/health")) {
-            last = try {
-                http.newCall(Request.Builder().url("$root$path").get().build()).execute().use { resp ->
-                    AccessReport.fromWebUi(resp.code)
-                }
-            } catch (_: Throwable) {
-                Probe(false, "Web UI failed: could not reach the host.")
-            }
-            if (last.ok) return last
-        }
-        return last
+        return HermesWebUi.probe(http, base, password)
     }
 
     private fun modelsUrl(platform: AiPlatform, base: String): String {
@@ -162,6 +155,7 @@ class ProviderAccess(
     private fun missingCreds(provider: LlmProvider): String {
         val platform = AiPlatforms.of(provider)
         return when {
+            provider == LlmProvider.HERMES -> "Set a Web UI URL in settings."
             platform.needsBaseUrl && platform.keyOptional -> "Set a base URL in settings."
             platform.needsBaseUrl -> "Set a base URL and API key in settings."
             else -> "Sign in or paste an API key in settings."

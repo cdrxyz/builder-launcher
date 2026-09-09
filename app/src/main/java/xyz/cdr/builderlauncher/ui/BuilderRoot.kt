@@ -1636,11 +1636,19 @@ fun BuilderRoot(
                     }
                     items(messages, key = { "${it.role}-${it.createdAt}-${it.content.hashCode()}" }) { msg ->
                         if (msg.fromUser) {
-                            Text(msg.content, color = Accent, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                msg.content,
+                                color = Accent,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.clickable { copyText("question", msg.content) },
+                            )
                         } else if (msg.isNotice) {
                             Text(msg.content, color = Dim, style = MaterialTheme.typography.bodyMedium)
                         } else {
-                            MarkdownDocument(msg.content)
+                            MarkdownDocument(
+                                msg.content,
+                                Modifier.clickable { copyText("reply", msg.content) },
+                            )
                         }
                     }
                     if (chatBusy) {
@@ -3111,7 +3119,16 @@ private fun AiProvidersPage(
             }
         }
         Spacer(Modifier.height(8.dp))
-        if (platform.needsBaseUrl) {
+        if (settings.provider == LlmProvider.HERMES) {
+            LabeledField(
+                "Web UI URL",
+                webUrl,
+                HermesUrls.DEFAULT_WEBUI,
+            ) {
+                webUrl = it
+                repo.update { s -> s.copy(hermesWebUrl = it) }
+            }
+        } else if (platform.needsBaseUrl) {
             LabeledField(
                 "Base URL",
                 baseUrl,
@@ -3119,16 +3136,6 @@ private fun AiProvidersPage(
             ) {
                 baseUrl = it
                 repo.update { s -> s.copy(hermesBaseUrl = it) }
-            }
-            if (settings.provider == LlmProvider.HERMES) {
-                LabeledField(
-                    "Web UI URL",
-                    webUrl,
-                    HermesUrls.webUiPlaceholder(baseUrl),
-                ) {
-                    webUrl = it
-                    repo.update { s -> s.copy(hermesWebUrl = it) }
-                }
             }
         }
         if (settings.provider == LlmProvider.HERMES) {
@@ -3151,9 +3158,9 @@ private fun AiProvidersPage(
             }
             Text(
                 if (settings.hermesOpenInHermex) {
-                    "The Hermes mark shares the question into Hermex, like Grok. If Hermex is not installed it opens your Hermes URL."
+                    "The Hermes mark shares the question into Hermex. If Hermex is not installed it opens your Web UI."
                 } else {
-                    "The Hermes mark opens your Web UI URL, or the API base if none is set."
+                    "The Hermes mark opens your Web UI in the browser."
                 },
                 color = Dim,
                 style = MaterialTheme.typography.bodyMedium,
@@ -3234,9 +3241,19 @@ private fun AiProvidersPage(
             },
         )
         LabeledField(
-            "API key (stored on device)",
+            if (settings.provider == LlmProvider.HERMES) {
+                "Web UI password (stored on device)"
+            } else {
+                "API key (stored on device)"
+            },
             key,
-            if (platform.keyOptional) "optional" else "optional if signed in",
+            if (settings.provider == LlmProvider.HERMES) {
+                "optional if the instance is open"
+            } else if (platform.keyOptional) {
+                "optional"
+            } else {
+                "optional if signed in"
+            },
         ) {
             key = it
             repo.update { s -> s.copy(apiKey = it) }

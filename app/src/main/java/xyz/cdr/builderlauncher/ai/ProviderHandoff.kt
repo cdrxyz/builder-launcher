@@ -9,11 +9,16 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 object ProviderHandoff {
-    const val HERMEX_PACKAGE = "com.hermex.android"
+    const val HERMEX_PACKAGE = "com.uzairansar.hermex"
+
+    val HERMEX_PACKAGES = listOf(
+        "com.uzairansar.hermex",
+        "com.hermex.android",
+    )
 
     val HERMEX_DEEP_LINKS = listOf(
-        "hermex://new-chat",
         "hermes-agent://new-chat",
+        "hermex://new-chat",
     )
 
     fun prompt(draft: String, lastUserMessage: String?): String {
@@ -71,13 +76,19 @@ object ProviderHandoff {
         hermesBaseUrl: String?,
         openHermex: Boolean = false,
     ): Boolean {
-        val pkg = appPackage(provider, openHermex)
-        if (pkg != null && prompt.isNotBlank() && shareTo(context, pkg, prompt)) {
-            return true
-        }
         if (provider == LlmProvider.HERMES && openHermex) {
+            if (prompt.isNotBlank()) {
+                for (pkg in HERMEX_PACKAGES) {
+                    if (shareTo(context, pkg, prompt)) return true
+                }
+            }
             for (link in HERMEX_DEEP_LINKS) {
                 if (view(context, link)) return true
+            }
+        } else {
+            val pkg = appPackage(provider, openHermex)
+            if (pkg != null && prompt.isNotBlank() && shareTo(context, pkg, prompt)) {
+                return true
             }
         }
         val url = webUrl(provider, prompt, hermesBaseUrl) ?: return false

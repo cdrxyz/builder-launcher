@@ -18,6 +18,7 @@ object AiFallback {
         val t = text.trim()
         if (t.isEmpty()) return true
         return t.startsWith("Set a Hermes URL") ||
+            t.startsWith("Set a Web UI URL") ||
             t.startsWith("Set a base URL") ||
             t.startsWith("Sign in or paste an API key") ||
             t.startsWith("Could not reach") ||

@@ -1047,15 +1047,10 @@ fun AiProvidersChrome(
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        if (platform.needsBaseUrl) {
+        if (settings.provider == LlmProvider.HERMES) {
+            Field("Web UI URL", settings.hermesWebUrl, HermesUrls.DEFAULT_WEBUI)
+        } else if (platform.needsBaseUrl) {
             Field("Base URL", settings.hermesBaseUrl, platform.defaultLocalBase ?: HermesUrls.DEFAULT_API)
-            if (settings.provider == LlmProvider.HERMES) {
-                Field(
-                    "Web UI URL",
-                    settings.hermesWebUrl,
-                    HermesUrls.webUiPlaceholder(settings.hermesBaseUrl),
-                )
-            }
         }
         if (settings.provider == LlmProvider.HERMES) {
             Text("Open question in", color = Dim, style = MaterialTheme.typography.labelSmall)
@@ -1065,18 +1060,32 @@ fun AiProvidersChrome(
             }
             Text(
                 if (settings.hermesOpenInHermex) {
-                    "The Hermes mark shares the question into Hermex, like Grok. If Hermex is not installed it opens your Hermes URL."
+                    "The Hermes mark shares the question into Hermex. If Hermex is not installed it opens your Web UI."
                 } else {
-                    "The Hermes mark opens your Web UI URL, or the API base if none is set."
+                    "The Hermes mark opens your Web UI in the browser."
                 },
                 color = Dim,
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        Field("API key (stored on device)", "", if (platform.keyOptional) "optional" else "optional if signed in")
+        Field(
+            if (settings.provider == LlmProvider.HERMES) {
+                "Web UI password (stored on device)"
+            } else {
+                "API key (stored on device)"
+            },
+            "",
+            if (settings.provider == LlmProvider.HERMES) {
+                "optional if the instance is open"
+            } else if (platform.keyOptional) {
+                "optional"
+            } else {
+                "optional if signed in"
+            },
+        )
         Field("Model", settings.model, platform.defaultModel)
         Spacer(Modifier.height(12.dp))
-        Text("Access good — hermes-agent. Web UI reachable.", color = Accent, style = MaterialTheme.typography.bodyMedium)
+        Text("Web UI reachable.", color = Accent, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(24.dp))
         Text(
             "Each provider keeps its own sign-in. Tokens stay on the device and are sent only as a Bearer token.",
@@ -1524,7 +1533,8 @@ fun ProviderIcon(provider: LlmProvider, modifier: Modifier = Modifier) {
         LlmProvider.MISTRAL, LlmProvider.LMSTUDIO, LlmProvider.OLLAMA, LlmProvider.GENERIC,
         -> R.drawable.ic_logo_openai
         LlmProvider.ANTHROPIC -> R.drawable.ic_logo_claude
-        LlmProvider.HERMES, LlmProvider.GEMINI -> R.drawable.ic_logo_hermes
+        LlmProvider.HERMES -> R.drawable.ic_logo_hermes
+        LlmProvider.GEMINI -> R.drawable.ic_logo_gemini
     }
     val tint = when (provider) {
         LlmProvider.XAI, LlmProvider.OPENAI -> ColorFilter.tint(Accent)

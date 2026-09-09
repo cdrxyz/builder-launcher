@@ -83,7 +83,11 @@ class ProviderHandoffTest {
         assertNull(ProviderHandoff.appPackage(LlmProvider.HERMES, openHermex = false))
         assertEquals(ProviderHandoff.HERMEX_PACKAGE, ProviderHandoff.appPackage(LlmProvider.HERMES, openHermex = true))
         assertEquals(
-            listOf("hermex://new-chat", "hermes-agent://new-chat"),
+            listOf("com.uzairansar.hermex", "com.hermex.android"),
+            ProviderHandoff.HERMEX_PACKAGES,
+        )
+        assertEquals(
+            listOf("hermes-agent://new-chat", "hermex://new-chat"),
             ProviderHandoff.HERMEX_DEEP_LINKS,
         )
     }

@@ -37,6 +37,18 @@ class ChatStreamTest {
     }
 
     @Test
+    fun sseEventAndWebUiToken() {
+        val frame = """
+            event: token
+            data: {"text":"Hello"}
+        """.trimIndent()
+        assertEquals("token", ChatStream.sseEvent(frame))
+        assertEquals("Hello", ChatStream.webUiDelta(ChatStream.sseData(frame)))
+        assertEquals("bad password", ChatStream.webUiError("""{"error":"bad password"}"""))
+        assertEquals("message", ChatStream.sseEvent("data: {}"))
+    }
+
+    @Test
     fun looksLikeSse() {
         assertTrue(ChatStream.looksLikeSse("data: {}"))
         assertTrue(ChatStream.looksLikeSse("event: ping"))

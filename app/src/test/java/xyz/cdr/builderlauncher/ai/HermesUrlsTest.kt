@@ -61,6 +61,17 @@ class HermesUrlsTest {
     }
 
     @Test
+    fun apiOnlyDerivesWebUiPortAndDoesNotOpenTheApi() {
+        val s = BuilderSettings(
+            provider = LlmProvider.HERMES,
+            hermesBaseUrl = "http://192.168.1.10:8642",
+        )
+        assertEquals("http://192.168.1.10:8642", HermesUrls.apiBase(s))
+        assertEquals("http://192.168.1.10:9119", HermesUrls.webUi(s))
+        assertEquals("http://192.168.1.10:9119/", HermesUrls.openInBrowser(s))
+    }
+
+    @Test
     fun emptySettingsHaveNoOpenUrl() {
         assertNull(HermesUrls.openInBrowser(BuilderSettings(provider = LlmProvider.HERMES)))
     }

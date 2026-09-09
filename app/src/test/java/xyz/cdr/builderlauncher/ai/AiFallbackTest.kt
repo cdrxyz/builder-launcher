@@ -19,6 +19,7 @@ class AiFallbackTest {
     @Test
     fun failedDetectsHermesAndTransportErrors() {
         assertTrue(AiFallback.failed("Set a Hermes URL in settings."))
+        assertTrue(AiFallback.failed("Set a Web UI URL in settings."))
         assertTrue(AiFallback.failed("Set a base URL in settings."))
         assertTrue(AiFallback.failed("Could not reach the model."))
         assertTrue(AiFallback.failed("LLM error 503: overloaded"))
