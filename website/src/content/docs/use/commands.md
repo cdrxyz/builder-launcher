@@ -19,12 +19,12 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). Also in the [command menu](command-bar/) |
 | (none) | `Termux` | Search and launch apps |
 | | `pin Termux` / `unpin Termux` | Pin or unpin. Names on home; icons if settings says so |
-| | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `usage` / `settings` / `help` | Built-ins |
+| | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `settings` / `help` | Built-ins. Screen time is `/usage` |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 
 `help` and `/help` show the on-screen cheat sheet. A lone `?` opens [Ask AI](ai/).
 
-`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `podcasts`, `clock`, `weather`, and `usage`.
+`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `podcasts`, `clock`, and `weather`. Screen time is `/usage` only.
 
 ## Where each thing lives
 

@@ -8,7 +8,7 @@ description: Type at the bottom of home. Tap > for the prefix menu. Hardware key
 The prompt is always at the bottom. On a slab phone the software keyboard stays open under the bar. On hardware keys it stays out of the way.
 
 - Type, then **Enter** / Go.
-- **D-pad right** opens the [hub](hub/). **D-pad left** opens [usage](usage/).
+- **D-pad right** opens the [hub](hub/). **D-pad left** opens [podcasts](podcasts/).
 - Tap `>` (empty bar) to open the prefix menu.
 - The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
 

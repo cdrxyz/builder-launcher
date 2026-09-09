@@ -216,7 +216,6 @@ fun HomeChrome(
                 verticalAlignment = Alignment.Top,
             ) {
                 Row(verticalAlignment = Alignment.Top) {
-                    UsageIcon(Modifier.padding(top = 6.dp, end = 8.dp, bottom = 6.dp))
                     HomePodcastMarkIcon(podcastMark, Modifier.padding(top = 10.dp, end = 4.dp, bottom = 6.dp))
                     if (weather.isNotBlank()) {
                         HomeWeatherMark(weather)

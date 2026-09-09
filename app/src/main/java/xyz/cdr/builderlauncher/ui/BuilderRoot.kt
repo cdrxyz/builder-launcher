@@ -1190,7 +1190,7 @@ fun BuilderRoot(
             scrolling = pagerState.isScrollInProgress,
         ) ?: return@LaunchedEffect
         when (next) {
-            Page.Usage -> openUsage()
+            Page.Podcasts -> openPodcastsList()
             Page.Hub -> openHub()
             Page.Home -> page = Page.Home
             else -> Unit
@@ -1232,7 +1232,6 @@ fun BuilderRoot(
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
-                    onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
                     playing = playback.playing,
                     episodeLoaded = Podcasts.nowPlayingBarVisible(
@@ -1451,7 +1450,7 @@ fun BuilderRoot(
                     onSubmit = { runCommand() },
                     onSlash = { pickSlash(it) },
                     onHub = { openHub() },
-                    onLeft = { openUsage() },
+                    onLeft = { openPodcastsList() },
                 )
                         }
                         Page.Hub -> {
@@ -1570,20 +1569,199 @@ fun BuilderRoot(
                     }
                 }
                         }
-                        Page.Usage -> {
-                UsageScreen(
-                    snapshot = usageSnapshot,
-                    modifier = Modifier.weight(1f),
-                    onBack = { page = Page.Home },
-                    onPeriod = { next -> usagePeriod = next },
-                    onGrant = {
-                        runCatching { ctx.startActivity(usageReader.settingsIntent()) }
-                    },
-                    onCycleApp = { pkg ->
-                        usageStore.cycle(pkg)
-                        usageSnapshot = usageReader.load(usageStore, usagePeriod)
-                    },
-                )
+                        Page.Podcasts -> {
+                val searching = input.trim().isNotEmpty()
+                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
+                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Podcasts.BACK,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable {
+                                clearBar()
+                                page = Page.Home
+                            }
+                            .padding(vertical = 6.dp),
+                    )
+                    GearIcon(
+                        Modifier
+                            .semantics { contentDescription = "podcasts settings" }
+                            .clickable { page = Page.PodcastSettings }
+                            .padding(vertical = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                val nowEpisode = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
+                val nowEnded = nowEpisode != null && (
+                    Podcasts.finished(podcastProgress[nowEpisode.id]) ||
+                        Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs)
+                    )
+                if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
+                    PodcastNowPlayingBar(
+                        title = nowEpisode.title,
+                        show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
+                        playing = playback.playing,
+                        onOpen = { openPodcastEpisode(nowEpisode.id) },
+                        onToggle = { togglePlayback() },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (searching) {
+                        if (podcastHits.isEmpty()) {
+                            item {
+                                Text(if (podcastBusy) "Searching shows…" else "No show matches", color = Dim)
+                            }
+                        }
+                        items(podcastHits, key = { "h" + it.feedUrl }) { hit ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { subscribeHit(hit) }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                PodcastSearchArt(hit.artworkUrl)
+                                Column(Modifier.weight(1f)) {
+                                    Text(hit.title, color = Paper)
+                                    Text(
+                                        hit.author.ifBlank { hit.feedUrl },
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        if (rows.isEmpty()) {
+                            item {
+                                Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
+                            }
+                        }
+                        itemsIndexed(rows) { _, row ->
+                            when (row) {
+                                is PodcastHomeRow.Header -> {
+                                    PodcastSectionHeader(row.title)
+                                }
+                                is PodcastHomeRow.Continue -> {
+                                    val ep = row.episode
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { playEpisode(ep) },
+                                        ) {
+                                            Text(
+                                                ep.title,
+                                                color = Accent,
+                                                maxLines = Podcasts.titleMaxLines(home = true),
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                row.show.title,
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                        Text(
+                                            Podcasts.formatPosition(row.progress.positionMs, row.progress.durationMs.takeIf { it > 0 } ?: ep.durationMs),
+                                            color = Dim,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "dismiss episode" }
+                                                .clickable { skipEpisode(ep) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
+                                    }
+                                }
+                                is PodcastHomeRow.Fresh -> {
+                                    val ep = row.episode
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { playEpisode(ep) },
+                                        ) {
+                                            Text(
+                                                ep.title,
+                                                color = Paper,
+                                                maxLines = Podcasts.titleMaxLines(home = true),
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                row.show.title,
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = Podcasts.showMaxLines(nextEpisodes = true),
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                        if (ep.durationMs > 0) {
+                                            Text(
+                                                Podcasts.formatDuration(ep.durationMs),
+                                                color = Dim,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "dismiss episode" }
+                                                .clickable { skipEpisode(ep) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
+                                    }
+                                }
+                                is PodcastHomeRow.Subscription -> {
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable { openPodcastShow(row.show.feedUrl) },
+                                        ) {
+                                            Text(row.show.title, color = Paper)
+                                            if (row.show.author.isNotBlank()) {
+                                                Text(
+                                                    row.show.author,
+                                                    color = Dim,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                )
+                                            }
+                                        }
+                                        DeleteIcon(
+                                            Modifier
+                                                .semantics { contentDescription = "unsubscribe" }
+                                                .clickable { unsubscribeShow(row.show.feedUrl) }
+                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
                     prompt = prompt,
@@ -2169,6 +2347,33 @@ fun BuilderRoot(
                     onHub = { openHub() },
                 )
             }
+            Page.Usage -> {
+                UsageScreen(
+                    snapshot = usageSnapshot,
+                    modifier = Modifier.weight(1f),
+                    onBack = { page = Page.Home },
+                    onPeriod = { next -> usagePeriod = next },
+                    onGrant = {
+                        runCatching { ctx.startActivity(usageReader.settingsIntent()) }
+                    },
+                    onCycleApp = { pkg ->
+                        usageStore.cycle(pkg)
+                        usageSnapshot = usageReader.load(usageStore, usagePeriod)
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = prompt,
+                    value = input,
+                    hardware = hardware,
+                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
+            }
             Page.Settings -> {
                 SettingsPage(
                     settings = settings,
@@ -2554,212 +2759,6 @@ fun BuilderRoot(
                     )
                 }
             }
-            Page.Podcasts -> {
-                val searching = input.trim().isNotEmpty()
-                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
-                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
-                }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        Podcasts.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable {
-                                clearBar()
-                                page = Page.Home
-                            }
-                            .padding(vertical = 6.dp),
-                    )
-                    GearIcon(
-                        Modifier
-                            .semantics { contentDescription = "podcasts settings" }
-                            .clickable { page = Page.PodcastSettings }
-                            .padding(vertical = 6.dp),
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                val nowEpisode = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
-                val nowEnded = nowEpisode != null && (
-                    Podcasts.finished(podcastProgress[nowEpisode.id]) ||
-                        Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs)
-                    )
-                if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
-                    PodcastNowPlayingBar(
-                        title = nowEpisode.title,
-                        show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
-                        playing = playback.playing,
-                        onOpen = { openPodcastEpisode(nowEpisode.id) },
-                        onToggle = { togglePlayback() },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (searching) {
-                        if (podcastHits.isEmpty()) {
-                            item {
-                                Text(if (podcastBusy) "Searching shows…" else "No show matches", color = Dim)
-                            }
-                        }
-                        items(podcastHits, key = { "h" + it.feedUrl }) { hit ->
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { subscribeHit(hit) }
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                PodcastSearchArt(hit.artworkUrl)
-                                Column(Modifier.weight(1f)) {
-                                    Text(hit.title, color = Paper)
-                                    Text(
-                                        hit.author.ifBlank { hit.feedUrl },
-                                        color = Dim,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        if (rows.isEmpty()) {
-                            item {
-                                Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
-                            }
-                        }
-                        itemsIndexed(rows) { _, row ->
-                            when (row) {
-                                is PodcastHomeRow.Header -> {
-                                    PodcastSectionHeader(row.title)
-                                }
-                                is PodcastHomeRow.Continue -> {
-                                    val ep = row.episode
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column(
-                                            Modifier
-                                                .weight(1f)
-                                                .clickable { playEpisode(ep) },
-                                        ) {
-                                            Text(
-                                                ep.title,
-                                                color = Accent,
-                                                maxLines = Podcasts.titleMaxLines(home = true),
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                            Text(
-                                                row.show.title,
-                                                color = Dim,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                        }
-                                        Text(
-                                            Podcasts.formatPosition(row.progress.positionMs, row.progress.durationMs.takeIf { it > 0 } ?: ep.durationMs),
-                                            color = Dim,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
-                                        DeleteIcon(
-                                            Modifier
-                                                .semantics { contentDescription = "dismiss episode" }
-                                                .clickable { skipEpisode(ep) }
-                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                        )
-                                    }
-                                }
-                                is PodcastHomeRow.Fresh -> {
-                                    val ep = row.episode
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column(
-                                            Modifier
-                                                .weight(1f)
-                                                .clickable { playEpisode(ep) },
-                                        ) {
-                                            Text(
-                                                ep.title,
-                                                color = Paper,
-                                                maxLines = Podcasts.titleMaxLines(home = true),
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                            Text(
-                                                row.show.title,
-                                                color = Dim,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                maxLines = Podcasts.showMaxLines(nextEpisodes = true),
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
-                                        if (ep.durationMs > 0) {
-                                            Text(
-                                                Podcasts.formatDuration(ep.durationMs),
-                                                color = Dim,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                        }
-                                        DeleteIcon(
-                                            Modifier
-                                                .semantics { contentDescription = "dismiss episode" }
-                                                .clickable { skipEpisode(ep) }
-                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                        )
-                                    }
-                                }
-                                is PodcastHomeRow.Subscription -> {
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column(
-                                            Modifier
-                                                .weight(1f)
-                                                .clickable { openPodcastShow(row.show.feedUrl) },
-                                        ) {
-                                            Text(row.show.title, color = Paper)
-                                            if (row.show.author.isNotBlank()) {
-                                                Text(
-                                                    row.show.author,
-                                                    color = Dim,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                )
-                                            }
-                                        }
-                                        DeleteIcon(
-                                            Modifier
-                                                .semantics { contentDescription = "unsubscribe" }
-                                                .clickable { unsubscribeShow(row.show.feedUrl) }
-                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                CommandBar(
-                    prompt = prompt,
-                    value = input,
-                    hardware = hardware,
-                    onValue = { applyMode(PrefixCommands.type(mode(), it)) },
-                    onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
-                    onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
-                    onSubmit = { runCommand() },
-                    onSlash = { pickSlash(it) },
-                    onHub = { openHub() },
-                )
-            }
             Page.PodcastShow -> {
                 val feed = podcastShowUrl.orEmpty()
                 val show = podcastShows.find { it.feedUrl == feed }
@@ -3114,7 +3113,6 @@ private fun ClockHeader(
     onOpenClock: () -> Unit,
     onOpenWeather: () -> Unit,
     onOpenHub: () -> Unit,
-    onOpenUsage: () -> Unit,
     onOpenTicker: () -> Unit,
     onOpenEvent: () -> Unit,
     playing: Boolean = false,
@@ -3160,12 +3158,6 @@ private fun ClockHeader(
             verticalAlignment = Alignment.Top,
         ) {
             Row(verticalAlignment = Alignment.Top) {
-                UsageIcon(
-                    Modifier
-                        .semantics { contentDescription = "usage" }
-                        .clickable { onOpenUsage() }
-                        .padding(top = 6.dp, end = 8.dp, bottom = 6.dp),
-                )
                 HomePodcastMarkIcon(
                     mark,
                     Modifier
@@ -3638,7 +3630,7 @@ private fun HelpBlock() {
         "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",
-        "hub / notes / apps / stocks / podcasts / clock / weather / usage / settings",
+        "hub / notes / apps / stocks / podcasts / clock / weather / settings",
         "2+2             calculator",
         "type a name     launch app",
         "hold an app     pin or unpin",
