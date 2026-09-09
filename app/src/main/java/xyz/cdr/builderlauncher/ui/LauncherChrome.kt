@@ -216,10 +216,10 @@ fun HomeChrome(
             ) {
                 Row(verticalAlignment = Alignment.Top) {
                     UsageIcon(Modifier.padding(top = 6.dp, end = 8.dp, bottom = 6.dp))
+                    HomePodcastMarkIcon(podcastMark, Modifier.padding(top = 10.dp, end = 4.dp, bottom = 6.dp))
                     if (weather.isNotBlank()) {
                         HomeWeatherMark(weather)
                     }
-                    HomePodcastMarkIcon(podcastMark, Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp))
                 }
                 Row(verticalAlignment = Alignment.Top) {
                     HomeTickerMark(ticker, tickerChange, tickerUp)

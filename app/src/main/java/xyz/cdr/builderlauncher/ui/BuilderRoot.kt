@@ -3154,16 +3154,6 @@ private fun ClockHeader(
                         .clickable { onOpenUsage() }
                         .padding(top = 6.dp, end = 8.dp, bottom = 6.dp),
                 )
-                if (!weather.isNullOrBlank()) {
-                    HomeWeatherMark(
-                        weather = weather,
-                        kind = weatherKind,
-                        isDay = isDay,
-                        modifier = Modifier
-                            .semantics { contentDescription = weather }
-                            .clickable { onOpenWeather() },
-                    )
-                }
                 HomePodcastMarkIcon(
                     mark,
                     Modifier
@@ -3180,8 +3170,18 @@ private fun ClockHeader(
                                 HomePodcastMark.PLAY, HomePodcastMark.PAUSE -> onTogglePlayback()
                             }
                         }
-                        .padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
+                        .padding(top = 10.dp, end = 4.dp, bottom = 6.dp),
                 )
+                if (!weather.isNullOrBlank()) {
+                    HomeWeatherMark(
+                        weather = weather,
+                        kind = weatherKind,
+                        isDay = isDay,
+                        modifier = Modifier
+                            .semantics { contentDescription = weather }
+                            .clickable { onOpenWeather() },
+                    )
+                }
             }
             Row(verticalAlignment = Alignment.Top) {
                 if (ticker != null) {
