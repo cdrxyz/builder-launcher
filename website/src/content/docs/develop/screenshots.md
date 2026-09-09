@@ -25,6 +25,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `home.png` | `home` |
 | `home-timer.png` | `homeTimer` |
 | `home-ticker.png` | `homeTicker` |
+| `home-todo-wrap.png` | `homeTodoWrap` |
 | `todos.png` | `todos` |
 | `todos-edit.png` | `todosEdit` |
 | `commands.png` / `command-menu.png` | `homeCommandMenu` |

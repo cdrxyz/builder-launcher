@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.commands.Calculator
+import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
@@ -1252,6 +1253,7 @@ private fun CommandRow(
     wrap: Boolean = false,
     confirm: Boolean = false,
 ) {
+    val wrapField = wrap || prompt.singleOrNull()?.let { PrefixCommands.wrapsInput(it) } == true
     Column(modifier = Modifier.fillMaxWidth()) {
         if (slashOpen) {
             SlashCommandMenu()
@@ -1279,8 +1281,8 @@ private fun CommandRow(
                 CopyIcon(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp))
             }
         }
-        Row(verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically) {
-            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp, top = if (wrap) 2.dp else 0.dp))
+        Row(verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically) {
+            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp, top = if (wrapField) 2.dp else 0.dp))
             Text(
                 value.ifEmpty { "" },
                 color = Paper,
@@ -1288,7 +1290,7 @@ private fun CommandRow(
                 modifier = Modifier.weight(1f),
             )
             if (confirm) {
-                CheckIcon(Modifier.padding(start = 12.dp, top = if (wrap) 2.dp else 0.dp))
+                CheckIcon(Modifier.padding(start = 12.dp, top = if (wrapField) 2.dp else 0.dp))
             }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
