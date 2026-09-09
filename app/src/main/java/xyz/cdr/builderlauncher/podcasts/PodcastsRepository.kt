@@ -53,6 +53,8 @@ class PodcastsRepository(
     val progress: StateFlow<Map<String, EpisodeProgress>> = _progress.asStateFlow()
     private val _downloads = MutableStateFlow<Map<String, PodcastDownload>>(emptyMap())
     val downloads: StateFlow<Map<String, PodcastDownload>> = _downloads.asStateFlow()
+    private val _downloadProgress = MutableStateFlow(DownloadProgress())
+    val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
     private val _cacheBytes = MutableStateFlow(Podcasts.DEFAULT_CACHE_BYTES)
     val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
 
@@ -196,6 +198,10 @@ class PodcastsRepository(
             finished = done,
         ))
         persist()
+        if (done) {
+            Podcasts.playedDownloadsToDelete(_downloads.value.keys, _progress.value)
+                .forEach { deleteDownload(it) }
+        }
     }
 
     suspend fun download(episode: PodcastEpisode): File? = withContext(Dispatchers.IO) {
@@ -208,16 +214,31 @@ class PodcastsRepository(
             return@withContext dest
         }
         val tmp = File(cacheDir, dest.name + ".part")
+        _downloadProgress.value = DownloadProgress(episode.id, 0L, 0L)
         val ok = runCatching {
             http.newCall(request(url)).execute().use { resp ->
                 if (!resp.isSuccessful) return@use false
                 val body = resp.body ?: return@use false
-                tmp.outputStream().use { out -> body.byteStream().copyTo(out) }
+                val total = body.contentLength()
+                tmp.outputStream().use { out ->
+                    body.byteStream().use { input ->
+                        val buf = ByteArray(64 * 1024)
+                        var received = 0L
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            received += n
+                            _downloadProgress.value = DownloadProgress(episode.id, received, total)
+                        }
+                    }
+                }
                 true
             }
         }.getOrDefault(false)
         if (!ok) {
             tmp.delete()
+            _downloadProgress.value = DownloadProgress()
             return@withContext null
         }
         if (dest.exists()) dest.delete()
@@ -227,6 +248,7 @@ class PodcastsRepository(
         }
         touchDownload(episode.id, dest.length())
         evict(keepIds = setOf(episode.id))
+        _downloadProgress.value = DownloadProgress()
         dest.takeIf { it.exists() }
     }
 

@@ -106,6 +106,13 @@ class PodcastsTest {
         assertFalse(newIds.contains("play"))
         val showTitles = rows.filterIsInstance<PodcastHomeRow.Subscription>().map { it.show.title }
         assertEquals(listOf("Accidental Tech Podcast", "The Talk Show", "Zed Show"), showTitles)
+        val headers = rows.filterIsInstance<PodcastHomeRow.Header>().map { it.title }
+        assertEquals(
+            listOf(Podcasts.SECTION_NOW, Podcasts.SECTION_NEXT, Podcasts.SECTION_SHOWS),
+            headers,
+        )
+        assertTrue(rows[0] is PodcastHomeRow.Header)
+        assertEquals(Podcasts.SECTION_NOW, (rows[0] as PodcastHomeRow.Header).title)
     }
 
     @Test
@@ -157,6 +164,71 @@ class PodcastsTest {
         assertTrue(Podcasts.nowPlayingVisible(playing = true, episodeId = "e"))
         assertFalse(Podcasts.nowPlayingVisible(playing = false, episodeId = "e"))
         assertFalse(Podcasts.nowPlayingVisible(playing = true, episodeId = null))
+    }
+
+    @Test
+    fun scrubAndSpeedBarsInsetFromScreenEdges() {
+        assertEquals(36, Podcasts.BAR_SIDE_DP)
+        assertTrue(Podcasts.BAR_SIDE_DP > 20)
+    }
+
+    @Test
+    fun sectionCopy() {
+        assertEquals("now playing", Podcasts.SECTION_NOW)
+        assertEquals("next 5 episodes", Podcasts.SECTION_NEXT)
+        assertEquals("podcasts", Podcasts.SECTION_SHOWS)
+    }
+
+    @Test
+    fun downloadPercentAndLabel() {
+        assertEquals(0, Podcasts.downloadPercent(0, 0))
+        assertEquals(0, Podcasts.downloadPercent(10, 0))
+        assertEquals(37, Podcasts.downloadPercent(37, 100))
+        assertEquals(100, Podcasts.downloadPercent(150, 100))
+        assertEquals("download", Podcasts.downloadLabel(downloaded = false, busy = false, percent = 0, knownTotal = false))
+        assertEquals("downloaded", Podcasts.downloadLabel(downloaded = true, busy = false, percent = 100, knownTotal = true))
+        assertEquals("downloading…", Podcasts.downloadLabel(downloaded = false, busy = true, percent = 0, knownTotal = false))
+        assertEquals("downloading 37%", Podcasts.downloadLabel(downloaded = false, busy = true, percent = 37, knownTotal = true))
+    }
+
+    @Test
+    fun deletesPlayedDownloadsAndKeepsUnfinished() {
+        val progress = mapOf(
+            "done" to EpisodeProgress("done", 3_600_000, 3_600_000, finished = true),
+            "play" to EpisodeProgress("play", 10_000, 3_600_000, lastPlayedAt = 1),
+        )
+        assertEquals(
+            listOf("done"),
+            Podcasts.playedDownloadsToDelete(setOf("done", "play", "fresh"), progress),
+        )
+        assertEquals(emptyList<String>(), Podcasts.playedDownloadsToDelete(setOf("play"), progress))
+    }
+
+    @Test
+    fun lockScreenKeepsSessionWhilePaused() {
+        assertTrue(Podcasts.mediaSessionActive(episodeId = "e", stopped = false))
+        assertTrue(Podcasts.mediaSessionActive(episodeId = "e", stopped = false, playing = false))
+        assertFalse(Podcasts.mediaSessionActive(episodeId = null, stopped = false, playing = true))
+        assertFalse(Podcasts.mediaSessionActive(episodeId = "e", stopped = true))
+        assertEquals(
+            Podcasts.MEDIA_ACTION_PLAY or Podcasts.MEDIA_ACTION_PLAY_PAUSE or
+                Podcasts.MEDIA_ACTION_STOP or Podcasts.MEDIA_ACTION_SEEK or
+                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD,
+            Podcasts.mediaActions(playing = false),
+        )
+        assertEquals(
+            Podcasts.MEDIA_ACTION_PAUSE or Podcasts.MEDIA_ACTION_PLAY_PAUSE or
+                Podcasts.MEDIA_ACTION_STOP or Podcasts.MEDIA_ACTION_SEEK or
+                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD,
+            Podcasts.mediaActions(playing = true),
+        )
+    }
+
+    @Test
+    fun searchRowShowsArtWhenUrlPresent() {
+        assertTrue(Podcasts.searchRowShowsArt("https://img/atp.jpg"))
+        assertFalse(Podcasts.searchRowShowsArt(""))
+        assertFalse(Podcasts.searchRowShowsArt("   "))
     }
 
     private fun episode(id: String, showId: String, title: String, pubDate: Long) = PodcastEpisode(

@@ -91,11 +91,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.AccessCheck
 import xyz.cdr.builderlauncher.ai.HermesUrls
@@ -168,6 +170,7 @@ import xyz.cdr.builderlauncher.stocks.StocksCsv
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.stocks.WatchItem
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
+import xyz.cdr.builderlauncher.podcasts.PodcastArtwork
 import xyz.cdr.builderlauncher.podcasts.PodcastHit
 import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
 import xyz.cdr.builderlauncher.podcasts.PodcastOpml
@@ -232,6 +235,7 @@ fun BuilderRoot(
     val podcastEpisodes by podcasts.episodes.collectAsState()
     val podcastProgress by podcasts.progress.collectAsState()
     val podcastDownloads by podcasts.downloads.collectAsState()
+    val podcastTransfer by podcasts.downloadProgress.collectAsState()
     val podcastCache by podcasts.cacheBytes.collectAsState()
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
@@ -605,7 +609,7 @@ fun BuilderRoot(
         val file = podcasts.downloadedFile(episode.id)
         PodcastPlayer.play(episode, file, start)
         val show = podcasts.show(episode.showId)
-        PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title)
+        PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
     }
 
     fun importOpml(raw: String) {
@@ -2492,18 +2496,22 @@ fun BuilderRoot(
                             }
                         }
                         items(podcastHits, key = { "h" + it.feedUrl }) { hit ->
-                            Column(
+                            Row(
                                 Modifier
                                     .fillMaxWidth()
                                     .clickable { subscribeHit(hit) }
                                     .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(hit.title, color = Paper)
-                                Text(
-                                    hit.author.ifBlank { hit.feedUrl },
-                                    color = Dim,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                PodcastSearchArt(hit.artworkUrl)
+                                Column(Modifier.weight(1f)) {
+                                    Text(hit.title, color = Paper)
+                                    Text(
+                                        hit.author.ifBlank { hit.feedUrl },
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -2514,6 +2522,9 @@ fun BuilderRoot(
                         }
                         itemsIndexed(rows) { _, row ->
                             when (row) {
+                                is PodcastHomeRow.Header -> {
+                                    PodcastSectionHeader(row.title)
+                                }
                                 is PodcastHomeRow.Continue -> {
                                     val ep = row.episode
                                     Row(
@@ -2719,7 +2730,12 @@ fun BuilderRoot(
                                         PodcastPlaybackService.pause(ctx)
                                     } else if (playingThis) {
                                         PodcastPlayer.resume()
-                                        PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", ep.title)
+                                        PodcastPlaybackService.start(
+                                            ctx,
+                                            show?.title ?: "Podcast",
+                                            ep.title,
+                                            show?.artworkUrl.orEmpty(),
+                                        )
                                     } else {
                                         playEpisode(ep)
                                     }
@@ -2749,16 +2765,20 @@ fun BuilderRoot(
                         },
                     )
                     Spacer(Modifier.height(16.dp))
+                    val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
+                    val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
+                    val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
                     Text(
-                        when {
-                            podcastDownloadBusy -> "downloading…"
-                            downloaded -> "downloaded"
-                            else -> "download"
-                        },
+                        Podcasts.downloadLabel(
+                            downloaded = downloaded,
+                            busy = downloading,
+                            percent = downloadPct,
+                            knownTotal = downloadKnown,
+                        ),
                         color = if (downloaded) Dim else Paper,
                         modifier = Modifier
                             .clickable {
-                                if (downloaded || podcastDownloadBusy) return@clickable
+                                if (downloaded || downloading) return@clickable
                                 scope.launch {
                                     podcastDownloadBusy = true
                                     val file = podcasts.download(ep)
@@ -4158,5 +4178,32 @@ private fun AppIcon(drawable: Drawable?, modifier: Modifier = Modifier, grayscal
         )
     } else {
         Box(modifier.background(Line))
+    }
+}
+
+@Composable
+private fun PodcastSearchArt(url: String) {
+    var bmp by remember(url) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(url) {
+        if (!Podcasts.searchRowShowsArt(url)) {
+            bmp = null
+            return@LaunchedEffect
+        }
+        bmp = withContext(Dispatchers.IO) {
+            PodcastArtwork.get(url)?.asImageBitmap()
+        }
+    }
+    val mod = Modifier
+        .padding(end = 10.dp)
+        .size(Podcasts.ART_DP.dp)
+    if (bmp != null) {
+        Image(
+            bitmap = bmp!!,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = mod,
+        )
+    } else {
+        Box(mod.background(Line))
     }
 }

@@ -658,6 +658,7 @@ data class PodcastListRow(
     val subtitle: String,
     val meta: String = "",
     val highlight: Boolean = false,
+    val art: Boolean = false,
 )
 
 @Composable
@@ -689,13 +690,39 @@ fun PodcastsChrome(
             } else if (continueRows.isEmpty() && newRows.isEmpty() && shows.isEmpty()) {
                 Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
             } else {
-                continueRows.forEach { PodcastRowChrome(it) }
-                newRows.forEach { PodcastRowChrome(it) }
-                shows.forEach { PodcastRowChrome(it) }
+                if (continueRows.isNotEmpty()) {
+                    PodcastSectionHeader(Podcasts.SECTION_NOW)
+                    continueRows.forEach { PodcastRowChrome(it) }
+                }
+                if (newRows.isNotEmpty()) {
+                    PodcastSectionHeader(Podcasts.SECTION_NEXT)
+                    newRows.forEach { PodcastRowChrome(it) }
+                }
+                if (shows.isNotEmpty()) {
+                    PodcastSectionHeader(Podcasts.SECTION_SHOWS)
+                    shows.forEach { PodcastRowChrome(it) }
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
         CommandRow(input, prompt = ">")
+    }
+}
+
+@Composable
+fun PodcastSectionHeader(title: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp, bottom = 2.dp),
+    ) {
+        HorizontalDivider(color = Line)
+        Text(
+            title,
+            color = Dim,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 
@@ -705,6 +732,14 @@ private fun PodcastRowChrome(row: PodcastListRow) {
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (row.art) {
+            Box(
+                Modifier
+                    .padding(end = 10.dp)
+                    .size(Podcasts.ART_DP.dp)
+                    .background(Line),
+            )
+        }
         Column(Modifier.weight(1f)) {
             Text(row.title, color = if (row.highlight) Accent else Paper)
             if (row.subtitle.isNotBlank()) {
@@ -774,6 +809,7 @@ fun PodcastEpisodeChrome(
     position: String,
     playing: Boolean = false,
     downloaded: Boolean = false,
+    downloadLabel: String = if (downloaded) "downloaded" else "download",
     progress: Float = 0.2f,
     speed: String = "1×",
     speedProgress: Float = 0f,
@@ -802,7 +838,7 @@ fun PodcastEpisodeChrome(
         Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
         PodcastSpeedBar(progress = speedProgress)
         Spacer(Modifier.height(16.dp))
-        Text(if (downloaded) "downloaded" else "download", color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text(downloadLabel, color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
     }
 }
 
@@ -819,6 +855,7 @@ fun PodcastScrubBar(
     Canvas(
         modifier
             .fillMaxWidth()
+            .padding(horizontal = Podcasts.BAR_SIDE_DP.dp)
             .height(28.dp)
             .then(
                 if (onSeekFraction == null) Modifier
@@ -854,6 +891,7 @@ fun PodcastSpeedBar(
     Canvas(
         modifier
             .fillMaxWidth()
+            .padding(horizontal = Podcasts.BAR_SIDE_DP.dp)
             .height(28.dp)
             .then(
                 if (onSpeedFraction == null) Modifier

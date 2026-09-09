@@ -40,6 +40,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `home-stocks.png` | `homeStocksShortcut` |
 | `home-podcasts.png` | `homePodcastsShortcut` |
 | `podcasts.png` | `podcasts` |
+| `podcasts-search.png` | `podcastsSearch` |
 | `podcasts-settings.png` | `podcastsSettings` |
 | `podcast-episode.png` | `podcastEpisode` |
 | `stocks.png` | `stocks` |

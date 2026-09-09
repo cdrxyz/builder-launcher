@@ -399,6 +399,21 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun podcastsSearch() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastsChrome(
+                    hits = listOf(
+                        PodcastListRow("Accidental Tech Podcast", "Marco Arment", art = true),
+                        PodcastListRow("The Talk Show", "John Gruber", art = true),
+                    ),
+                    input = "tech",
+                )
+            }
+        }
+    }
+
+    @Test
     fun podcastsSettings() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -417,6 +432,7 @@ class LauncherScreenshotTest {
                     position = "12:00 of 1:02:03",
                     playing = true,
                     downloaded = true,
+                    downloadLabel = "downloaded",
                     progress = 0.19f,
                     speed = "1.4×",
                     speedProgress = 0.2f,
