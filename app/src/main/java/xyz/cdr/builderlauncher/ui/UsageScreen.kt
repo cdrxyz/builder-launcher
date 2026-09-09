@@ -111,6 +111,7 @@ fun UsageBody(
     val productive = bar?.productiveMs ?: snapshot.productiveMs
     val distracting = bar?.distractingMs ?: snapshot.distractingMs
     val other = bar?.otherMs ?: snapshot.otherMs
+    val apps = bar?.apps ?: snapshot.apps
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             UsagePeriod.entries.forEach { period ->
@@ -155,12 +156,12 @@ fun UsageBody(
         Spacer(Modifier.height(16.dp))
         Text("most used", color = Dim, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(6.dp))
-        snapshot.apps.forEach { app ->
+        apps.forEach { app ->
             UsageAppRow(app = app, onCycle = { onCycleApp(app.packageName) })
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "Tap a bar to read that day. Tap an app to mark it productive, distracting, or other.",
+            "Drag a bar to read that day and its apps. Tap an app to mark it productive, distracting, or other.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

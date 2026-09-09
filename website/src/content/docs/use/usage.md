@@ -5,7 +5,7 @@ description: Screen time on the phone. Productive vs distracting, 1W / 1M, most-
 
 ![Usage with the last seven days and most-used apps](../../../assets/screenshots/usage.png)
 
-![Press a bar to see that day](../../../assets/screenshots/usage-scrub.png)
+![Press a bar to see that day and its apps](../../../assets/screenshots/usage-scrub.png)
 
 Type `usage` or `/usage`, tap the descending bar chart at the top left of [home](home/), swipe from the left of home, or press D-pad left.
 
@@ -17,9 +17,9 @@ Android keeps the totals. Builder Launcher does not upload them. Grant **Usage a
 | Total | Time in the foreground for the selected range, or for the pressed bar. |
 | vs last week | Shown for **1W** until you press a bar. |
 | Pickups | Screen-on events for the selected range. |
-| Chart | Stacked bars: productive (accent), distracting (red), other (dim). Press a bar to read that day. |
-| Breakdown | Share of productive / distracting / other. |
-| Most used | Top apps in the range. Tap a row to cycle **other → productive → distracting**. Your choice sticks on the device. |
+| Chart | Stacked bars: productive (accent), distracting (red), other (dim). Press or drag a bar to read that day. |
+| Breakdown | Share of productive / distracting / other for the range, or for the pressed bar. |
+| Most used | Top apps in the range, or in the pressed day. Tap a row to cycle **other → productive → distracting**. Your choice sticks on the device. |
 
 YouTube, Instagram, and similar apps start as distracting. Termux, Slack, Gmail, calendars, and maps start as productive. Everything else starts as other, including this launcher and browsers.
 
