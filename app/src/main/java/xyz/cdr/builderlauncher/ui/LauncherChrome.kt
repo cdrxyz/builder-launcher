@@ -668,6 +668,8 @@ data class PodcastListRow(
     val maxSubtitleLines: Int = Int.MAX_VALUE,
     val metaBelow: Boolean = false,
     val deletable: Boolean = false,
+    val downloadable: Boolean = false,
+    val downloaded: Boolean = false,
     val dimmed: Boolean = false,
 )
 
@@ -833,6 +835,12 @@ private fun PodcastRowChrome(row: PodcastListRow) {
         }
         if (!row.metaBelow && row.meta.isNotBlank()) {
             Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (row.downloadable) {
+            DownloadIcon(
+                filled = row.downloaded,
+                modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
         }
         if (row.deletable) {
             DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))

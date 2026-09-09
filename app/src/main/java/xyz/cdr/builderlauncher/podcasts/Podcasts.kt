@@ -364,6 +364,22 @@ object Podcasts {
             EpisodeOrder.OLDEST -> episodes.sortedBy { it.pubDate }
         }
 
+    fun nextEpisode(
+        episodes: List<PodcastEpisode>,
+        currentId: String,
+        progress: Map<String, EpisodeProgress>,
+    ): PodcastEpisode? {
+        val start = episodes.indexOfFirst { it.id == currentId }
+        if (start < 0) return null
+        for (i in start + 1 until episodes.size) {
+            val episode = episodes[i]
+            val seen = progress[episode.id]
+            if (finished(seen) || skipped(seen)) continue
+            return episode
+        }
+        return null
+    }
+
     fun episodeOrderLabel(order: EpisodeOrder): String = when (order) {
         EpisodeOrder.NEWEST -> "newest first"
         EpisodeOrder.OLDEST -> "oldest first"

@@ -8,6 +8,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.KeyEvent
 import android.widget.Toast
@@ -180,6 +182,7 @@ import xyz.cdr.builderlauncher.stocks.WatchItem
 import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.EpisodeOrder
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
+import xyz.cdr.builderlauncher.podcasts.DownloadProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastArtwork
 import xyz.cdr.builderlauncher.podcasts.PodcastHit
 import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
@@ -486,15 +489,6 @@ fun BuilderRoot(
             PodcastPlayer.poll()
         }
     }
-    DisposableEffect(Unit) {
-        PodcastPlayer.onProgress = { id, pos, dur, done ->
-            podcasts.saveProgress(id, pos, dur, done)
-        }
-        onDispose {
-            PodcastPlayer.persist()
-            PodcastPlayer.onProgress = null
-        }
-    }
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
         noteId = id
@@ -631,7 +625,7 @@ fun BuilderRoot(
 
     fun playEpisode(episode: PodcastEpisode) {
         podcasts.setSkipped(episode.id, false, episode.durationMs)
-        val start = podcastProgress[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
+        val start = podcasts.progress.value[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
         PodcastPlayer.attach(ctx)
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
@@ -639,6 +633,22 @@ fun BuilderRoot(
         PodcastPlayer.play(episode, file, start)
         val show = podcasts.show(episode.showId)
         PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
+    }
+
+    fun queueDownload(episode: PodcastEpisode) {
+        if (podcastDownloads.containsKey(episode.id)) return
+        if (podcastDownloadBusy || podcastTransfer.episodeId == episode.id) return
+        if (episode.enclosureUrl.isBlank()) return
+        scope.launch {
+            podcastDownloadBusy = true
+            val file = podcasts.download(episode)
+            podcastDownloadBusy = false
+            Toast.makeText(
+                ctx,
+                if (file != null) "Downloaded" else "Download failed",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
     }
 
     fun togglePlayback() {
@@ -657,6 +667,32 @@ fun BuilderRoot(
             PodcastPlaybackService.stop(ctx)
         }
         podcasts.setSkipped(episode.id, true, episode.durationMs)
+    }
+
+    DisposableEffect(Unit) {
+        PodcastPlayer.onProgress = { id, pos, dur, done ->
+            podcasts.saveProgress(id, pos, dur, done)
+            if (done) {
+                val current = podcasts.episode(id)
+                val next = current?.let {
+                    Podcasts.nextEpisode(
+                        podcasts.episodesFor(it.showId),
+                        id,
+                        podcasts.progress.value,
+                    )
+                }
+                if (next != null) {
+                    Handler(Looper.getMainLooper()).post {
+                        playEpisode(next)
+                        if (page == Page.PodcastEpisode) openPodcastEpisode(next.id)
+                    }
+                }
+            }
+        }
+        onDispose {
+            PodcastPlayer.persist()
+            PodcastPlayer.onProgress = null
+        }
     }
 
     fun applyPodcastSpeed(speed: Float) {
@@ -1690,11 +1726,12 @@ fun BuilderRoot(
                                             color = Dim,
                                             style = MaterialTheme.typography.bodyMedium,
                                         )
-                                        DeleteIcon(
-                                            Modifier
-                                                .semantics { contentDescription = "dismiss episode" }
-                                                .clickable { skipEpisode(ep) }
-                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        PodcastEpisodeRowActions(
+                                            downloaded = podcastDownloads.containsKey(ep.id),
+                                            percent = episodeDownloadPercent(ep.id, podcastTransfer),
+                                            onDownload = { queueDownload(ep) },
+                                            dismissDescription = "dismiss episode",
+                                            onDismiss = { skipEpisode(ep) },
                                         )
                                     }
                                 }
@@ -1732,11 +1769,12 @@ fun BuilderRoot(
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
                                         }
-                                        DeleteIcon(
-                                            Modifier
-                                                .semantics { contentDescription = "dismiss episode" }
-                                                .clickable { skipEpisode(ep) }
-                                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                                        PodcastEpisodeRowActions(
+                                            downloaded = podcastDownloads.containsKey(ep.id),
+                                            percent = episodeDownloadPercent(ep.id, podcastTransfer),
+                                            onDownload = { queueDownload(ep) },
+                                            dismissDescription = "dismiss episode",
+                                            onDismiss = { skipEpisode(ep) },
                                         )
                                     }
                                 }
@@ -2841,14 +2879,15 @@ fun BuilderRoot(
                                     }
                                 }
                             }
-                            DeleteIcon(
-                                Modifier
-                                    .semantics { contentDescription = if (skipped) "restore episode" else "dismiss episode" }
-                                    .clickable {
-                                        if (skipped) podcasts.setSkipped(ep.id, false, ep.durationMs)
-                                        else skipEpisode(ep)
-                                    }
-                                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                            PodcastEpisodeRowActions(
+                                downloaded = podcastDownloads.containsKey(ep.id),
+                                percent = episodeDownloadPercent(ep.id, podcastTransfer),
+                                onDownload = { queueDownload(ep) },
+                                dismissDescription = if (skipped) "restore episode" else "dismiss episode",
+                                onDismiss = {
+                                    if (skipped) podcasts.setSkipped(ep.id, false, ep.durationMs)
+                                    else skipEpisode(ep)
+                                },
                             )
                         }
                     }
@@ -2894,19 +2933,7 @@ fun BuilderRoot(
                                 filled = downloaded,
                                 modifier = Modifier
                                     .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
-                                    .clickable {
-                                        if (downloaded || downloading) return@clickable
-                                        scope.launch {
-                                            podcastDownloadBusy = true
-                                            val file = podcasts.download(ep)
-                                            podcastDownloadBusy = false
-                                            Toast.makeText(
-                                                ctx,
-                                                if (file != null) "Downloaded" else "Download failed",
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
-                                        }
-                                    }
+                                    .clickable { queueDownload(ep) }
                                     .padding(vertical = 6.dp),
                             )
                         }
@@ -4630,4 +4657,42 @@ private fun PodcastSearchArt(url: String) {
     } else {
         Box(mod.background(Line))
     }
+}
+
+private fun episodeDownloadPercent(episodeId: String, transfer: DownloadProgress): String {
+    if (transfer.episodeId != episodeId) return ""
+    val known = transfer.totalBytes > 0L
+    val percent = Podcasts.downloadPercent(transfer.receivedBytes, transfer.totalBytes)
+    return if (known) "$percent%" else "…"
+}
+
+@Composable
+private fun PodcastEpisodeRowActions(
+    downloaded: Boolean,
+    percent: String,
+    onDownload: () -> Unit,
+    dismissDescription: String,
+    onDismiss: () -> Unit,
+) {
+    if (percent.isNotBlank()) {
+        Text(
+            percent,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(end = 4.dp),
+        )
+    }
+    DownloadIcon(
+        filled = downloaded,
+        modifier = Modifier
+            .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
+            .clickable(onClick = onDownload)
+            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+    )
+    DeleteIcon(
+        Modifier
+            .semantics { contentDescription = dismissDescription }
+            .clickable(onClick = onDismiss)
+            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+    )
 }

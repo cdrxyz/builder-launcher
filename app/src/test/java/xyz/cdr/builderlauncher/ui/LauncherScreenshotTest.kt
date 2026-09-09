@@ -395,6 +395,8 @@ class LauncherScreenshotTest {
                             highlight = true,
                             maxTitleLines = Podcasts.TITLE_LINES,
                             deletable = true,
+                            downloadable = true,
+                            downloaded = true,
                         ),
                     ),
                     newRows = listOf(
@@ -405,8 +407,9 @@ class LauncherScreenshotTest {
                             maxTitleLines = Podcasts.TITLE_LINES,
                             maxSubtitleLines = Podcasts.SHOW_LINES,
                             deletable = true,
+                            downloadable = true,
                         ),
-                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true),
+                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true),
                     ),
                     shows = listOf(
                         PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
@@ -459,6 +462,7 @@ class LauncherScreenshotTest {
                             meta = "15 Dec 2023",
                             metaBelow = true,
                             deletable = true,
+                            downloadable = true,
                         ),
                         PodcastListRow(
                             "Episode 2",
@@ -466,6 +470,7 @@ class LauncherScreenshotTest {
                             meta = "1 Jan 2024",
                             metaBelow = true,
                             deletable = true,
+                            downloadable = true,
                             dimmed = true,
                         ),
                     ),
