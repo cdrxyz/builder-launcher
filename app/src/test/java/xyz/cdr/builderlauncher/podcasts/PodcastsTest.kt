@@ -219,6 +219,9 @@ class PodcastsTest {
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = null))
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = ""))
         assertFalse(Podcasts.nowPlayingBarVisible(episodeId = "e", finished = true))
+        assertTrue(Podcasts.episodeListDimmed(skipped = true, finished = false))
+        assertTrue(Podcasts.episodeListDimmed(skipped = false, finished = true))
+        assertFalse(Podcasts.episodeListDimmed(skipped = false, finished = false))
         assertFalse(Podcasts.playbackEnded(playing = true, positionMs = 3_580_000, durationMs = 3_600_000))
         assertTrue(Podcasts.playbackEnded(playing = false, positionMs = 3_580_000, durationMs = 3_600_000))
         assertEquals(

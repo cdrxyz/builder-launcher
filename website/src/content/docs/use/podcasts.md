@@ -31,7 +31,7 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
 ## Show
 
-Open a subscription. Episode titles are shown in full. Length (or resume position) sits under the title on the left; the publish date sits on the right. Skipped episodes are grey. Tap a grey title to restore it. The download icon sits beside × — outline if not downloaded, filled if it is. Percent shows while a file is fetching. × skips or restores. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show and also sets which episode plays next when the current one finishes. Unsubscribe from the podcasts list.
+Open a subscription. Episode titles are shown in full. Length (or resume position) sits under the title on the left; the publish date sits on the right. Skipped and played episodes are grey. Tap a skipped title to restore it. Tap a played title to open it again. The download icon sits beside × — outline if not downloaded, filled if it is. Percent shows while a file is fetching. × skips or restores. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show and also sets which episode plays next when the current one finishes. Unsubscribe from the podcasts list.
 
 ![Oldest first on a show](../../../assets/screenshots/podcast-show.png)
 

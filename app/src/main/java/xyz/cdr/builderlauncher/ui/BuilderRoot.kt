@@ -2840,7 +2840,8 @@ fun BuilderRoot(
                     items(eps, key = { it.id }) { ep ->
                         val prog = podcastProgress[ep.id]
                         val skipped = Podcasts.skipped(prog)
-                        val inProgress = prog != null && !Podcasts.finished(prog) && !skipped
+                        val finished = Podcasts.finished(prog)
+                        val inProgress = prog != null && !finished && !skipped
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -2858,7 +2859,7 @@ fun BuilderRoot(
                                 Text(
                                     ep.title,
                                     color = when {
-                                        skipped -> Dim
+                                        Podcasts.episodeListDimmed(skipped, finished) -> Dim
                                         inProgress -> Accent
                                         else -> Paper
                                     },
@@ -3280,6 +3281,7 @@ private fun ClockHeader(
                         hour = cal.get(Calendar.HOUR),
                         minute = cal.get(Calendar.MINUTE),
                         second = cal.get(Calendar.SECOND),
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)

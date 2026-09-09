@@ -233,6 +233,8 @@ object Podcasts {
 
     fun skipped(progress: EpisodeProgress?): Boolean = progress?.skipped == true
 
+    fun episodeListDimmed(skipped: Boolean, finished: Boolean): Boolean = skipped || finished
+
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
 
