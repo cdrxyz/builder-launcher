@@ -41,6 +41,9 @@ object PrefixCommands {
     /** Prose modes. Default stays off so calculator expressions are not rewritten. */
     fun usesAutocorrect(glyph: Char): Boolean = glyph == '-' || glyph == '+' || glyph == '?'
 
+    /** Soft-wrap the command bar so long todos stay on screen. Chat passes wrap explicitly. */
+    fun wrapsInput(glyph: Char): Boolean = glyph == '-'
+
     fun type(current: Mode, newInput: String): Mode {
         val first = newInput.firstOrNull()
         val next = if (first != null && isModePrompt(first)) {

@@ -106,6 +106,22 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeTodoWrap() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "pack a charger, review the PR after lunch, and pick up oat milk on the way home",
+                    prompt = "-",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun todos() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -134,7 +150,7 @@ class LauncherScreenshotTest {
                         "ship builder-launcher CI",
                         "call dentist",
                     ),
-                    input = "buy oat milk",
+                    input = "buy oat milk, pack a charger, and review the PR after lunch",
                     confirm = true,
                 )
             }

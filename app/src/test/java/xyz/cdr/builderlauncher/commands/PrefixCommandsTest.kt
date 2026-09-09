@@ -143,6 +143,15 @@ class PrefixCommandsTest {
     }
 
     @Test
+    fun todoPromptWrapsInput() {
+        assertTrue(PrefixCommands.wrapsInput('-'))
+        assertFalse(PrefixCommands.wrapsInput(PrefixCommands.DEFAULT_PROMPT))
+        assertFalse(PrefixCommands.wrapsInput('+'))
+        assertFalse(PrefixCommands.wrapsInput('?'))
+        assertFalse(PrefixCommands.wrapsInput('@'))
+    }
+
+    @Test
     fun typeInStockModeDropsAutoSpaceAfterPeriod() {
         val inStock = PrefixCommands.Mode(prompt = '$', input = "OBE.")
         val typed = PrefixCommands.type(inStock, "OBE. TO")

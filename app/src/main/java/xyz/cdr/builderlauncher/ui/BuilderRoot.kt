@@ -2470,6 +2470,7 @@ private fun CommandBar(
     var slashSelected by remember { mutableStateOf(0) }
     val slashMode = prompt == SlashCommands.PROMPT
     val slashMatches = if (slashMode) SlashCommands.matches(value) else emptyList()
+    val wrapField = wrap || PrefixCommands.wrapsInput(prompt)
     LaunchedEffect(hardware) {
         focus.requestFocus()
         if (hardware) keyboard?.hide()
@@ -2547,7 +2548,7 @@ private fun CommandBar(
             }
         }
         Row(
-            verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically,
+            verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
@@ -2563,7 +2564,7 @@ private fun CommandBar(
                             if (menuOpen) selected = 0
                         }
                     }
-                    .padding(end = 10.dp, top = if (wrap) 2.dp else 0.dp),
+                    .padding(end = 10.dp, top = if (wrapField) 2.dp else 0.dp),
             )
             BasicTextField(
                 value = value,
@@ -2574,8 +2575,8 @@ private fun CommandBar(
                         onValue(it)
                     }
                 },
-                singleLine = !wrap,
-                maxLines = if (wrap) 8 else 1,
+                singleLine = !wrapField,
+                maxLines = if (wrapField) 8 else 1,
                 cursorBrush = SolidColor(Accent),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                 keyboardOptions = if (PrefixCommands.usesRawSymbolKeyboard(prompt)) {
@@ -2603,7 +2604,7 @@ private fun CommandBar(
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .then(if (wrap) Modifier.heightIn(max = 160.dp) else Modifier)
+                    .then(if (wrapField) Modifier.heightIn(max = 160.dp) else Modifier)
                     .focusRequester(focus)
                     .onPreviewKeyEvent { event ->
                         if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
@@ -2704,7 +2705,7 @@ private fun CommandBar(
                     Modifier
                         .semantics { contentDescription = "save task" }
                         .clickable { onSubmit() }
-                        .padding(start = 12.dp, top = if (wrap) 2.dp else 0.dp),
+                        .padding(start = 12.dp, top = if (wrapField) 2.dp else 0.dp),
                 )
             }
         }
