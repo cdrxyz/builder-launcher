@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.podcasts
 
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.PlaybackParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +13,7 @@ data class PlaybackState(
     val playing: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val speed: Float = 1.0f,
 )
 
 object PodcastPlayer {
@@ -45,7 +47,7 @@ object PodcastPlayer {
         }.getOrDefault(false)
         if (!ok) {
             mp.release()
-            _state.value = PlaybackState()
+            _state.value = PlaybackState(speed = _state.value.speed)
             return
         }
         mp.setOnPreparedListener {
@@ -53,11 +55,12 @@ object PodcastPlayer {
             val start = startMs.coerceIn(0L, (dur - 1_000L).coerceAtLeast(0L))
             if (start > 0L) it.seekTo(start.toInt())
             it.start()
-            _state.value = PlaybackState(id, true, it.currentPosition.toLong(), dur)
+            applySpeed(it, _state.value.speed)
+            _state.value = PlaybackState(id, true, it.currentPosition.toLong(), dur, _state.value.speed)
         }
         mp.setOnCompletionListener {
             val dur = it.duration.toLong().coerceAtLeast(1L)
-            _state.value = PlaybackState(id, false, dur, dur)
+            _state.value = PlaybackState(id, false, dur, dur, _state.value.speed)
             onProgress?.invoke(id, dur, dur, true)
         }
         mp.setOnErrorListener { _, _, _ ->
@@ -70,6 +73,7 @@ object PodcastPlayer {
             playing = false,
             positionMs = startMs,
             durationMs = episode.durationMs,
+            speed = _state.value.speed,
         )
         mp.prepareAsync()
     }
@@ -97,8 +101,19 @@ object PodcastPlayer {
 
     fun seek(positionMs: Long) {
         val mp = player ?: return
-        mp.seekTo(positionMs.toInt().coerceAtLeast(0))
+        val cap = runCatching { mp.duration.toLong() }.getOrDefault(_state.value.durationMs)
+        mp.seekTo(positionMs.coerceIn(0L, cap.coerceAtLeast(0L)).toInt())
         snapshot(playing = mp.isPlaying, save = true)
+    }
+
+    fun skip(deltaMs: Long) {
+        seek(Podcasts.skip(_state.value.positionMs, _state.value.durationMs, deltaMs))
+    }
+
+    fun setSpeed(speed: Float) {
+        val snapped = Podcasts.snapSpeed(speed)
+        _state.value = _state.value.copy(speed = snapped)
+        player?.let { applySpeed(it, snapped) }
     }
 
     fun poll() {
@@ -120,7 +135,7 @@ object PodcastPlayer {
         val pos = runCatching { mp.currentPosition.toLong() }.getOrDefault(_state.value.positionMs)
         val dur = runCatching { mp.duration.toLong() }.getOrDefault(_state.value.durationMs)
             .coerceAtLeast(_state.value.durationMs)
-        _state.value = PlaybackState(id, playing, pos, dur)
+        _state.value = PlaybackState(id, playing, pos, dur, _state.value.speed)
         if (save) onProgress?.invoke(id, pos, dur, false)
     }
 
@@ -129,6 +144,13 @@ object PodcastPlayer {
         runCatching { player?.reset() }
         runCatching { player?.release() }
         player = null
-        _state.value = PlaybackState()
+        _state.value = PlaybackState(speed = _state.value.speed)
+    }
+
+    private fun applySpeed(mp: MediaPlayer, speed: Float) {
+        runCatching {
+            val params = runCatching { mp.playbackParams }.getOrDefault(PlaybackParams())
+            mp.playbackParams = params.setSpeed(speed)
+        }
     }
 }

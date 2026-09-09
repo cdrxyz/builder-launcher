@@ -120,6 +120,45 @@ class PodcastsTest {
         assertEquals(listOf("a"), Podcasts.filesToDelete(files, capBytes = 7_000))
     }
 
+    @Test
+    fun skipClampsToEpisode() {
+        assertEquals(15_000L, Podcasts.SKIP_MS)
+        assertEquals(25_000L, Podcasts.skip(10_000, 60_000, Podcasts.SKIP_MS))
+        assertEquals(0L, Podcasts.skip(10_000, 60_000, -Podcasts.SKIP_MS))
+        assertEquals(60_000L, Podcasts.skip(50_000, 60_000, Podcasts.SKIP_MS))
+        assertEquals(0L, Podcasts.skip(0, 0, Podcasts.SKIP_MS))
+    }
+
+    @Test
+    fun speedStepsFromOneToThree() {
+        assertEquals(
+            listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.2f, 2.4f, 2.6f, 2.8f, 3.0f),
+            Podcasts.SPEED_STEPS,
+        )
+        assertEquals(1.0f, Podcasts.snapSpeed(0.5f))
+        assertEquals(1.2f, Podcasts.snapSpeed(1.19f), 0.001f)
+        assertEquals(3.0f, Podcasts.snapSpeed(9f))
+        assertEquals("1×", Podcasts.formatSpeed(1.0f))
+        assertEquals("1.4×", Podcasts.formatSpeed(1.4f))
+        assertEquals("2×", Podcasts.formatSpeed(2.0f))
+        assertEquals(1.0f, Podcasts.speedAt(0f, 100f))
+        assertEquals(3.0f, Podcasts.speedAt(100f, 100f))
+        assertEquals(2.0f, Podcasts.speedAt(50f, 100f))
+    }
+
+    @Test
+    fun scrubMapsXToPosition() {
+        assertEquals(0L, Podcasts.progressAt(0f, 100f, 60_000))
+        assertEquals(30_000L, Podcasts.progressAt(50f, 100f, 60_000))
+        assertEquals(60_000L, Podcasts.progressAt(100f, 100f, 60_000))
+        assertEquals(0L, Podcasts.progressAt(50f, 0f, 60_000))
+        assertEquals(0.5f, Podcasts.fraction(30_000, 60_000), 0.001f)
+        assertEquals(0f, Podcasts.fraction(10, 0))
+        assertTrue(Podcasts.nowPlayingVisible(playing = true, episodeId = "e"))
+        assertFalse(Podcasts.nowPlayingVisible(playing = false, episodeId = "e"))
+        assertFalse(Podcasts.nowPlayingVisible(playing = true, episodeId = null))
+    }
+
     private fun episode(id: String, showId: String, title: String, pubDate: Long) = PodcastEpisode(
         id = id,
         showId = showId,

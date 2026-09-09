@@ -39,6 +39,24 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homePlaying() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "summarize this PR",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    event = "dentist · 09:00",
+                    playing = true,
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeTimer() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -399,6 +417,9 @@ class LauncherScreenshotTest {
                     position = "12:00 of 1:02:03",
                     playing = true,
                     downloaded = true,
+                    progress = 0.19f,
+                    speed = "1.4×",
+                    speedProgress = 0.2f,
                 )
             }
         }

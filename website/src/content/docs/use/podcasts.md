@@ -31,8 +31,16 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 ![Play, position, and download](../../../assets/screenshots/podcast-episode.png)
 
 - **play** / **pause** streams the enclosure, or the downloaded file when it exists.
+- Drag the progress bar to scrub. **−15** / **+15** skip 15 seconds.
+- Drag the speed bar for 1× through 3× in 0.2 steps (1, 1.2, … 3).
 - Position is saved. Play again resumes where you left off. Near the end counts as finished.
 - **download** keeps the audio in the on-device cache.
+
+While audio is playing, a headphones mark sits next to weather on home. Tap it for the current episode.
+
+![Headphones beside weather while a podcast plays](../../../assets/screenshots/home-playing.png)
+
+Search uses Apple's iTunes podcast catalog (not Overcast). Type a show name on the podcasts screen. Overcast is only for OPML import.
 
 ## Settings
 
@@ -42,6 +50,4 @@ Tap the gear on the podcasts list.
 
 **Download cache:** `1 GB` / `5 GB` (default) / `10 GB` / `20 GB`. Oldest downloads delete first when the cap is exceeded. The episode that is playing is kept.
 
-**paste OPML:** Overcast export, or any OPML with `xmlUrl` RSS outlines.
-
-Search uses Apple's iTunes podcast search. Feeds are ordinary RSS with enclosures.
+**paste OPML:** Overcast export, or any OPML with `xmlUrl` RSS outlines. Feeds are ordinary RSS with enclosures.

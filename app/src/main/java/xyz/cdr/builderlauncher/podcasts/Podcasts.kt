@@ -11,6 +11,8 @@ object Podcasts {
     const val NEW = 5
     const val MAX_SHOWS = 200
     const val FINISH_REMAINING_MS = 30_000L
+    const val SKIP_MS = 15_000L
+    val SPEED_STEPS = listOf(1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f, 2.2f, 2.4f, 2.6f, 2.8f, 3.0f)
     val CACHE_PRESETS = listOf(
         1L * 1024 * 1024 * 1024,
         5L * 1024 * 1024 * 1024,
@@ -132,6 +134,45 @@ object Podcasts {
     fun cacheFileName(episodeId: String): String {
         val hex = episodeId.hashCode().toUInt().toString(16)
         return "$hex.bin"
+    }
+
+    fun skip(positionMs: Long, durationMs: Long, deltaMs: Long): Long {
+        val cap = durationMs.coerceAtLeast(0L)
+        return (positionMs + deltaMs).coerceIn(0L, cap)
+    }
+
+    fun progressAt(x: Float, width: Float, durationMs: Long): Long {
+        if (durationMs <= 0L || width <= 0f) return 0L
+        val t = (x / width).coerceIn(0f, 1f)
+        return (t * durationMs).toLong()
+    }
+
+    fun fraction(positionMs: Long, durationMs: Long): Float {
+        if (durationMs <= 0L) return 0f
+        return (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+    }
+
+    fun speedAt(x: Float, width: Float): Float {
+        val i = indexAt(x, width, SPEED_STEPS.size)
+        return SPEED_STEPS[i]
+    }
+
+    fun snapSpeed(speed: Float): Float =
+        SPEED_STEPS.minBy { kotlin.math.abs(it - speed) }
+
+    fun formatSpeed(speed: Float): String {
+        val s = snapSpeed(speed)
+        val whole = s.toInt()
+        return if (s == whole.toFloat()) "${whole}×" else "%.1f×".format(java.util.Locale.US, s)
+    }
+
+    fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
+        playing && !episodeId.isNullOrBlank()
+
+    private fun indexAt(x: Float, width: Float, count: Int): Int {
+        if (count <= 1 || width <= 0f) return 0
+        val t = (x / width).coerceIn(0f, 1f)
+        return kotlin.math.round(t * (count - 1)).toInt().coerceIn(0, count - 1)
     }
 }
 

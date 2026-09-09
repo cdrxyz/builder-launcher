@@ -1154,6 +1154,8 @@ fun BuilderRoot(
                     onOpenHub = { openHub() },
                     onOpenUsage = { openUsage() },
                     onOpenTicker = { ticker?.let { openStockDetail(it.symbol) } },
+                    playing = Podcasts.nowPlayingVisible(playback.playing, playback.episodeId),
+                    onOpenNowPlaying = { playback.episodeId?.let { openPodcastEpisode(it) } },
                     onOpenEvent = {
                         val item = upcoming ?: return@ClockHeader
                         try {
@@ -2675,27 +2677,70 @@ fun BuilderRoot(
                         if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
                         color = Dim,
                     )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        when {
-                            playingThis && playback.playing -> "pause"
-                            else -> "play"
+                    Spacer(Modifier.height(12.dp))
+                    PodcastScrubBar(
+                        progress = Podcasts.fraction(pos, dur),
+                        onSeekFraction = { frac ->
+                            val next = Podcasts.progressAt(frac, 1f, dur)
+                            if (playingThis) PodcastPlayer.seek(next)
+                            else podcasts.saveProgress(ep.id, next, dur)
                         },
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable {
-                                if (playingThis && playback.playing) {
-                                    PodcastPlayer.pause()
-                                    PodcastPlaybackService.pause(ctx)
-                                } else if (playingThis) {
-                                    PodcastPlayer.resume()
-                                    PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", ep.title)
-                                } else {
-                                    playEpisode(ep)
-                                }
-                            }
-                            .padding(vertical = 8.dp),
                     )
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            "−15",
+                            color = Paper,
+                            modifier = Modifier
+                                .clickable {
+                                    if (playingThis) PodcastPlayer.skip(-Podcasts.SKIP_MS)
+                                    else podcasts.saveProgress(ep.id, Podcasts.skip(pos, dur, -Podcasts.SKIP_MS), dur)
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                        Text(
+                            when {
+                                playingThis && playback.playing -> "pause"
+                                else -> "play"
+                            },
+                            color = Accent,
+                            modifier = Modifier
+                                .clickable {
+                                    if (playingThis && playback.playing) {
+                                        PodcastPlayer.pause()
+                                        PodcastPlaybackService.pause(ctx)
+                                    } else if (playingThis) {
+                                        PodcastPlayer.resume()
+                                        PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", ep.title)
+                                    } else {
+                                        playEpisode(ep)
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                        Text(
+                            "+15",
+                            color = Paper,
+                            modifier = Modifier
+                                .clickable {
+                                    if (playingThis) PodcastPlayer.skip(Podcasts.SKIP_MS)
+                                    else podcasts.saveProgress(ep.id, Podcasts.skip(pos, dur, Podcasts.SKIP_MS), dur)
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(Podcasts.formatSpeed(playback.speed), color = Accent, style = MaterialTheme.typography.bodyMedium)
+                    PodcastSpeedBar(
+                        progress = Podcasts.fraction(
+                            Podcasts.SPEED_STEPS.indexOf(Podcasts.snapSpeed(playback.speed)).coerceAtLeast(0).toLong(),
+                            (Podcasts.SPEED_STEPS.lastIndex).toLong(),
+                        ),
+                        onSpeedFraction = { frac ->
+                            PodcastPlayer.setSpeed(Podcasts.speedAt(frac, 1f))
+                        },
+                    )
+                    Spacer(Modifier.height(16.dp))
                     Text(
                         when {
                             podcastDownloadBusy -> "downloading…"
@@ -2829,6 +2874,8 @@ private fun ClockHeader(
     onOpenUsage: () -> Unit,
     onOpenTicker: () -> Unit,
     onOpenEvent: () -> Unit,
+    playing: Boolean = false,
+    onOpenNowPlaying: () -> Unit = {},
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timer.running, timer.endsAt, analog) {
@@ -2864,6 +2911,14 @@ private fun ClockHeader(
                         modifier = Modifier
                             .semantics { contentDescription = weather }
                             .clickable { onOpenWeather() },
+                    )
+                }
+                if (playing) {
+                    HeadphonesIcon(
+                        Modifier
+                            .semantics { contentDescription = "now playing" }
+                            .clickable { onOpenNowPlaying() }
+                            .padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
                     )
                 }
             }

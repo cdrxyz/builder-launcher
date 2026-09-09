@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,11 +29,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -185,6 +192,7 @@ fun HomeChrome(
     tickerUp: Boolean = true,
     analog: Boolean = true,
     event: String = "",
+    playing: Boolean = false,
 ) {
     val (hour, minute) = parseHomeClock(time)
     Column(
@@ -203,6 +211,9 @@ fun HomeChrome(
                     UsageIcon(Modifier.padding(top = 6.dp, end = 8.dp, bottom = 6.dp))
                     if (weather.isNotBlank()) {
                         HomeWeatherMark(weather)
+                    }
+                    if (playing) {
+                        HeadphonesIcon(Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp))
                     }
                 }
                 Row(verticalAlignment = Alignment.Top) {
@@ -763,6 +774,9 @@ fun PodcastEpisodeChrome(
     position: String,
     playing: Boolean = false,
     downloaded: Boolean = false,
+    progress: Float = 0.2f,
+    speed: String = "1×",
+    speedProgress: Float = 0f,
 ) {
     Column(
         modifier = Modifier
@@ -776,9 +790,90 @@ fun PodcastEpisodeChrome(
         Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(12.dp))
         Text(position, color = Dim)
+        Spacer(Modifier.height(12.dp))
+        PodcastScrubBar(progress = progress)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("−15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+            Text(if (playing) "pause" else "play", color = Accent, modifier = Modifier.padding(vertical = 8.dp))
+            Text("+15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
+        PodcastSpeedBar(progress = speedProgress)
         Spacer(Modifier.height(16.dp))
-        Text(if (playing) "pause" else "play", color = Accent, modifier = Modifier.padding(vertical = 8.dp))
         Text(if (downloaded) "downloaded" else "download", color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
+    }
+}
+
+@Composable
+fun PodcastScrubBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    onSeekFraction: ((Float) -> Unit)? = null,
+) {
+    val accent = Accent
+    val dim = Dim
+    val paper = Paper
+    val t = progress.coerceIn(0f, 1f)
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(28.dp)
+            .then(
+                if (onSeekFraction == null) Modifier
+                else Modifier.pointerInput(onSeekFraction) {
+                    detectTapGestures { offset ->
+                        onSeekFraction((offset.x / size.width).coerceIn(0f, 1f))
+                    }
+                }.pointerInput(onSeekFraction) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        onSeekFraction((change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                },
+            ),
+    ) {
+        val y = size.height / 2f
+        val stroke = 3.dp.toPx()
+        drawLine(dim, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(accent, Offset(0f, y), Offset(size.width * t, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawCircle(paper, radius = 5.dp.toPx(), center = Offset(size.width * t, y))
+    }
+}
+
+@Composable
+fun PodcastSpeedBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    onSpeedFraction: ((Float) -> Unit)? = null,
+) {
+    val accent = Accent
+    val dim = Dim
+    val t = progress.coerceIn(0f, 1f)
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(28.dp)
+            .then(
+                if (onSpeedFraction == null) Modifier
+                else Modifier.pointerInput(onSpeedFraction) {
+                    detectTapGestures { offset ->
+                        onSpeedFraction((offset.x / size.width).coerceIn(0f, 1f))
+                    }
+                }.pointerInput(onSpeedFraction) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        onSpeedFraction((change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                },
+            ),
+    ) {
+        val y = size.height / 2f
+        val stroke = 3.dp.toPx()
+        drawLine(dim, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(accent, Offset(0f, y), Offset(size.width * t, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawCircle(accent, radius = 5.dp.toPx(), center = Offset(size.width * t, y))
     }
 }
 
@@ -1600,6 +1695,40 @@ fun UsageIcon(modifier: Modifier = Modifier) {
                 size = Size(bar, barH),
             )
         }
+    }
+}
+
+@Composable
+fun HeadphonesIcon(modifier: Modifier = Modifier) {
+    val accent = Accent
+    Canvas(modifier.size(22.dp)) {
+        val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = size.minDimension * 0.08f
+        val band = Path().apply {
+            moveTo(pad + size.width * 0.12f, size.height * 0.55f)
+            cubicTo(
+                pad + size.width * 0.12f, pad,
+                size.width - pad - size.width * 0.12f, pad,
+                size.width - pad - size.width * 0.12f, size.height * 0.55f,
+            )
+        }
+        drawPath(band, color = accent, style = stroke)
+        val cupW = size.width * 0.22f
+        val cupH = size.height * 0.38f
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(pad, size.height * 0.48f),
+            size = Size(cupW, cupH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(size.width - pad - cupW, size.height * 0.48f),
+            size = Size(cupW, cupH),
+            cornerRadius = CornerRadius(3.dp.toPx()),
+            style = stroke,
+        )
     }
 }
 
