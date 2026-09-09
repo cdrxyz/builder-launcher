@@ -17,6 +17,8 @@ Three tabs:
 
 While the timer is running, home replaces the large clock with the countdown. Tap it to return here.
 
+Timers, alarms, and time zones stay on the device across app launches. A running timer keeps counting; enabled alarms still fire after a reboot.
+
 Alarms and the running timer play a calm sound and open a full-screen prompt, even if you leave the clock screen.
 
 ![Timer is up: stop or run again](../../../assets/screenshots/clock-timer-alert.png)

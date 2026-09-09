@@ -240,6 +240,7 @@ data class ClockAlarm(
     val snoozeUntil: Long? = null,
 )
 
+@Serializable
 enum class ClockAlertKind { TIMER, ALARM }
 
 @Serializable
