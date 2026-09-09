@@ -157,6 +157,10 @@ class PodcastsTest {
         assertEquals(1.0f, Podcasts.speedAt(0f, 100f))
         assertEquals(3.0f, Podcasts.speedAt(100f, 100f))
         assertEquals(2.0f, Podcasts.speedAt(50f, 100f))
+        assertEquals(0f, Podcasts.speedProgress(1.0f), 0.001f)
+        assertEquals(0.2f, Podcasts.speedProgress(1.4f), 0.001f)
+        assertEquals(1f, Podcasts.speedProgress(3.0f), 0.001f)
+        assertEquals(1.0f, Podcasts.DEFAULT_SPEED)
     }
 
     @Test
@@ -181,6 +185,9 @@ class PodcastsTest {
         assertTrue(Podcasts.nowPlayingVisible(playing = true, episodeId = "e"))
         assertFalse(Podcasts.nowPlayingVisible(playing = false, episodeId = "e"))
         assertFalse(Podcasts.nowPlayingVisible(playing = true, episodeId = null))
+        assertTrue(Podcasts.nowPlayingBarVisible(episodeId = "e"))
+        assertFalse(Podcasts.nowPlayingBarVisible(episodeId = null))
+        assertFalse(Podcasts.nowPlayingBarVisible(episodeId = ""))
     }
 
     @Test
@@ -291,6 +298,19 @@ class PodcastsTest {
         assertEquals(3, Podcasts.TITLE_LINES)
         assertEquals(3, Podcasts.titleMaxLines(home = true))
         assertEquals(Int.MAX_VALUE, Podcasts.titleMaxLines(home = false))
+        assertEquals(1, Podcasts.SHOW_LINES)
+        assertEquals(1, Podcasts.showMaxLines(nextEpisodes = true))
+        assertEquals(Int.MAX_VALUE, Podcasts.showMaxLines(nextEpisodes = false))
+    }
+
+    @Test
+    fun formatsEpisodeDate() {
+        val utc = java.util.TimeZone.getTimeZone("UTC")
+        assertEquals("", Podcasts.formatEpisodeDate(0L, timeZone = utc))
+        assertEquals(
+            "1 Jan 2024",
+            Podcasts.formatEpisodeDate(1_704_110_400_000L, locale = java.util.Locale.US, timeZone = utc),
+        )
     }
 
     @Test

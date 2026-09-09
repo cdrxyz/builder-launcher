@@ -18,6 +18,8 @@ object Podcasts {
     const val SECTION_SHOWS = "podcasts"
     const val ART_DP = 36
     const val TITLE_LINES = 3
+    const val SHOW_LINES = 1
+    const val DEFAULT_SPEED = 1.0f
     const val MEDIA_ACTION_STOP = 1L
     const val MEDIA_ACTION_PAUSE = 1L shl 1
     const val MEDIA_ACTION_PLAY = 1L shl 2
@@ -204,8 +206,27 @@ object Podcasts {
         return previous.positionMs / POSITION_PUBLISH_MS != next.positionMs / POSITION_PUBLISH_MS
     }
 
+    fun speedProgress(speed: Float): Float =
+        fraction(
+            SPEED_STEPS.indexOf(snapSpeed(speed)).coerceAtLeast(0).toLong(),
+            SPEED_STEPS.lastIndex.toLong(),
+        )
+
+    fun formatEpisodeDate(
+        pubDate: Long,
+        locale: java.util.Locale = java.util.Locale.US,
+        timeZone: java.util.TimeZone = java.util.TimeZone.getDefault(),
+    ): String {
+        if (pubDate <= 0L) return ""
+        val fmt = java.text.SimpleDateFormat("d MMM yyyy", locale)
+        fmt.timeZone = timeZone
+        return fmt.format(java.util.Date(pubDate))
+    }
+
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
+
+    fun nowPlayingBarVisible(episodeId: String?): Boolean = !episodeId.isNullOrBlank()
 
     fun downloadPercent(received: Long, total: Long): Int {
         if (total <= 0L) return 0
@@ -247,6 +268,8 @@ object Podcasts {
     fun searchRowShowsArt(artworkUrl: String): Boolean = artworkUrl.trim().isNotEmpty()
 
     fun titleMaxLines(home: Boolean): Int = if (home) TITLE_LINES else Int.MAX_VALUE
+
+    fun showMaxLines(nextEpisodes: Boolean): Int = if (nextEpisodes) SHOW_LINES else Int.MAX_VALUE
 
     fun pickNotes(encoded: String, summary: String, description: String): String {
         val raw = listOf(encoded, summary, description).firstOrNull { it.isNotBlank() }.orEmpty()

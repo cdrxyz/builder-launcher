@@ -24,6 +24,7 @@ private data class PodcastStore(
     val episodes: List<PodcastEpisode> = emptyList(),
     val progress: List<EpisodeProgress> = emptyList(),
     val cacheBytes: Long = Podcasts.DEFAULT_CACHE_BYTES,
+    val playbackSpeed: Float = Podcasts.DEFAULT_SPEED,
     val downloads: List<PodcastDownload> = emptyList(),
 )
 
@@ -57,6 +58,8 @@ class PodcastsRepository(
     val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
     private val _cacheBytes = MutableStateFlow(Podcasts.DEFAULT_CACHE_BYTES)
     val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
+    private val _playbackSpeed = MutableStateFlow(Podcasts.DEFAULT_SPEED)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
     init {
         val stored = load()
@@ -65,6 +68,7 @@ class PodcastsRepository(
         _progress.value = stored.progress.associateBy { it.episodeId }
         _downloads.value = stored.downloads.associateBy { it.episodeId }
         _cacheBytes.value = stored.cacheBytes.takeIf { it > 0L } ?: Podcasts.DEFAULT_CACHE_BYTES
+        _playbackSpeed.value = Podcasts.snapSpeed(stored.playbackSpeed)
         cacheDir.mkdirs()
     }
 
@@ -95,6 +99,11 @@ class PodcastsRepository(
         _cacheBytes.value = bytes.coerceAtLeast(1L * 1024 * 1024)
         persist()
         evict()
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        _playbackSpeed.value = Podcasts.snapSpeed(speed)
+        persist()
     }
 
     fun setEpisodeOrder(feedUrl: String, order: EpisodeOrder) {
@@ -314,6 +323,7 @@ class PodcastsRepository(
             episodes = _episodes.value,
             progress = _progress.value.values.toList(),
             cacheBytes = _cacheBytes.value,
+            playbackSpeed = _playbackSpeed.value,
             downloads = _downloads.value.values.toList(),
         )
         file.writeText(json.encodeToString(stored))

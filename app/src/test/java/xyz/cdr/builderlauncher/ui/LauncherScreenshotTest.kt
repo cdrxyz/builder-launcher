@@ -383,6 +383,8 @@ class LauncherScreenshotTest {
         paparazzi.snapshot {
             BuilderTheme {
                 PodcastsChrome(
+                    nowPlayingTitle = "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
+                    nowPlayingShow = "The Talk Show",
                     continueRows = listOf(
                         PodcastListRow(
                             "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
@@ -393,8 +395,14 @@ class LauncherScreenshotTest {
                         ),
                     ),
                     newRows = listOf(
-                        PodcastListRow("Newest", "Accidental Tech Podcast", "1:02:03", maxTitleLines = Podcasts.TITLE_LINES),
-                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES),
+                        PodcastListRow(
+                            "Newest",
+                            "Accidental Tech Podcast with a show name long enough that it must stay on one line",
+                            "1:02:03",
+                            maxTitleLines = Podcasts.TITLE_LINES,
+                            maxSubtitleLines = Podcasts.SHOW_LINES,
+                        ),
+                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES),
                     ),
                     shows = listOf(
                         PodcastListRow("Accidental Tech Podcast", "Marco Arment"),
@@ -424,7 +432,7 @@ class LauncherScreenshotTest {
     fun podcastsSettings() {
         paparazzi.snapshot {
             BuilderTheme {
-                PodcastsSettingsChrome(cache = "5 GB", used = "1.2 GB", count = 2)
+                PodcastsSettingsChrome(cache = "5 GB", used = "1.2 GB", count = 2, speed = "1.4×", speedProgress = 0.2f)
             }
         }
     }
@@ -438,8 +446,13 @@ class LauncherScreenshotTest {
                     author = "Marco Arment",
                     order = "oldest first",
                     episodes = listOf(
-                        PodcastListRow("Episode 1: Hello with the full title shown on the show screen even when it is long", "1:02:03"),
-                        PodcastListRow("Episode 2", "45:00"),
+                        PodcastListRow(
+                            "Episode 1: Hello with the full title shown on the show screen even when it is long",
+                            "1:02:03",
+                            meta = "15 Dec 2023",
+                            metaBelow = true,
+                        ),
+                        PodcastListRow("Episode 2", "45:00", meta = "1 Jan 2024", metaBelow = true),
                     ),
                 )
             }

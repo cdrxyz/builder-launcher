@@ -661,6 +661,8 @@ data class PodcastListRow(
     val highlight: Boolean = false,
     val art: Boolean = false,
     val maxTitleLines: Int = Int.MAX_VALUE,
+    val maxSubtitleLines: Int = Int.MAX_VALUE,
+    val metaBelow: Boolean = false,
 )
 
 @Composable
@@ -670,6 +672,8 @@ fun PodcastsChrome(
     shows: List<PodcastListRow> = emptyList(),
     hits: List<PodcastListRow> = emptyList(),
     input: String = "",
+    nowPlayingTitle: String = "",
+    nowPlayingShow: String = "",
 ) {
     Column(
         modifier = Modifier
@@ -686,6 +690,10 @@ fun PodcastsChrome(
             GearIcon(Modifier.padding(vertical = 6.dp))
         }
         Spacer(Modifier.height(8.dp))
+        if (nowPlayingTitle.isNotBlank()) {
+            PodcastNowPlayingBar(title = nowPlayingTitle, show = nowPlayingShow)
+            Spacer(Modifier.height(8.dp))
+        }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (hits.isNotEmpty()) {
                 hits.forEach { PodcastRowChrome(it) }
@@ -729,6 +737,27 @@ fun PodcastSectionHeader(title: String) {
 }
 
 @Composable
+fun PodcastNowPlayingBar(
+    title: String,
+    show: String = "",
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text("now playing", color = Accent, style = MaterialTheme.typography.labelSmall)
+        Text(title, color = Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (show.isNotBlank()) {
+            Text(
+                show,
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
 private fun PodcastRowChrome(row: PodcastListRow) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -749,11 +778,32 @@ private fun PodcastRowChrome(row: PodcastListRow) {
                 maxLines = row.maxTitleLines,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (row.subtitle.isNotBlank()) {
-                Text(row.subtitle, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            if (row.metaBelow) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (row.subtitle.isNotBlank()) {
+                        Text(row.subtitle, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        Spacer(Modifier)
+                    }
+                    if (row.meta.isNotBlank()) {
+                        Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            } else if (row.subtitle.isNotBlank()) {
+                Text(
+                    row.subtitle,
+                    color = Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = row.maxSubtitleLines,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
-        if (row.meta.isNotBlank()) {
+        if (!row.metaBelow && row.meta.isNotBlank()) {
             Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
     }
@@ -764,6 +814,8 @@ fun PodcastsSettingsChrome(
     cache: String = "5 GB",
     used: String = "0 MB",
     count: Int = 2,
+    speed: String = "1×",
+    speedProgress: Float = 0f,
 ) {
     Column(
         modifier = Modifier
@@ -780,6 +832,16 @@ fun PodcastsSettingsChrome(
             Text("podcasts", color = Dim)
         }
         Spacer(Modifier.height(16.dp))
+        Text("Playback speed", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+        PodcastSpeedBar(progress = speedProgress)
+        Text(
+            "Applies to every show.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Spacer(Modifier.height(12.dp))
         Text("Download cache", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
             listOf("1 GB", "5 GB", "10 GB", "20 GB").forEach { label ->
@@ -868,7 +930,14 @@ fun PodcastEpisodeChrome(
             Text(show, color = Dim, style = MaterialTheme.typography.bodyMedium)
             Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(12.dp))
-            Text(position, color = Dim)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(position, color = Dim)
+                Text(downloadLabel, color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
+            }
             Spacer(Modifier.height(12.dp))
             PodcastScrubBar(progress = progress)
             Spacer(Modifier.height(12.dp))
@@ -880,8 +949,6 @@ fun PodcastEpisodeChrome(
             Spacer(Modifier.height(8.dp))
             Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
             PodcastSpeedBar(progress = speedProgress)
-            Spacer(Modifier.height(16.dp))
-            Text(downloadLabel, color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
             if (notes.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
                 Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)

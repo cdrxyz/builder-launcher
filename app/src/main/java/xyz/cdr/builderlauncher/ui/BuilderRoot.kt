@@ -241,6 +241,7 @@ fun BuilderRoot(
     val podcastDownloads by podcasts.downloads.collectAsState()
     val podcastTransfer by podcasts.downloadProgress.collectAsState()
     val podcastCache by podcasts.cacheBytes.collectAsState()
+    val podcastSpeed by podcasts.playbackSpeed.collectAsState()
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
@@ -373,6 +374,9 @@ fun BuilderRoot(
     val window = (ctx as? Activity)?.window
     SideEffect {
         window?.setSoftInputMode(KeyboardPresence.softInputMode(hardware))
+    }
+    LaunchedEffect(Unit) {
+        PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
     }
     LaunchedEffect(settings.weatherLat, settings.weatherLon) {
         weather.refresh()
@@ -613,9 +617,15 @@ fun BuilderRoot(
     fun playEpisode(episode: PodcastEpisode) {
         val start = podcastProgress[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
+        PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
         PodcastPlayer.play(episode, file, start)
         val show = podcasts.show(episode.showId)
         PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
+    }
+
+    fun applyPodcastSpeed(speed: Float) {
+        podcasts.setPlaybackSpeed(speed)
+        PodcastPlayer.setSpeed(speed)
     }
 
     fun seekEpisode(episode: PodcastEpisode, positionMs: Long) {
@@ -2519,6 +2529,15 @@ fun BuilderRoot(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+                val nowEpisode = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
+                if (Podcasts.nowPlayingBarVisible(playback.episodeId) && nowEpisode != null) {
+                    PodcastNowPlayingBar(
+                        title = nowEpisode.title,
+                        show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
+                        modifier = Modifier.clickable { openPodcastEpisode(nowEpisode.id) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (searching) {
                         if (podcastHits.isEmpty()) {
@@ -2605,6 +2624,8 @@ fun BuilderRoot(
                                                 row.show.title,
                                                 color = Dim,
                                                 style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = Podcasts.showMaxLines(nextEpisodes = true),
+                                                overflow = TextOverflow.Ellipsis,
                                             )
                                         }
                                         if (ep.durationMs > 0) {
@@ -2684,7 +2705,6 @@ fun BuilderRoot(
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(eps, key = { it.id }) { ep ->
                         val prog = podcastProgress[ep.id]
-                        val downloaded = podcastDownloads.containsKey(ep.id)
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -2694,16 +2714,21 @@ fun BuilderRoot(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(ep.title, color = if (prog != null && !Podcasts.finished(prog)) Accent else Paper)
-                                Text(
-                                    when {
-                                        Podcasts.finished(prog) -> "played"
-                                        prog != null -> Podcasts.formatPosition(prog.positionMs, prog.durationMs.takeIf { it > 0 } ?: ep.durationMs)
-                                        ep.durationMs > 0 -> Podcasts.formatDuration(ep.durationMs)
-                                        else -> if (downloaded) "downloaded" else ""
-                                    },
-                                    color = Dim,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        if (ep.durationMs > 0) Podcasts.formatDuration(ep.durationMs) else "",
+                                        color = Dim,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    val date = Podcasts.formatEpisodeDate(ep.pubDate)
+                                    if (date.isNotBlank()) {
+                                        Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
                             }
                         }
                     }
@@ -2745,10 +2770,43 @@ fun BuilderRoot(
                     Text(show?.title ?: "Podcast", color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Text(ep.title, color = Paper, style = MaterialTheme.typography.headlineLarge)
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
-                        color = Dim,
-                    )
+                    val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
+                    val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
+                    val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            if (dur > 0) Podcasts.formatPosition(pos, dur) else "stream",
+                            color = Dim,
+                        )
+                        Text(
+                            Podcasts.downloadLabel(
+                                downloaded = downloaded,
+                                busy = downloading,
+                                percent = downloadPct,
+                                knownTotal = downloadKnown,
+                            ),
+                            color = if (downloaded) Dim else Paper,
+                            modifier = Modifier
+                                .clickable {
+                                    if (downloaded || downloading) return@clickable
+                                    scope.launch {
+                                        podcastDownloadBusy = true
+                                        val file = podcasts.download(ep)
+                                        podcastDownloadBusy = false
+                                        Toast.makeText(
+                                            ctx,
+                                            if (file != null) "Downloaded" else "Download failed",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     PodcastScrubBar(
                         progress = Podcasts.fraction(pos, dur),
@@ -2809,41 +2867,10 @@ fun BuilderRoot(
                     Spacer(Modifier.height(8.dp))
                     Text(Podcasts.formatSpeed(playback.speed), color = Accent, style = MaterialTheme.typography.bodyMedium)
                     PodcastSpeedBar(
-                        progress = Podcasts.fraction(
-                            Podcasts.SPEED_STEPS.indexOf(Podcasts.snapSpeed(playback.speed)).coerceAtLeast(0).toLong(),
-                            (Podcasts.SPEED_STEPS.lastIndex).toLong(),
-                        ),
+                        progress = Podcasts.speedProgress(playback.speed),
                         onSpeedFraction = { frac ->
-                            PodcastPlayer.setSpeed(Podcasts.speedAt(frac, 1f))
+                            applyPodcastSpeed(Podcasts.speedAt(frac, 1f))
                         },
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
-                    val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
-                    val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
-                    Text(
-                        Podcasts.downloadLabel(
-                            downloaded = downloaded,
-                            busy = downloading,
-                            percent = downloadPct,
-                            knownTotal = downloadKnown,
-                        ),
-                        color = if (downloaded) Dim else Paper,
-                        modifier = Modifier
-                            .clickable {
-                                if (downloaded || downloading) return@clickable
-                                scope.launch {
-                                    podcastDownloadBusy = true
-                                    val file = podcasts.download(ep)
-                                    podcastDownloadBusy = false
-                                    Toast.makeText(
-                                        ctx,
-                                        if (file != null) "Downloaded" else "Download failed",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            }
-                            .padding(vertical = 8.dp),
                     )
                     if (ep.description.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
@@ -2878,6 +2905,24 @@ fun BuilderRoot(
                         Text("podcasts", color = Dim)
                     }
                     Spacer(Modifier.height(16.dp))
+                    Text("Playback speed", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        Podcasts.formatSpeed(podcastSpeed),
+                        color = Accent,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    PodcastSpeedBar(
+                        progress = Podcasts.speedProgress(podcastSpeed),
+                        onSpeedFraction = { frac -> applyPodcastSpeed(Podcasts.speedAt(frac, 1f)) },
+                    )
+                    Text(
+                        "Applies to every show.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
                     Text("Download cache", color = Dim, style = MaterialTheme.typography.labelSmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                         Podcasts.CACHE_PRESETS.forEach { bytes ->
