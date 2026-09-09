@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 object Podcasts {
     const val MORE = "… all podcasts >"
     const val BACK = "<"
+    const val HOME = ">"
     const val COMMAND = "podcasts"
     const val DEFAULT_CACHE_BYTES = 5L * 1024 * 1024 * 1024
     const val CONTINUE = 3

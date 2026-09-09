@@ -10,6 +10,7 @@ class PodcastsTest {
     fun moreCopyMatchesNotesLink() {
         assertEquals("… all podcasts >", Podcasts.MORE)
         assertEquals("<", Podcasts.BACK)
+        assertEquals(">", Podcasts.HOME)
         assertEquals(5L * 1024 * 1024 * 1024, Podcasts.DEFAULT_CACHE_BYTES)
     }
 

@@ -1579,20 +1579,21 @@ fun BuilderRoot(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        Podcasts.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable {
-                                clearBar()
-                                page = Page.Home
-                            }
-                            .padding(vertical = 6.dp),
-                    )
                     GearIcon(
                         Modifier
                             .semantics { contentDescription = "podcasts settings" }
                             .clickable { page = Page.PodcastSettings }
+                            .padding(vertical = 6.dp),
+                    )
+                    Text(
+                        Podcasts.HOME,
+                        color = Accent,
+                        modifier = Modifier
+                            .semantics { contentDescription = "back" }
+                            .clickable {
+                                clearBar()
+                                page = Page.Home
+                            }
                             .padding(vertical = 6.dp),
                     )
                 }

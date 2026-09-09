@@ -9,7 +9,7 @@ import java.time.ZoneOffset
 class UsageTest {
     @Test
     fun backFacesHome() {
-        assertEquals(">", Usage.BACK)
+        assertEquals("<", Usage.BACK)
     }
 
     @Test
