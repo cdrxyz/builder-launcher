@@ -32,11 +32,15 @@ class UsageTest {
     }
 
     @Test
-    fun pinLineIsMinutesAndShare() {
-        assertEquals("30m (17%)", Usage.pinLine(30 * 60_000L, 180 * 60_000L))
-        assertEquals("0m (0%)", Usage.pinLine(0, 0))
-        assertEquals("0m (0%)", Usage.pinLine(12_000, 180 * 60_000L))
-        assertEquals("120m (50%)", Usage.pinLine(2 * 3_600_000L, 4 * 3_600_000L))
+    fun pinCaptionIsMinutesThenShare() {
+        assertEquals("30m", Usage.pinDuration(30 * 60_000L))
+        assertEquals("17%", Usage.pinShare(30 * 60_000L, 180 * 60_000L))
+        assertEquals("0m", Usage.pinDuration(0))
+        assertEquals("0%", Usage.pinShare(0, 0))
+        assertEquals("0m", Usage.pinDuration(12_000))
+        assertEquals("0%", Usage.pinShare(12_000, 180 * 60_000L))
+        assertEquals("120m", Usage.pinDuration(2 * 3_600_000L))
+        assertEquals("50%", Usage.pinShare(2 * 3_600_000L, 4 * 3_600_000L))
     }
 
     @Test
@@ -55,12 +59,15 @@ class UsageTest {
             granted = true,
         )
         assertEquals(180 * 60_000L, today.totalMs)
-        assertEquals("30m (17%)", today.mark("com.termux")?.line)
+        assertEquals("30m", today.mark("com.termux")?.duration)
+        assertEquals("17%", today.mark("com.termux")?.share)
         assertEquals(true, today.mark("com.termux")?.productive)
-        assertEquals("90m (50%)", today.mark("com.google.android.youtube")?.line)
+        assertEquals("90m", today.mark("com.google.android.youtube")?.duration)
+        assertEquals("50%", today.mark("com.google.android.youtube")?.share)
         assertEquals(false, today.mark("com.google.android.youtube")?.productive)
         assertEquals(true, today.mark("org.mozilla.firefox")?.productive)
-        assertEquals("0m (0%)", today.mark("com.android.camera")?.line)
+        assertEquals("0m", today.mark("com.android.camera")?.duration)
+        assertEquals("0%", today.mark("com.android.camera")?.share)
         assertEquals(false, today.mark("com.android.camera")?.productive)
         assertEquals(null, Usage.todayOf(UsageRawDay(0, emptyList()), emptyMap(), granted = false).mark("com.termux"))
     }

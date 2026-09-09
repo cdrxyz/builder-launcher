@@ -3887,7 +3887,7 @@ private fun SettingsPage(
             }
         }
         Text(
-            "Minutes today under each pin, as 30m (17%). Green if productive, red if not.",
+            "Minutes today under each pin, as 30m then 17% on the next line. Green if productive, red if not.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -4702,13 +4702,23 @@ private fun PinnedAppsRow(
 @Composable
 private fun PinUsageCaption(mark: PinUsageMark?) {
     if (mark == null) return
-    Text(
-        mark.line,
-        color = if (mark.productive) Gain else Loss,
-        style = MaterialTheme.typography.labelSmall,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
+    val color = if (mark.productive) Gain else Loss
+    Column {
+        Text(
+            mark.duration,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            mark.share,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 private val GrayscaleFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
