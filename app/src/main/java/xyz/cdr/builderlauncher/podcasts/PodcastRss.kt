@@ -36,7 +36,11 @@ object PodcastRss {
                 pubDate = parsePubDate(text(item, "pubDate")),
                 durationMs = Podcasts.parseDuration(text(item, "itunes:duration")),
                 enclosureUrl = url,
-                description = text(item, "description"),
+                description = Podcasts.pickNotes(
+                    encoded = text(item, "content:encoded"),
+                    summary = text(item, "itunes:summary").ifBlank { text(item, "summary") },
+                    description = text(item, "description"),
+                ),
             )
         }
         if (items.isEmpty() && title.isBlank()) return null

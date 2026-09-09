@@ -613,6 +613,18 @@ fun BuilderRoot(
         PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
     }
 
+    fun seekEpisode(episode: PodcastEpisode, positionMs: Long) {
+        val dur = if (playback.episodeId == episode.id && playback.durationMs > 0) {
+            playback.durationMs
+        } else {
+            podcastProgress[episode.id]?.durationMs?.takeIf { it > 0 }
+                ?: episode.durationMs
+        }
+        val next = positionMs.coerceIn(0L, dur.coerceAtLeast(0L))
+        if (playback.episodeId == episode.id) PodcastPlayer.seek(next)
+        else podcasts.saveProgress(episode.id, next, dur)
+    }
+
     fun importOpml(raw: String) {
         val hits = PodcastOpml.parse(raw)
         if (hits.isEmpty()) {
@@ -2536,7 +2548,12 @@ fun BuilderRoot(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(ep.title, color = Accent)
+                                            Text(
+                                                ep.title,
+                                                color = Accent,
+                                                maxLines = Podcasts.titleMaxLines(home = true),
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
                                             Text(
                                                 row.show.title,
                                                 color = Dim,
@@ -2560,7 +2577,12 @@ fun BuilderRoot(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(ep.title, color = Paper)
+                                            Text(
+                                                ep.title,
+                                                color = Paper,
+                                                maxLines = Podcasts.titleMaxLines(home = true),
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
                                             Text(
                                                 row.show.title,
                                                 color = Dim,
@@ -2701,6 +2723,7 @@ fun BuilderRoot(
                 if (ep == null) {
                     Text("Episode gone", color = Dim)
                 } else {
+                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                     Text(show?.title ?: "Podcast", color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Text(ep.title, color = Paper, style = MaterialTheme.typography.headlineLarge)
                     Spacer(Modifier.height(12.dp))
@@ -2804,7 +2827,16 @@ fun BuilderRoot(
                             }
                             .padding(vertical = 8.dp),
                     )
-                    Spacer(Modifier.weight(1f))
+                    if (ep.description.isNotBlank()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)
+                        Spacer(Modifier.height(8.dp))
+                        PodcastNotesText(
+                            notes = ep.description,
+                            onTimestamp = { ms -> seekEpisode(ep, ms) },
+                        )
+                    }
+                    }
                 }
             }
             Page.PodcastSettings -> {

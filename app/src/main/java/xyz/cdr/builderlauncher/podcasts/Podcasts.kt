@@ -17,6 +17,7 @@ object Podcasts {
     const val SECTION_NEXT = "next 5 episodes"
     const val SECTION_SHOWS = "podcasts"
     const val ART_DP = 36
+    const val TITLE_LINES = 3
     const val MEDIA_ACTION_STOP = 1L
     const val MEDIA_ACTION_PAUSE = 1L shl 1
     const val MEDIA_ACTION_PLAY = 1L shl 2
@@ -233,6 +234,58 @@ object Podcasts {
 
     fun searchRowShowsArt(artworkUrl: String): Boolean = artworkUrl.trim().isNotEmpty()
 
+    fun titleMaxLines(home: Boolean): Int = if (home) TITLE_LINES else Int.MAX_VALUE
+
+    fun pickNotes(encoded: String, summary: String, description: String): String {
+        val raw = listOf(encoded, summary, description).firstOrNull { it.isNotBlank() }.orEmpty()
+        return plainNotes(raw)
+    }
+
+    fun plainNotes(raw: String): String {
+        if (raw.isBlank()) return ""
+        var t = raw.replace("\r\n", "\n")
+        t = BR.replace(t, "\n")
+        t = BLOCK_END.replace(t, "\n\n")
+        t = TAG.replace(t, "")
+        t = t.replace("&nbsp;", " ", ignoreCase = true)
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+        t = ENTITY.replace(t) { m ->
+            val num = m.groupValues[1].toIntOrNull() ?: return@replace m.value
+            if (num in 1..0x10FFFF) String(Character.toChars(num)) else m.value
+        }
+        t = t.replace(Regex("[ \\t]+"), " ")
+        t = t.replace(Regex(" *\\n *"), "\n")
+        t = t.replace(Regex("\\n{3,}"), "\n\n")
+        return t.trim()
+    }
+
+    fun parseTimestamp(raw: String): Long? {
+        val t = raw.trim().trim('[', ']', '(', ')')
+        if (!t.contains(':')) return null
+        val parts = t.split(':')
+        if (parts.size !in 2..3) return null
+        if (parts.any { it.toLongOrNull() == null }) return null
+        val ms = parseDuration(t)
+        return ms.takeIf { it >= 0L }
+    }
+
+    fun timestamps(text: String): List<TimestampHit> {
+        if (text.isBlank()) return emptyList()
+        return CLOCK.findAll(text).mapNotNull { m ->
+            val raw = m.value
+            val ms = parseTimestamp(raw) ?: return@mapNotNull null
+            TimestampHit(m.range.first, m.range.last + 1, ms, raw)
+        }.toList()
+    }
+
+    fun timestampAt(text: String, index: Int): Long? =
+        timestamps(text).firstOrNull { index in it.start until it.end }?.positionMs
+
     fun sortEpisodes(episodes: List<PodcastEpisode>, order: EpisodeOrder): List<PodcastEpisode> =
         when (order) {
             EpisodeOrder.NEWEST -> episodes.sortedByDescending { it.pubDate }
@@ -263,6 +316,12 @@ object Podcasts {
         val t = (x / width).coerceIn(0f, 1f)
         return kotlin.math.round(t * (count - 1)).toInt().coerceIn(0, count - 1)
     }
+
+    private val BR = Regex("(?i)<br\\s*/?>")
+    private val BLOCK_END = Regex("(?i)</(p|div|h[1-6]|li|tr|blockquote)>")
+    private val TAG = Regex("<[^>]+>")
+    private val ENTITY = Regex("&#(\\d+);")
+    private val CLOCK = Regex("(?<!\\d)(?:\\d{1,2}:)?\\d{1,2}:\\d{2}(?!\\d)")
 }
 
 @Serializable
@@ -311,6 +370,13 @@ data class DownloadProgress(
     val episodeId: String? = null,
     val receivedBytes: Long = 0L,
     val totalBytes: Long = 0L,
+)
+
+data class TimestampHit(
+    val start: Int,
+    val end: Int,
+    val positionMs: Long,
+    val raw: String,
 )
 
 data class PodcastHit(

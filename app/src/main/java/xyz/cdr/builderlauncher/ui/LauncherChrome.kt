@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
@@ -659,6 +660,7 @@ data class PodcastListRow(
     val meta: String = "",
     val highlight: Boolean = false,
     val art: Boolean = false,
+    val maxTitleLines: Int = Int.MAX_VALUE,
 )
 
 @Composable
@@ -741,7 +743,12 @@ private fun PodcastRowChrome(row: PodcastListRow) {
             )
         }
         Column(Modifier.weight(1f)) {
-            Text(row.title, color = if (row.highlight) Accent else Paper)
+            Text(
+                row.title,
+                color = if (row.highlight) Accent else Paper,
+                maxLines = row.maxTitleLines,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (row.subtitle.isNotBlank()) {
                 Text(row.subtitle, color = Dim, style = MaterialTheme.typography.bodyMedium)
             }
@@ -847,6 +854,7 @@ fun PodcastEpisodeChrome(
     progress: Float = 0.2f,
     speed: String = "1×",
     speedProgress: Float = 0f,
+    notes: String = "",
 ) {
     Column(
         modifier = Modifier
@@ -856,24 +864,72 @@ fun PodcastEpisodeChrome(
     ) {
         Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         Spacer(Modifier.height(8.dp))
-        Text(show, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(12.dp))
-        Text(position, color = Dim)
-        Spacer(Modifier.height(12.dp))
-        PodcastScrubBar(progress = progress)
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("−15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
-            Text(if (playing) "pause" else "play", color = Accent, modifier = Modifier.padding(vertical = 8.dp))
-            Text("+15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Text(show, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
+            Spacer(Modifier.height(12.dp))
+            Text(position, color = Dim)
+            Spacer(Modifier.height(12.dp))
+            PodcastScrubBar(progress = progress)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("−15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+                Text(if (playing) "pause" else "play", color = Accent, modifier = Modifier.padding(vertical = 8.dp))
+                Text("+15", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
+            PodcastSpeedBar(progress = speedProgress)
+            Spacer(Modifier.height(16.dp))
+            Text(downloadLabel, color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
+            if (notes.isNotBlank()) {
+                Spacer(Modifier.height(16.dp))
+                Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.height(8.dp))
+                PodcastNotesText(notes)
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(speed, color = Accent, style = MaterialTheme.typography.bodyMedium)
-        PodcastSpeedBar(progress = speedProgress)
-        Spacer(Modifier.height(16.dp))
-        Text(downloadLabel, color = if (downloaded) Dim else Paper, modifier = Modifier.padding(vertical = 8.dp))
     }
+}
+
+@Composable
+fun PodcastNotesText(
+    notes: String,
+    modifier: Modifier = Modifier,
+    onTimestamp: ((Long) -> Unit)? = null,
+) {
+    val accent = Accent
+    val hits = remember(notes) { Podcasts.timestamps(notes) }
+    val annotated = remember(notes, hits, accent) {
+        buildAnnotatedString {
+            var i = 0
+            hits.forEach { hit ->
+                if (hit.start > i) append(notes.substring(i, hit.start))
+                withStyle(SpanStyle(color = accent, textDecoration = TextDecoration.Underline)) {
+                    append(notes.substring(hit.start, hit.end))
+                }
+                i = hit.end
+            }
+            if (i < notes.length) append(notes.substring(i))
+        }
+    }
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    Text(
+        annotated,
+        color = Paper,
+        style = MaterialTheme.typography.bodyMedium,
+        onTextLayout = { layout = it },
+        modifier = modifier.then(
+            if (onTimestamp == null) Modifier
+            else Modifier.pointerInput(notes, onTimestamp) {
+                detectTapGestures { offset ->
+                    val i = layout?.getOffsetForPosition(offset) ?: return@detectTapGestures
+                    val ms = Podcasts.timestampAt(notes, i) ?: return@detectTapGestures
+                    onTimestamp(ms)
+                }
+            },
+        ),
+    )
 }
 
 @Composable

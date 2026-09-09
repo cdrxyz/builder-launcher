@@ -269,6 +269,41 @@ class PodcastsTest {
         )
     }
 
+    @Test
+    fun homeEpisodeTitlesCapAtThreeLines() {
+        assertEquals(3, Podcasts.TITLE_LINES)
+        assertEquals(3, Podcasts.titleMaxLines(home = true))
+        assertEquals(Int.MAX_VALUE, Podcasts.titleMaxLines(home = false))
+    }
+
+    @Test
+    fun stripsHtmlShowNotes() {
+        val html = "<p>Hello<br/>world</p><p>More &amp; more</p>"
+        assertEquals("Hello\nworld\n\nMore & more", Podcasts.plainNotes(html))
+        assertEquals("plain", Podcasts.plainNotes("plain"))
+        assertEquals("", Podcasts.plainNotes("   "))
+        assertEquals(
+            "encoded wins",
+            Podcasts.pickNotes(encoded = "<p>encoded wins</p>", summary = "sum", description = "desc"),
+        )
+        assertEquals("sum", Podcasts.pickNotes(encoded = "", summary = "sum", description = "desc"))
+        assertEquals("desc", Podcasts.pickNotes(encoded = "", summary = "", description = "desc"))
+    }
+
+    @Test
+    fun parsesLinkableTimestamps() {
+        val notes = "0:00 Intro\n12:34 Mid\n1:02:03 End\n[4:05] Bracket\n(0:45) Paren"
+        val hits = Podcasts.timestamps(notes)
+        assertEquals(listOf(0L, 754_000L, 3_723_000L, 245_000L, 45_000L), hits.map { it.positionMs })
+        assertEquals("0:00", hits[0].raw)
+        assertEquals("1:02:03", hits[2].raw)
+        assertEquals(0L, Podcasts.timestampAt(notes, 0))
+        assertEquals(754_000L, Podcasts.timestampAt(notes, notes.indexOf("12:34")))
+        assertEquals(null, Podcasts.timestampAt(notes, notes.indexOf("Intro")))
+        assertEquals(3_723_000L, Podcasts.parseTimestamp("1:02:03"))
+        assertEquals(null, Podcasts.parseTimestamp("2024"))
+    }
+
     private fun episode(id: String, showId: String, title: String, pubDate: Long) = PodcastEpisode(
         id = id,
         showId = showId,
@@ -338,6 +373,24 @@ class PodcastRssTest {
         assertEquals("https://cdn.example/1.mp3", ep.enclosureUrl)
         assertEquals(3_723_000L, ep.durationMs)
         assertTrue(ep.pubDate > 0)
+        assertEquals("First show", ep.description)
+    }
+
+    @Test
+    fun prefersContentEncodedShowNotes() {
+        val xml = """
+            <rss><channel><title>X</title>
+            <item>
+              <title>One</title>
+              <enclosure url="https://cdn.example/one.mp3" type="audio/mpeg" />
+              <description><![CDATA[<p>short</p>]]></description>
+              <itunes:summary>summary</itunes:summary>
+              <content:encoded><![CDATA[<p>0:00 Intro</p><p>12:34 Deep cut</p>]]></content:encoded>
+            </item>
+            </channel></rss>
+        """.trimIndent()
+        val ep = PodcastRss.parse(xml, "https://x.fm/rss")!!.episodes.single()
+        assertEquals("0:00 Intro\n\n12:34 Deep cut", ep.description)
     }
 
     @Test

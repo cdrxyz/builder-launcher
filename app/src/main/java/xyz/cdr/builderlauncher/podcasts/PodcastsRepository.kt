@@ -184,7 +184,10 @@ class PodcastsRepository(
         val incoming = feed.episodes.map { ep ->
             val old = byId[ep.id]
             if (old == null) ep
-            else ep.copy(durationMs = if (ep.durationMs > 0) ep.durationMs else old.durationMs)
+            else ep.copy(
+                durationMs = if (ep.durationMs > 0) ep.durationMs else old.durationMs,
+                description = ep.description.ifBlank { old.description },
+            )
         }
         _episodes.value = keepOther + incoming
         persist()

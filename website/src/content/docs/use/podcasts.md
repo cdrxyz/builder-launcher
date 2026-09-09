@@ -15,8 +15,8 @@ There is no live Overcast account sync. Export OPML from Overcast (Settings → 
 
 Order, each under a light section title:
 
-1. **now playing** — up to 3 unfinished plays, most recently listened, in accent.
-2. **next 5 episodes** — newest episodes that are not finished.
+1. **now playing** — up to 3 unfinished plays, most recently listened, in accent. Episode titles wrap to 3 lines.
+2. **next 5 episodes** — newest episodes that are not finished. Titles wrap to 3 lines.
 3. **podcasts** — every subscription, A–Z.
 
 Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
@@ -30,7 +30,7 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
 ## Show
 
-Open a subscription. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show.
+Open a subscription. Episode titles are shown in full. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show.
 
 ![Oldest first on a show](../../../assets/screenshots/podcast-show.png)
 
@@ -43,6 +43,7 @@ Open a subscription. Episodes default to **newest first**. Switch to **oldest fi
 - Speed is 1× through 3× in 0.2 steps (1, 1.2, … 3).
 - Position is saved. Play again resumes where you left off. Near the end counts as finished.
 - **download** keeps the audio in the on-device cache and shows percent while it runs. Finished episodes delete their download.
+- **Show notes** from the feed sit under the player. Timestamps (`0:00`, `12:34`, `1:02:03`) are links; tap one to jump there.
 
 While audio is playing, a headphones mark sits next to weather on home. Tap it for the current episode. Lock screen and headset controls use Android media playback (title, show, play/pause).
 
