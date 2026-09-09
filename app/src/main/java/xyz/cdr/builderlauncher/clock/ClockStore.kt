@@ -4,15 +4,11 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.data.ListReorder
 import java.io.File
 
-class ClockStore private constructor(context: Context) {
-    private val file = File(context.applicationContext.filesDir, "clock.json")
-    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
-    private val _state = MutableStateFlow(load())
+class ClockStore internal constructor(private val file: File) {
+    private val _state = MutableStateFlow(ClockPersistence.read(file))
     val state: StateFlow<ClockSnapshot> = _state.asStateFlow()
 
     fun snapshot(): ClockSnapshot = _state.value
@@ -78,13 +74,8 @@ class ClockStore private constructor(context: Context) {
     }
 
     private fun persist(next: ClockSnapshot) {
+        ClockPersistence.write(file, next)
         _state.value = next
-        file.writeText(json.encodeToString(next))
-    }
-
-    private fun load(): ClockSnapshot {
-        if (!file.exists()) return ClockSnapshot()
-        return runCatching { json.decodeFromString<ClockSnapshot>(file.readText()) }.getOrDefault(ClockSnapshot())
     }
 
     companion object {
@@ -93,7 +84,7 @@ class ClockStore private constructor(context: Context) {
         fun get(context: Context): ClockStore {
             instance?.let { return it }
             return synchronized(this) {
-                instance ?: ClockStore(context.applicationContext).also { instance = it }
+                instance ?: ClockStore(File(context.applicationContext.filesDir, "clock.json")).also { instance = it }
             }
         }
     }
