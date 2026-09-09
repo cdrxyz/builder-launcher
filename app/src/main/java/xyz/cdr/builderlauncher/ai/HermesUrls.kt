@@ -28,15 +28,14 @@ object HermesUrls {
         val explicit = trim(settings.hermesWebUrl)
         if (explicit.isNotEmpty()) return explicit
         val base = trim(settings.hermesBaseUrl)
+        if (base.isEmpty()) return ""
         if (looksLikeWebUi(base)) return base
-        return ""
+        return withPort(base, WEBUI_PORT).orEmpty()
     }
 
     fun openInBrowser(settings: BuilderSettings): String? {
         val web = webUi(settings)
         if (web.isNotEmpty()) return "$web/"
-        val api = apiBase(settings)
-        if (api.isNotEmpty()) return "$api/"
         return null
     }
 

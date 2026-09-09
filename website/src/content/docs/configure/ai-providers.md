@@ -13,14 +13,12 @@ Changing provider, URL, key, model, or sign-in runs an access test and shows **A
 
 ## Hermes
 
-Base URL of the OpenAI-compatible API (`/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
-
-Optional **Web UI URL** for `hermes dashboard` (default port 9119) or Hermes Web UI (port 8787). The Hermes mark on the chat screen opens the Web UI when set. Pasting a dashboard URL as the base URL is also accepted: `?` still talks to port 8642 on the same host.
+Web UI URL, example `http://192.168.1.10:9119` (`hermes dashboard`) or `http://192.168.1.10:8787` (Hermes Web UI). `?` talks to that Web UI: it posts the password to `/api/auth/login` (session cookie), not as a Bearer token on the API server. Password optional if the instance is open. Cleartext LAN URLs are allowed so a home box works.
 
 **Open question in** chooses where the Hermes mark on `?` chat sends the current prompt:
 
-- **web ui** (default) — opens the Web UI URL in the browser, or the API base if none is set.
-- **hermex** — shares the question into the Hermex app the same way Grok gets `ACTION_SEND`. Hermex does not take a `?q=` deep link; `hermex://new-chat` and `hermes-agent://new-chat` only open a blank composer. If Hermex is not installed, the mark falls back to the Web UI URL.
+- **web ui** (default) — opens the Web UI URL in the browser.
+- **hermex** — shares the question into Hermex (`com.uzairansar.hermex`) as `ACTION_SEND` text so a new session is pre-filled. If Hermex is not installed, the mark falls back to the Web UI URL.
 
 ## xAI
 

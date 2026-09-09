@@ -23,6 +23,7 @@ class LlmClient(
     private val settings: SettingsRepository,
     private val oauth: OAuthService,
     private val http: OkHttpClient = OkHttpClient.Builder()
+        .cookieJar(MemoryCookieJar())
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .build(),
@@ -58,6 +59,26 @@ class LlmClient(
         onDelta: ((String) -> Unit)?,
     ): LlmAnswer {
         val platform = AiPlatforms.of(snapshot.provider)
+        if (snapshot.provider == LlmProvider.HERMES) {
+            val web = HermesUrls.webUi(snapshot)
+            if (web.isBlank()) return LlmAnswer(missingCreds(snapshot.provider))
+            if (!EndpointPolicy.allowed(web)) {
+                return LlmAnswer("HTTP is only allowed to private LAN hosts. Use HTTPS otherwise.")
+            }
+            val text = try {
+                HermesWebUi.ask(
+                    http,
+                    web,
+                    snapshot.apiKey,
+                    settings.effectiveModel(snapshot),
+                    turns,
+                    onDelta,
+                )
+            } catch (_: Throwable) {
+                "Could not reach the Web UI."
+            }
+            return LlmAnswer(text)
+        }
         val base = settings.effectiveBaseUrl(snapshot)
         if (base.isBlank()) {
             return LlmAnswer(missingCreds(snapshot.provider))
@@ -278,6 +299,7 @@ class LlmClient(
     private fun missingCreds(provider: LlmProvider): String {
         val platform = AiPlatforms.of(provider)
         return when {
+            provider == LlmProvider.HERMES -> "Set a Web UI URL in settings."
             platform.needsBaseUrl && platform.keyOptional -> "Set a base URL in settings."
             platform.needsBaseUrl -> "Set a base URL and API key in settings."
             else -> "Sign in or paste an API key in settings."
