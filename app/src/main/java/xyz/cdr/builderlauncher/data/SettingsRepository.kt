@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.ai.AiPlatforms
+import xyz.cdr.builderlauncher.ai.HermesUrls
 import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
 import xyz.cdr.builderlauncher.clock.ClockSound
 
@@ -21,6 +22,7 @@ data class BuilderSettings(
     val provider: LlmProvider = LlmProvider.HERMES,
     val hermesBaseUrl: String = "",
     val hermesOpenInHermex: Boolean = false,
+    val hermesWebUrl: String = "",
     val apiKey: String = "",
     val model: String = "",
     val keyboardMode: KeyboardMode = KeyboardMode.AUTO,
@@ -113,6 +115,7 @@ class SettingsRepository(context: Context) {
 
     fun effectiveBaseUrl(snapshot: BuilderSettings = _settings.value): String {
         val platform = AiPlatforms.of(snapshot.provider)
+        if (snapshot.provider == LlmProvider.HERMES) return HermesUrls.apiBase(snapshot)
         return platform.apiBase ?: snapshot.hermesBaseUrl.trim().trimEnd('/')
     }
 
@@ -144,6 +147,7 @@ class SettingsRepository(context: Context) {
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
             hermesOpenInHermex = prefs.getBoolean(KEY_HERMES_HERMEX, false),
+            hermesWebUrl = prefs.getString(KEY_HERMES_WEB, "") ?: "",
             apiKey = prefs.getString(KEY_API, "") ?: "",
             model = prefs.getString(KEY_MODEL, "") ?: "",
             keyboardMode = kb,
@@ -180,6 +184,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_PROVIDER, next.provider.name)
             .putString(KEY_HERMES, next.hermesBaseUrl)
             .putBoolean(KEY_HERMES_HERMEX, next.hermesOpenInHermex)
+            .putString(KEY_HERMES_WEB, next.hermesWebUrl)
             .putString(KEY_API, next.apiKey)
             .putString(KEY_MODEL, next.model)
             .putString(KEY_KB, next.keyboardMode.name)
@@ -206,6 +211,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_PROVIDER = "provider"
         private const val KEY_HERMES = "hermes_base"
         private const val KEY_HERMES_HERMEX = "hermes_open_hermex"
+        private const val KEY_HERMES_WEB = "hermes_web"
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_KB = "keyboard"

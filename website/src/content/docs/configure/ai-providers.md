@@ -9,14 +9,18 @@ Type `settings` → **… AI providers >**.
 
 Each account stays on the device when you switch. If Hermes is selected and the instance is unreachable, `?` tries a connected cloud account and shows **Fell back to Grok** (or ChatGPT / Claude / Gemini / …) above the reply.
 
+Changing provider, URL, key, model, or sign-in runs an access test and shows **Access good** or the failure on the same screen.
+
 ## Hermes
 
-Base URL of your instance (OpenAI-compatible `/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
+Base URL of the OpenAI-compatible API (`/v1/chat/completions`). Example: `http://192.168.1.10:8642`. API key optional if the instance does not require one. Cleartext LAN URLs are allowed so a home box works.
+
+Optional **Web UI URL** for `hermes dashboard` (default port 9119) or Hermes Web UI (port 8787). The Hermes mark on the chat screen opens the Web UI when set. Pasting a dashboard URL as the base URL is also accepted: `?` still talks to port 8642 on the same host.
 
 **Open question in** chooses where the Hermes mark on `?` chat sends the current prompt:
 
-- **web ui** (default) — opens your Hermes URL in the browser.
-- **hermex** — shares the question into the Hermex app the same way Grok gets `ACTION_SEND`. Hermex does not take a `?q=` deep link; `hermex://new-chat` and `hermes-agent://new-chat` only open a blank composer. If Hermex is not installed, the mark falls back to your Hermes URL.
+- **web ui** (default) — opens the Web UI URL in the browser, or the API base if none is set.
+- **hermex** — shares the question into the Hermex app the same way Grok gets `ACTION_SEND`. Hermex does not take a `?q=` deep link; `hermex://new-chat` and `hermes-agent://new-chat` only open a blank composer. If Hermex is not installed, the mark falls back to the Web UI URL.
 
 ## xAI
 

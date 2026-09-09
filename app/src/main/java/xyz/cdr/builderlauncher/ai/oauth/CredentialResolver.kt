@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.ai.oauth
 
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.LlmProvider
 
 object CredentialResolver {
     fun tokens(settings: BuilderSettings): OAuthTokens? {
@@ -29,7 +30,11 @@ object CredentialResolver {
 
     fun readyForAsk(settings: BuilderSettings, nowMs: Long = System.currentTimeMillis()): Boolean {
         val platform = AiPlatforms.of(settings.provider)
-        if (platform.needsBaseUrl && settings.hermesBaseUrl.trim().isEmpty()) return false
+        if (platform.needsBaseUrl) {
+            val hasUrl = settings.hermesBaseUrl.trim().isNotEmpty() ||
+                (settings.provider == LlmProvider.HERMES && settings.hermesWebUrl.trim().isNotEmpty())
+            if (!hasUrl) return false
+        }
         if (platform.keyOptional) return true
         if (bearer(settings, nowMs) != null) return true
         val t = tokens(settings)

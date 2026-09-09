@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.ai.AiPlatforms
+import xyz.cdr.builderlauncher.ai.HermesUrls
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.data.BuilderSettings
@@ -1006,7 +1007,11 @@ fun SettingsChrome(
 
 @Composable
 fun AiProvidersChrome(
-    settings: BuilderSettings = BuilderSettings(provider = LlmProvider.HERMES, hermesBaseUrl = "http://192.168.1.10:8642"),
+    settings: BuilderSettings = BuilderSettings(
+        provider = LlmProvider.HERMES,
+        hermesBaseUrl = "http://192.168.1.10:8642",
+        hermesWebUrl = "http://192.168.1.10:9119",
+    ),
 ) {
     val platform = AiPlatforms.of(settings.provider)
     Column(
@@ -1038,7 +1043,14 @@ fun AiProvidersChrome(
             }
         }
         if (platform.needsBaseUrl) {
-            Field("Base URL", settings.hermesBaseUrl, platform.defaultLocalBase ?: "http://192.168.1.10:8642")
+            Field("Base URL", settings.hermesBaseUrl, platform.defaultLocalBase ?: HermesUrls.DEFAULT_API)
+            if (settings.provider == LlmProvider.HERMES) {
+                Field(
+                    "Web UI URL",
+                    settings.hermesWebUrl,
+                    HermesUrls.webUiPlaceholder(settings.hermesBaseUrl),
+                )
+            }
         }
         if (settings.provider == LlmProvider.HERMES) {
             Text("Open question in", color = Dim, style = MaterialTheme.typography.labelSmall)
@@ -1050,7 +1062,7 @@ fun AiProvidersChrome(
                 if (settings.hermesOpenInHermex) {
                     "The Hermes mark shares the question into Hermex, like Grok. If Hermex is not installed it opens your Hermes URL."
                 } else {
-                    "The Hermes mark opens your instance in the browser."
+                    "The Hermes mark opens your Web UI URL, or the API base if none is set."
                 },
                 color = Dim,
                 style = MaterialTheme.typography.bodyMedium,
@@ -1058,6 +1070,8 @@ fun AiProvidersChrome(
         }
         Field("API key (stored on device)", "", if (platform.keyOptional) "optional" else "optional if signed in")
         Field("Model", settings.model, platform.defaultModel)
+        Spacer(Modifier.height(12.dp))
+        Text("Access good — hermes-agent. Web UI reachable.", color = Accent, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(24.dp))
         Text(
             "Each provider keeps its own sign-in. Tokens stay on the device and are sent only as a Bearer token.",

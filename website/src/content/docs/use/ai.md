@@ -14,7 +14,7 @@ Nothing is sent anywhere until you submit a question. There is no analytics.
 
 ![Full-screen AI chat with a markdown table answer](../../../assets/screenshots/chat.png)
 
-`<` top left returns home. Top right: the provider mark (Grok, ChatGPT, Claude, or Hermes) copies the current prompt and opens that app pre-filled so you can send it there. For Hermes, settings **Open question in** picks the browser (default) or Hermex share, matching Grok. Long-press the mark for a menu of provider names with logos on the right, aligned under the mark; tap a row to switch. History opens past conversations.
+`<` top left returns home. Top right: the provider mark (Grok, ChatGPT, Claude, or Hermes) copies the current prompt and opens that app pre-filled so you can send it there. For Hermes, settings **Open question in** picks the Web UI URL (default) or Hermex share, matching Grok. Long-press the mark for a menu of provider names with logos on the right, aligned under the mark; tap a row to switch. History opens past conversations.
 
 ![Long-press the provider mark to switch](../../../assets/screenshots/chat-provider-menu.png)
 
@@ -28,7 +28,7 @@ A lone `?` opens chat. `help` or `/help` is the command cheat sheet.
 
 | Provider | Default model | Endpoint |
 | --- | --- | --- |
-| Hermes | `default` (whatever your instance serves) | Your base URL, OpenAI-compatible `/v1/chat/completions` |
+| Hermes | `default` (whatever your instance serves) | API base URL, OpenAI-compatible `/v1/chat/completions`. Optional Web UI URL (dashboard :9119) |
 | xAI | `grok-4.6` | `https://api.x.ai/v1` |
 | OpenAI | `gpt-4o` | `https://api.openai.com/v1` |
 | Anthropic | `claude-sonnet-4-5` | `https://api.anthropic.com` |

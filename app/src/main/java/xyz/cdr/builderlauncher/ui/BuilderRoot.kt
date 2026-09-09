@@ -96,8 +96,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.ai.AiPlatforms
+import xyz.cdr.builderlauncher.ai.AccessCheck
+import xyz.cdr.builderlauncher.ai.HermesUrls
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.OAuthSpec
+import xyz.cdr.builderlauncher.ai.ProviderAccess
 import xyz.cdr.builderlauncher.ai.ProviderHandoff
 import xyz.cdr.builderlauncher.ai.oauth.DevicePending
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
@@ -602,11 +605,16 @@ fun BuilderRoot(
             ctx.getSystemService(ClipboardManager::class.java)
                 ?.setPrimaryClip(ClipData.newPlainText("prompt", text))
         }
+        val openBase = if (settings.provider == LlmProvider.HERMES) {
+            HermesUrls.openInBrowser(settings)?.trimEnd('/')
+        } else {
+            settings.hermesBaseUrl
+        }
         val opened = ProviderHandoff.open(
             ctx,
             settings.provider,
             text,
-            settings.hermesBaseUrl,
+            openBase,
             openHermex = settings.provider == LlmProvider.HERMES && settings.hermesOpenInHermex,
         )
         if (!opened) {
@@ -2981,7 +2989,9 @@ private fun AiProvidersPage(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val platform = AiPlatforms.of(settings.provider)
+    val accessClient = remember { ProviderAccess(repo, oauth) }
     var baseUrl by remember { mutableStateOf(settings.hermesBaseUrl) }
+    var webUrl by remember { mutableStateOf(settings.hermesWebUrl) }
     var key by remember { mutableStateOf(settings.apiKey) }
     var model by remember { mutableStateOf(settings.model) }
     var paste by remember { mutableStateOf("") }
@@ -2989,10 +2999,25 @@ private fun AiProvidersPage(
     var pending by remember { mutableStateOf<DevicePending?>(null) }
     var pkce by remember { mutableStateOf<PkceSession?>(null) }
     var pollJob by remember { mutableStateOf<Job?>(null) }
-    LaunchedEffect(settings.provider, settings.hermesBaseUrl, settings.apiKey, settings.model) {
+    var access by remember { mutableStateOf<AccessCheck>(AccessCheck.Testing) }
+    LaunchedEffect(settings.provider, settings.hermesBaseUrl, settings.hermesWebUrl, settings.apiKey, settings.model) {
         baseUrl = settings.hermesBaseUrl
+        webUrl = settings.hermesWebUrl
         key = settings.apiKey
         model = settings.model
+    }
+    LaunchedEffect(
+        settings.provider,
+        settings.hermesBaseUrl,
+        settings.hermesWebUrl,
+        settings.apiKey,
+        settings.model,
+        settings.oauthAccess,
+        settings.oauthRefresh,
+    ) {
+        access = AccessCheck.Testing
+        delay(700)
+        access = accessClient.check(settings)
     }
 
     fun cancelAuth() {
@@ -3047,10 +3072,20 @@ private fun AiProvidersPage(
             LabeledField(
                 "Base URL",
                 baseUrl,
-                platform.defaultLocalBase ?: "http://192.168.1.10:8642",
+                platform.defaultLocalBase ?: HermesUrls.DEFAULT_API,
             ) {
                 baseUrl = it
                 repo.update { s -> s.copy(hermesBaseUrl = it) }
+            }
+            if (settings.provider == LlmProvider.HERMES) {
+                LabeledField(
+                    "Web UI URL",
+                    webUrl,
+                    HermesUrls.webUiPlaceholder(baseUrl),
+                ) {
+                    webUrl = it
+                    repo.update { s -> s.copy(hermesWebUrl = it) }
+                }
             }
         }
         if (settings.provider == LlmProvider.HERMES) {
@@ -3075,7 +3110,7 @@ private fun AiProvidersPage(
                 if (settings.hermesOpenInHermex) {
                     "The Hermes mark shares the question into Hermex, like Grok. If Hermex is not installed it opens your Hermes URL."
                 } else {
-                    "The Hermes mark opens your instance in the browser."
+                    "The Hermes mark opens your Web UI URL, or the API base if none is set."
                 },
                 color = Dim,
                 style = MaterialTheme.typography.bodyMedium,
@@ -3166,6 +3201,15 @@ private fun AiProvidersPage(
         LabeledField("Model", model, platform.defaultModel) {
             model = it
             repo.update { s -> s.copy(model = it) }
+        }
+        Spacer(Modifier.height(12.dp))
+        when (val result = access) {
+            AccessCheck.Testing -> Text("Testing access…", color = Dim, style = MaterialTheme.typography.bodyMedium)
+            is AccessCheck.Done -> Text(
+                result.line,
+                color = if (result.ok) Accent else Dim,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
         Spacer(Modifier.height(24.dp))
         Text(

@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.BuilderSettings
 
 class ProviderHandoffTest {
     @Test
@@ -51,6 +52,24 @@ class ProviderHandoffTest {
     @Test
     fun emptyPromptOpensTheAppWithoutQuery() {
         assertEquals("https://grok.com/", ProviderHandoff.webUrl(LlmProvider.XAI, "", null))
+    }
+
+    @Test
+    fun hermesOpensWebUiWhenConfigured() {
+        val settings = BuilderSettings(
+            provider = LlmProvider.HERMES,
+            hermesBaseUrl = "http://192.168.1.10:8642",
+            hermesWebUrl = "http://192.168.1.10:9119",
+        )
+        assertEquals(
+            "http://192.168.1.10:9119/",
+            ProviderHandoff.webUrl(
+                LlmProvider.HERMES,
+                "secret",
+                HermesUrls.openInBrowser(settings)?.trimEnd('/'),
+            ),
+        )
+        assertNull(ProviderHandoff.appPackage(LlmProvider.HERMES))
     }
 
     @Test
