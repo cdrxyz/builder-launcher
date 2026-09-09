@@ -56,9 +56,11 @@ Search uses Apple's iTunes podcast catalog (not Overcast). Type a show name on t
 
 Tap the gear on the podcasts list.
 
-![Cache size and Overcast OPML paste](../../../assets/screenshots/podcasts-settings.png)
+![Cache size, skip silence, and Overcast OPML paste](../../../assets/screenshots/podcasts-settings.png)
 
 **Playback speed:** 0.8×, 1×, 1.1×, 1.2×, 1.4×, 1.6×, 1.8×, 2×, 2.5×, 3×. Default 1×. Applies to every show, including the episode that is playing.
+
+**Skip silence:** `on` (default) or `off`. Skips pauses while people think. Voices stay at the same speed. Applies to every show, including the episode that is playing.
 
 **Download cache:** `1 GB` / `5 GB` (default) / `10 GB` / `20 GB`. Oldest downloads delete first when the cap is exceeded. The episode that is playing is kept. Played episodes are removed from the cache.
 

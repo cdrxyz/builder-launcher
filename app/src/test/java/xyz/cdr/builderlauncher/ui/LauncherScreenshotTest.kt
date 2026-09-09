@@ -439,7 +439,7 @@ class LauncherScreenshotTest {
     fun podcastsSettings() {
         paparazzi.snapshot {
             BuilderTheme {
-                PodcastsSettingsChrome(cache = "5 GB", used = "1.2 GB", count = 2, speed = "1.4×", speedProgress = 0.2f)
+                PodcastsSettingsChrome(cache = "5 GB", used = "1.2 GB", count = 2, speed = "1.4×", speedProgress = 0.2f, skipSilence = true)
             }
         }
     }

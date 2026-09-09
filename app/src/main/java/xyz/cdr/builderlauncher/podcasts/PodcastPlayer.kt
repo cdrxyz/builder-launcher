@@ -1,8 +1,14 @@
 package xyz.cdr.builderlauncher.podcasts
 
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.PlaybackParams
+import android.content.Context
+import android.net.Uri
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,13 +20,19 @@ data class PlaybackState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val speed: Float = 1.0f,
+    val skipSilence: Boolean = Podcasts.DEFAULT_SKIP_SILENCE,
 )
 
 object PodcastPlayer {
-    private var player: MediaPlayer? = null
+    private var app: Context? = null
+    private var player: ExoPlayer? = null
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
     var onProgress: ((String, Long, Long, Boolean) -> Unit)? = null
+
+    fun attach(context: Context) {
+        app = context.applicationContext
+    }
 
     fun play(episode: PodcastEpisode, source: File?, startMs: Long = 0L) {
         val id = episode.id
@@ -29,67 +41,39 @@ object PodcastPlayer {
             if (!current.playing) resume()
             return
         }
-        stopInternal(save = true)
-        val mp = MediaPlayer()
-        mp.setAudioAttributes(
-            AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .build(),
-        )
-        val ok = runCatching {
-            if (source != null && source.exists()) {
-                mp.setDataSource(source.absolutePath)
-            } else {
-                mp.setDataSource(episode.enclosureUrl)
-            }
-            true
-        }.getOrDefault(false)
-        if (!ok) {
-            mp.release()
-            _state.value = PlaybackState(speed = _state.value.speed)
-            return
+        stopInternal(save = true, release = false)
+        val exo = obtain() ?: return
+        val uri = if (source != null && source.exists()) {
+            Uri.fromFile(source)
+        } else {
+            Uri.parse(episode.enclosureUrl)
         }
-        mp.setOnPreparedListener {
-            val dur = runCatching { it.duration.toLong() }.getOrDefault(episode.durationMs)
-                .coerceAtLeast(episode.durationMs)
-            val start = startMs.coerceIn(0L, (dur - 1_000L).coerceAtLeast(0L))
-            if (start > 0L) runCatching { it.seekTo(start.toInt()) }
-            runCatching { it.start() }
-            applySpeed(it, _state.value.speed, wantPlaying = true)
-            val pos = runCatching { it.currentPosition.toLong() }.getOrDefault(start)
-            _state.value = PlaybackState(id, true, pos, dur, _state.value.speed)
-        }
-        mp.setOnCompletionListener {
-            val dur = runCatching { it.duration.toLong() }.getOrDefault(_state.value.durationMs)
-                .coerceAtLeast(1L)
-            _state.value = PlaybackState(id, false, dur, dur, _state.value.speed)
-            onProgress?.invoke(id, dur, dur, true)
-        }
-        mp.setOnErrorListener { dead, _, _ ->
-            abandon(dead)
-            true
-        }
-        player = mp
+        exo.setMediaItem(MediaItem.fromUri(uri))
+        exo.prepare()
+        val start = startMs.coerceAtLeast(0L)
+        if (start > 0L) runCatching { exo.seekTo(start) }
+        applySpeed(exo, _state.value.speed)
+        exo.skipSilenceEnabled = _state.value.skipSilence
+        exo.playWhenReady = true
         _state.value = PlaybackState(
             episodeId = id,
             playing = false,
-            positionMs = startMs,
+            positionMs = start,
             durationMs = episode.durationMs,
             speed = _state.value.speed,
+            skipSilence = _state.value.skipSilence,
         )
-        mp.prepareAsync()
     }
 
     fun pause() {
-        val mp = player ?: return
-        runCatching { if (mp.isPlaying) mp.pause() }
+        val exo = player ?: return
+        runCatching { exo.pause() }
         snapshot(playing = false, save = true)
     }
 
     fun resume() {
-        val mp = player ?: return
-        runCatching { if (!mp.isPlaying) mp.start() }
+        val exo = player ?: return
+        runCatching { exo.play() }
         snapshot(playing = true, save = false)
     }
 
@@ -103,10 +87,10 @@ object PodcastPlayer {
     }
 
     fun seek(positionMs: Long) {
-        val mp = player ?: return
-        val cap = runCatching { mp.duration.toLong() }.getOrDefault(_state.value.durationMs)
-        runCatching { mp.seekTo(positionMs.coerceIn(0L, cap.coerceAtLeast(0L)).toInt()) }
-        snapshot(playing = playing(mp), save = true)
+        val exo = player ?: return
+        val cap = durationOf(exo)
+        runCatching { exo.seekTo(positionMs.coerceIn(0L, cap.coerceAtLeast(0L))) }
+        snapshot(playing = playing(exo), save = true)
     }
 
     fun skip(deltaMs: Long) {
@@ -116,65 +100,123 @@ object PodcastPlayer {
     fun setSpeed(speed: Float) {
         val snapped = Podcasts.snapSpeed(speed)
         _state.value = _state.value.copy(speed = snapped)
-        val mp = player ?: return
-        applySpeed(mp, snapped, wantPlaying = playing(mp) || _state.value.playing)
+        val exo = player ?: return
+        applySpeed(exo, snapped)
+    }
+
+    fun setSkipSilence(enabled: Boolean) {
+        _state.value = _state.value.copy(skipSilence = enabled)
+        player?.skipSilenceEnabled = enabled
     }
 
     fun poll() {
-        val mp = player ?: return
-        snapshot(playing = playing(mp), save = false)
+        val exo = player ?: return
+        snapshot(playing = playing(exo), save = false)
     }
 
     fun persist() {
-        val mp = player
-        snapshot(playing = mp != null && playing(mp), save = true)
+        val exo = player
+        snapshot(playing = exo != null && playing(exo), save = true)
     }
 
     fun stop() {
-        stopInternal(save = true)
+        stopInternal(save = true, release = true)
     }
 
     private fun snapshot(playing: Boolean, save: Boolean) {
-        val mp = player ?: return
+        val exo = player ?: return
         val id = _state.value.episodeId ?: return
-        val pos = runCatching { mp.currentPosition.toLong() }.getOrDefault(_state.value.positionMs)
-        val dur = runCatching { mp.duration.toLong() }.getOrDefault(_state.value.durationMs)
-            .coerceAtLeast(_state.value.durationMs)
-        val next = PlaybackState(id, playing, pos, dur, _state.value.speed)
+        val pos = runCatching { exo.currentPosition }.getOrDefault(_state.value.positionMs).coerceAtLeast(0L)
+        val dur = durationOf(exo).coerceAtLeast(_state.value.durationMs)
+        val next = PlaybackState(id, playing, pos, dur, _state.value.speed, _state.value.skipSilence)
         if (!save && !Podcasts.shouldPublishPlayback(_state.value, next)) return
         _state.value = next
         if (save) onProgress?.invoke(id, pos, dur, false)
     }
 
-    private fun stopInternal(save: Boolean) {
+    private fun stopInternal(save: Boolean, release: Boolean) {
         if (save) runCatching { snapshot(playing = false, save = true) }
-        val mp = player
-        player = null
-        runCatching { mp?.reset() }
-        runCatching { mp?.release() }
-        _state.value = PlaybackState(speed = _state.value.speed)
+        val exo = player
+        if (release) {
+            player = null
+            runCatching { exo?.release() }
+        } else {
+            runCatching { exo?.stop() }
+            runCatching { exo?.clearMediaItems() }
+        }
+        _state.value = PlaybackState(speed = _state.value.speed, skipSilence = _state.value.skipSilence)
     }
 
-    private fun abandon(mp: MediaPlayer) {
-        if (player === mp) player = null
-        runCatching { mp.reset() }
-        runCatching { mp.release() }
-        _state.value = PlaybackState(speed = _state.value.speed)
+    private fun abandon(exo: ExoPlayer) {
+        if (player === exo) player = null
+        runCatching { exo.release() }
+        _state.value = PlaybackState(speed = _state.value.speed, skipSilence = _state.value.skipSilence)
     }
 
-    private fun playing(mp: MediaPlayer): Boolean =
-        runCatching { mp.isPlaying }.getOrDefault(false)
+    private fun playing(exo: ExoPlayer): Boolean =
+        runCatching { exo.isPlaying }.getOrDefault(false)
 
-    private fun applySpeed(mp: MediaPlayer, speed: Float, wantPlaying: Boolean) {
-        if (wantPlaying) runCatching { if (mp.isPlaying) mp.pause() }
+    private fun durationOf(exo: ExoPlayer): Long {
+        val d = runCatching { exo.duration }.getOrDefault(C.TIME_UNSET)
+        return if (d == C.TIME_UNSET || d < 0L) _state.value.durationMs else d
+    }
+
+    private fun applySpeed(exo: ExoPlayer, speed: Float) {
         val applied = runCatching {
-            mp.playbackParams = PlaybackParams().setSpeed(speed).setPitch(1.0f)
+            exo.playbackParameters = PlaybackParameters(speed)
             true
         }.getOrDefault(false)
         if (!applied && speed != 1.0f) {
-            runCatching { mp.playbackParams = PlaybackParams().setSpeed(1.0f).setPitch(1.0f) }
+            runCatching { exo.playbackParameters = PlaybackParameters(1.0f) }
             _state.value = _state.value.copy(speed = 1.0f)
         }
-        if (wantPlaying) runCatching { mp.start() }
+    }
+
+    private fun obtain(): ExoPlayer? {
+        player?.let { return it }
+        val ctx = app ?: return null
+        val created = ExoPlayer.Builder(ctx).build()
+        created.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build(),
+            true,
+        )
+        created.skipSilenceEnabled = _state.value.skipSilence
+        created.playbackParameters = PlaybackParameters(_state.value.speed)
+        created.addListener(
+            object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (player !== created) return
+                    if (playbackState == Player.STATE_ENDED) {
+                        val id = _state.value.episodeId ?: return
+                        val dur = durationOf(created).coerceAtLeast(1L)
+                        _state.value = PlaybackState(
+                            id,
+                            false,
+                            dur,
+                            dur,
+                            _state.value.speed,
+                            _state.value.skipSilence,
+                        )
+                        onProgress?.invoke(id, dur, dur, true)
+                    } else {
+                        snapshot(playing = playing(created), save = false)
+                    }
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (player !== created) return
+                    snapshot(playing = isPlaying, save = !isPlaying)
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    if (player === created) abandon(created)
+                }
+            },
+        )
+        player = created
+        return created
     }
 }

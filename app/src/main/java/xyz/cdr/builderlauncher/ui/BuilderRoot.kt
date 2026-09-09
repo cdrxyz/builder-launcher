@@ -249,6 +249,7 @@ fun BuilderRoot(
     val podcastTransfer by podcasts.downloadProgress.collectAsState()
     val podcastCache by podcasts.cacheBytes.collectAsState()
     val podcastSpeed by podcasts.playbackSpeed.collectAsState()
+    val podcastSkipSilence by podcasts.skipSilence.collectAsState()
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
@@ -383,7 +384,9 @@ fun BuilderRoot(
         window?.setSoftInputMode(KeyboardPresence.softInputMode(hardware))
     }
     LaunchedEffect(Unit) {
+        PodcastPlayer.attach(ctx)
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
+        PodcastPlayer.setSkipSilence(podcasts.skipSilence.value)
     }
     LaunchedEffect(settings.weatherLat, settings.weatherLon) {
         weather.refresh()
@@ -630,7 +633,9 @@ fun BuilderRoot(
         podcasts.setSkipped(episode.id, false, episode.durationMs)
         val start = podcastProgress[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
+        PodcastPlayer.attach(ctx)
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
+        PodcastPlayer.setSkipSilence(podcasts.skipSilence.value)
         PodcastPlayer.play(episode, file, start)
         val show = podcasts.show(episode.showId)
         PodcastPlaybackService.start(ctx, show?.title ?: "Podcast", episode.title, show?.artworkUrl.orEmpty())
@@ -657,6 +662,11 @@ fun BuilderRoot(
     fun applyPodcastSpeed(speed: Float) {
         podcasts.setPlaybackSpeed(speed)
         PodcastPlayer.setSpeed(speed)
+    }
+
+    fun applyPodcastSkipSilence(on: Boolean) {
+        podcasts.setSkipSilence(on)
+        PodcastPlayer.setSkipSilence(on)
     }
 
     fun unsubscribeShow(feedUrl: String) {
@@ -3026,6 +3036,23 @@ fun BuilderRoot(
                     )
                     Text(
                         "Applies to every show.",
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text("Skip silence", color = Dim, style = MaterialTheme.typography.labelSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                        listOf(true, false).forEach { on ->
+                            Text(
+                                Podcasts.skipSilenceLabel(on),
+                                color = if (podcastSkipSilence == on) Accent else Dim,
+                                modifier = Modifier.clickable { applyPodcastSkipSilence(on) },
+                            )
+                        }
+                    }
+                    Text(
+                        "Skips pauses while people think. Voices stay at the same speed.",
                         color = Dim,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(bottom = 8.dp),

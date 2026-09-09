@@ -73,6 +73,7 @@ class PodcastPlaybackService : Service() {
                 }
             },
         )
+        PodcastPlayer.attach(this)
         created.isActive = true
         session = created
         val parent = SupervisorJob()

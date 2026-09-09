@@ -847,6 +847,7 @@ fun PodcastsSettingsChrome(
     count: Int = 2,
     speed: String = "1×",
     speedProgress: Float = 0f,
+    skipSilence: Boolean = true,
 ) {
     Column(
         modifier = Modifier
@@ -868,6 +869,22 @@ fun PodcastsSettingsChrome(
         PodcastSpeedBar(progress = speedProgress)
         Text(
             "Applies to every show.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        Text("Skip silence", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            listOf(true, false).forEach { on ->
+                Text(
+                    Podcasts.skipSilenceLabel(on),
+                    color = if (skipSilence == on) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            "Skips pauses while people think. Voices stay at the same speed.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 8.dp),

@@ -187,6 +187,9 @@ class PodcastsTest {
         assertEquals(0f, Podcasts.speedProgress(0.8f), 0.001f)
         assertEquals(1f, Podcasts.speedProgress(3.0f), 0.001f)
         assertEquals(1.0f, Podcasts.DEFAULT_SPEED)
+        assertTrue(Podcasts.DEFAULT_SKIP_SILENCE)
+        assertEquals("on", Podcasts.skipSilenceLabel(true))
+        assertEquals("off", Podcasts.skipSilenceLabel(false))
     }
 
     @Test
@@ -196,6 +199,7 @@ class PodcastsTest {
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(positionMs = 2_000L)))
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(playing = false)))
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(speed = 1.0f)))
+        assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(skipSilence = false)))
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(episodeId = "f")))
         assertEquals(1_000L, Podcasts.POSITION_PUBLISH_MS)
     }
