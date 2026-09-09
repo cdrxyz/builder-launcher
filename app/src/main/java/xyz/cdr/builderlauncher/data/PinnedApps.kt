@@ -30,6 +30,10 @@ class PinnedApps(context: Context) {
 
     fun isPinned(packageName: String): Boolean = packageName in _packages.value
 
+    fun replaceAll(next: List<String>) {
+        persist(next)
+    }
+
     private fun persist(next: List<String>) {
         _packages.value = next
         prefs.edit().putString("pins", next.joinToString("\n")).apply()

@@ -78,6 +78,7 @@ import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlert
 import xyz.cdr.builderlauncher.clock.ClockAlertKind
 import xyz.cdr.builderlauncher.clock.WorldClock
+import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.StockStatLine
@@ -1371,6 +1372,71 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+    }
+}
+
+@Composable
+fun BackupChrome(
+    endpoint: String = "https://ACCOUNT.r2.cloudflarestorage.com",
+    bucket: String = "builder-launcher",
+    accessKey: String = "••••",
+    frequency: BackupFrequency = BackupFrequency.DAILY,
+    lastBackup: String = "never",
+    includeAi: Boolean = false,
+    accessLine: String = "S3 access good — no backup yet",
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("settings", color = Accent)
+            Text("home", color = Dim)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Backup", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Text(
+            "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. Tokens stay off this file.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
+        )
+        Field("Endpoint", endpoint, "https://ACCOUNT.r2.cloudflarestorage.com")
+        Field("Bucket", bucket, "bucket")
+        Field("Access key", accessKey, "access key id")
+        Field("Secret key", "", "secret access key")
+        Text(accessLine, color = Accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+        Field("Encryption key", "", "passphrase")
+        Text(
+            if (includeAi) "[x] Include AI credentials" else "[ ] Include AI credentials",
+            color = Paper,
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
+        Text(
+            if (includeAi) {
+                "On. Do not enable unless you use encrypted S3 backups or you understand the risk. Applies to S3 and the JSON share. OAuth tokens still stay on this phone."
+            } else {
+                "Off. API keys stay out of S3 backups and the JSON share."
+            },
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text("Frequency", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            BackupFrequency.entries.forEach { item ->
+                Text(
+                    item.label,
+                    color = if (item == frequency) Accent else Dim,
+                )
+            }
+        }
+        Text("Backup now", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("Restore from S3", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("Share unencrypted JSON", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("Last backup: $lastBackup", color = Dim, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

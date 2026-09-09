@@ -102,6 +102,10 @@ class ChatStore(context: Context) {
         persist(_threads.value.filterNot { it.id == id })
     }
 
+    fun replaceAll(next: List<ChatThread>) {
+        persist(next)
+    }
+
     private fun persist(next: List<ChatThread>) {
         _threads.value = next
         file.writeText(json.encodeToString(next))

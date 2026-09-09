@@ -12,6 +12,8 @@ import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.HermesUrls
 import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
+import xyz.cdr.builderlauncher.backup.BackupFrequency
+import xyz.cdr.builderlauncher.backup.BackupSettings
 import xyz.cdr.builderlauncher.clock.ClockSound
 
 enum class LlmProvider {
@@ -40,6 +42,14 @@ data class BuilderSettings(
     val clockSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
     val clockFace: ClockFace = ClockFace.ANALOG,
+    val s3Endpoint: String = "",
+    val s3Bucket: String = "",
+    val s3AccessKey: String = "",
+    val s3SecretKey: String = "",
+    val s3EncryptionKey: String = "",
+    val backupFrequency: BackupFrequency = BackupFrequency.OFF,
+    val lastBackupAtEpochMs: Long = 0L,
+    val backupIncludeAiCredentials: Boolean = false,
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -113,6 +123,33 @@ class SettingsRepository(context: Context) {
     fun connectedProviders(nowMs: Long = System.currentTimeMillis()): List<LlmProvider> =
         ProviderAccounts.connected(accounts, _settings.value, nowMs)
 
+    fun markBackup(atEpochMs: Long) {
+        update { it.copy(lastBackupAtEpochMs = atEpochMs) }
+    }
+
+    fun applyBackup(restored: BackupSettings) {
+        update { current ->
+            current.copy(
+                provider = restored.provider,
+                hermesBaseUrl = restored.hermesBaseUrl,
+                hermesOpenInHermex = restored.hermesOpenInHermex,
+                hermesWebUrl = restored.hermesWebUrl,
+                apiKey = restored.apiKey ?: current.apiKey,
+                model = restored.model,
+                keyboardMode = restored.keyboardMode,
+                weatherPlace = restored.weatherPlace,
+                weatherLat = restored.weatherLat,
+                weatherLon = restored.weatherLon,
+                weatherUnits = restored.weatherUnits,
+                accentHex = restored.accentHex.ifBlank { current.accentHex },
+                stockInsert = restored.stockInsert,
+                clockSound = restored.clockSound,
+                appIcons = restored.appIcons,
+                clockFace = restored.clockFace,
+            )
+        }
+    }
+
     fun effectiveBaseUrl(snapshot: BuilderSettings = _settings.value): String {
         val platform = AiPlatforms.of(snapshot.provider)
         if (snapshot.provider == LlmProvider.HERMES) return HermesUrls.apiBase(snapshot)
@@ -164,6 +201,14 @@ class SettingsRepository(context: Context) {
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
             appIcons = appIcons,
             clockFace = clockFace,
+            s3Endpoint = prefs.getString(KEY_S3_ENDPOINT, "") ?: "",
+            s3Bucket = prefs.getString(KEY_S3_BUCKET, "") ?: "",
+            s3AccessKey = prefs.getString(KEY_S3_ACCESS, "") ?: "",
+            s3SecretKey = prefs.getString(KEY_S3_SECRET, "") ?: "",
+            s3EncryptionKey = prefs.getString(KEY_S3_ENCRYPTION, "") ?: "",
+            backupFrequency = BackupFrequency.parse(prefs.getString(KEY_BACKUP_FREQ, BackupFrequency.OFF.name)),
+            lastBackupAtEpochMs = prefs.getString(KEY_BACKUP_LAST, "0")?.toLongOrNull() ?: 0L,
+            backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
         )
     }
 
@@ -201,6 +246,14 @@ class SettingsRepository(context: Context) {
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
             .putString(KEY_CLOCK_FACE, next.clockFace.name)
+            .putString(KEY_S3_ENDPOINT, next.s3Endpoint)
+            .putString(KEY_S3_BUCKET, next.s3Bucket)
+            .putString(KEY_S3_ACCESS, next.s3AccessKey)
+            .putString(KEY_S3_SECRET, next.s3SecretKey)
+            .putString(KEY_S3_ENCRYPTION, next.s3EncryptionKey)
+            .putString(KEY_BACKUP_FREQ, next.backupFrequency.name)
+            .putString(KEY_BACKUP_LAST, next.lastBackupAtEpochMs.toString())
+            .putString(KEY_BACKUP_AI, if (next.backupIncludeAiCredentials) "true" else "false")
             .putString(KEY_ACCOUNTS, json.encodeToString(accounts))
             .apply()
     }
@@ -228,6 +281,14 @@ class SettingsRepository(context: Context) {
         private const val KEY_CLOCK_SOUND = "clock_sound"
         private const val KEY_APP_ICONS = "app_icons"
         private const val KEY_CLOCK_FACE = "clock_face"
+        private const val KEY_S3_ENDPOINT = "s3_endpoint"
+        private const val KEY_S3_BUCKET = "s3_bucket"
+        private const val KEY_S3_ACCESS = "s3_access"
+        private const val KEY_S3_SECRET = "s3_secret"
+        private const val KEY_S3_ENCRYPTION = "s3_encryption"
+        private const val KEY_BACKUP_FREQ = "backup_frequency"
+        private const val KEY_BACKUP_LAST = "backup_last"
+        private const val KEY_BACKUP_AI = "backup_include_ai"
         private const val KEY_ACCOUNTS = "provider_accounts"
 
         private fun createPrefs(context: Context): SharedPreferences {

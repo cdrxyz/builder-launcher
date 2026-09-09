@@ -33,6 +33,7 @@ import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 import xyz.cdr.builderlauncher.ui.theme.accentColor
+import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity() {
         val podcasts = PodcastsRepository(this)
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
+        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, clock)
         ClockScheduler.sync(this, clock.snapshot())
         applyAlertWindow()
         setContent {
@@ -89,6 +91,7 @@ class MainActivity : ComponentActivity() {
                     podcasts = podcasts,
                     calendar = calendar,
                     clock = clock,
+                    backup = backup,
                     homePresses = homePresses,
                     onRequestHome = { askToBeHome(fromSettings = true) },
                 )

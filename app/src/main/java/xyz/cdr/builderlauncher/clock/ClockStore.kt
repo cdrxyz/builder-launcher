@@ -73,6 +73,10 @@ class ClockStore internal constructor(private val file: File) {
         persist(_state.value.copy(zones = ListReorder.move(_state.value.zones, from, to)))
     }
 
+    fun replaceFromBackup(snapshot: ClockSnapshot) {
+        persist(snapshot)
+    }
+
     private fun persist(next: ClockSnapshot) {
         ClockPersistence.write(file, next)
         _state.value = next

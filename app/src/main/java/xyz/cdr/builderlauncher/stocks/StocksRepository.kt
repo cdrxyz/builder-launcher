@@ -112,6 +112,10 @@ class StocksRepository(
         persist(Stocks.move(_watch.value, from, to))
     }
 
+    fun replaceAll(next: List<WatchItem>) {
+        persist(next)
+    }
+
     fun replaceHits(hits: List<StockHit>): Int {
         val next = hits.mapNotNull { hit ->
             val symbol = hit.symbol.uppercase()
