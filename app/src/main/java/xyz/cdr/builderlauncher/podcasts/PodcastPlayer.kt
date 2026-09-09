@@ -51,20 +51,23 @@ object PodcastPlayer {
             return
         }
         mp.setOnPreparedListener {
-            val dur = it.duration.toLong().coerceAtLeast(episode.durationMs)
+            val dur = runCatching { it.duration.toLong() }.getOrDefault(episode.durationMs)
+                .coerceAtLeast(episode.durationMs)
             val start = startMs.coerceIn(0L, (dur - 1_000L).coerceAtLeast(0L))
-            if (start > 0L) it.seekTo(start.toInt())
-            it.start()
-            applySpeed(it, _state.value.speed)
-            _state.value = PlaybackState(id, true, it.currentPosition.toLong(), dur, _state.value.speed)
+            if (start > 0L) runCatching { it.seekTo(start.toInt()) }
+            runCatching { it.start() }
+            applySpeed(it, _state.value.speed, wantPlaying = true)
+            val pos = runCatching { it.currentPosition.toLong() }.getOrDefault(start)
+            _state.value = PlaybackState(id, true, pos, dur, _state.value.speed)
         }
         mp.setOnCompletionListener {
-            val dur = it.duration.toLong().coerceAtLeast(1L)
+            val dur = runCatching { it.duration.toLong() }.getOrDefault(_state.value.durationMs)
+                .coerceAtLeast(1L)
             _state.value = PlaybackState(id, false, dur, dur, _state.value.speed)
             onProgress?.invoke(id, dur, dur, true)
         }
-        mp.setOnErrorListener { _, _, _ ->
-            _state.value = _state.value.copy(playing = false)
+        mp.setOnErrorListener { dead, _, _ ->
+            abandon(dead)
             true
         }
         player = mp
@@ -80,13 +83,13 @@ object PodcastPlayer {
 
     fun pause() {
         val mp = player ?: return
-        if (mp.isPlaying) mp.pause()
+        runCatching { if (mp.isPlaying) mp.pause() }
         snapshot(playing = false, save = true)
     }
 
     fun resume() {
         val mp = player ?: return
-        if (!mp.isPlaying) mp.start()
+        runCatching { if (!mp.isPlaying) mp.start() }
         snapshot(playing = true, save = false)
     }
 
@@ -102,8 +105,8 @@ object PodcastPlayer {
     fun seek(positionMs: Long) {
         val mp = player ?: return
         val cap = runCatching { mp.duration.toLong() }.getOrDefault(_state.value.durationMs)
-        mp.seekTo(positionMs.coerceIn(0L, cap.coerceAtLeast(0L)).toInt())
-        snapshot(playing = mp.isPlaying, save = true)
+        runCatching { mp.seekTo(positionMs.coerceIn(0L, cap.coerceAtLeast(0L)).toInt()) }
+        snapshot(playing = playing(mp), save = true)
     }
 
     fun skip(deltaMs: Long) {
@@ -113,16 +116,18 @@ object PodcastPlayer {
     fun setSpeed(speed: Float) {
         val snapped = Podcasts.snapSpeed(speed)
         _state.value = _state.value.copy(speed = snapped)
-        player?.let { applySpeed(it, snapped) }
+        val mp = player ?: return
+        applySpeed(mp, snapped, wantPlaying = playing(mp) || _state.value.playing)
     }
 
     fun poll() {
         val mp = player ?: return
-        snapshot(playing = mp.isPlaying, save = false)
+        snapshot(playing = playing(mp), save = false)
     }
 
     fun persist() {
-        snapshot(playing = player?.isPlaying == true, save = true)
+        val mp = player
+        snapshot(playing = mp != null && playing(mp), save = true)
     }
 
     fun stop() {
@@ -135,22 +140,41 @@ object PodcastPlayer {
         val pos = runCatching { mp.currentPosition.toLong() }.getOrDefault(_state.value.positionMs)
         val dur = runCatching { mp.duration.toLong() }.getOrDefault(_state.value.durationMs)
             .coerceAtLeast(_state.value.durationMs)
-        _state.value = PlaybackState(id, playing, pos, dur, _state.value.speed)
+        val next = PlaybackState(id, playing, pos, dur, _state.value.speed)
+        if (!save && !Podcasts.shouldPublishPlayback(_state.value, next)) return
+        _state.value = next
         if (save) onProgress?.invoke(id, pos, dur, false)
     }
 
     private fun stopInternal(save: Boolean) {
         if (save) runCatching { snapshot(playing = false, save = true) }
-        runCatching { player?.reset() }
-        runCatching { player?.release() }
+        val mp = player
         player = null
+        runCatching { mp?.reset() }
+        runCatching { mp?.release() }
         _state.value = PlaybackState(speed = _state.value.speed)
     }
 
-    private fun applySpeed(mp: MediaPlayer, speed: Float) {
-        runCatching {
-            val params = runCatching { mp.playbackParams }.getOrDefault(PlaybackParams())
-            mp.playbackParams = params.setSpeed(speed)
+    private fun abandon(mp: MediaPlayer) {
+        if (player === mp) player = null
+        runCatching { mp.reset() }
+        runCatching { mp.release() }
+        _state.value = PlaybackState(speed = _state.value.speed)
+    }
+
+    private fun playing(mp: MediaPlayer): Boolean =
+        runCatching { mp.isPlaying }.getOrDefault(false)
+
+    private fun applySpeed(mp: MediaPlayer, speed: Float, wantPlaying: Boolean) {
+        if (wantPlaying) runCatching { if (mp.isPlaying) mp.pause() }
+        val applied = runCatching {
+            mp.playbackParams = PlaybackParams().setSpeed(speed).setPitch(1.0f)
+            true
+        }.getOrDefault(false)
+        if (!applied && speed != 1.0f) {
+            runCatching { mp.playbackParams = PlaybackParams().setSpeed(1.0f).setPitch(1.0f) }
+            _state.value = _state.value.copy(speed = 1.0f)
         }
+        if (wantPlaying) runCatching { mp.start() }
     }
 }

@@ -160,6 +160,17 @@ class PodcastsTest {
     }
 
     @Test
+    fun pollSkipsSubSecondPositionTicks() {
+        val base = PlaybackState("e", true, 1_200L, 60_000L, 1.4f)
+        assertFalse(Podcasts.shouldPublishPlayback(base, base.copy(positionMs = 1_800L)))
+        assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(positionMs = 2_000L)))
+        assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(playing = false)))
+        assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(speed = 1.0f)))
+        assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(episodeId = "f")))
+        assertEquals(1_000L, Podcasts.POSITION_PUBLISH_MS)
+    }
+
+    @Test
     fun scrubMapsXToPosition() {
         assertEquals(0L, Podcasts.progressAt(0f, 100f, 60_000))
         assertEquals(30_000L, Podcasts.progressAt(50f, 100f, 60_000))

@@ -194,6 +194,16 @@ object Podcasts {
         return if (s == whole.toFloat()) "${whole}×" else "%.1f×".format(java.util.Locale.US, s)
     }
 
+    const val POSITION_PUBLISH_MS = 1_000L
+
+    fun shouldPublishPlayback(previous: PlaybackState, next: PlaybackState): Boolean {
+        if (previous.episodeId != next.episodeId) return true
+        if (previous.playing != next.playing) return true
+        if (previous.speed != next.speed) return true
+        if (previous.durationMs != next.durationMs) return true
+        return previous.positionMs / POSITION_PUBLISH_MS != next.positionMs / POSITION_PUBLISH_MS
+    }
+
     fun nowPlayingVisible(playing: Boolean, episodeId: String?): Boolean =
         playing && !episodeId.isNullOrBlank()
 
