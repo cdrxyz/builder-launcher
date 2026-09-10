@@ -215,6 +215,7 @@ import xyz.cdr.builderlauncher.usage.UsageStore
 import xyz.cdr.builderlauncher.usage.UsageToday
 import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherPlace
+import xyz.cdr.builderlauncher.weather.WeatherRefresh
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -404,39 +405,44 @@ fun BuilderRoot(
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
         PodcastPlayer.setSkipSilence(podcasts.skipSilence.value)
     }
-    LaunchedEffect(settings.weatherLat, settings.weatherLon) {
-        weather.refresh()
+    LaunchedEffect(lifecycleOwner, settings.weatherLat, settings.weatherLon) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            weather.refresh()
+            while (true) {
+                kotlinx.coroutines.delay(WeatherRefresh.TTL_MS)
+                weather.refresh()
+            }
+        }
     }
     LaunchedEffect(lifecycleOwner, settings.backupFrequency, settings.s3Endpoint, settings.s3Bucket) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             withContext(Dispatchers.IO) { backup.maybeUpload() }
         }
     }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(15 * 60 * 1000)
-            weather.refresh()
-        }
-    }
-    LaunchedEffect(page, watch.size) {
+    LaunchedEffect(lifecycleOwner, page, watch.size) {
         val needQuotes = (page == Page.Home && watch.isNotEmpty()) ||
             page == Page.Stocks || page == Page.StockDetail
         if (!needQuotes) return@LaunchedEffect
-        stocks.refreshQuotes()
-        while (true) {
-            kotlinx.coroutines.delay(60_000)
+        val interval = Stocks.quoteIntervalMs(page == Page.Home)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             stocks.refreshQuotes()
+            while (true) {
+                kotlinx.coroutines.delay(interval)
+                stocks.refreshQuotes()
+            }
         }
     }
-    LaunchedEffect(watch.size) {
-        if (watch.isEmpty()) {
-            tickerIndex = 0
+    LaunchedEffect(lifecycleOwner, page, watch.size) {
+        if (watch.isEmpty() || page != Page.Home) {
+            if (watch.isEmpty()) tickerIndex = 0
             return@LaunchedEffect
         }
         tickerIndex = tickerIndex.mod(watch.size)
-        while (true) {
-            kotlinx.coroutines.delay(HomeTicker.ROTATE_MS)
-            tickerIndex = HomeTicker.nextIndex(watch.size, tickerIndex)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                kotlinx.coroutines.delay(HomeTicker.ROTATE_MS)
+                tickerIndex = HomeTicker.nextIndex(watch.size, tickerIndex)
+            }
         }
     }
     LaunchedEffect(page, input) {
@@ -495,11 +501,13 @@ fun BuilderRoot(
             podcasts.refreshAll()
         }
     }
-    LaunchedEffect(playback.playing, playback.episodeId) {
+    LaunchedEffect(lifecycleOwner, playback.playing, playback.episodeId) {
         if (!playback.playing) return@LaunchedEffect
-        while (true) {
-            kotlinx.coroutines.delay(500)
-            PodcastPlayer.poll()
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                PodcastPlayer.poll()
+            }
         }
     }
 
@@ -794,7 +802,7 @@ fun BuilderRoot(
         help = false
         appQuery = false
         page = Page.Weather
-        scope.launch { weather.refresh() }
+        scope.launch { weather.refresh(force = true) }
     }
 
     fun openUsage() {
@@ -3215,11 +3223,14 @@ private fun ClockHeader(
     onTogglePlayback: () -> Unit = {},
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(timer.running, timer.endsAt, analog) {
-        now.value = System.currentTimeMillis()
-        while (true) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(timer.running, timer.endsAt, analog, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             now.value = System.currentTimeMillis()
-            delay(if (timer.running || analog) 200 else 15_000)
+            while (true) {
+                now.value = System.currentTimeMillis()
+                delay(Clock.homeTickMs(timer.running, analog))
+            }
         }
     }
     val clockText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
@@ -3958,7 +3969,7 @@ private fun SettingsPage(
                         weatherLon = place.longitude,
                     )
                 }
-                scope.launch { weather.refresh() }
+                scope.launch { weather.refresh(force = true) }
             },
         )
         Spacer(Modifier.height(16.dp))
@@ -4081,10 +4092,18 @@ private fun CalendarHomeSync(
     val selection = CalendarSelection(settings.calendarRestrict, settings.calendarIds)
     val selectionState = rememberUpdatedState(selection)
     DisposableEffect(calendar) {
+        var job: Job? = null
         val stop = calendar.observe {
-            scope.launch { calendar.refresh(selection = selectionState.value) }
+            job?.cancel()
+            job = scope.launch {
+                delay(400)
+                calendar.refresh(selection = selectionState.value)
+            }
         }
-        onDispose { stop() }
+        onDispose {
+            job?.cancel()
+            stop()
+        }
     }
     LaunchedEffect(appsEpoch, settings.calendarRestrict, settings.calendarIds) {
         calendar.refresh(selection = CalendarSelection(settings.calendarRestrict, settings.calendarIds))

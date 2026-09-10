@@ -11,7 +11,7 @@ description: City autocomplete, no GPS required. Metric or imperial on the home 
 
 ![Weather mark between the clock and ticker on home](../../../assets/screenshots/home.png)
 
-- No GPS is required when a city is set. If you clear the city, the launcher may use a last-known GPS point when the OS has already granted location — the documented path is still "type a city".
+- No GPS is required when a city is set. If you clear the city, the launcher may use a last-known GPS point when the OS has already granted location — it does not request a live fix. The documented path is still "type a city".
 - **Weather units:** `metric` (Celsius) or `imperial` (Fahrenheit). Default metric.
 - Forecast refreshes about every 15 minutes from Open-Meteo.
 

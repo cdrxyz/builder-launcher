@@ -14,6 +14,13 @@ class StocksTest {
     }
 
     @Test
+    fun homeQuotesPollLessOften() {
+        assertEquals(Stocks.HOME_QUOTE_MS, Stocks.quoteIntervalMs(onHome = true))
+        assertEquals(Stocks.QUOTE_MS, Stocks.quoteIntervalMs(onHome = false))
+        assertTrue(Stocks.HOME_QUOTE_MS > Stocks.QUOTE_MS)
+    }
+
+    @Test
     fun queryMatchesStockPrefixes() {
         assertTrue(Stocks.matchesQuery("st"))
         assertTrue(Stocks.matchesQuery("stock"))

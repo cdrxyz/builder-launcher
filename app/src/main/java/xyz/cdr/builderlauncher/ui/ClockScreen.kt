@@ -36,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
@@ -71,11 +74,14 @@ fun ClockScreen(
     onMoveZone: (Int, Int) -> Unit,
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(snapshot.timer.running, snapshot.timer.endsAt) {
-        now.value = System.currentTimeMillis()
-        while (true) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(snapshot.timer.running, snapshot.timer.endsAt, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             now.value = System.currentTimeMillis()
-            delay(if (snapshot.timer.running) 200 else 15_000)
+            while (true) {
+                now.value = System.currentTimeMillis()
+                delay(Clock.homeTickMs(snapshot.timer.running, analog = false))
+            }
         }
     }
     Column(modifier.fillMaxWidth()) {

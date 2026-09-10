@@ -3,18 +3,13 @@ package xyz.cdr.builderlauncher.weather
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Looper
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -27,7 +22,6 @@ import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import java.io.File
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
 
 @Serializable
 data class WeatherSnapshot(
@@ -73,7 +67,9 @@ class WeatherRepository(
     private val _forecast = MutableStateFlow(loadForecast())
     val forecast: StateFlow<WeatherForecast?> = _forecast.asStateFlow()
 
-    suspend fun refresh() = withContext(Dispatchers.IO) {
+    suspend fun refresh(force: Boolean = false) = withContext(Dispatchers.IO) {
+        val cachedAt = _forecast.value?.fetchedAt ?: _current.value?.fetchedAt
+        if (!WeatherRefresh.shouldFetch(cachedAt, System.currentTimeMillis(), force)) return@withContext
         val point = WeatherPointResolver.fromSettings(settings.settings.value) ?: gpsPoint() ?: return@withContext
         val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl().newBuilder()
             .addQueryParameter("latitude", point.latitude.toString())
@@ -177,25 +173,7 @@ class WeatherRepository(
         )
         val last = providers.mapNotNull { provider ->
             runCatching { lm.getLastKnownLocation(provider) }.getOrNull()
-        }.maxByOrNull { it.time }
-        val loc = last ?: oneShot(lm, LocationManager.NETWORK_PROVIDER) ?: return null
-        return WeatherPoint(latitude = loc.latitude, longitude = loc.longitude, source = "gps")
+        }.maxByOrNull { it.time } ?: return null
+        return WeatherPoint(latitude = last.latitude, longitude = last.longitude, source = "gps")
     }
-
-    private suspend fun oneShot(lm: LocationManager, provider: String): Location? =
-        withTimeoutOrNull(8_000) {
-            suspendCancellableCoroutine { cont ->
-                val listener = object : LocationListener {
-                    override fun onLocationChanged(location: Location) {
-                        runCatching { lm.removeUpdates(this) }
-                        if (cont.isActive) cont.resume(location)
-                    }
-                }
-                cont.invokeOnCancellation { runCatching { lm.removeUpdates(listener) } }
-                val started = runCatching {
-                    lm.requestLocationUpdates(provider, 0L, 0f, listener, Looper.getMainLooper())
-                }
-                if (started.isFailure && cont.isActive) cont.resume(null)
-            }
-        }
 }
