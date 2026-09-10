@@ -1279,7 +1279,9 @@ fun BuilderRoot(
                     },
                 )
                 val overlayMenus = actionMenuOpen || prompt == SlashCommands.PROMPT
+                val filtering = people.isEmpty() && appQuery
                 if (!overlayMenus) {
+                if (!filtering) {
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
                     open = previewTodos,
@@ -1290,6 +1292,7 @@ fun BuilderRoot(
                     },
                 )
                 Spacer(Modifier.height(8.dp))
+                }
                 smsDraft?.let { draft ->
                     Text(
                         "Send to ${draft.contact.name} (${draft.contact.number})",
@@ -1309,7 +1312,6 @@ fun BuilderRoot(
                     val all = apps.all()
                     pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
                 }
-                val filtering = people.isEmpty() && appQuery
                 val shown = if (filtering) {
                     AppList.preview(choices)
                 } else {
