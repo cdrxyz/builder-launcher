@@ -27,6 +27,7 @@ class ClockStoreTest {
             ),
         )
         first.addAlarm(7, 30, "up")
+        first.addAlarm(22, 30, "Take out garbage", setOf(3))
         first.addZone("London", "Europe/London")
         first.addZone("Tokyo", "Asia/Tokyo")
 
@@ -36,9 +37,10 @@ class ClockStoreTest {
         assertEquals(45_000L, snap.timer.remainingMs)
         assertTrue(snap.timer.running)
         assertEquals(9_000_000L, snap.timer.endsAt)
-        assertEquals(listOf(7 to 30), snap.alarms.map { it.hour to it.minute })
-        assertEquals("up", snap.alarms.single().label)
-        assertTrue(snap.alarms.single().enabled)
+        assertEquals(listOf(7 to 30, 22 to 30), snap.alarms.map { it.hour to it.minute })
+        assertEquals(listOf("up", "Take out garbage"), snap.alarms.map { it.label })
+        assertEquals(setOf(3), snap.alarms.last().days)
+        assertTrue(snap.alarms.all { it.enabled })
         assertEquals(
             listOf("London" to "Europe/London", "Tokyo" to "Asia/Tokyo"),
             snap.zones.map { it.label to it.zoneId },

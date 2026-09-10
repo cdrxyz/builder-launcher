@@ -803,7 +803,14 @@ class LauncherScreenshotTest {
                 ClockChrome(
                     tab = "Alarm",
                     alarms = listOf(
-                        xyz.cdr.builderlauncher.clock.ClockAlarm(id = "1", hour = 6, minute = 30, enabled = true),
+                        xyz.cdr.builderlauncher.clock.ClockAlarm(
+                            id = "1",
+                            hour = 22,
+                            minute = 30,
+                            enabled = true,
+                            label = "Take out garbage",
+                            days = setOf(3),
+                        ),
                         xyz.cdr.builderlauncher.clock.ClockAlarm(id = "2", hour = 7, minute = 15, enabled = false),
                     ),
                 )

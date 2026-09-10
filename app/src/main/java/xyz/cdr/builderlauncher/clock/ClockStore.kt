@@ -29,12 +29,13 @@ class ClockStore internal constructor(private val file: File) {
         )
     }
 
-    fun addAlarm(hour: Int, minute: Int, label: String = ""): ClockAlarm {
+    fun addAlarm(hour: Int, minute: Int, label: String = "", days: Set<Int> = emptySet()): ClockAlarm {
         val alarm = ClockAlarm(
             id = System.currentTimeMillis().toString(36),
             hour = hour,
             minute = minute,
-            label = label,
+            label = label.trim(),
+            days = days.filter { it in 1..7 }.toSet(),
         )
         persist(_state.value.copy(alarms = (_state.value.alarms + alarm).sortedWith(compareBy({ it.hour }, { it.minute }))))
         return alarm
