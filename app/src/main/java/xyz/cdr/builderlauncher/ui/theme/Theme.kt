@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 
 enum class ThemeChrome { TUI, PLAIN, MATERIAL, IOS }
 
@@ -70,6 +71,17 @@ object ThemeCatalog {
         chrome = ThemeChrome.TUI,
     )
 
+    val CyberpunkLight = Cyberpunk.copy(
+        ink = Color(0xFFF4F1E8),
+        paper = Color(0xFF1A1A1A),
+        dim = Color(0xFF6A665C),
+        prompt = Color(0xFF008C28),
+        line = Color(0xFFD4CFC4),
+        field = Color(0xFFF4F1E8),
+        card = Color(0xFFF4F1E8),
+        light = true,
+    )
+
     val Plain = ThemeTokens(
         ink = Color(0xFF000000),
         paper = Color(0xFFF5F5F5),
@@ -86,6 +98,17 @@ object ThemeCatalog {
         chartRadius = 3.dp,
         listGap = 10.dp,
         chrome = ThemeChrome.PLAIN,
+    )
+
+    val PlainLight = Plain.copy(
+        ink = Color(0xFFF5F5F5),
+        paper = Color(0xFF111111),
+        dim = Color(0xFF6A6A6A),
+        prompt = Color(0xFF111111),
+        line = Color(0xFFD8D8D8),
+        field = Color(0xFFFFFFFF),
+        card = Color(0xFFFFFFFF),
+        light = true,
     )
 
     val Material = ThemeTokens(
@@ -106,6 +129,17 @@ object ThemeCatalog {
         chrome = ThemeChrome.MATERIAL,
     )
 
+    val MaterialDark = Material.copy(
+        ink = Color(0xFF141218),
+        paper = Color(0xFFE6E1E5),
+        dim = Color(0xFFCAC4D0),
+        prompt = Color(0xFFD0BCFF),
+        line = Color(0xFF49454F),
+        field = Color(0xFF2B2930),
+        card = Color(0xFF211F26),
+        light = false,
+    )
+
     val Ios = ThemeTokens(
         ink = Color(0xFFF2F2F7),
         paper = Color(0xFF000000),
@@ -124,11 +158,22 @@ object ThemeCatalog {
         chrome = ThemeChrome.IOS,
     )
 
-    fun tokens(theme: UiTheme): ThemeTokens = when (theme) {
-        UiTheme.CYBERPUNK -> Cyberpunk
-        UiTheme.PLAIN -> Plain
-        UiTheme.MATERIAL -> Material
-        UiTheme.IOS -> Ios
+    val IosDark = Ios.copy(
+        ink = Color(0xFF000000),
+        paper = Color(0xFFFFFFFF),
+        dim = Color(0xFF8E8E93),
+        prompt = Color(0xFF0A84FF),
+        line = Color(0xFF38383A),
+        field = Color(0xFF1C1C1E),
+        card = Color(0xFF1C1C1E),
+        light = false,
+    )
+
+    fun tokens(theme: UiTheme, tone: UiTone = theme.defaultTone): ThemeTokens = when (theme) {
+        UiTheme.CYBERPUNK -> if (tone == UiTone.LIGHT) CyberpunkLight else Cyberpunk
+        UiTheme.PLAIN -> if (tone == UiTone.LIGHT) PlainLight else Plain
+        UiTheme.MATERIAL -> if (tone == UiTone.DARK) MaterialDark else Material
+        UiTheme.IOS -> if (tone == UiTone.DARK) IosDark else Ios
     }
 }
 
@@ -247,10 +292,11 @@ fun CommandBarRule() {
 @Composable
 fun BuilderTheme(
     theme: UiTheme = UiTheme.CYBERPUNK,
+    tone: UiTone = theme.defaultTone,
     accent: Color? = null,
     content: @Composable () -> Unit,
 ) {
-    val tokens = ThemeCatalog.tokens(theme)
+    val tokens = ThemeCatalog.tokens(theme, tone)
     val resolvedAccent = accent ?: tokens.prompt
     val colors = if (tokens.light) {
         lightColorScheme(

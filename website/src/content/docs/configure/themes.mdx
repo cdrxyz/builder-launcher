@@ -7,6 +7,10 @@ import homeCyber from '../../../assets/screenshots/home.png';
 import homePlain from '../../../assets/screenshots/home-theme-plain.png';
 import homeMaterial from '../../../assets/screenshots/home-theme-material.png';
 import homeIos from '../../../assets/screenshots/home-theme-ios.png';
+import homeCyberLight from '../../../assets/screenshots/home-theme-cyberpunk-light.png';
+import homePlainLight from '../../../assets/screenshots/home-theme-plain-light.png';
+import homeMaterialDark from '../../../assets/screenshots/home-theme-material-dark.png';
+import homeIosDark from '../../../assets/screenshots/home-theme-ios-dark.png';
 import settingsCyber from '../../../assets/screenshots/settings.png';
 import settingsPlain from '../../../assets/screenshots/settings-theme-plain.png';
 import settingsMaterial from '../../../assets/screenshots/settings-theme-material.png';
@@ -24,16 +28,16 @@ import podcastsPlain from '../../../assets/screenshots/podcasts-theme-plain.png'
 import podcastsMaterial from '../../../assets/screenshots/podcasts-theme-material.png';
 import podcastsIos from '../../../assets/screenshots/podcasts-theme-ios.png';
 
-Type `settings` and pick a theme. Screens stay the same; type, color, lists, charts, and the command bar change.
+Type `settings` and pick a theme, then `dark` or `light`. Screens stay the same; type, color, lists, charts, and the command bar change.
 
 | Theme | What you get |
 | --- | --- |
-| `cyberpunk` | Terminal UI. Monospace, green on black, underline command bar. |
+| `cyberpunk` | Terminal UI. Monospace, green on black (or cream paper in light). Underline command bar. |
 | `plain` | Black and white. Rounded accent outline on the command bar, list rows, and badges. |
-| `material` | Light surfaces. Filled cards, chips, left-aligned titles, rounded chart bars. |
-| `ios` | Large title, grouped white lists on gray, segmented period control. |
+| `material` | Material surfaces. Filled cards, chips, left-aligned titles, rounded chart bars. |
+| `ios` | Large title, grouped lists, segmented period control. |
 
-Picking a theme also sets its default accent. You can still pick another color in [settings](settings/).
+Each theme has both `dark` and `light`. Default is dark for cyberpunk and plain, light for material and ios. Picking a theme or tone also sets its default accent. You can still pick another color in [settings](settings/).
 
 ## Home
 
@@ -55,6 +59,27 @@ Command bar chrome is the clearest change: underline, outlined pill, filled fiel
 	<figure>
 		<img src={homeIos.src} alt="Home in iOS: large clock and grouped command field" width="240" />
 		<figcaption>ios</figcaption>
+	</figure>
+</div>
+
+Default tones above. Flip `dark` / `light` in settings for the other surface of the same chrome:
+
+<div class="shot-row">
+	<figure>
+		<img src={homeCyberLight.src} alt="Home in cyberpunk light" width="240" />
+		<figcaption>cyberpunk light</figcaption>
+	</figure>
+	<figure>
+		<img src={homePlainLight.src} alt="Home in plain light" width="240" />
+		<figcaption>plain light</figcaption>
+	</figure>
+	<figure>
+		<img src={homeMaterialDark.src} alt="Home in Material dark" width="240" />
+		<figcaption>material dark</figcaption>
+	</figure>
+	<figure>
+		<img src={homeIosDark.src} alt="Home in iOS dark" width="240" />
+		<figcaption>ios dark</figcaption>
 	</figure>
 </div>
 

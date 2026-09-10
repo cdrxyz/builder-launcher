@@ -161,6 +161,7 @@ import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.ClockFace
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -280,14 +281,35 @@ internal fun SettingsPage(
                     theme.label,
                     color = if (settings.uiTheme == theme) Accent else Dim,
                     modifier = Modifier.clickable {
-                        accentDraft = theme.defaultAccentHex
-                        repo.update { it.copy(uiTheme = theme, accentHex = theme.defaultAccentHex) }
+                        val accent = theme.defaultAccentHex(settings.uiTone)
+                        accentDraft = accent
+                        repo.update { it.copy(uiTheme = theme, accentHex = accent) }
                     },
                 )
             }
         }
         Text(
             settings.uiTheme.blurb,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Tone", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTone.entries.forEach { tone ->
+                Text(
+                    tone.label,
+                    color = if (settings.uiTone == tone) Accent else Dim,
+                    modifier = Modifier.clickable {
+                        val accent = settings.uiTheme.defaultAccentHex(tone)
+                        accentDraft = accent
+                        repo.update { it.copy(uiTone = tone, accentHex = accent) }
+                    },
+                )
+            }
+        }
+        Text(
+            if (settings.uiTone == UiTone.LIGHT) "Light surfaces." else "Dark surfaces.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

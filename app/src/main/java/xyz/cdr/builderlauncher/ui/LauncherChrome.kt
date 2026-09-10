@@ -76,6 +76,7 @@ import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.ClockFace
 import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -1502,6 +1503,21 @@ fun SettingsChrome(
             }
         }
         Text(settings.uiTheme.blurb, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        Text("Tone", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTone.entries.forEach { tone ->
+                Text(
+                    tone.label,
+                    color = if (settings.uiTone == tone) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.uiTone == UiTone.LIGHT) "Light surfaces." else "Dark surfaces.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(16.dp))
         AccentPicker(hex = settings.accentHex)
         Field("Hex", settings.accentHex, AccentColor.DEFAULT_HEX)

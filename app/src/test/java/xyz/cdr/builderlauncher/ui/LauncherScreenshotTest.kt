@@ -18,6 +18,7 @@ import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 
 class LauncherScreenshotTest {
     @get:Rule
@@ -919,66 +920,37 @@ class LauncherScreenshotTest {
     }
 
     @Test
-    fun homeThemePlain() {
-        paparazzi.snapshot {
-            BuilderTheme(theme = UiTheme.PLAIN, accent = accentColor(UiTheme.PLAIN.defaultAccentHex)) {
-                HomeChrome(
-                    time = "15:42",
-                    date = "Mon 7 Sep",
-                    weather = "18° cloudy",
-                    input = "summarize this PR",
-                    prompt = "?",
-                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
-                    event = "dentist · 09:00",
-                )
-            }
-        }
-    }
+    fun homeThemePlain() { snap(UiTheme.PLAIN) { sampleHome() } }
 
     @Test
-    fun homeThemeMaterial() {
-        paparazzi.snapshot {
-            BuilderTheme(theme = UiTheme.MATERIAL, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {
-                HomeChrome(
-                    time = "15:42",
-                    date = "Mon 7 Sep",
-                    weather = "18° cloudy",
-                    input = "summarize this PR",
-                    prompt = "?",
-                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
-                    event = "dentist · 09:00",
-                )
-            }
-        }
-    }
+    fun homeThemeMaterial() { snap(UiTheme.MATERIAL) { sampleHome() } }
 
     @Test
-    fun homeThemeIos() {
-        paparazzi.snapshot {
-            BuilderTheme(theme = UiTheme.IOS, accent = accentColor(UiTheme.IOS.defaultAccentHex)) {
-                HomeChrome(
-                    time = "15:42",
-                    date = "Mon 7 Sep",
-                    weather = "18° cloudy",
-                    input = "summarize this PR",
-                    prompt = "?",
-                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
-                    event = "dentist · 09:00",
-                )
-            }
-        }
-    }
+    fun homeThemeIos() { snap(UiTheme.IOS) { sampleHome() } }
+
+    @Test
+    fun homeThemeCyberpunkLight() { snap(UiTheme.CYBERPUNK, UiTone.LIGHT) { sampleHome() } }
+
+    @Test
+    fun homeThemePlainLight() { snap(UiTheme.PLAIN, UiTone.LIGHT) { sampleHome() } }
+
+    @Test
+    fun homeThemeMaterialDark() { snap(UiTheme.MATERIAL, UiTone.DARK) { sampleHome() } }
+
+    @Test
+    fun homeThemeIosDark() { snap(UiTheme.IOS, UiTone.DARK) { sampleHome() } }
 
     @Test
     fun settingsThemePlain() {
         paparazzi.snapshot {
-            BuilderTheme(theme = UiTheme.PLAIN, accent = accentColor(UiTheme.PLAIN.defaultAccentHex)) {
+            BuilderTheme(theme = UiTheme.PLAIN, tone = UiTone.DARK, accent = accentColor(UiTheme.PLAIN.defaultAccentHex)) {
                 SettingsChrome(
                     settings = BuilderSettings(
                         provider = LlmProvider.HERMES,
                         hermesBaseUrl = "http://192.168.1.10:8642",
                         keyboardMode = KeyboardMode.AUTO,
                         uiTheme = UiTheme.PLAIN,
+                        uiTone = UiTone.DARK,
                         accentHex = UiTheme.PLAIN.defaultAccentHex,
                     ),
                     hardware = true,
@@ -994,13 +966,14 @@ class LauncherScreenshotTest {
     @Test
     fun settingsThemeMaterial() {
         paparazzi.snapshot {
-            BuilderTheme(theme = UiTheme.MATERIAL, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {
+            BuilderTheme(theme = UiTheme.MATERIAL, tone = UiTone.LIGHT, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {
                 SettingsChrome(
                     settings = BuilderSettings(
                         provider = LlmProvider.HERMES,
                         hermesBaseUrl = "http://192.168.1.10:8642",
                         keyboardMode = KeyboardMode.AUTO,
                         uiTheme = UiTheme.MATERIAL,
+                        uiTone = UiTone.LIGHT,
                         accentHex = UiTheme.MATERIAL.defaultAccentHex,
                     ),
                     hardware = true,
@@ -1016,13 +989,14 @@ class LauncherScreenshotTest {
     @Test
     fun settingsThemeIos() {
         paparazzi.snapshot {
-            BuilderTheme(theme = UiTheme.IOS, accent = accentColor(UiTheme.IOS.defaultAccentHex)) {
+            BuilderTheme(theme = UiTheme.IOS, tone = UiTone.LIGHT, accent = accentColor(UiTheme.IOS.defaultAccentHex)) {
                 SettingsChrome(
                     settings = BuilderSettings(
                         provider = LlmProvider.HERMES,
                         hermesBaseUrl = "http://192.168.1.10:8642",
                         keyboardMode = KeyboardMode.AUTO,
                         uiTheme = UiTheme.IOS,
+                        uiTone = UiTone.LIGHT,
                         accentHex = UiTheme.IOS.defaultAccentHex,
                     ),
                     hardware = true,
@@ -1062,10 +1036,28 @@ class LauncherScreenshotTest {
     @Test
     fun podcastsThemeIos() { snap(UiTheme.IOS) { samplePodcasts() } }
 
-    private fun snap(theme: UiTheme, content: @Composable () -> Unit) {
+    private fun snap(theme: UiTheme, tone: UiTone = theme.defaultTone, content: @Composable () -> Unit) {
         paparazzi.snapshot {
-            BuilderTheme(theme = theme, accent = accentColor(theme.defaultAccentHex), content = content)
+            BuilderTheme(
+                theme = theme,
+                tone = tone,
+                accent = accentColor(theme.defaultAccentHex(tone)),
+                content = content,
+            )
         }
+    }
+
+    @Composable
+    private fun sampleHome() {
+        HomeChrome(
+            time = "15:42",
+            date = "Mon 7 Sep",
+            weather = "18° cloudy",
+            input = "summarize this PR",
+            prompt = "?",
+            todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+            event = "dentist · 09:00",
+        )
     }
 
     @Composable

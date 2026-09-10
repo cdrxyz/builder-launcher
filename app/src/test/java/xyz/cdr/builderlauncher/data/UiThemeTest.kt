@@ -17,5 +17,17 @@ class UiThemeTest {
         assertEquals("#F5F5F5", UiTheme.PLAIN.defaultAccentHex)
         assertEquals("#007AFF", UiTheme.IOS.defaultAccentHex)
         assertEquals("#6750A4", UiTheme.MATERIAL.defaultAccentHex)
+        assertEquals(UiTone.DARK, UiTheme.CYBERPUNK.defaultTone)
+        assertEquals(UiTone.LIGHT, UiTheme.MATERIAL.defaultTone)
+        assertEquals("#111111", UiTheme.PLAIN.defaultAccentHex(UiTone.LIGHT))
+        assertEquals("#D0BCFF", UiTheme.MATERIAL.defaultAccentHex(UiTone.DARK))
+    }
+
+    @Test
+    fun toneParse() {
+        assertEquals(listOf("dark", "light"), UiTone.entries.map { it.label })
+        assertEquals(UiTone.DARK, UiTone.parse(null))
+        assertEquals(UiTone.LIGHT, UiTone.parse("light"))
+        assertEquals(UiTone.DARK, UiTone.parse("nope"))
     }
 }
