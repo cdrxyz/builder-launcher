@@ -40,6 +40,7 @@ class PodcastPlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         val created = MediaSession(this, "podcasts")
+        created.setSessionActivity(nowPlayingIntent(this))
         created.setCallback(
             object : MediaSession.Callback() {
                 override fun onPlay() {
@@ -63,13 +64,19 @@ class PodcastPlaybackService : Service() {
                 }
 
                 override fun onFastForward() {
-                    PodcastPlayer.skip(Podcasts.SKIP_MS)
-                    publish()
+                    skip(forward = true)
                 }
 
                 override fun onRewind() {
-                    PodcastPlayer.skip(-Podcasts.SKIP_MS)
-                    publish()
+                    skip(forward = false)
+                }
+
+                override fun onSkipToNext() {
+                    skip(forward = true)
+                }
+
+                override fun onSkipToPrevious() {
+                    skip(forward = false)
                 }
             },
         )
@@ -104,6 +111,16 @@ class PodcastPlaybackService : Service() {
                 PodcastPlayer.stop()
                 stopSelf()
                 return START_NOT_STICKY
+            }
+            ACTION_REWIND -> {
+                ready = true
+                skip(forward = false)
+                return START_STICKY
+            }
+            ACTION_FORWARD -> {
+                ready = true
+                skip(forward = true)
+                return START_STICKY
             }
         }
         ready = true
@@ -158,7 +175,10 @@ class PodcastPlaybackService : Service() {
                 .putString(MediaMetadata.METADATA_KEY_ALBUM, showTitle)
                 .putLong(MediaMetadata.METADATA_KEY_DURATION, playback.durationMs)
                 .apply {
-                    artwork?.let { putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it) }
+                    artwork?.let {
+                        putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it)
+                        putBitmap(MediaMetadata.METADATA_KEY_ART, it)
+                    }
                 }
                 .build(),
         )
@@ -184,10 +204,17 @@ class PodcastPlaybackService : Service() {
         }
     }
 
+    private fun skip(forward: Boolean) {
+        PodcastPlayer.skip(Podcasts.mediaSkipMs(forward))
+        publish()
+    }
+
     companion object {
         const val ACTION_PAUSE = "xyz.cdr.builderlauncher.podcasts.PAUSE"
         const val ACTION_PLAY = "xyz.cdr.builderlauncher.podcasts.PLAY"
         const val ACTION_STOP = "xyz.cdr.builderlauncher.podcasts.STOP"
+        const val ACTION_REWIND = "xyz.cdr.builderlauncher.podcasts.REWIND"
+        const val ACTION_FORWARD = "xyz.cdr.builderlauncher.podcasts.FORWARD"
         const val EXTRA_TITLE = "title"
         const val EXTRA_BODY = "body"
         const val EXTRA_ART = "art"
@@ -226,19 +253,14 @@ class PodcastPlaybackService : Service() {
                     NotificationChannel(CHANNEL, "Podcasts", NotificationManager.IMPORTANCE_LOW),
                 )
             }
-            val open = PendingIntent.getActivity(
+            val open = nowPlayingIntent(context)
+            val rewind = serviceIntent(context, ACTION_REWIND, 2)
+            val toggle = serviceIntent(
                 context,
-                0,
-                Intent(context, MainActivity::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-            val toggle = PendingIntent.getService(
-                context,
+                if (playing) ACTION_PAUSE else ACTION_PLAY,
                 1,
-                Intent(context, PodcastPlaybackService::class.java)
-                    .setAction(if (playing) ACTION_PAUSE else ACTION_PLAY),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
+            val forward = serviceIntent(context, ACTION_FORWARD, 3)
             val builder = if (Build.VERSION.SDK_INT >= 26) {
                 Notification.Builder(context, CHANNEL)
             } else {
@@ -247,9 +269,9 @@ class PodcastPlaybackService : Service() {
             }
             val style = Notification.MediaStyle()
             if (session != null) style.setMediaSession(session.sessionToken)
-            style.setShowActionsInCompactView(0)
+            style.setShowActionsInCompactView(0, 1, 2)
             return builder
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_launcher_fg)
                 .setContentTitle(episode.ifBlank { "Podcast" })
                 .setContentText(show)
                 .setLargeIcon(art)
@@ -257,12 +279,35 @@ class PodcastPlaybackService : Service() {
                 .setOngoing(playing)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setStyle(style)
+                .addAction(android.R.drawable.ic_media_rew, "Back 15", rewind)
                 .addAction(
                     if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                     if (playing) "Pause" else "Play",
                     toggle,
                 )
+                .addAction(android.R.drawable.ic_media_ff, "Forward 15", forward)
                 .build()
+        }
+
+        fun nowPlayingIntent(context: Context): PendingIntent {
+            return PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java)
+                    .setAction(Podcasts.ACTION_NOW_PLAYING)
+                    .putExtra(Podcasts.EXTRA_OPEN_NOW_PLAYING, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        private fun serviceIntent(context: Context, action: String, code: Int): PendingIntent {
+            return PendingIntent.getService(
+                context,
+                code,
+                Intent(context, PodcastPlaybackService::class.java).setAction(action),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
         }
     }
 }

@@ -292,18 +292,24 @@ class PodcastsTest {
         assertTrue(Podcasts.mediaSessionActive(episodeId = "e", stopped = false, playing = false))
         assertFalse(Podcasts.mediaSessionActive(episodeId = null, stopped = false, playing = true))
         assertFalse(Podcasts.mediaSessionActive(episodeId = "e", stopped = true))
+        val skip = Podcasts.MEDIA_ACTION_SKIP_TO_PREVIOUS or Podcasts.MEDIA_ACTION_SKIP_TO_NEXT
         assertEquals(
             Podcasts.MEDIA_ACTION_PLAY or Podcasts.MEDIA_ACTION_PLAY_PAUSE or
                 Podcasts.MEDIA_ACTION_STOP or Podcasts.MEDIA_ACTION_SEEK or
-                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD,
+                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD or skip,
             Podcasts.mediaActions(playing = false),
         )
         assertEquals(
             Podcasts.MEDIA_ACTION_PAUSE or Podcasts.MEDIA_ACTION_PLAY_PAUSE or
                 Podcasts.MEDIA_ACTION_STOP or Podcasts.MEDIA_ACTION_SEEK or
-                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD,
+                Podcasts.MEDIA_ACTION_REWIND or Podcasts.MEDIA_ACTION_FAST_FORWARD or skip,
             Podcasts.mediaActions(playing = true),
         )
+        assertEquals(Podcasts.SKIP_MS, Podcasts.mediaSkipMs(forward = true))
+        assertEquals(-Podcasts.SKIP_MS, Podcasts.mediaSkipMs(forward = false))
+        assertTrue(Podcasts.shouldOpenNowPlaying(Podcasts.ACTION_NOW_PLAYING, openExtra = false))
+        assertTrue(Podcasts.shouldOpenNowPlaying(action = null, openExtra = true))
+        assertFalse(Podcasts.shouldOpenNowPlaying(action = null, openExtra = false))
     }
 
     @Test

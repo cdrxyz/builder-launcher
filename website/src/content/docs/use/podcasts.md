@@ -46,7 +46,7 @@ Open a subscription. Episode titles are shown in full. Length (or resume positio
 - Position is saved. Play again resumes where you left off. Near the end counts as finished and hides the now playing bar. The next episode in that show then starts, following **newest first** or **oldest first**. Finished and skipped episodes are left out. If nothing is left, playback stops.
 - **Show notes** from the feed sit under the player. Timestamps (`0:00`, `12:34`, `1:02:03`) are links; tap one to jump there.
 
-While audio is playing, a pause icon sits at the top left of home; tap it to pause. After pause it becomes play, then after 8 seconds the headphones mark again. Headphones is always there otherwise — tap it for podcasts. Weather sits to the right of that mark. Lock screen and headset controls use Android media playback (title, show, play/pause).
+While audio is playing, a pause icon sits at the top left of home; tap it to pause. After pause it becomes play, then after 8 seconds the headphones mark again. Headphones is always there otherwise — tap it for podcasts. Weather sits to the right of that mark. Lock screen, Bluetooth, and Android media controls use the Builder Launcher mark as the app icon. Back and forward skip 15 seconds. Play/pause still pauses. Tap the mark, the media card, or the notification to open the now playing episode in the launcher.
 
 ![Headphones then weather on home](../../../assets/screenshots/home-playing.png)
 
