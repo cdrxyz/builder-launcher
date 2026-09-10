@@ -38,7 +38,7 @@ object ClockScheduler {
         am.cancel(timerRequest(app))
         if (snapshot.timer.running) {
             val ends = snapshot.timer.endsAt
-            if (ends != null && ends > now) scheduleExact(am, timerRequest(app), ends)
+            if (ends != null && ends > now) scheduleAlarm(app, am, timerRequest(app), ends)
         }
         snapshot.alarms.forEach { alarm ->
             val req = alarmRequest(app, alarm.id)

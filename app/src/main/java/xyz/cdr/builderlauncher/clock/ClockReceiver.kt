@@ -30,5 +30,8 @@ class ClockReceiver : BroadcastReceiver() {
                 if (store.snapshot().alert != null) ClockAlertService.start(context)
             }
         }
+        if (ClockAlertLock.shouldLaunch(store.snapshot().alert != null, ClockAlertLock.keyguardLocked(context))) {
+            ClockAlertLock.tryLaunch(context)
+        }
     }
 }

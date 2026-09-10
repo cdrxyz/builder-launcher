@@ -2,7 +2,6 @@ package xyz.cdr.builderlauncher
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.content.Intent
 import androidx.activity.ComponentActivity
@@ -143,12 +142,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyAlertWindow() {
-        val alerting = ClockStore.get(this).snapshot().alert != null
-        if (Build.VERSION.SDK_INT >= 27) {
-            setShowWhenLocked(alerting)
-            setTurnScreenOn(alerting)
-        }
-        if (alerting) ClockAlertService.start(this)
+        if (ClockStore.get(this).snapshot().alert != null) ClockAlertService.start(this)
     }
 
     private fun askToBeHome(fromSettings: Boolean) {
