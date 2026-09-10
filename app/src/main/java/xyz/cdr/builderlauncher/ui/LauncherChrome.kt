@@ -1988,7 +1988,10 @@ private fun CommandRow(
                 CopyIcon(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp))
             }
         }
-        Row(verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             PromptGlyph(prompt = prompt, wrapField = wrapField)
             Text(
                 value.ifEmpty { "" },
@@ -1998,6 +2001,8 @@ private fun CommandRow(
             )
             if (confirm) {
                 CheckIcon(Modifier.padding(start = 12.dp, top = if (wrapField) 2.dp else 0.dp))
+            } else if (wrap) {
+                SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
             }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))

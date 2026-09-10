@@ -3724,6 +3724,13 @@ private fun CommandBar(
                         .clickable { onSubmit() }
                         .padding(start = 12.dp, top = if (wrapField) 2.dp else 0.dp),
                 )
+            } else if (wrap) {
+                SendIcon(
+                    Modifier
+                        .semantics { contentDescription = "send" }
+                        .clickable { onSubmit() }
+                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                )
             }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
