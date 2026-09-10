@@ -7,7 +7,7 @@ description: Point ? at Hermes, xAI, OpenAI, Anthropic, Gemini, OpenRouter, Groq
 
 Type `settings` → **… AI providers >**.
 
-Each account stays on the device when you switch. If Hermes is selected and the instance is unreachable, `?` tries a connected cloud account and shows **Fell back to Grok** (or ChatGPT / Claude / Gemini / …) above the reply.
+Each account stays on the device when you switch. If Hermes is selected and the instance is unreachable, `?` tries a connected cloud account and shows **Fell back to Grok** (or ChatGPT / Claude / Gemini / …) above the reply. Tap that line to copy a debug prompt plus the Hermes error so you can paste it into a chat.
 
 Changing provider, URL, key, model, or sign-in runs an access test and shows **Access good** or the failure on the same screen.
 

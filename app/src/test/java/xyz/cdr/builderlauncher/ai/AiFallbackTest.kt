@@ -42,4 +42,45 @@ class AiFallbackTest {
         assertFalse(fromXai.contains(LlmProvider.XAI) && fromXai.indexOf(LlmProvider.XAI) != 0)
         assertEquals(1, fromXai.count { it == LlmProvider.XAI })
     }
+
+    @Test
+    fun reportPutsPromptBeforeTheError() {
+        val report = AiFallback.report(
+            to = LlmProvider.XAI,
+            from = LlmProvider.HERMES,
+            error = """LLM error 401: {"error":"Authentication required"}""",
+        )
+        assertTrue(report.startsWith(AiFallback.DEBUG_PROMPT))
+        assertTrue(report.contains("Fell back to Grok."))
+        assertTrue(report.contains("Primary provider: Hermes"))
+        assertTrue(report.contains("LLM error 401"))
+        val promptAt = report.indexOf(AiFallback.DEBUG_PROMPT)
+        val errorAt = report.indexOf("LLM error 401")
+        assertTrue(promptAt >= 0 && errorAt > promptAt)
+    }
+
+    @Test
+    fun headlineShowsOnlyTheFellBackLine() {
+        val report = AiFallback.report(
+            to = LlmProvider.OPENAI,
+            from = LlmProvider.HERMES,
+            error = "Could not reach the Web UI.",
+        )
+        assertEquals("Fell back to ChatGPT.", AiFallback.headline(report))
+        assertEquals("Fell back to Grok.", AiFallback.headline("Fell back to Grok."))
+    }
+
+    @Test
+    fun answerNoticeIncludesPrimaryError() {
+        val answer = LlmAnswer(
+            text = "42",
+            fallbackFrom = LlmProvider.XAI,
+            primaryProvider = LlmProvider.HERMES,
+            primaryError = "Could not reach the Web UI.",
+        )
+        val notice = answer.notice!!
+        assertEquals("Fell back to Grok.", AiFallback.headline(notice))
+        assertTrue(notice.startsWith(AiFallback.DEBUG_PROMPT))
+        assertTrue(notice.contains("Could not reach the Web UI."))
+    }
 }

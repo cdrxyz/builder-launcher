@@ -40,13 +40,18 @@ class LlmClient(
         val primary = settings.settings.value.provider
         var last = askOne(settings.settings.value, turns, onDelta)
         if (!AiFallback.failed(last.text) || primary != LlmProvider.HERMES) return@withContext last
+        val primaryFail = last
         for (provider in AiFallback.order(primary).drop(1)) {
             if (provider !in settings.connectedProviders()) continue
             val view = settings.viewAs(provider)
             val next = askOne(view, turns, onDelta = null)
             if (!AiFallback.failed(next.text)) {
                 emit(next.text, onDelta)
-                return@withContext next.copy(fallbackFrom = provider)
+                return@withContext next.copy(
+                    fallbackFrom = provider,
+                    primaryProvider = primary,
+                    primaryError = primaryFail.text,
+                )
             }
             last = next
         }

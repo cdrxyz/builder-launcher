@@ -107,6 +107,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import xyz.cdr.builderlauncher.ai.AiFallback
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.AccessCheck
 import xyz.cdr.builderlauncher.ai.HermesUrls
@@ -2134,7 +2135,12 @@ fun BuilderRoot(
                                 modifier = Modifier.clickable { copyText("question", msg.content) },
                             )
                         } else if (msg.isNotice) {
-                            Text(msg.content, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                AiFallback.headline(msg.content),
+                                color = Dim,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.clickable { copyText("fallback error", msg.content) },
+                            )
                         } else {
                             MarkdownDocument(
                                 msg.content,
