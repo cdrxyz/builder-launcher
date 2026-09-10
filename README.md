@@ -8,7 +8,7 @@ A simple Android launcher for builders who want to be deliberate with their phon
 
 Manual: [Builder Launcher docs](https://cdrxyz.github.io/builder-launcher/) (Starlight on GitHub Pages). Source lives in `website/`.
 
-The home screen is a command bar, not an icon grid. Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite.
+The home screen is a command bar, not an icon grid. Works on ordinary slab phones and hardware-keyboard devices such as the Unihertz Titan 2 Elite. Settings can switch the same screens between `cyberpunk`, `plain`, Material, and iOS chrome.
 
 AI stays optional and private: point `?` at your own Hermes instance, or sign in to xAI / OpenAI / Anthropic (API key still works as a fallback). Tokens never leave the device except as a Bearer token to the provider you chose.
 
@@ -18,7 +18,7 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
   <img src="docs/screenshots/home-ticker.png" alt="Home with weather on the left and watchlist ticker on the right" width="240" />
   <img src="docs/screenshots/usage.png" alt="Usage: 1W / 1M chart, productive vs distracting, most-used apps" width="240" />
   <img src="docs/screenshots/hub.png" alt="Hub: messages you can reply to" width="240" />
-  <img src="docs/screenshots/settings.png" alt="Settings: accent color, Hermes or xAI, keyboard mode" width="240" />
+  <img src="docs/screenshots/settings.png" alt="Settings: theme, accent color, Hermes or xAI, keyboard mode" width="240" />
 </p>
 
 <p align="center">

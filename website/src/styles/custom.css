@@ -32,3 +32,15 @@
 .shot-row img {
 	margin: 0;
 }
+
+.shot-row figure {
+	margin: 0;
+	max-width: min(280px, 100%);
+}
+
+.shot-row figcaption {
+	color: var(--sl-color-gray-3);
+	font-size: 0.8rem;
+	margin-top: 0.35rem;
+	text-align: center;
+}

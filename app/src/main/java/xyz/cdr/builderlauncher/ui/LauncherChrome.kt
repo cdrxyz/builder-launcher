@@ -75,6 +75,8 @@ import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.ClockFace
+import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -84,6 +86,7 @@ import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlert
 import xyz.cdr.builderlauncher.clock.ClockAlertKind
+import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.stocks.StockPoint
@@ -108,6 +111,16 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.ThemedBadge
+import xyz.cdr.builderlauncher.ui.theme.ThemedList
+import xyz.cdr.builderlauncher.ui.theme.ThemedPlayer
+import xyz.cdr.builderlauncher.ui.theme.ThemedPlayWell
+import xyz.cdr.builderlauncher.ui.theme.ThemedRow
+import xyz.cdr.builderlauncher.ui.theme.ThemedSectionLabel
+import xyz.cdr.builderlauncher.ui.theme.CommandBarRule
+import xyz.cdr.builderlauncher.ui.theme.FieldRule
+import xyz.cdr.builderlauncher.ui.theme.commandBarChrome
+import xyz.cdr.builderlauncher.ui.theme.inputChrome
 
 data class HubRow(
     val kind: String,
@@ -637,13 +650,15 @@ fun StocksChrome(
             trailing = { GearIcon(Modifier.padding(vertical = 6.dp)) },
         )
         Spacer(Modifier.height(8.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
             val shown = if (hits.isNotEmpty()) hits else rows
             if (shown.isEmpty()) {
                 Text("Type \$AAPL to add a ticker.", color = Dim)
             } else {
-                shown.forEach { row ->
-                    StockRowChrome(row)
+                ThemedList {
+                    shown.forEachIndexed { index, row ->
+                        StockRowChrome(row, last = index == shown.lastIndex)
+                    }
                 }
             }
         }
@@ -758,23 +773,37 @@ fun PodcastsChrome(
             PodcastNowPlayingBar(title = nowPlayingTitle, show = nowPlayingShow, playing = nowPlaying)
             Spacer(Modifier.height(8.dp))
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
             if (hits.isNotEmpty()) {
-                hits.forEach { PodcastRowChrome(it) }
+                ThemedList {
+                    hits.forEachIndexed { index, row -> PodcastRowChrome(row, last = index == hits.lastIndex) }
+                }
             } else if (continueRows.isEmpty() && newRows.isEmpty() && shows.isEmpty()) {
                 Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
             } else {
                 if (continueRows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_RECENT)
-                    continueRows.forEach { PodcastRowChrome(it) }
+                    ThemedList {
+                        continueRows.forEachIndexed { index, row ->
+                            PodcastRowChrome(row, last = index == continueRows.lastIndex)
+                        }
+                    }
                 }
                 if (newRows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_NEXT)
-                    newRows.forEach { PodcastRowChrome(it) }
+                    ThemedList {
+                        newRows.forEachIndexed { index, row ->
+                            PodcastRowChrome(row, last = index == newRows.lastIndex)
+                        }
+                    }
                 }
                 if (shows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_SHOWS)
-                    shows.forEach { PodcastRowChrome(it) }
+                    ThemedList {
+                        shows.forEachIndexed { index, row ->
+                            PodcastRowChrome(row, last = index == shows.lastIndex)
+                        }
+                    }
                 }
             }
         }
@@ -785,19 +814,7 @@ fun PodcastsChrome(
 
 @Composable
 fun PodcastSectionHeader(title: String) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp, bottom = 2.dp),
-    ) {
-        HorizontalDivider(color = Line)
-        Text(
-            title,
-            color = Dim,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
+    ThemedSectionLabel(title)
 }
 
 @Composable
@@ -809,10 +826,7 @@ fun PodcastNowPlayingBar(
     onOpen: (() -> Unit)? = null,
     onToggle: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    ThemedPlayer(modifier) {
         val openMod = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier
         Column(Modifier.weight(1f).then(openMod)) {
             Text("now playing", color = Accent, style = MaterialTheme.typography.labelSmall)
@@ -828,22 +842,23 @@ fun PodcastNowPlayingBar(
             }
         }
         val toggleMod = if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier
-        PlayPauseIcon(
-            playing = playing,
-            modifier = Modifier
-                .padding(start = 12.dp, top = 8.dp, bottom = 8.dp)
-                .then(toggleMod)
-                .semantics { contentDescription = if (playing) "pause" else "play" },
-        )
+        ThemedPlayWell {
+            val tokens = xyz.cdr.builderlauncher.ui.theme.LocalTokens.current
+            PlayPauseIcon(
+                playing = playing,
+                color = if (tokens.chrome == xyz.cdr.builderlauncher.ui.theme.ThemeChrome.MATERIAL) tokens.ink else Accent,
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 8.dp, bottom = 8.dp)
+                    .then(toggleMod)
+                    .semantics { contentDescription = if (playing) "pause" else "play" },
+            )
+        }
     }
 }
 
 @Composable
-private fun PodcastRowChrome(row: PodcastListRow) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+private fun PodcastRowChrome(row: PodcastListRow, last: Boolean = false) {
+    ThemedRow(last = last) {
         if (row.art) {
             Box(
                 Modifier
@@ -1008,8 +1023,12 @@ fun PodcastShowChrome(
                 Text(label, color = if (label == order) Accent else Dim)
             }
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            episodes.forEach { PodcastRowChrome(it) }
+        Column(modifier = Modifier.weight(1f)) {
+            ThemedList {
+                episodes.forEachIndexed { index, row ->
+                    PodcastRowChrome(row, last = index == episodes.lastIndex)
+                }
+            }
         }
     }
 }
@@ -1329,6 +1348,7 @@ fun StockChart(
     onSelect: (Int?) -> Unit = {},
 ) {
     val tone = if (up) Gain else Loss
+    val paper = Paper
     val select = rememberUpdatedState(onSelect)
     Canvas(
         modifier.pointerInput(points) {
@@ -1376,28 +1396,25 @@ fun StockChart(
         if (mark != null) {
             val x = mark * dx
             val y = yOf(points[mark].close)
-            drawLine(Paper, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
-            drawCircle(Paper, radius = 4.dp.toPx(), center = Offset(x, y))
+            drawLine(paper, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
+            drawCircle(paper, radius = 4.dp.toPx(), center = Offset(x, y))
         }
     }
 }
 
 @Composable
-private fun StockRowChrome(row: StockListRow) {
+private fun StockRowChrome(row: StockListRow, last: Boolean = false) {
     val tone = if (row.up) Gain else Loss
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+    ThemedRow(last = last) {
+        Column(Modifier.weight(1f).padding(vertical = 2.dp)) {
             Text(row.symbol, color = Paper)
             Text(row.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
-        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 6.dp)) {
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 2.dp).padding(end = 8.dp)) {
             Text(row.price, color = Paper)
-            Text(row.change, color = tone, style = MaterialTheme.typography.bodyMedium)
+            ThemedBadge(row.change, tone)
         }
-        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+        DeleteIcon(Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
     }
 }
 
@@ -1474,6 +1491,32 @@ fun SettingsChrome(
             title = "settings",
             leading = {},
             trailing = { Text("home", color = Dim) },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Theme", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTheme.entries.forEach { theme ->
+                Text(
+                    theme.label,
+                    color = if (settings.uiTheme == theme) Accent else Dim,
+                )
+            }
+        }
+        Text(settings.uiTheme.blurb, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        Text("Tone", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTone.entries.forEach { tone ->
+                Text(
+                    tone.label,
+                    color = if (settings.uiTone == tone) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            if (settings.uiTone == UiTone.LIGHT) "Light surfaces." else "Dark surfaces.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
         AccentPicker(hex = settings.accentHex)
@@ -1589,13 +1632,13 @@ fun SettingsChrome(
         Spacer(Modifier.height(16.dp))
         Text("Clock sound", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            listOf("pulse", "chime", "bell").forEach { label ->
-                Text(label, color = if (label == "pulse") Accent else Dim)
+            ClockSound.entries.take(3).forEach { sound ->
+                Text(sound.label, color = if (settings.clockSound == sound) Accent else Dim)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            listOf("orthodox", "hum", "off").forEach { label ->
-                Text(label, color = Dim)
+            ClockSound.entries.drop(3).forEach { sound ->
+                Text(sound.label, color = if (settings.clockSound == sound) Accent else Dim)
             }
         }
         Text(
@@ -2082,7 +2125,7 @@ private fun CommandRow(
         }
         Row(
             verticalAlignment = if (wrapExpanded) Alignment.Top else Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().commandBarChrome(),
         ) {
             PromptGlyph(prompt = prompt, wrapField = wrapExpanded)
             Text(
@@ -2098,7 +2141,7 @@ private fun CommandRow(
                 SendIcon(Modifier.padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 6.dp, bottom = if (wrapExpanded) 0.dp else 6.dp))
             }
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        CommandBarRule()
         }
     }
 }
@@ -2110,9 +2153,12 @@ private fun Field(label: String, value: String, placeholder: String) {
         value.ifEmpty { placeholder },
         color = if (value.isEmpty()) Dim else Paper,
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.padding(vertical = 6.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .inputChrome()
+            .padding(vertical = 6.dp),
     )
-    HorizontalDivider(color = Line)
+    FieldRule()
 }
 
 @Composable
@@ -2120,7 +2166,9 @@ fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         Spacer(Modifier.height(4.dp))
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .commandBarChrome(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -2131,7 +2179,7 @@ fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
             )
             SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        CommandBarRule()
     }
 }
 
@@ -2501,17 +2549,18 @@ fun GearIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun DeleteIcon(modifier: Modifier = Modifier) {
+    val dim = Dim
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val inset = size.minDimension * 0.22f
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(inset, inset),
             end = Offset(size.width - inset, size.height - inset),
             strokeWidth = stroke.width,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(size.width - inset, inset),
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
@@ -2593,6 +2642,7 @@ fun DownloadIcon(filled: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 fun EditIcon(modifier: Modifier = Modifier) {
+    val dim = Dim
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         val s = size.minDimension
@@ -2604,30 +2654,30 @@ fun EditIcon(modifier: Modifier = Modifier) {
             lineTo(s * 0.40f, s * 0.76f)
             close()
         }
-        drawPath(path = body, color = Dim, style = stroke)
+        drawPath(path = body, color = dim, style = stroke)
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.30f, s * 0.66f),
             end = Offset(s * 0.38f, s * 0.74f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.56f, s * 0.18f),
             end = Offset(s * 0.82f, s * 0.44f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.56f, s * 0.18f),
             end = Offset(s * 0.60f, s * 0.24f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.82f, s * 0.44f),
             end = Offset(s * 0.76f, s * 0.40f),
             strokeWidth = stroke.width,
@@ -2660,14 +2710,15 @@ fun CheckIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun InfoIcon(modifier: Modifier = Modifier) {
+    val dim = Dim
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val r = size.minDimension / 2f - stroke.width
-        drawCircle(color = Dim, radius = r, style = stroke)
+        drawCircle(color = dim, radius = r, style = stroke)
         val cx = size.width / 2f
-        drawCircle(color = Dim, radius = 1.3.dp.toPx(), center = Offset(cx, size.height * 0.32f))
+        drawCircle(color = dim, radius = 1.3.dp.toPx(), center = Offset(cx, size.height * 0.32f))
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(cx, size.height * 0.46f),
             end = Offset(cx, size.height * 0.72f),
             strokeWidth = stroke.width,
@@ -2700,9 +2751,10 @@ fun CaretLink(
 
 @Composable
 fun AppMark(modifier: Modifier = Modifier, size: Dp = 28.dp) {
+    val line = Line
     Canvas(modifier.size(size)) {
         drawRoundRect(
-            color = Line,
+            color = line,
             cornerRadius = CornerRadius(5.dp.toPx()),
         )
     }

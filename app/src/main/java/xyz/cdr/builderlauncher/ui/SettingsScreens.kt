@@ -160,6 +160,8 @@ import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.ClockFace
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -205,6 +207,8 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.FieldRule
+import xyz.cdr.builderlauncher.ui.theme.inputChrome
 import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsagePeriod
@@ -268,6 +272,46 @@ internal fun SettingsPage(
             trailing = {
                 Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
             },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Theme", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTheme.entries.forEach { theme ->
+                Text(
+                    theme.label,
+                    color = if (settings.uiTheme == theme) Accent else Dim,
+                    modifier = Modifier.clickable {
+                        val accent = theme.defaultAccentHex(settings.uiTone)
+                        accentDraft = accent
+                        repo.update { it.copy(uiTheme = theme, accentHex = accent) }
+                    },
+                )
+            }
+        }
+        Text(
+            settings.uiTheme.blurb,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Tone", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTone.entries.forEach { tone ->
+                Text(
+                    tone.label,
+                    color = if (settings.uiTone == tone) Accent else Dim,
+                    modifier = Modifier.clickable {
+                        val accent = settings.uiTheme.defaultAccentHex(tone)
+                        accentDraft = accent
+                        repo.update { it.copy(uiTone = tone, accentHex = accent) }
+                    },
+                )
+            }
+        }
+        Text(
+            if (settings.uiTone == UiTone.LIGHT) "Light surfaces." else "Dark surfaces.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
         AccentPicker(
@@ -1126,9 +1170,10 @@ internal fun LabeledField(label: String, value: String, placeholder: String, onC
         },
         modifier = Modifier
             .fillMaxWidth()
+            .inputChrome()
             .padding(vertical = 6.dp),
     )
-    HorizontalDivider(color = Line)
+    FieldRule()
 }
 
 @Composable
@@ -1152,9 +1197,10 @@ internal fun WeatherLocationField(
         },
         modifier = Modifier
             .fillMaxWidth()
+            .inputChrome()
             .padding(vertical = 6.dp),
     )
-    HorizontalDivider(color = Line)
+    FieldRule()
     Text(
         if (locked) {
             "Weather uses this city. No GPS."

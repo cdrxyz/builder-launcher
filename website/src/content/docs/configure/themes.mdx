@@ -1,0 +1,182 @@
+---
+title: Themes
+description: Compare cyberpunk, plain, Material, and iOS chrome on home, settings, stocks, usage, and podcasts.
+---
+
+import homeCyber from '../../../assets/screenshots/home.png';
+import homePlain from '../../../assets/screenshots/home-theme-plain.png';
+import homeMaterial from '../../../assets/screenshots/home-theme-material.png';
+import homeIos from '../../../assets/screenshots/home-theme-ios.png';
+import homeCyberLight from '../../../assets/screenshots/home-theme-cyberpunk-light.png';
+import homePlainLight from '../../../assets/screenshots/home-theme-plain-light.png';
+import homeMaterialDark from '../../../assets/screenshots/home-theme-material-dark.png';
+import homeIosDark from '../../../assets/screenshots/home-theme-ios-dark.png';
+import settingsCyber from '../../../assets/screenshots/settings.png';
+import settingsPlain from '../../../assets/screenshots/settings-theme-plain.png';
+import settingsMaterial from '../../../assets/screenshots/settings-theme-material.png';
+import settingsIos from '../../../assets/screenshots/settings-theme-ios.png';
+import stocksCyber from '../../../assets/screenshots/stocks.png';
+import stocksPlain from '../../../assets/screenshots/stocks-theme-plain.png';
+import stocksMaterial from '../../../assets/screenshots/stocks-theme-material.png';
+import stocksIos from '../../../assets/screenshots/stocks-theme-ios.png';
+import usageCyber from '../../../assets/screenshots/usage.png';
+import usagePlain from '../../../assets/screenshots/usage-theme-plain.png';
+import usageMaterial from '../../../assets/screenshots/usage-theme-material.png';
+import usageIos from '../../../assets/screenshots/usage-theme-ios.png';
+import podcastsCyber from '../../../assets/screenshots/podcasts.png';
+import podcastsPlain from '../../../assets/screenshots/podcasts-theme-plain.png';
+import podcastsMaterial from '../../../assets/screenshots/podcasts-theme-material.png';
+import podcastsIos from '../../../assets/screenshots/podcasts-theme-ios.png';
+
+Type `settings` and pick a theme, then `dark` or `light`. Screens stay the same; type, color, lists, charts, and the command bar change.
+
+| Theme | What you get |
+| --- | --- |
+| `cyberpunk` | Terminal UI. Monospace, green on black (or cream paper in light). Underline command bar. |
+| `plain` | Black and white. Rounded accent outline on the command bar, list rows, and badges. |
+| `material` | Material surfaces. Filled cards, chips, left-aligned titles, rounded chart bars. |
+| `ios` | Large title, grouped lists, segmented period control. |
+
+Each theme has both `dark` and `light`. Default is dark for cyberpunk and plain, light for material and ios. Picking a theme or tone also sets its default accent. You can still pick another color in [settings](settings/).
+
+## Home
+
+Command bar chrome is the clearest change: underline, outlined pill, filled field, or iOS search bar.
+
+<div class="shot-row">
+	<figure>
+		<img src={homeCyber.src} alt="Home in cyberpunk: terminal underline command bar" width="240" />
+		<figcaption>cyberpunk</figcaption>
+	</figure>
+	<figure>
+		<img src={homePlain.src} alt="Home in plain: rounded accent command bar" width="240" />
+		<figcaption>plain</figcaption>
+	</figure>
+	<figure>
+		<img src={homeMaterial.src} alt="Home in Material: filled rounded command field" width="240" />
+		<figcaption>material</figcaption>
+	</figure>
+	<figure>
+		<img src={homeIos.src} alt="Home in iOS: large clock and grouped command field" width="240" />
+		<figcaption>ios</figcaption>
+	</figure>
+</div>
+
+Default tones above. Flip `dark` / `light` in settings for the other surface of the same chrome:
+
+<div class="shot-row">
+	<figure>
+		<img src={homeCyberLight.src} alt="Home in cyberpunk light" width="240" />
+		<figcaption>cyberpunk light</figcaption>
+	</figure>
+	<figure>
+		<img src={homePlainLight.src} alt="Home in plain light" width="240" />
+		<figcaption>plain light</figcaption>
+	</figure>
+	<figure>
+		<img src={homeMaterialDark.src} alt="Home in Material dark" width="240" />
+		<figcaption>material dark</figcaption>
+	</figure>
+	<figure>
+		<img src={homeIosDark.src} alt="Home in iOS dark" width="240" />
+		<figcaption>ios dark</figcaption>
+	</figure>
+</div>
+
+## Settings
+
+Theme picker on the first block. Hex and weather fields follow the same chrome as the command bar.
+
+<div class="shot-row">
+	<figure>
+		<img src={settingsCyber.src} alt="Settings in cyberpunk" width="240" />
+		<figcaption>cyberpunk</figcaption>
+	</figure>
+	<figure>
+		<img src={settingsPlain.src} alt="Settings in plain with outlined fields" width="240" />
+		<figcaption>plain</figcaption>
+	</figure>
+	<figure>
+		<img src={settingsMaterial.src} alt="Settings in Material with filled fields" width="240" />
+		<figcaption>material</figcaption>
+	</figure>
+	<figure>
+		<img src={settingsIos.src} alt="Settings in iOS with large title" width="240" />
+		<figcaption>ios</figcaption>
+	</figure>
+</div>
+
+## Stocks
+
+Rows are terminal lines, outlined pills with change badges, filled cards with chips, or one grouped inset list.
+
+<div class="shot-row">
+	<figure>
+		<img src={stocksCyber.src} alt="Stocks list in cyberpunk" width="240" />
+		<figcaption>cyberpunk</figcaption>
+	</figure>
+	<figure>
+		<img src={stocksPlain.src} alt="Stocks list in plain with outlined rows" width="240" />
+		<figcaption>plain</figcaption>
+	</figure>
+	<figure>
+		<img src={stocksMaterial.src} alt="Stocks list in Material with cards" width="240" />
+		<figcaption>material</figcaption>
+	</figure>
+	<figure>
+		<img src={stocksIos.src} alt="Stocks list in iOS grouped table" width="240" />
+		<figcaption>ios</figcaption>
+	</figure>
+</div>
+
+See [Stocks](../use/stocks/).
+
+## Usage
+
+Period chips, rounded chart bars, and grouped share rows change with the theme.
+
+<div class="shot-row">
+	<figure>
+		<img src={usageCyber.src} alt="Usage in cyberpunk" width="240" />
+		<figcaption>cyberpunk</figcaption>
+	</figure>
+	<figure>
+		<img src={usagePlain.src} alt="Usage in plain with outlined rows" width="240" />
+		<figcaption>plain</figcaption>
+	</figure>
+	<figure>
+		<img src={usageMaterial.src} alt="Usage in Material with cards and rounded bars" width="240" />
+		<figcaption>material</figcaption>
+	</figure>
+	<figure>
+		<img src={usageIos.src} alt="Usage in iOS with segmented 1W 1M control" width="240" />
+		<figcaption>ios</figcaption>
+	</figure>
+</div>
+
+See [Usage](../use/usage/).
+
+## Podcasts
+
+Now-playing bar and episode rows follow the same list chrome. Material uses a circular play well.
+
+<div class="shot-row">
+	<figure>
+		<img src={podcastsCyber.src} alt="Podcasts in cyberpunk" width="240" />
+		<figcaption>cyberpunk</figcaption>
+	</figure>
+	<figure>
+		<img src={podcastsPlain.src} alt="Podcasts in plain with outlined now-playing" width="240" />
+		<figcaption>plain</figcaption>
+	</figure>
+	<figure>
+		<img src={podcastsMaterial.src} alt="Podcasts in Material with cards" width="240" />
+		<figcaption>material</figcaption>
+	</figure>
+	<figure>
+		<img src={podcastsIos.src} alt="Podcasts in iOS grouped lists" width="240" />
+		<figcaption>ios</figcaption>
+	</figure>
+</div>
+
+See [Podcasts](../use/podcasts/).

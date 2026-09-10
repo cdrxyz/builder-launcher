@@ -47,12 +47,21 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `podcasts-settings.png` | `podcastsSettings` |
 | `podcast-show.png` | `podcastShow` |
 | `podcast-episode.png` | `podcastEpisode` |
+| `podcasts-theme-plain.png` | `podcastsThemePlain` |
+| `podcasts-theme-material.png` | `podcastsThemeMaterial` |
+| `podcasts-theme-ios.png` | `podcastsThemeIos` |
 | `stocks.png` | `stocks` |
+| `stocks-theme-plain.png` | `stocksThemePlain` |
+| `stocks-theme-material.png` | `stocksThemeMaterial` |
+| `stocks-theme-ios.png` | `stocksThemeIos` |
 | `stocks-settings.png` | `stocksSettings` |
 | `stock-detail.png` | `stockDetail` |
 | `hub.png` | `hub` |
 | `hub-reply.png` | `hubReply` |
 | `settings.png` | `settings` |
+| `settings-theme-plain.png` | `settingsThemePlain` |
+| `settings-theme-material.png` | `settingsThemeMaterial` |
+| `settings-theme-ios.png` | `settingsThemeIos` |
 | `calendar-settings.png` | `settingsCalendar` |
 | `backup.png` | `settingsBackup` |
 | `ai-providers.png` | `aiProviders` |
@@ -61,6 +70,14 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `clock-alarm-alert.png` | `clockAlarmAlert` |
 | `weather.png` | `weather` |
 | `usage.png` | `usage` |
+| `usage-theme-plain.png` | `usageThemePlain` |
+| `usage-theme-material.png` | `usageThemeMaterial` |
+| `usage-theme-ios.png` | `usageThemeIos` |
 | `usage-scrub.png` | `usageScrub` |
+| `home-theme-plain.png` | `homeThemePlain` |
+| `home-theme-material.png` | `homeThemeMaterial` |
+| `home-theme-ios.png` | `homeThemeIos` |
+
+Theme comparison lives on [Themes](../configure/themes/).
 
 PRs that change UI must include screenshots in the PR body (see `.github/pull_request_template.md`).

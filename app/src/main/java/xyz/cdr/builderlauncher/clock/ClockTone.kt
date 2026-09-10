@@ -8,8 +8,8 @@ object ClockTone {
         ClockSound.PULSE -> 20_400L
         ClockSound.CHIME -> 14_222L
         ClockSound.BELL -> 21_179L
-        ClockSound.ORTHODOX -> 23_529L
-        ClockSound.HUM -> 21_179L
+        ClockSound.ORTHODOX -> 18_000L
+        ClockSound.HUM -> 17_600L
         ClockSound.OFF -> 0L
     }
 }

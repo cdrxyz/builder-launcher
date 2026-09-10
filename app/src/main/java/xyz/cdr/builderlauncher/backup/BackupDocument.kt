@@ -11,6 +11,8 @@ import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.StockInsert
+import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
@@ -54,6 +56,8 @@ data class BackupSettings(
     val weatherLon: Double? = null,
     val weatherUnits: WeatherUnits = WeatherUnits.METRIC,
     val accentHex: String = "",
+    val uiTheme: UiTheme = UiTheme.CYBERPUNK,
+    val uiTone: UiTone = UiTone.DARK,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
@@ -74,6 +78,8 @@ data class BackupSettings(
             weatherLon = settings.weatherLon,
             weatherUnits = settings.weatherUnits,
             accentHex = settings.accentHex,
+            uiTheme = settings.uiTheme,
+            uiTone = settings.uiTone,
             stockInsert = settings.stockInsert,
             clockSound = settings.clockSound,
             appIcons = settings.appIcons,

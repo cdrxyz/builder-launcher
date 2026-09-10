@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.runtime.Composable
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import org.junit.Rule
@@ -14,7 +15,10 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockQuote
 import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.usage.PinUsageMark
+import xyz.cdr.builderlauncher.data.UiTheme
+import xyz.cdr.builderlauncher.data.UiTone
 
 class LauncherScreenshotTest {
     @get:Rule
@@ -913,5 +917,194 @@ class LauncherScreenshotTest {
                 UsageChrome(selectedIndex = 3)
             }
         }
+    }
+
+    @Test
+    fun homeThemePlain() { snap(UiTheme.PLAIN) { sampleHome() } }
+
+    @Test
+    fun homeThemeMaterial() { snap(UiTheme.MATERIAL) { sampleHome() } }
+
+    @Test
+    fun homeThemeIos() { snap(UiTheme.IOS) { sampleHome() } }
+
+    @Test
+    fun homeThemeCyberpunkLight() { snap(UiTheme.CYBERPUNK, UiTone.LIGHT) { sampleHome() } }
+
+    @Test
+    fun homeThemePlainLight() { snap(UiTheme.PLAIN, UiTone.LIGHT) { sampleHome() } }
+
+    @Test
+    fun homeThemeMaterialDark() { snap(UiTheme.MATERIAL, UiTone.DARK) { sampleHome() } }
+
+    @Test
+    fun homeThemeIosDark() { snap(UiTheme.IOS, UiTone.DARK) { sampleHome() } }
+
+    @Test
+    fun settingsThemePlain() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.PLAIN, tone = UiTone.DARK, accent = accentColor(UiTheme.PLAIN.defaultAccentHex)) {
+                SettingsChrome(
+                    settings = BuilderSettings(
+                        provider = LlmProvider.HERMES,
+                        hermesBaseUrl = "http://192.168.1.10:8642",
+                        keyboardMode = KeyboardMode.AUTO,
+                        uiTheme = UiTheme.PLAIN,
+                        uiTone = UiTone.DARK,
+                        accentHex = UiTheme.PLAIN.defaultAccentHex,
+                    ),
+                    hardware = true,
+                    hermes = "http://192.168.1.10:8642",
+                    apiKey = "",
+                    model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun settingsThemeMaterial() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.MATERIAL, tone = UiTone.LIGHT, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {
+                SettingsChrome(
+                    settings = BuilderSettings(
+                        provider = LlmProvider.HERMES,
+                        hermesBaseUrl = "http://192.168.1.10:8642",
+                        keyboardMode = KeyboardMode.AUTO,
+                        uiTheme = UiTheme.MATERIAL,
+                        uiTone = UiTone.LIGHT,
+                        accentHex = UiTheme.MATERIAL.defaultAccentHex,
+                    ),
+                    hardware = true,
+                    hermes = "http://192.168.1.10:8642",
+                    apiKey = "",
+                    model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun settingsThemeIos() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.IOS, tone = UiTone.LIGHT, accent = accentColor(UiTheme.IOS.defaultAccentHex)) {
+                SettingsChrome(
+                    settings = BuilderSettings(
+                        provider = LlmProvider.HERMES,
+                        hermesBaseUrl = "http://192.168.1.10:8642",
+                        keyboardMode = KeyboardMode.AUTO,
+                        uiTheme = UiTheme.IOS,
+                        uiTone = UiTone.LIGHT,
+                        accentHex = UiTheme.IOS.defaultAccentHex,
+                    ),
+                    hardware = true,
+                    hermes = "http://192.168.1.10:8642",
+                    apiKey = "",
+                    model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun stocksThemePlain() { snap(UiTheme.PLAIN) { sampleStocks() } }
+
+    @Test
+    fun stocksThemeMaterial() { snap(UiTheme.MATERIAL) { sampleStocks() } }
+
+    @Test
+    fun stocksThemeIos() { snap(UiTheme.IOS) { sampleStocks() } }
+
+    @Test
+    fun usageThemePlain() { snap(UiTheme.PLAIN) { UsageChrome() } }
+
+    @Test
+    fun usageThemeMaterial() { snap(UiTheme.MATERIAL) { UsageChrome() } }
+
+    @Test
+    fun usageThemeIos() { snap(UiTheme.IOS) { UsageChrome() } }
+
+    @Test
+    fun podcastsThemePlain() { snap(UiTheme.PLAIN) { samplePodcasts() } }
+
+    @Test
+    fun podcastsThemeMaterial() { snap(UiTheme.MATERIAL) { samplePodcasts() } }
+
+    @Test
+    fun podcastsThemeIos() { snap(UiTheme.IOS) { samplePodcasts() } }
+
+    private fun snap(theme: UiTheme, tone: UiTone = theme.defaultTone, content: @Composable () -> Unit) {
+        paparazzi.snapshot {
+            BuilderTheme(
+                theme = theme,
+                tone = tone,
+                accent = accentColor(theme.defaultAccentHex(tone)),
+                content = content,
+            )
+        }
+    }
+
+    @Composable
+    private fun sampleHome() {
+        HomeChrome(
+            time = "15:42",
+            date = "Mon 7 Sep",
+            weather = "18° cloudy",
+            input = "summarize this PR",
+            prompt = "?",
+            todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+            event = "dentist · 09:00",
+        )
+    }
+
+    @Composable
+    private fun sampleStocks() {
+        StocksChrome(
+            rows = listOf(
+                StockListRow("AAPL", "Apple Inc.", "$319.97", "-2.51%", up = false),
+                StockListRow("MSFT", "Microsoft Corporation", "$428.10", "+1.24%", up = true),
+            ),
+            input = "",
+        )
+    }
+
+    @Composable
+    private fun samplePodcasts() {
+        PodcastsChrome(
+            nowPlayingTitle = "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
+            nowPlayingShow = "The Talk Show",
+            nowPlaying = true,
+            continueRows = listOf(
+                PodcastListRow(
+                    "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
+                    "The Talk Show",
+                    "12:00 of 45:00",
+                    highlight = true,
+                    maxTitleLines = Podcasts.TITLE_LINES,
+                    deletable = true,
+                    downloadable = true,
+                    downloaded = true,
+                ),
+            ),
+            newRows = listOf(
+                PodcastListRow(
+                    "Newest",
+                    "Accidental Tech Podcast with a show name long enough that it must stay on one line",
+                    "1:02:03",
+                    maxTitleLines = Podcasts.TITLE_LINES,
+                    maxSubtitleLines = Podcasts.SHOW_LINES,
+                    deletable = true,
+                    downloadable = true,
+                ),
+                PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true),
+            ),
+            shows = listOf(
+                PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
+                PodcastListRow("The Talk Show", "John Gruber", deletable = true),
+            ),
+        )
     }
 }
