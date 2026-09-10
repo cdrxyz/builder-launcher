@@ -70,13 +70,7 @@ class CommandExecutor(
     }
 
     private fun pickApp(query: String, pick: AppPick): ExecResult {
-        val matches = when (pick) {
-            AppPick.Unpin -> {
-                val pinned = pins.packages().toSet()
-                apps.search(query).filter { it.packageName in pinned }
-            }
-            else -> apps.search(query)
-        }
+        val matches = AppPickQuery(pick, query).filter(apps.all(), pins.packages().toSet())
         return when {
             matches.size == 1 -> {
                 applyPick(matches.first(), pick)

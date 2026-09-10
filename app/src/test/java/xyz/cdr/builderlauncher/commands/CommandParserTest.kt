@@ -105,5 +105,7 @@ class CommandParserTest {
         assertEquals(Command.Unpin("Termux"), CommandParser.parse("unpin Termux"))
         assertEquals(Command.Help, CommandParser.parse("pin"))
         assertEquals(Command.Help, CommandParser.parse("unpin"))
+        assertEquals(Command.LaunchApp("pinterest"), CommandParser.parse("pinterest"))
+        assertEquals(Command.LaunchApp("twitter"), CommandParser.parse("twitter"))
     }
 }

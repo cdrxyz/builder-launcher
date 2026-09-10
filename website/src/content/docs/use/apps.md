@@ -9,10 +9,10 @@ Type an app name (no prefix). Home hides the todo preview and shows a short, non
 
 ![Typing a letter filters apps and always shows all apps](../../../assets/screenshots/home-apps.png)
 
-- Tap a match to launch it.
+- Tap a match to launch it. Pinning only happens if the line starts with `pin` or `unpin`.
 - Several matches: pick from the list.
 - No matches: "No app matches".
-- `pin Termux` / `unpin Termux` pin without launching.
+- `pin Termux` filters by the rest of the line; tap a match to pin. Same for `unpin`.
 - **Hold** an app row in search or on all apps to pin or unpin.
 
 Home search is names only by default. Settings → **Home apps** → `icons` puts a grayscale icon next to each match.
