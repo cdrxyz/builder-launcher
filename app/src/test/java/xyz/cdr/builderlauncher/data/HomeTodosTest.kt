@@ -11,6 +11,7 @@ class HomeTodosTest {
     @Test
     fun moreTasksCopyMatchesNotesLink() {
         assertEquals("… more tasks >", HomeTodos.MORE_TASKS)
+        assertEquals("tasks", HomeTodos.TITLE)
     }
 
     @Test

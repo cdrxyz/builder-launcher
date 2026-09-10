@@ -5,6 +5,7 @@ object HomeTodos {
     const val MORE_TASKS = "… more tasks >"
     const val TASK_PREFIX = "-"
     const val BACK = "<"
+    const val TITLE = "tasks"
 
     fun of(items: List<LocalItem>): List<LocalItem> =
         items.filter { it.kind.equals("todo", ignoreCase = true) }

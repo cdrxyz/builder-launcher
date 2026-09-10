@@ -7,6 +7,8 @@ package xyz.cdr.builderlauncher.hub
  */
 object HubMessages {
     const val BACK = "<"
+    const val TITLE = "hub"
+    const val CLEAR_ALL = "clear all"
     const val CATEGORY_MESSAGE = "msg"
     const val MESSAGING_STYLE = "android.app.Notification\$MessagingStyle"
 

@@ -52,21 +52,10 @@ fun UsageScreen(
     onCycleApp: (String) -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                Usage.BACK,
-                color = Accent,
-                modifier = Modifier
-                    .semantics { contentDescription = "back" }
-                    .clickable { onBack() }
-                    .padding(vertical = 6.dp),
-            )
-            Text("usage", color = Accent)
-        }
+        ScreenHeader(
+            title = Usage.COMMAND,
+            leading = { ScreenBack(Usage.BACK, onBack = onBack) },
+        )
         Spacer(Modifier.height(12.dp))
         if (!snapshot.granted) {
             Text(

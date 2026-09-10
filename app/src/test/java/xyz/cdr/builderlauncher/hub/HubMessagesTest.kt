@@ -104,5 +104,7 @@ class HubMessagesTest {
     @Test
     fun backMatchesOtherScreens() {
         assertEquals("<", HubMessages.BACK)
+        assertEquals("hub", HubMessages.TITLE)
+        assertEquals("clear all", HubMessages.CLEAR_ALL)
     }
 }

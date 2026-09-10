@@ -7,7 +7,7 @@ description: Screen time on the phone. Productive vs distracting, 1W / 1M, most-
 
 ![Press a bar to see that day and its apps](../../../assets/screenshots/usage-scrub.png)
 
-Type `/usage` on [home](home/). There is no unprefixed `usage` command, home mark, or swipe.
+Type `/usage` on [home](home/). There is no unprefixed `usage` command, home mark, or swipe. `<` is top left; `usage` is centered at the top.
 
 Android keeps the totals. Builder Launcher does not upload them. Grant **Usage access** the first time (also in [settings](../../configure/settings/)).
 

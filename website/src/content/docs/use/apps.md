@@ -36,7 +36,7 @@ Settings → **Home apps** → `icons` switches pins to a centered horizontal ro
 
 ## All apps
 
-Type `apps` (or tap `… all apps >`). Every installed app is listed with an icon on the left.
+Type `apps` (or tap `… all apps >`). Title `apps` is centered at the top. Every installed app is listed with an icon on the left.
 
 ![All apps with icons, info, and delete](../../../assets/screenshots/all-apps.png)
 

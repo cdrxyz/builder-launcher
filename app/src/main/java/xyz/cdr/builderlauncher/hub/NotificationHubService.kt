@@ -50,6 +50,12 @@ object HubStore {
     fun replace(items: List<HubItem>) {
         _items.value = items.take(80)
     }
+
+    fun clearAll() {
+        val keys = _items.value.map { it.key }
+        keys.forEach { key -> dismiss(key) }
+        if (_items.value.isNotEmpty()) replace(emptyList())
+    }
 }
 
 class NotificationHubService : NotificationListenerService() {

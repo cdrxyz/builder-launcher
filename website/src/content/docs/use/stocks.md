@@ -20,6 +20,7 @@ Each row is ticker, company, last price, and today's percent (green up, red down
 - Long-press and drag a row across the list to reorder. Other rows slide out of the way as you pass them. Order is saved on the device.
 - Command bar stays in `$` mode. Type a symbol or company name to search. Autocorrect and the extra space after a period are off, so tickers like `OBE.TO` stay as typed.
 - Empty list: `Type $AAPL to add a ticker.`
+- Title `stocks` is centered at the top.
 - Gear (top right) opens stocks settings.
 - `<` returns home.
 
