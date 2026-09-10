@@ -5,7 +5,7 @@ description: Filter installed apps from home, open the full list, pin favorites,
 
 ## Search from home
 
-Type an app name (no prefix). Home shows a short, non-scrolling list of matches (up to five) that **always** ends with `… all apps >`.
+Type an app name (no prefix). Home hides the todo preview and shows a short, non-scrolling list of matches (up to five) that **always** ends with `… all apps >`.
 
 ![Typing a letter filters apps and always shows all apps](../../../assets/screenshots/home-apps.png)
 

@@ -249,13 +249,16 @@ fun HomeChrome(
             }
         }
         val overlayMenus = commandsOpen || slashOpen
+        val filteringApps = apps.isNotEmpty()
         if (!overlayMenus) {
+            if (!filteringApps) {
             Spacer(Modifier.height(8.dp))
             todos.take(HomeTodos.PREVIEW).forEach { text ->
                 Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
             }
             CaretLink(HomeTodos.MORE_TASKS, modifier = Modifier.padding(vertical = 4.dp))
             Spacer(Modifier.height(8.dp))
+            }
             if (appIcons && pins.isNotEmpty() && apps.isEmpty()) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
