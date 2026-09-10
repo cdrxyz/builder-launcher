@@ -14,10 +14,11 @@ class StocksTest {
     }
 
     @Test
-    fun homeQuotesPollLessOften() {
-        assertEquals(Stocks.HOME_QUOTE_MS, Stocks.quoteIntervalMs(onHome = true))
+    fun quotesPollEveryFifteenMinutes() {
+        assertEquals(15 * 60_000L, Stocks.QUOTE_MS)
+        assertEquals(Stocks.QUOTE_MS, Stocks.HOME_QUOTE_MS)
+        assertEquals(Stocks.QUOTE_MS, Stocks.quoteIntervalMs(onHome = true))
         assertEquals(Stocks.QUOTE_MS, Stocks.quoteIntervalMs(onHome = false))
-        assertTrue(Stocks.HOME_QUOTE_MS > Stocks.QUOTE_MS)
     }
 
     @Test
