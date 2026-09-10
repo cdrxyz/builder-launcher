@@ -111,7 +111,9 @@ import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.CommandBarRule
+import xyz.cdr.builderlauncher.ui.theme.FieldRule
 import xyz.cdr.builderlauncher.ui.theme.commandBarChrome
+import xyz.cdr.builderlauncher.ui.theme.inputChrome
 
 data class HubRow(
     val kind: String,
@@ -2126,9 +2128,12 @@ private fun Field(label: String, value: String, placeholder: String) {
         value.ifEmpty { placeholder },
         color = if (value.isEmpty()) Dim else Paper,
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.padding(vertical = 6.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .inputChrome()
+            .padding(vertical = 6.dp),
     )
-    HorizontalDivider(color = Line)
+    FieldRule()
 }
 
 @Composable
@@ -2136,7 +2141,9 @@ fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         Spacer(Modifier.height(4.dp))
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .commandBarChrome(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -2147,7 +2154,7 @@ fun HubReplyBar(value: String, modifier: Modifier = Modifier) {
             )
             SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        CommandBarRule()
     }
 }
 

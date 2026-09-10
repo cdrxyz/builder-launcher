@@ -206,6 +206,8 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.FieldRule
+import xyz.cdr.builderlauncher.ui.theme.inputChrome
 import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsagePeriod
@@ -1146,9 +1148,10 @@ internal fun LabeledField(label: String, value: String, placeholder: String, onC
         },
         modifier = Modifier
             .fillMaxWidth()
+            .inputChrome()
             .padding(vertical = 6.dp),
     )
-    HorizontalDivider(color = Line)
+    FieldRule()
 }
 
 @Composable
@@ -1172,9 +1175,10 @@ internal fun WeatherLocationField(
         },
         modifier = Modifier
             .fillMaxWidth()
+            .inputChrome()
             .padding(vertical = 6.dp),
     )
-    HorizontalDivider(color = Line)
+    FieldRule()
     Text(
         if (locked) {
             "Weather uses this city. No GPS."

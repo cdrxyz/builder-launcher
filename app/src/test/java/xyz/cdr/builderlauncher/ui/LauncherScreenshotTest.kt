@@ -969,6 +969,28 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun settingsThemePlain() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.PLAIN, accent = accentColor(UiTheme.PLAIN.defaultAccentHex)) {
+                SettingsChrome(
+                    settings = BuilderSettings(
+                        provider = LlmProvider.HERMES,
+                        hermesBaseUrl = "http://192.168.1.10:8642",
+                        keyboardMode = KeyboardMode.AUTO,
+                        uiTheme = UiTheme.PLAIN,
+                        accentHex = UiTheme.PLAIN.defaultAccentHex,
+                    ),
+                    hardware = true,
+                    hermes = "http://192.168.1.10:8642",
+                    apiKey = "",
+                    model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                )
+            }
+        }
+    }
+
+    @Test
     fun settingsThemeMaterial() {
         paparazzi.snapshot {
             BuilderTheme(theme = UiTheme.MATERIAL, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {

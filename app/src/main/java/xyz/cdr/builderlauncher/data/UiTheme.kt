@@ -20,7 +20,7 @@ enum class UiTheme {
     val blurb: String
         get() = when (this) {
             CYBERPUNK -> "Terminal UI. Monospace, green on black."
-            PLAIN -> "Black and white command UI."
+            PLAIN -> "Black and white. Rounded accent command bar."
             MATERIAL -> "Material Design surfaces and type."
             IOS -> "iOS grouped lists and system blue."
         }

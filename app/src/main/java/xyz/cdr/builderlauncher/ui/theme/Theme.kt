@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -28,7 +29,7 @@ import androidx.core.view.WindowCompat
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.UiTheme
 
-enum class ThemeChrome { TUI, MATERIAL, IOS }
+enum class ThemeChrome { TUI, PLAIN, MATERIAL, IOS }
 
 data class ThemeTokens(
     val ink: Color,
@@ -74,8 +75,8 @@ object ThemeCatalog {
         field = Color(0xFF000000),
         font = FontFamily.SansSerif,
         light = false,
-        radius = 0.dp,
-        chrome = ThemeChrome.TUI,
+        radius = 24.dp,
+        chrome = ThemeChrome.PLAIN,
     )
 
     val Material = ThemeTokens(
@@ -195,13 +196,30 @@ private fun typeFor(tokens: ThemeTokens): Typography = Typography(
 )
 
 @Composable
-fun Modifier.commandBarChrome(): Modifier {
+fun Modifier.inputChrome(): Modifier {
     val tokens = LocalTokens.current
-    if (tokens.tui) return this
-    return this
-        .clip(RoundedCornerShape(tokens.radius))
-        .background(tokens.field)
-        .padding(horizontal = 12.dp, vertical = 4.dp)
+    val accent = LocalAccent.current
+    val shape = RoundedCornerShape(tokens.radius)
+    return when (tokens.chrome) {
+        ThemeChrome.TUI -> this
+        ThemeChrome.PLAIN -> this
+            .border(1.5.dp, accent, shape)
+            .padding(horizontal = 14.dp, vertical = 4.dp)
+        ThemeChrome.MATERIAL, ThemeChrome.IOS -> this
+            .clip(shape)
+            .background(tokens.field)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    }
+}
+
+@Composable
+fun Modifier.commandBarChrome(): Modifier = inputChrome()
+
+@Composable
+fun FieldRule() {
+    if (LocalTokens.current.tui) {
+        HorizontalDivider(color = Line)
+    }
 }
 
 @Composable

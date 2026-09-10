@@ -14,6 +14,7 @@ class UiThemeTest {
         assertEquals(UiTheme.MATERIAL, UiTheme.parse("material"))
         assertEquals(UiTheme.CYBERPUNK, UiTheme.parse("nope"))
         assertEquals(AccentColor.DEFAULT_HEX, UiTheme.CYBERPUNK.defaultAccentHex)
+        assertEquals("#F5F5F5", UiTheme.PLAIN.defaultAccentHex)
         assertEquals("#007AFF", UiTheme.IOS.defaultAccentHex)
         assertEquals("#6750A4", UiTheme.MATERIAL.defaultAccentHex)
     }
