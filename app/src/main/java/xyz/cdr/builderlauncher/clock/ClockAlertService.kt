@@ -13,7 +13,6 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import xyz.cdr.builderlauncher.MainActivity
 import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.SettingsRepository
 
@@ -65,6 +64,9 @@ class ClockAlertService : Service() {
             startForeground(NOTIFY, notification)
         }
         if (!ClockSoundPlayer.alerting) startTone()
+        if (ClockAlertLock.shouldLaunch(true, ClockAlertLock.keyguardLocked(this))) {
+            ClockAlertLock.tryLaunch(this)
+        }
         return START_STICKY
     }
 
@@ -151,9 +153,7 @@ class ClockAlertService : Service() {
             return PendingIntent.getActivity(
                 context,
                 0,
-                Intent(context, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    .putExtra(EXTRA_ALERT, true),
+                ClockAlertLock.activityIntent(context),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
