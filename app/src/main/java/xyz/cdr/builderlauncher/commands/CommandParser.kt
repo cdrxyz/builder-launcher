@@ -84,15 +84,16 @@ object CommandParser {
         when (lower) {
             "stock" -> return Command.OpenStocks
             "podcast" -> return Command.OpenPodcasts
-            "pin", "unpin" -> return Command.Help
         }
-        if (lower.startsWith("pin ")) {
-            val query = trimmed.drop(4).trim()
-            return if (query.isEmpty()) Command.Help else Command.Pin(query)
-        }
-        if (lower.startsWith("unpin ")) {
-            val query = trimmed.drop(6).trim()
-            return if (query.isEmpty()) Command.Help else Command.Unpin(query)
+        val appPick = AppPickQuery.parse(trimmed)
+        if (appPick.pick != AppPick.Launch) {
+            return if (appPick.query.isEmpty()) {
+                Command.Help
+            } else if (appPick.pick == AppPick.Pin) {
+                Command.Pin(appPick.query)
+            } else {
+                Command.Unpin(appPick.query)
+            }
         }
         return null
     }

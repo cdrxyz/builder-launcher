@@ -138,6 +138,7 @@ import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.commands.AppPick
+import xyz.cdr.builderlauncher.commands.AppPickQuery
 import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.commands.Command
 import xyz.cdr.builderlauncher.commands.CommandExecutor
@@ -937,6 +938,7 @@ fun BuilderRoot(
             choices = emptyList()
             people = emptyList()
             appQuery = false
+            pick = AppPick.Launch
             return
         }
         val first = line.first()
@@ -946,13 +948,17 @@ fun BuilderRoot(
             people = if (needle.isEmpty()) emptyList() else contacts.search(needle)
             choices = emptyList()
             appQuery = false
+            pick = AppPick.Launch
         } else if (PrefixCommands.isModePrompt(first)) {
             people = emptyList()
             choices = emptyList()
             appQuery = false
+            pick = AppPick.Launch
         } else {
             people = emptyList()
-            choices = apps.search(line)
+            val parsed = AppPickQuery.parse(line)
+            pick = parsed.pick
+            choices = parsed.filter(apps.all(), pins.packages().toSet())
             appQuery = true
         }
     }
@@ -1333,7 +1339,7 @@ fun BuilderRoot(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        if (Notes.matchesQuery(input)) {
+                        if (pick == AppPick.Launch && Notes.matchesQuery(input)) {
                             CaretLink(
                                 Notes.MORE,
                                 modifier = Modifier
@@ -1342,7 +1348,7 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (Stocks.matchesQuery(input)) {
+                        if (pick == AppPick.Launch && Stocks.matchesQuery(input)) {
                             CaretLink(
                                 Stocks.MORE,
                                 modifier = Modifier
@@ -1351,7 +1357,7 @@ fun BuilderRoot(
                                     .padding(vertical = 6.dp),
                             )
                         }
-                        if (Podcasts.matchesQuery(input)) {
+                        if (pick == AppPick.Launch && Podcasts.matchesQuery(input)) {
                             CaretLink(
                                 Podcasts.MORE,
                                 modifier = Modifier
@@ -2237,7 +2243,8 @@ fun BuilderRoot(
             }
             Page.Apps -> {
                 val listed = remember(input, appsEpoch) {
-                    if (input.isBlank()) apps.all() else apps.search(input)
+                    val q = AppPickQuery.parse(input).query
+                    if (q.isBlank()) apps.all() else apps.search(q)
                 }
                 Row(
                     Modifier.fillMaxWidth(),
