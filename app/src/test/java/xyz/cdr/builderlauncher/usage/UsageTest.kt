@@ -35,6 +35,7 @@ class UsageTest {
     fun pinCaptionIsMinutesThenShare() {
         assertEquals("30m", Usage.pinDuration(30 * 60_000L))
         assertEquals("17%", Usage.pinShare(30 * 60_000L, 180 * 60_000L))
+        assertEquals("30m (17%)", PinUsageMark("30m", "17%", true).line)
         assertEquals("0m", Usage.pinDuration(0))
         assertEquals("0%", Usage.pinShare(0, 0))
         assertEquals("0m", Usage.pinDuration(12_000))

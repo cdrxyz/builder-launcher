@@ -80,7 +80,9 @@ data class PinUsageMark(
     val duration: String,
     val share: String,
     val productive: Boolean,
-)
+) {
+    val line: String get() = "$duration ($share)"
+}
 
 data class UsageToday(
     val granted: Boolean,

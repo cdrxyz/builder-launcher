@@ -271,7 +271,8 @@ internal fun PinnedAppsTextList(
                     ListReorder.neighborOffset(index, dragFrom!!, dragTo!!, stepPx)
                 else -> 0f
             }
-            Column(
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(if (lifting) 1f else 0f)
@@ -315,7 +316,7 @@ internal fun PinnedAppsTextList(
                     .padding(vertical = 6.dp),
             ) {
                 Text(app.label, color = Paper)
-                PinUsageCaption(usage(app))
+                PinUsageInline(usage(app))
             }
         }
     }
@@ -400,6 +401,19 @@ internal fun PinnedAppsRow(
             }
         }
     }
+}
+
+@Composable
+internal fun PinUsageInline(mark: PinUsageMark?) {
+    if (mark == null) return
+    Text(
+        mark.line,
+        color = if (mark.productive) Gain else Loss,
+        style = MaterialTheme.typography.labelSmall,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(start = 8.dp),
+    )
 }
 
 @Composable

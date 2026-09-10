@@ -279,9 +279,12 @@ fun HomeChrome(
                 } else {
                     if (!appIcons) {
                         pins.forEachIndexed { index, label ->
-                            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 Text(label, color = Paper)
-                                pinUsage.getOrNull(index)?.let { ChromePinUsage(it) }
+                                pinUsage.getOrNull(index)?.let { PinUsageInline(it) }
                             }
                         }
                     }
@@ -1516,7 +1519,7 @@ fun SettingsChrome(
             Text("on", color = if (settings.pinUsage) Accent else Dim)
         }
         Text(
-            "Minutes today under each pin, as 30m then 17% on the next line. Green if productive, red if not.",
+            "Minutes today. Names: 30m (17%) beside the pin. Icons: 30m then 17% under the icon. Green if productive, red if not.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

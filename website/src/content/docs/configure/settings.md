@@ -12,7 +12,7 @@ Type `settings` or `/settings`.
 | Accent | Color chips for the cursor, `>` prompt, selected chips, and the `>` on links like more tasks. Default cyberpunk green. |
 | AI providers | `… AI providers >` opens the dedicated screen. [Details](ai-providers/). |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
-| Home apps | `plaintext` (default) or `icons`. Names vs grayscale icons for pins and home search. All apps stays in color. **Pin time** `off` (default) or `on` shows minutes today and share of phone time under each pin, as `30m` then `17%` on the next line. Green if the app is productive, red if not. Needs [usage](../use/usage/) access. |
+| Home apps | `plaintext` (default) or `icons`. Names vs grayscale icons for pins and home search. All apps stays in color. **Pin time** `off` (default) or `on` shows minutes today and share of phone time. Names: `30m (17%)` beside the pin. Icons: `30m` then `17%` under the icon. Green if the app is productive, red if not. Needs [usage](../use/usage/) access. |
 | Clock face | `analog` (default) or `digital`. Analog sits in the center of home with the time and date below. |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |
