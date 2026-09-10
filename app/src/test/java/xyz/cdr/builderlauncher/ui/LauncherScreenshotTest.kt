@@ -293,10 +293,10 @@ class LauncherScreenshotTest {
                     todos = listOf("buy milk", "ship builder-launcher CI"),
                     pins = listOf("Phone", "Messages", "Maps", "Camera"),
                     pinUsage = listOf(
-                        PinUsageMark("12m (7%)", false),
-                        PinUsageMark("45m (25%)", false),
-                        PinUsageMark("30m (17%)", true),
-                        PinUsageMark("8m (4%)", true),
+                        PinUsageMark("12m", "7%", false),
+                        PinUsageMark("45m", "25%", false),
+                        PinUsageMark("30m", "17%", true),
+                        PinUsageMark("8m", "4%", true),
                     ),
                 )
             }
@@ -316,10 +316,10 @@ class LauncherScreenshotTest {
                     pins = listOf("Phone", "Messages", "Maps", "Camera"),
                     appIcons = true,
                     pinUsage = listOf(
-                        PinUsageMark("12m (7%)", false),
-                        PinUsageMark("45m (25%)", false),
-                        PinUsageMark("30m (17%)", true),
-                        PinUsageMark("8m (4%)", true),
+                        PinUsageMark("12m", "7%", false),
+                        PinUsageMark("45m", "25%", false),
+                        PinUsageMark("30m", "17%", true),
+                        PinUsageMark("8m", "4%", true),
                     ),
                 )
             }

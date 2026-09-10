@@ -77,7 +77,8 @@ data class UsageRawDay(
 )
 
 data class PinUsageMark(
-    val line: String,
+    val duration: String,
+    val share: String,
     val productive: Boolean,
 )
 
@@ -91,7 +92,8 @@ data class UsageToday(
         if (!granted) return null
         val ms = millisByPackage[packageName] ?: 0L
         return PinUsageMark(
-            line = Usage.pinLine(ms, totalMs),
+            duration = Usage.pinDuration(ms),
+            share = Usage.pinShare(ms, totalMs),
             productive = Usage.kindOf(packageName, overrides) == UsageKind.PRODUCTIVE,
         )
     }
@@ -127,10 +129,12 @@ object Usage {
         return ((part.toDouble() / total.toDouble()) * 100.0).roundToInt().coerceIn(0, 100)
     }
 
-    fun pinLine(ms: Long, totalMs: Long): String {
+    fun pinDuration(ms: Long): String {
         val minutes = ms.coerceAtLeast(0L) / 60_000L
-        return "${minutes}m (${percent(ms, totalMs)}%)"
+        return "${minutes}m"
     }
+
+    fun pinShare(ms: Long, totalMs: Long): String = "${percent(ms, totalMs)}%"
 
     fun todayOf(
         raw: UsageRawDay,

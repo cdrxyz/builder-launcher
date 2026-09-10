@@ -317,13 +317,23 @@ fun HomeChrome(
 
 @Composable
 private fun ChromePinUsage(mark: PinUsageMark) {
-    Text(
-        mark.line,
-        color = if (mark.productive) Gain else Loss,
-        style = MaterialTheme.typography.labelSmall,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
+    val color = if (mark.productive) Gain else Loss
+    Column {
+        Text(
+            mark.duration,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            mark.share,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @Composable
@@ -1505,7 +1515,7 @@ fun SettingsChrome(
             Text("on", color = if (settings.pinUsage) Accent else Dim)
         }
         Text(
-            "Minutes today under each pin, as 30m (17%). Green if productive, red if not.",
+            "Minutes today under each pin, as 30m then 17% on the next line. Green if productive, red if not.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
