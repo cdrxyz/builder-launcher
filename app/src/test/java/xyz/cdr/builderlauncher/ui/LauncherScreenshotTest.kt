@@ -14,7 +14,9 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockQuote
 import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.usage.PinUsageMark
+import xyz.cdr.builderlauncher.data.UiTheme
 
 class LauncherScreenshotTest {
     @get:Rule
@@ -911,6 +913,79 @@ class LauncherScreenshotTest {
         paparazzi.snapshot {
             BuilderTheme {
                 UsageChrome(selectedIndex = 3)
+            }
+        }
+    }
+
+    @Test
+    fun homeThemePlain() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.PLAIN, accent = accentColor(UiTheme.PLAIN.defaultAccentHex)) {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "summarize this PR",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    event = "dentist · 09:00",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeThemeMaterial() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.MATERIAL, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "summarize this PR",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    event = "dentist · 09:00",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeThemeIos() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.IOS, accent = accentColor(UiTheme.IOS.defaultAccentHex)) {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "summarize this PR",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                    event = "dentist · 09:00",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun settingsThemeMaterial() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.MATERIAL, accent = accentColor(UiTheme.MATERIAL.defaultAccentHex)) {
+                SettingsChrome(
+                    settings = BuilderSettings(
+                        provider = LlmProvider.HERMES,
+                        hermesBaseUrl = "http://192.168.1.10:8642",
+                        keyboardMode = KeyboardMode.AUTO,
+                        uiTheme = UiTheme.MATERIAL,
+                        accentHex = UiTheme.MATERIAL.defaultAccentHex,
+                    ),
+                    hardware = true,
+                    hermes = "http://192.168.1.10:8642",
+                    apiKey = "",
+                    model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                )
             }
         }
     }

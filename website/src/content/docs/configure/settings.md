@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: Type settings. AI providers, keyboard, clock face, weather, clock sound, calendar, backup, hub and usage access, default Home.
+description: Type settings. Theme, AI providers, keyboard, clock face, weather, clock sound, calendar, backup, hub and usage access, default Home.
 ---
 
 Type `settings` or `/settings`.
@@ -9,6 +9,7 @@ Type `settings` or `/settings`.
 
 | Block | What to set |
 | --- | --- |
+| Theme | `cyberpunk` (default), `plain`, `material`, or `ios`. Changes type, color, and command-bar chrome. Picking a theme also sets its default accent; you can still pick another color. |
 | Accent | Color chips for the cursor, `>` prompt, selected chips, and the `>` on settings links like AI providers. Home shortcuts such as `… more tasks >` stay grey like the date. Default cyberpunk green. |
 | AI providers | `… AI providers >` opens the dedicated screen. [Details](ai-providers/). |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
@@ -16,7 +17,7 @@ Type `settings` or `/settings`.
 | Clock face | `analog` (default) or `digital`. Analog sits in the center of home with the time and date below. |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |
-| Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Tap a name to hear it. These are Android Open Source Project ringtones (Apache 2.0). Alerts play on the alarm stream through silent and vibrate. |
+| Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Tap a name to hear it. Pulse, chime, bell, and hum are Android Open Source Project tones (Apache 2.0). Orthodox is a public-domain Eastern Orthodox chant loop. Alerts play on the alarm stream through silent and vibrate. |
 | Calendar | `… calendar >` opens the dedicated screen. Shows whether calendar access is granted and which calendars feed the next event on home. [Details](calendar/). |
 | Backup | `… backup >` opens the dedicated screen. S3 snapshot, restore, and JSON share. [Details](backup/). |
 | Notification access (hub) | Opens Android's notification listener settings. |

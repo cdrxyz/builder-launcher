@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
         PodcastPlayer.onCheckpoint = { id, pos, dur -> podcasts.checkpoint(id, pos, dur) }
         setContent {
             val current by settings.settings.collectAsState()
-            BuilderTheme(accent = accentColor(current.accentHex)) {
+            BuilderTheme(theme = current.uiTheme, accent = accentColor(current.accentHex)) {
                 BuilderRoot(
                     settingsRepo = settings,
                     apps = apps,

@@ -126,7 +126,11 @@ fun parseMarkdown(source: String): List<MdBlock> {
     return blocks
 }
 
-fun annotatedInline(text: String, accent: Color): AnnotatedString {
+fun annotatedInline(
+    text: String,
+    accent: Color,
+    paper: Color = xyz.cdr.builderlauncher.ui.theme.ThemeCatalog.Cyberpunk.paper,
+): AnnotatedString {
     val builder = AnnotatedString.Builder()
     var last = 0
     INLINE.findAll(text).forEach { match ->
@@ -136,7 +140,7 @@ fun annotatedInline(text: String, accent: Color): AnnotatedString {
         when {
             token.startsWith("**") && token.endsWith("**") && token.length >= 4 -> {
                 builder.append(token.removeSurrounding("**"))
-                builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Paper), start, builder.length)
+                builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold, color = paper), start, builder.length)
             }
             token.startsWith("`") && token.endsWith("`") && token.length >= 2 -> {
                 builder.append(token.removeSurrounding("`"))
@@ -144,7 +148,7 @@ fun annotatedInline(text: String, accent: Color): AnnotatedString {
             }
             token.startsWith("*") && token.endsWith("*") && token.length >= 2 -> {
                 builder.append(token.removeSurrounding("*"))
-                builder.addStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Paper), start, builder.length)
+                builder.addStyle(SpanStyle(fontStyle = FontStyle.Italic, color = paper), start, builder.length)
             }
             token.startsWith("[") -> {
                 val label = match.groupValues[1]
@@ -162,6 +166,7 @@ fun annotatedInline(text: String, accent: Color): AnnotatedString {
 @Composable
 fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
     val accent = Accent
+    val paper = Paper
     Column(modifier = modifier.fillMaxWidth()) {
         parseMarkdown(source).forEachIndexed { index, block ->
             if (index > 0) Spacer(Modifier.height(8.dp))
@@ -173,7 +178,7 @@ fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
                         else -> 16.sp
                     }
                     Text(
-                        annotatedInline(block.text, accent),
+                        annotatedInline(block.text, accent, paper),
                         color = Paper,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Medium,
@@ -184,7 +189,7 @@ fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
                 }
                 is MdBlock.Paragraph -> {
                     Text(
-                        annotatedInline(block.text, accent),
+                        annotatedInline(block.text, accent, paper),
                         color = Paper,
                         style = MaterialTheme.typography.bodyLarge,
                     )
@@ -201,7 +206,7 @@ fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
                                     modifier = Modifier.padding(end = 10.dp),
                                 )
                                 Text(
-                                    annotatedInline(item, accent),
+                                    annotatedInline(item, accent, paper),
                                     color = Paper,
                                     style = MaterialTheme.typography.bodyLarge,
                                     modifier = Modifier.weight(1f),
@@ -218,10 +223,10 @@ fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
                         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                     )
                 }
-                is MdBlock.Table -> MarkdownTable(block, accent)
+                is MdBlock.Table -> MarkdownTable(block, accent, paper)
                 is MdBlock.Quote -> {
                     Text(
-                        annotatedInline(block.text, accent),
+                        annotatedInline(block.text, accent, paper),
                         color = Dim,
                         style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
                     )
@@ -233,24 +238,24 @@ fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MarkdownTable(table: MdBlock.Table, accent: Color) {
+private fun MarkdownTable(table: MdBlock.Table, accent: Color, paper: Color) {
     val cols = table.headers.size.coerceAtLeast(1)
     Column(modifier = Modifier.fillMaxWidth()) {
-        TableRow(table.headers, cols, accent, header = true)
+        TableRow(table.headers, cols, accent, paper, header = true)
         HorizontalDivider(color = Line)
         table.rows.forEach { row ->
-            TableRow(row.padTo(cols), cols, accent, header = false)
+            TableRow(row.padTo(cols), cols, accent, paper, header = false)
             HorizontalDivider(color = Line)
         }
     }
 }
 
 @Composable
-private fun TableRow(cells: List<String>, cols: Int, accent: Color, header: Boolean) {
+private fun TableRow(cells: List<String>, cols: Int, accent: Color, paper: Color, header: Boolean) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         cells.take(cols).forEach { cell ->
             Text(
-                annotatedInline(cell, accent),
+                annotatedInline(cell, accent, paper),
                 color = Paper,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = if (header) FontWeight.Medium else FontWeight.Normal,

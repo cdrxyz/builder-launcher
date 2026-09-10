@@ -39,6 +39,7 @@ data class BuilderSettings(
     val oauthExpiresAtEpochMs: Long = 0L,
     val oauthAccount: String = "",
     val accentHex: String = AccentColor.DEFAULT_HEX,
+    val uiTheme: UiTheme = UiTheme.CYBERPUNK,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
@@ -146,6 +147,7 @@ class SettingsRepository(context: Context) {
                 weatherLon = restored.weatherLon,
                 weatherUnits = restored.weatherUnits,
                 accentHex = restored.accentHex.ifBlank { current.accentHex },
+                uiTheme = restored.uiTheme,
                 stockInsert = restored.stockInsert,
                 clockSound = restored.clockSound,
                 appIcons = restored.appIcons,
@@ -206,6 +208,7 @@ class SettingsRepository(context: Context) {
             oauthExpiresAtEpochMs = prefs.getString(KEY_OAUTH_EXPIRES, "0")?.toLongOrNull() ?: 0L,
             oauthAccount = prefs.getString(KEY_OAUTH_ACCOUNT, "") ?: "",
             accentHex = AccentColor.normalize(prefs.getString(KEY_ACCENT, AccentColor.DEFAULT_HEX)),
+            uiTheme = UiTheme.parse(prefs.getString(KEY_UI_THEME, UiTheme.CYBERPUNK.name)),
             stockInsert = insert,
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
             appIcons = appIcons,
@@ -254,6 +257,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_OAUTH_EXPIRES, next.oauthExpiresAtEpochMs.toString())
             .putString(KEY_OAUTH_ACCOUNT, next.oauthAccount)
             .putString(KEY_ACCENT, AccentColor.normalize(next.accentHex))
+            .putString(KEY_UI_THEME, next.uiTheme.name)
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
@@ -298,6 +302,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_OAUTH_EXPIRES = "oauth_expires"
         private const val KEY_OAUTH_ACCOUNT = "oauth_account"
         private const val KEY_ACCENT = "accent"
+        private const val KEY_UI_THEME = "ui_theme"
         private const val KEY_STOCK_INSERT = "stock_insert"
         private const val KEY_CLOCK_SOUND = "clock_sound"
         private const val KEY_APP_ICONS = "app_icons"

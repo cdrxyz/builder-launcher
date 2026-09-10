@@ -75,6 +75,7 @@ import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.ClockFace
+import xyz.cdr.builderlauncher.data.UiTheme
 import xyz.cdr.builderlauncher.R
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.Chats
@@ -84,6 +85,7 @@ import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlert
 import xyz.cdr.builderlauncher.clock.ClockAlertKind
+import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.stocks.StockPoint
@@ -108,6 +110,8 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.CommandBarRule
+import xyz.cdr.builderlauncher.ui.theme.commandBarChrome
 
 data class HubRow(
     val kind: String,
@@ -1329,6 +1333,7 @@ fun StockChart(
     onSelect: (Int?) -> Unit = {},
 ) {
     val tone = if (up) Gain else Loss
+    val paper = Paper
     val select = rememberUpdatedState(onSelect)
     Canvas(
         modifier.pointerInput(points) {
@@ -1376,8 +1381,8 @@ fun StockChart(
         if (mark != null) {
             val x = mark * dx
             val y = yOf(points[mark].close)
-            drawLine(Paper, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
-            drawCircle(Paper, radius = 4.dp.toPx(), center = Offset(x, y))
+            drawLine(paper, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
+            drawCircle(paper, radius = 4.dp.toPx(), center = Offset(x, y))
         }
     }
 }
@@ -1475,6 +1480,17 @@ fun SettingsChrome(
             leading = {},
             trailing = { Text("home", color = Dim) },
         )
+        Spacer(Modifier.height(16.dp))
+        Text("Theme", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTheme.entries.forEach { theme ->
+                Text(
+                    theme.label,
+                    color = if (settings.uiTheme == theme) Accent else Dim,
+                )
+            }
+        }
+        Text(settings.uiTheme.blurb, color = Dim, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
         AccentPicker(hex = settings.accentHex)
         Field("Hex", settings.accentHex, AccentColor.DEFAULT_HEX)
@@ -1589,13 +1605,13 @@ fun SettingsChrome(
         Spacer(Modifier.height(16.dp))
         Text("Clock sound", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            listOf("pulse", "chime", "bell").forEach { label ->
-                Text(label, color = if (label == "pulse") Accent else Dim)
+            ClockSound.entries.take(3).forEach { sound ->
+                Text(sound.label, color = if (settings.clockSound == sound) Accent else Dim)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-            listOf("orthodox", "hum", "off").forEach { label ->
-                Text(label, color = Dim)
+            ClockSound.entries.drop(3).forEach { sound ->
+                Text(sound.label, color = if (settings.clockSound == sound) Accent else Dim)
             }
         }
         Text(
@@ -2082,7 +2098,7 @@ private fun CommandRow(
         }
         Row(
             verticalAlignment = if (wrapExpanded) Alignment.Top else Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().commandBarChrome(),
         ) {
             PromptGlyph(prompt = prompt, wrapField = wrapExpanded)
             Text(
@@ -2098,7 +2114,7 @@ private fun CommandRow(
                 SendIcon(Modifier.padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 6.dp, bottom = if (wrapExpanded) 0.dp else 6.dp))
             }
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        CommandBarRule()
         }
     }
 }
@@ -2501,17 +2517,18 @@ fun GearIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun DeleteIcon(modifier: Modifier = Modifier) {
+    val dim = Dim
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val inset = size.minDimension * 0.22f
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(inset, inset),
             end = Offset(size.width - inset, size.height - inset),
             strokeWidth = stroke.width,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(size.width - inset, inset),
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
@@ -2593,6 +2610,7 @@ fun DownloadIcon(filled: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 fun EditIcon(modifier: Modifier = Modifier) {
+    val dim = Dim
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         val s = size.minDimension
@@ -2604,30 +2622,30 @@ fun EditIcon(modifier: Modifier = Modifier) {
             lineTo(s * 0.40f, s * 0.76f)
             close()
         }
-        drawPath(path = body, color = Dim, style = stroke)
+        drawPath(path = body, color = dim, style = stroke)
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.30f, s * 0.66f),
             end = Offset(s * 0.38f, s * 0.74f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.56f, s * 0.18f),
             end = Offset(s * 0.82f, s * 0.44f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.56f, s * 0.18f),
             end = Offset(s * 0.60f, s * 0.24f),
             strokeWidth = stroke.width,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(s * 0.82f, s * 0.44f),
             end = Offset(s * 0.76f, s * 0.40f),
             strokeWidth = stroke.width,
@@ -2660,14 +2678,15 @@ fun CheckIcon(modifier: Modifier = Modifier) {
 
 @Composable
 fun InfoIcon(modifier: Modifier = Modifier) {
+    val dim = Dim
     Canvas(modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.6.dp.toPx())
         val r = size.minDimension / 2f - stroke.width
-        drawCircle(color = Dim, radius = r, style = stroke)
+        drawCircle(color = dim, radius = r, style = stroke)
         val cx = size.width / 2f
-        drawCircle(color = Dim, radius = 1.3.dp.toPx(), center = Offset(cx, size.height * 0.32f))
+        drawCircle(color = dim, radius = 1.3.dp.toPx(), center = Offset(cx, size.height * 0.32f))
         drawLine(
-            color = Dim,
+            color = dim,
             start = Offset(cx, size.height * 0.46f),
             end = Offset(cx, size.height * 0.72f),
             strokeWidth = stroke.width,
@@ -2700,9 +2719,10 @@ fun CaretLink(
 
 @Composable
 fun AppMark(modifier: Modifier = Modifier, size: Dp = 28.dp) {
+    val line = Line
     Canvas(modifier.size(size)) {
         drawRoundRect(
-            color = Line,
+            color = line,
             cornerRadius = CornerRadius(5.dp.toPx()),
         )
     }

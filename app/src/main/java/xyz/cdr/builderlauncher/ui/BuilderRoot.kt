@@ -2034,10 +2034,13 @@ fun BuilderRoot(
                 }
                 Spacer(Modifier.height(8.dp))
                 val noteAccent = Accent
+                val notePaper = Paper
                 BasicTextField(
                     value = noteDraft,
                     onValueChange = { noteDraft = it },
-                    visualTransformation = remember(noteAccent) { MarkdownVisualTransformation(noteAccent) },
+                    visualTransformation = remember(noteAccent, notePaper) {
+                        MarkdownVisualTransformation(noteAccent, notePaper)
+                    },
                     cursorBrush = SolidColor(Accent),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Paper),
                     keyboardOptions = KeyboardOptions(

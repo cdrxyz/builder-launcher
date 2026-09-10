@@ -21,7 +21,7 @@ While the timer is running, home replaces the large clock with the countdown. Ta
 
 Timers, alarms, and time zones stay on the device across app launches. A running timer keeps counting; enabled alarms still fire after a reboot. If home opens after the alarm time (phone off, or the launcher woke late), it still rings for up to 2 hours.
 
-Alarms and the running timer play a real Android ringtone on the alarm stream, even if the phone is on silent or vibrate. The clip loops and fades in over 4 seconds. Pick `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off` in [settings](../../configure/settings/) — tap a name to hear it. `<` returns home.
+Alarms and the running timer play a real Android ringtone on the alarm stream, even if the phone is on silent or vibrate. The clip loops and fades in over 4 seconds. Pick `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off` in [settings](../../configure/settings/) — tap a name to hear it. Orthodox is a public-domain chant. `<` returns home.
 
 ![Timer is up: stop or run again](../../../assets/screenshots/clock-timer-alert.png)
 

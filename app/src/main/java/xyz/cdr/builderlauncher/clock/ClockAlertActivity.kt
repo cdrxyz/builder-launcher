@@ -31,7 +31,7 @@ class ClockAlertActivity : ComponentActivity() {
             val current by settings.settings.collectAsState()
             val clockState by clock.state.collectAsState()
             val alert = clockState.alert
-            BuilderTheme(accent = accentColor(current.accentHex)) {
+            BuilderTheme(theme = current.uiTheme, accent = accentColor(current.accentHex)) {
                 if (alert == null) {
                     LaunchedEffect(Unit) { finish() }
                 } else {

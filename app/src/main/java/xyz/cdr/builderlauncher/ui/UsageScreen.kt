@@ -197,6 +197,8 @@ fun UsageChart(
     val max = bars.maxOfOrNull { it.totalMs }?.coerceAtLeast(1L) ?: 1L
     val accent = Accent
     val paper = Paper
+    val dim = Dim
+    val loss = Loss
     val select = rememberUpdatedState(onSelect)
     Canvas(
         modifier
@@ -239,9 +241,9 @@ fun UsageChart(
                 y -= h
                 drawRect(color = color, topLeft = Offset(x, y), size = Size(barWidth, h))
             }
-            stack(bar.otherMs, Dim)
+            stack(bar.otherMs, dim)
             stack(bar.productiveMs, accent)
-            stack(bar.distractingMs, Loss)
+            stack(bar.distractingMs, loss)
             if (selectedIndex == index) {
                 drawLine(
                     color = paper,

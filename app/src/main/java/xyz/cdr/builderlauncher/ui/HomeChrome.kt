@@ -205,6 +205,8 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.CommandBarRule
+import xyz.cdr.builderlauncher.ui.theme.commandBarChrome
 import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsagePeriod
@@ -601,7 +603,7 @@ internal fun CommandBar(
         }
         Row(
             verticalAlignment = if (wrapExpanded) Alignment.Top else Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().commandBarChrome(),
         ) {
             PromptGlyph(
                 prompt = prompt.toString(),
@@ -767,7 +769,7 @@ internal fun CommandBar(
                 )
             }
         }
-        HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
+        CommandBarRule()
         }
     }
 }

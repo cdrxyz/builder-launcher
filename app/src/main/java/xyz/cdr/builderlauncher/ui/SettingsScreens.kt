@@ -160,6 +160,7 @@ import xyz.cdr.builderlauncher.data.WeatherUnits
 import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.ClockFace
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.data.UiTheme
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -268,6 +269,25 @@ internal fun SettingsPage(
             trailing = {
                 Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
             },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Theme", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            UiTheme.entries.forEach { theme ->
+                Text(
+                    theme.label,
+                    color = if (settings.uiTheme == theme) Accent else Dim,
+                    modifier = Modifier.clickable {
+                        accentDraft = theme.defaultAccentHex
+                        repo.update { it.copy(uiTheme = theme, accentHex = theme.defaultAccentHex) }
+                    },
+                )
+            }
+        }
+        Text(
+            settings.uiTheme.blurb,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
         AccentPicker(

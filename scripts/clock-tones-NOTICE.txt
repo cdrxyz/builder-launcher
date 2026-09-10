@@ -2,15 +2,21 @@ Android Open Source Project alarm and ringtone clips
 ====================================================
 
 The files in app/src/main/res/raw/clock_*.ogg are copied from
-platform/frameworks/base data/sounds (Apache License 2.0):
+platform/frameworks/base data/sounds (Apache License 2.0), except
+clock_orthodox.ogg:
 
   clock_pulse.ogg     <- alarms/ogg/Neon.ogg
   clock_chime.ogg     <- ringtones/ogg/Callisto.ogg
   clock_bell.ogg      <- ringtones/ogg/Titania.ogg
-  clock_orthodox.ogg  <- ringtones/ogg/Kuma.ogg
-  clock_hum.ogg       <- ringtones/ogg/Themos.ogg
+  clock_hum.ogg       <- alarms/ogg/Helium.ogg (looped to 17.6s)
+  clock_orthodox.ogg  <- 18s loop from Wikimedia Commons
+                         File:Byzantine Ecclesiastical Hymns Part2.ogg
+                         (CC0 1.0 / public domain; Eastern Orthodox chant)
 
 https://android.googlesource.com/platform/frameworks/base/
-License: http://www.apache.org/licenses/LICENSE-2.0
+https://commons.wikimedia.org/wiki/File:Byzantine_Ecclesiastical_Hymns_Part2.ogg
+
+AOSP license: http://www.apache.org/licenses/LICENSE-2.0
+Chant license: https://creativecommons.org/publicdomain/zero/1.0/
 
 Refresh with: python3 scripts/fetch_clock_tones.py
