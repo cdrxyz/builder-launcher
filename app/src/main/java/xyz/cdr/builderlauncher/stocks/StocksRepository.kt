@@ -16,8 +16,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import xyz.cdr.builderlauncher.data.StockInsert
+import xyz.cdr.builderlauncher.net.HttpClients
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 @Serializable
 data class WatchItem(
@@ -33,10 +33,7 @@ data class WatchItem(
 
 class StocksRepository(
     context: Context,
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .build(),
+    private val http: OkHttpClient = HttpClients.shared,
 ) {
     private val file = File(context.applicationContext.filesDir, "watchlist.json")
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }

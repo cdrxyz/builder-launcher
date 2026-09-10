@@ -20,8 +20,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.data.WeatherUnits
+import xyz.cdr.builderlauncher.net.HttpClients
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 @Serializable
 data class WeatherSnapshot(
@@ -53,10 +53,7 @@ object WeatherCache {
 class WeatherRepository(
     context: Context,
     private val settings: SettingsRepository,
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .build(),
+    private val http: OkHttpClient = HttpClients.shared,
 ) {
     private val app = context.applicationContext
     private val file = File(app.filesDir, "weather.json")
