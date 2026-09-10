@@ -105,6 +105,7 @@ fun ClockScreen(
                 display = Clock.formatTimer(Clock.remainingMs(snapshot.timer, now.value)),
                 running = snapshot.timer.running,
                 durationMs = snapshot.timer.durationMs,
+                label = snapshot.timer.label,
                 onPreset = onPreset,
                 onStartPause = onStartPause,
                 onReset = onReset,
@@ -131,6 +132,7 @@ private fun TimerPane(
     display: String,
     running: Boolean,
     durationMs: Long,
+    label: String,
     onPreset: (Int) -> Unit,
     onStartPause: () -> Unit,
     onReset: () -> Unit,
@@ -145,6 +147,9 @@ private fun TimerPane(
                 lineHeight = 60.sp,
             ),
         )
+        if (label.isNotBlank()) {
+            Text(label, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Clock.PRESETS_MIN.forEach { min ->
@@ -170,7 +175,7 @@ private fun TimerPane(
             )
         }
         Text(
-            "Type minutes (5) or mm:ss, then Enter.",
+            "Type Pasta 8 minutes, then Enter.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 12.dp),
@@ -186,7 +191,7 @@ private fun AlarmPane(
 ) {
     Column(Modifier.fillMaxWidth()) {
         if (alarms.isEmpty()) {
-            Text("Type 7:30 or 7:30am, then Enter.", color = Dim)
+            Text("Type 7:30am or Take out garbage Wednesdays 10:30pm.", color = Dim)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 alarms.forEach { alarm ->
@@ -201,8 +206,11 @@ private fun AlarmPane(
                                 .padding(vertical = 8.dp),
                         ) {
                             Text(Clock.formatAlarm(alarm.hour, alarm.minute), color = Paper)
+                            if (alarm.label.isNotBlank()) {
+                                Text(alarm.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                            }
                             Text(
-                                if (alarm.enabled) "on" else "off",
+                                Clock.alarmStatus(alarm),
                                 color = if (alarm.enabled) Accent else Dim,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -354,7 +362,7 @@ fun ClockAlertScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Text(
-            if (timer) "Time is up" else alert.label.ifBlank { "Alarm" },
+            if (timer) alert.label.ifBlank { "Time is up" } else alert.label.ifBlank { "Alarm" },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

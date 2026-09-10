@@ -1778,13 +1778,16 @@ fun ClockChrome(
             when (tab) {
                 "Alarm" -> {
                     if (alarms.isEmpty()) {
-                        Text("Type 7:30 or 7:30am, then Enter.", color = Dim)
+                        Text("Type 7:30am or Take out garbage Wednesdays 10:30pm.", color = Dim)
                     } else {
                         alarms.forEach { alarm ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(Clock.formatAlarm(alarm.hour, alarm.minute), color = Paper)
-                                    Text(if (alarm.enabled) "on" else "off", color = if (alarm.enabled) Accent else Dim)
+                                    if (alarm.label.isNotBlank()) {
+                                        Text(alarm.label, color = Dim)
+                                    }
+                                    Text(Clock.alarmStatus(alarm), color = if (alarm.enabled) Accent else Dim)
                                 }
                                 DeleteIcon()
                             }

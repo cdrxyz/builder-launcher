@@ -21,8 +21,24 @@ class ClockTest {
         assertEquals(5 * 60_000L, Clock.parseTimer("5"))
         assertEquals(90_000L, Clock.parseTimer("1:30"))
         assertEquals(45_000L, Clock.parseTimer("45s"))
+        assertEquals(8 * 60_000L, Clock.parseTimer("8 minutes"))
+        assertEquals(8 * 60_000L, Clock.parseTimer("8 min"))
         assertNull(Clock.parseTimer("abc"))
         assertNull(Clock.parseTimer("1:99"))
+    }
+
+    @Test
+    fun parseLabeledTimer() {
+        val pasta = Clock.parseTimerInput("Pasta 8 minutes")!!
+        assertEquals(8 * 60_000L, pasta.durationMs)
+        assertEquals("Pasta", pasta.label)
+        val reverse = Clock.parseTimerInput("8 minutes Pasta")!!
+        assertEquals(8 * 60_000L, reverse.durationMs)
+        assertEquals("Pasta", reverse.label)
+        val bare = Clock.parseTimerInput("eggs 3")!!
+        assertEquals(3 * 60_000L, bare.durationMs)
+        assertEquals("eggs", bare.label)
+        assertEquals("", Clock.parseTimerInput("5")!!.label)
     }
 
     @Test
@@ -33,6 +49,37 @@ class ClockTest {
         assertEquals(12 to 0, Clock.parseAlarm("12:00pm"))
         assertEquals(7 to 30, Clock.parseAlarm("0730"))
         assertNull(Clock.parseAlarm("25:00"))
+    }
+
+    @Test
+    fun parseLabeledRecurringAlarm() {
+        val garbage = Clock.parseAlarmInput("Take out garbage Wednesdays 10:30pm")!!
+        assertEquals(22, garbage.hour)
+        assertEquals(30, garbage.minute)
+        assertEquals("Take out garbage", garbage.label)
+        assertEquals(setOf(3), garbage.days)
+        val gym = Clock.parseAlarmInput("Gym weekdays 6:30")!!
+        assertEquals(6, gym.hour)
+        assertEquals(30, gym.minute)
+        assertEquals("Gym", gym.label)
+        assertEquals((1..5).toSet(), gym.days)
+        val plain = Clock.parseAlarmInput("7:30am")!!
+        assertEquals(7, plain.hour)
+        assertEquals(30, plain.minute)
+        assertEquals("", plain.label)
+        assertTrue(plain.days.isEmpty())
+    }
+
+    @Test
+    fun formatDaysAndAlarmStatus() {
+        assertEquals("", Clock.formatDays(emptySet()))
+        assertEquals("Wed", Clock.formatDays(setOf(3)))
+        assertEquals("weekdays", Clock.formatDays((1..5).toSet()))
+        assertEquals("weekends", Clock.formatDays(setOf(6, 7)))
+        assertEquals("daily", Clock.formatDays((1..7).toSet()))
+        val alarm = ClockAlarm(id = "1", hour = 22, minute = 30, label = "Take out garbage", days = setOf(3))
+        assertEquals("on  Wed", Clock.alarmStatus(alarm))
+        assertEquals("off", Clock.alarmStatus(alarm.copy(enabled = false, days = emptySet())))
     }
 
     @Test
@@ -59,6 +106,18 @@ class ClockTest {
         val reset = Clock.reset(paused)
         assertEquals(60_000L, reset.remainingMs)
         assertFalse(reset.running)
+    }
+
+    @Test
+    fun nextTriggerSkipsToRequestedWeekday() {
+        val zone = ZoneId.of("UTC")
+        val now = ZonedDateTime.of(2026, 9, 8, 12, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val wed = Clock.nextTrigger(22, 30, now, setOf(3), zone = zone)
+        val z = java.time.Instant.ofEpochMilli(wed).atZone(zone)
+        assertEquals(9, z.dayOfMonth)
+        assertEquals(3, z.dayOfWeek.value)
+        assertEquals(22, z.hour)
+        assertEquals(30, z.minute)
     }
 
     @Test
@@ -91,23 +150,24 @@ class ClockTest {
     }
 
     @Test
-    fun mediaStreamWhenAlarmMutedOrPreview() {
-        assertTrue(Clock.useMediaStream(0, false))
-        assertTrue(Clock.useMediaStream(7, true))
-        assertFalse(Clock.useMediaStream(7, false))
+    fun mediaStreamOnlyForPreview() {
+        assertFalse(Clock.useMediaStream(false))
+        assertTrue(Clock.useMediaStream(true))
     }
 
     @Test
     fun timerFireStopsAndKeepsDurationForRunAgain() {
         val now = 2_000_000L
-        val running = Clock.start(TimerState(durationMs = 90_000, remainingMs = 90_000), now)
+        val running = Clock.start(TimerState(durationMs = 90_000, remainingMs = 90_000, label = "Pasta"), now)
         val fired = Clock.fireTimer(running)
         assertFalse(fired.timer.running)
         assertEquals(90_000L, fired.timer.remainingMs)
         assertEquals(ClockAlertKind.TIMER, fired.alert.kind)
         assertEquals(90_000L, fired.alert.durationMs)
+        assertEquals("Pasta", fired.alert.label)
         val again = Clock.runAgain(fired.alert, now + 5_000)
         assertTrue(again.running)
+        assertEquals("Pasta", again.label)
         assertEquals(now + 5_000 + 90_000, again.endsAt)
     }
 

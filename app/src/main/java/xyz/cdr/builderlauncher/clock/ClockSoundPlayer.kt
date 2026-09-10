@@ -84,8 +84,9 @@ object ClockSoundPlayer {
             haltLocked()
             val resId = rawId(sound) ?: return
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val next = runCatching { buildPlayer(context, resId, loop) }.getOrNull() ?: return
-            requestFocus(am)
+            if (!preview) runCatching { ensureAlarmAudible(am) }
+            val next = runCatching { buildPlayer(context, resId, loop, preview) }.getOrNull() ?: return
+            requestFocus(am, preview)
             if (!preview) runCatching { holdWake(context) }
             if (vibrate) buzz(context)
             playing = true
@@ -105,11 +106,8 @@ object ClockSoundPlayer {
         }
     }
 
-    private fun buildPlayer(context: Context, resId: Int, loop: Boolean): MediaPlayer {
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
+    private fun buildPlayer(context: Context, resId: Int, loop: Boolean, preview: Boolean): MediaPlayer {
+        val attrs = audioAttrs(preview)
         return MediaPlayer().apply {
             setAudioAttributes(attrs)
             setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
@@ -128,6 +126,27 @@ object ClockSoundPlayer {
         }
     }
 
+    private fun audioAttrs(preview: Boolean): AudioAttributes {
+        val builder = AudioAttributes.Builder()
+        if (Clock.useMediaStream(preview)) {
+            builder.setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        } else {
+            builder.setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+        }
+        return builder.build()
+    }
+
+    private fun ensureAlarmAudible(am: AudioManager) {
+        val stream = AudioManager.STREAM_ALARM
+        val max = am.getStreamMaxVolume(stream).coerceAtLeast(1)
+        if (am.getStreamVolume(stream) <= 0) {
+            am.setStreamVolume(stream, (max / 2).coerceAtLeast(1), 0)
+        }
+    }
+
     private fun rawId(sound: ClockSound): Int? = when (sound) {
         ClockSound.PULSE -> R.raw.clock_pulse
         ClockSound.CHIME -> R.raw.clock_chime
@@ -137,11 +156,8 @@ object ClockSoundPlayer {
         ClockSound.OFF -> null
     }
 
-    private fun requestFocus(am: AudioManager) {
-        val built = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
+    private fun requestFocus(am: AudioManager, preview: Boolean) {
+        val built = audioAttrs(preview)
         val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
             .setAudioAttributes(built)
             .setOnAudioFocusChangeListener { }

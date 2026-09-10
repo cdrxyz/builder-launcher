@@ -1030,15 +1030,15 @@ fun BuilderRoot(
         }
         when (clockTab) {
             ClockTab.Timer -> {
-                val ms = Clock.parseTimer(text) ?: return false
-                clock.setTimer(Clock.setDuration(clock.snapshot().timer, ms))
+                val parsed = Clock.parseTimerInput(text) ?: return false
+                clock.setTimer(Clock.setDuration(clock.snapshot().timer, parsed.durationMs, parsed.label))
                 ClockScheduler.sync(ctx, clock.snapshot())
                 clearBar()
                 return true
             }
             ClockTab.Alarm -> {
-                val hm = Clock.parseAlarm(text) ?: return false
-                clock.addAlarm(hm.first, hm.second)
+                val parsed = Clock.parseAlarmInput(text) ?: return false
+                clock.addAlarm(parsed.hour, parsed.minute, parsed.label, parsed.days)
                 ClockScheduler.sync(ctx, clock.snapshot())
                 clearBar()
                 return true

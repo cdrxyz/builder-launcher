@@ -111,6 +111,8 @@ class ClockAlertService : Service() {
             val channel = NotificationChannel(CHANNEL, "Clock", NotificationManager.IMPORTANCE_HIGH)
             channel.setSound(null, null)
             channel.enableVibration(true)
+            channel.setBypassDnd(true)
+            channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             nm.createNotificationChannel(channel)
         }
 
@@ -118,7 +120,7 @@ class ClockAlertService : Service() {
             ensureChannel(context)
             val open = activityIntent(context)
             val title = when (alert.kind) {
-                ClockAlertKind.TIMER -> "Time is up"
+                ClockAlertKind.TIMER -> alert.label.ifBlank { "Time is up" }
                 ClockAlertKind.ALARM -> alert.label.ifBlank { "Alarm" }
             }
             val body = when (alert.kind) {
