@@ -1977,7 +1977,7 @@ private fun CommandRow(
             }
         }
         Row(verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically) {
-            Text(prompt, color = Accent, modifier = Modifier.padding(end = 10.dp, top = if (wrapField) 2.dp else 0.dp))
+            PromptGlyph(prompt = prompt, wrapField = wrapField)
             Text(
                 value.ifEmpty { "" },
                 color = Paper,

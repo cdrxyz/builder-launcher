@@ -15,4 +15,9 @@ class CommandMenuTest {
     fun boundedHeightReservesInputRow() {
         assertEquals(144.dp, commandMenuMaxHeight(200.dp))
     }
+
+    @Test
+    fun promptTouchIs48dp() {
+        assertEquals(48.dp, CommandTouch)
+    }
 }

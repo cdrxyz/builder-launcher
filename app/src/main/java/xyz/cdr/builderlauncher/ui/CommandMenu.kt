@@ -2,9 +2,14 @@ package xyz.cdr.builderlauncher.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -24,12 +29,45 @@ import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Paper
 
+internal val CommandTouch = 48.dp
+
 internal fun commandMenuMaxHeight(maxHeight: Dp): Dp {
-    val reserve = 56.dp
+    val reserve = CommandTouch + 8.dp
     return if (maxHeight < Dp.Infinity) {
         (maxHeight - reserve).coerceAtLeast(80.dp)
     } else {
         280.dp
+    }
+}
+
+@Composable
+internal fun PromptGlyph(
+    prompt: String,
+    wrapField: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        contentAlignment = if (wrapField) Alignment.TopStart else Alignment.CenterStart,
+        modifier = modifier
+            .zIndex(1f)
+            .defaultMinSize(minWidth = CommandTouch, minHeight = CommandTouch)
+            .then(
+                if (onClick != null) {
+                    Modifier
+                        .semantics { contentDescription = "commands" }
+                        .clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
+        Text(
+            prompt,
+            color = Accent,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(end = 10.dp, top = if (wrapField) 12.dp else 0.dp),
+        )
     }
 }
 
@@ -97,8 +135,9 @@ private fun CommandMenuRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .defaultMinSize(minHeight = CommandTouch)
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 12.dp),
     ) {
         Text(
             glyph,
