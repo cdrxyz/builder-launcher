@@ -8,7 +8,7 @@ Prefix `-`. Example: `-buy milk`.
 ![Three open todos on home](../../../assets/screenshots/home.png)
 
 - Saved locally on the device (not in a cloud todo app).
-- Long tasks wrap in the bar on home and on the tasks page. Enter still saves.
+- Long tasks wrap in the bar on home and on the tasks page after they no longer fit on one line. Enter still saves.
 
 ![A long task wrapping in the home command bar](../../../assets/screenshots/home-todo-wrap.png)
 - Home shows up to 3 **open** todos.

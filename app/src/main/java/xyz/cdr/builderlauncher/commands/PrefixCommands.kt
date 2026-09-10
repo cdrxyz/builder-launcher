@@ -44,6 +44,9 @@ object PrefixCommands {
     /** Soft-wrap the command bar so long todos stay on screen. Chat passes wrap explicitly. */
     fun wrapsInput(glyph: Char): Boolean = glyph == '-'
 
+    /** Grow the bar only after the draft actually uses a second line. */
+    fun wrapExpanded(allowed: Boolean, lineCount: Int): Boolean = allowed && lineCount > 1
+
     fun type(current: Mode, newInput: String): Mode {
         val first = newInput.firstOrNull()
         val next = if (first != null && isModePrompt(first)) {

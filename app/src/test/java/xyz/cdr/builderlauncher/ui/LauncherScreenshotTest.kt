@@ -144,6 +144,22 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeTodoSingleLine() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "buy milk",
+                    prompt = "-",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun todos() {
         paparazzi.snapshot {
             BuilderTheme {
