@@ -1500,21 +1500,20 @@ fun BuilderRoot(
                 )
                         }
                         Page.Hub -> {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        HubMessages.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .semantics { contentDescription = "back" }
-                            .clickable { page = Page.Home }
-                            .padding(vertical = 6.dp),
-                    )
-                    Text("hub", color = Accent)
-                }
+                ScreenHeader(
+                    title = HubMessages.TITLE,
+                    leading = {
+                        ScreenBack(HubMessages.BACK, onBack = { page = Page.Home })
+                    },
+                    trailing = {
+                        DeleteIcon(
+                            Modifier
+                                .semantics { contentDescription = HubMessages.CLEAR_ALL }
+                                .clickable { HubStore.clearAll() }
+                                .padding(vertical = 6.dp),
+                        )
+                    },
+                )
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(hub, key = { it.key }) { item ->
@@ -1620,29 +1619,30 @@ fun BuilderRoot(
                 val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
                     Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
                 }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    GearIcon(
-                        Modifier
-                            .semantics { contentDescription = "podcasts settings" }
-                            .clickable { page = Page.PodcastSettings }
-                            .padding(vertical = 6.dp),
-                    )
-                    Text(
-                        Podcasts.HOME,
-                        color = Accent,
-                        modifier = Modifier
-                            .semantics { contentDescription = "back" }
-                            .clickable {
-                                clearBar()
-                                page = Page.Home
-                            }
-                            .padding(vertical = 6.dp),
-                    )
-                }
+                ScreenHeader(
+                    title = Podcasts.COMMAND,
+                    leading = {
+                        GearIcon(
+                            Modifier
+                                .semantics { contentDescription = "podcasts settings" }
+                                .clickable { page = Page.PodcastSettings }
+                                .padding(vertical = 6.dp),
+                        )
+                    },
+                    trailing = {
+                        Text(
+                            Podcasts.HOME,
+                            color = Accent,
+                            modifier = Modifier
+                                .semantics { contentDescription = "back" }
+                                .clickable {
+                                    clearBar()
+                                    page = Page.Home
+                                }
+                                .padding(vertical = 6.dp),
+                        )
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 val nowEpisode = playback.episodeId?.let { id -> podcastEpisodes.find { it.id == id } }
                 val nowEnded = nowEpisode != null && (
@@ -1845,26 +1845,21 @@ fun BuilderRoot(
                 val todos = HomeTodos.of(local)
                 val openTodos = HomeTodos.open(todos)
                 val doneTodos = HomeTodos.completed(todos)
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        HomeTodos.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable { openHomeDefault() }
-                            .padding(vertical = 6.dp),
-                    )
-                    CopyIcon(
-                        Modifier
-                            .clickable {
-                                copyText("todos", HomeTodos.shareMarkdown(todos))
-                            }
-                            .padding(vertical = 6.dp),
-                    )
-                }
+                ScreenHeader(
+                    title = HomeTodos.TITLE,
+                    leading = {
+                        ScreenBack(HomeTodos.BACK, onBack = { openHomeDefault() })
+                    },
+                    trailing = {
+                        CopyIcon(
+                            Modifier
+                                .clickable {
+                                    copyText("todos", HomeTodos.shareMarkdown(todos))
+                                }
+                                .padding(vertical = 6.dp),
+                        )
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 var dragFrom by remember { mutableStateOf<Int?>(null) }
                 var dragTo by remember { mutableStateOf<Int?>(null) }
@@ -1971,19 +1966,12 @@ fun BuilderRoot(
             }
             Page.Notes -> {
                 val notes = Notes.of(local)
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        Notes.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable { page = Page.Home }
-                            .padding(vertical = 6.dp),
-                    )
-                }
+                ScreenHeader(
+                    title = Notes.COMMAND,
+                    leading = {
+                        ScreenBack(Notes.BACK, onBack = { page = Page.Home })
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (notes.isEmpty()) {
@@ -2069,44 +2057,42 @@ fun BuilderRoot(
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                 Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        Chats.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable {
+                ScreenHeader(
+                    title = "chat",
+                    leading = {
+                        ScreenBack(
+                            Chats.BACK,
+                            onBack = {
                                 page = Page.Home
                                 clearBar()
-                            }
-                            .padding(vertical = 6.dp),
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ProviderIcon(
-                            settings.provider,
-                            Modifier
-                                .semantics { contentDescription = ProviderHandoff.contentDescription(settings.provider) }
-                                .combinedClickable(
-                                    onClick = { handoffToProvider() },
-                                    onLongClick = { providerMenu = true },
-                                    onLongClickLabel = "switch provider",
-                                )
-                                .padding(vertical = 6.dp),
+                            },
                         )
-                        HistoryIcon(
-                            Modifier
-                                .semantics { contentDescription = "history" }
-                                .clickable { page = Page.ChatHistory }
-                                .padding(vertical = 6.dp),
-                        )
-                    }
-                }
+                    },
+                    trailing = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ProviderIcon(
+                                settings.provider,
+                                Modifier
+                                    .semantics { contentDescription = ProviderHandoff.contentDescription(settings.provider) }
+                                    .combinedClickable(
+                                        onClick = { handoffToProvider() },
+                                        onLongClick = { providerMenu = true },
+                                        onLongClickLabel = "switch provider",
+                                    )
+                                    .padding(vertical = 6.dp),
+                            )
+                            HistoryIcon(
+                                Modifier
+                                    .semantics { contentDescription = "history" }
+                                    .clickable { page = Page.ChatHistory }
+                                    .padding(vertical = 6.dp),
+                            )
+                        }
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 CommandBar(
                     prompt = '?',
@@ -2190,19 +2176,12 @@ fun BuilderRoot(
             }
             Page.ChatHistory -> {
                 val rows = Chats.of(chatThreads)
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        Chats.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable { page = Page.Chat }
-                            .padding(vertical = 6.dp),
-                    )
-                }
+                ScreenHeader(
+                    title = "chats",
+                    leading = {
+                        ScreenBack(Chats.BACK, onBack = { page = Page.Chat })
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (rows.isEmpty()) {
@@ -2246,22 +2225,18 @@ fun BuilderRoot(
                     val q = AppPickQuery.parse(input).query
                     if (q.isBlank()) apps.all() else apps.search(q)
                 }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        AppList.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable {
+                ScreenHeader(
+                    title = AppList.COMMAND,
+                    leading = {
+                        ScreenBack(
+                            AppList.BACK,
+                            onBack = {
                                 page = Page.Home
                                 if (input.isNotBlank() || PrefixCommands.find(prompt) != null) applyMode(mode())
-                            }
-                            .padding(vertical = 6.dp),
-                    )
-                }
+                            },
+                        )
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (listed.isEmpty()) {
@@ -2456,16 +2431,12 @@ fun BuilderRoot(
             }
             Page.Stocks -> {
                 val searching = Stocks.queryFromInput(input).isNotEmpty()
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        Stocks.BACK,
-                        color = Accent,
-                        modifier = Modifier
-                            .clickable {
+                ScreenHeader(
+                    title = Stocks.COMMAND,
+                    leading = {
+                        ScreenBack(
+                            Stocks.BACK,
+                            onBack = {
                                 applyMode(
                                     PrefixCommands.type(
                                         PrefixCommands.Mode(),
@@ -2473,16 +2444,18 @@ fun BuilderRoot(
                                     ),
                                 )
                                 page = Page.Home
-                            }
-                            .padding(vertical = 6.dp),
-                    )
-                    GearIcon(
-                        Modifier
-                            .semantics { contentDescription = "stocks settings" }
-                            .clickable { page = Page.StockSettings }
-                            .padding(vertical = 6.dp),
-                    )
-                }
+                            },
+                        )
+                    },
+                    trailing = {
+                        GearIcon(
+                            Modifier
+                                .semantics { contentDescription = "stocks settings" }
+                                .clickable { page = Page.StockSettings }
+                                .padding(vertical = 6.dp),
+                        )
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 var dragFrom by remember { mutableStateOf<Int?>(null) }
                 var dragTo by remember { mutableStateOf<Int?>(null) }

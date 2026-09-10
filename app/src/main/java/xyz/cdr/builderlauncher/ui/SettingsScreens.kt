@@ -262,10 +262,13 @@ internal fun SettingsPage(
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Accent)
-            Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
-        }
+        ScreenHeader(
+            title = "settings",
+            leading = {},
+            trailing = {
+                Text("home", color = Dim, modifier = Modifier.clickable { onBack() })
+            },
+        )
         Spacer(Modifier.height(16.dp))
         AccentPicker(
             hex = settings.accentHex,
@@ -573,14 +576,10 @@ internal fun CalendarSettingsPage(
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                "<",
-                color = Accent,
-                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
-            )
-            Text("Calendar", color = Accent)
-        }
+        ScreenHeader(
+            title = "calendar",
+            leading = { ScreenBack(onBack = onBack) },
+        )
         Spacer(Modifier.height(16.dp))
         Text(
             "Choose which calendars feed the next event under the home clock. Unchecked calendars stay off home even if they are on in the system calendar app.",
@@ -683,14 +682,10 @@ internal fun BackupSettingsPage(
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                "<",
-                color = Accent,
-                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
-            )
-            Text("Backup", color = Accent)
-        }
+        ScreenHeader(
+            title = "backup",
+            leading = { ScreenBack(onBack = onBack) },
+        )
         Spacer(Modifier.height(16.dp))
         Text(
             "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces todos, notes, chats, pins, stocks, podcasts, alarms, and settings. OAuth tokens stay on this phone.",
@@ -877,14 +872,10 @@ internal fun AiProvidersPage(
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                "<",
-                color = Accent,
-                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
-            )
-            Text("AI", color = Accent)
-        }
+        ScreenHeader(
+            title = "ai",
+            leading = { ScreenBack(onBack = onBack) },
+        )
         Spacer(Modifier.height(16.dp))
         Text("Provider", color = Dim, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(8.dp))

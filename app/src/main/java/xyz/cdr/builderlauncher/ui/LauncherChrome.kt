@@ -354,14 +354,11 @@ fun TodosChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(HomeTodos.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            CopyIcon(Modifier.padding(vertical = 6.dp))
-        }
+        ScreenHeader(
+            title = HomeTodos.TITLE,
+            leading = { ScreenBack(HomeTodos.BACK) },
+            trailing = { CopyIcon(Modifier.padding(vertical = 6.dp)) },
+        )
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             todos.forEach { text ->
@@ -415,7 +412,10 @@ fun NotesChrome(rows: List<NoteListRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Notes.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        ScreenHeader(
+            title = Notes.COMMAND,
+            leading = { ScreenBack(Notes.BACK) },
+        )
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (rows.isEmpty()) {
@@ -449,7 +449,10 @@ fun AllAppsChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(AppList.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        ScreenHeader(
+            title = AppList.COMMAND,
+            leading = { ScreenBack(AppList.BACK) },
+        )
         Spacer(Modifier.height(8.dp))
         Column(
             modifier = Modifier.weight(1f),
@@ -521,20 +524,19 @@ fun ChatChrome(
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ProviderIcon(provider, Modifier.padding(vertical = 6.dp))
-                HistoryIcon(Modifier.padding(vertical = 6.dp))
-            }
-        }
+        ScreenHeader(
+            title = "chat",
+            leading = { ScreenBack(Chats.BACK) },
+            trailing = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ProviderIcon(provider, Modifier.padding(vertical = 6.dp))
+                    HistoryIcon(Modifier.padding(vertical = 6.dp))
+                }
+            },
+        )
         Spacer(Modifier.height(8.dp))
         CommandRow(input, prompt = "?", wrap = true)
         Spacer(Modifier.height(8.dp))
@@ -573,7 +575,10 @@ fun ChatHistoryChrome(rows: List<ChatListRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Chats.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        ScreenHeader(
+            title = "chats",
+            leading = { ScreenBack(Chats.BACK) },
+        )
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (rows.isEmpty()) {
@@ -613,14 +618,11 @@ fun StocksChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(Stocks.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            GearIcon(Modifier.padding(vertical = 6.dp))
-        }
+        ScreenHeader(
+            title = Stocks.COMMAND,
+            leading = { ScreenBack(Stocks.BACK) },
+            trailing = { GearIcon(Modifier.padding(vertical = 6.dp)) },
+        )
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val shown = if (hits.isNotEmpty()) hits else rows
@@ -733,14 +735,11 @@ fun PodcastsChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GearIcon(Modifier.padding(vertical = 6.dp))
-            Text(Podcasts.HOME, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-        }
+        ScreenHeader(
+            title = Podcasts.COMMAND,
+            leading = { GearIcon(Modifier.padding(vertical = 6.dp)) },
+            trailing = { Text(Podcasts.HOME, color = Accent, modifier = Modifier.padding(vertical = 6.dp)) },
+        )
         Spacer(Modifier.height(8.dp))
         if (nowPlayingTitle.isNotBlank()) {
             PodcastNowPlayingBar(title = nowPlayingTitle, show = nowPlayingShow, playing = nowPlaying)
@@ -1397,14 +1396,11 @@ fun HubChrome(rows: List<HubRow>) {
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(HubMessages.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Text("hub", color = Accent)
-        }
+        ScreenHeader(
+            title = HubMessages.TITLE,
+            leading = { ScreenBack(HubMessages.BACK) },
+            trailing = { DeleteIcon(Modifier.padding(vertical = 6.dp)) },
+        )
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (rows.isEmpty()) {
@@ -1461,10 +1457,11 @@ fun SettingsChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Accent)
-            Text("home", color = Dim)
-        }
+        ScreenHeader(
+            title = "settings",
+            leading = {},
+            trailing = { Text("home", color = Dim) },
+        )
         Spacer(Modifier.height(16.dp))
         AccentPicker(hex = settings.accentHex)
         Field("Hex", settings.accentHex, AccentColor.DEFAULT_HEX)
@@ -1628,10 +1625,10 @@ fun BackupChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Text("Backup", color = Accent)
-        }
+        ScreenHeader(
+            title = "backup",
+            leading = { ScreenBack() },
+        )
         Spacer(Modifier.height(16.dp))
         Text(
             "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. Tokens stay off this file.",
@@ -1698,10 +1695,10 @@ fun CalendarChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Text("Calendar", color = Accent)
-        }
+        ScreenHeader(
+            title = "calendar",
+            leading = { ScreenBack() },
+        )
         Spacer(Modifier.height(16.dp))
         Text(
             "Choose which calendars feed the next event under the home clock. Unchecked calendars stay off home even if they are on in the system calendar app.",
@@ -1759,10 +1756,10 @@ fun AiProvidersChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Text("AI", color = Accent)
-        }
+        ScreenHeader(
+            title = "ai",
+            leading = { ScreenBack() },
+        )
         Spacer(Modifier.height(16.dp))
         Text("Provider", color = Dim, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(8.dp))
@@ -1842,7 +1839,10 @@ fun ClockChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text(Clock.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        ScreenHeader(
+            title = Clock.COMMAND,
+            leading = { ScreenBack(Clock.BACK) },
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("Timer", "Alarm", "Time Zones").forEach { label ->
                 Text(label, color = if (label == tab) Accent else Dim, modifier = Modifier.padding(vertical = 8.dp))
@@ -1973,7 +1973,10 @@ fun WeatherChrome(
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+        ScreenHeader(
+            title = "weather",
+            leading = { ScreenBack() },
+        )
         Spacer(Modifier.height(8.dp))
         Column(Modifier.weight(1f)) {
             WeatherBody(place = place, units = units, forecast = forecast)
@@ -1991,14 +1994,10 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = 
             .background(Ink)
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(Usage.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
-            Text("usage", color = Accent)
-        }
+        ScreenHeader(
+            title = Usage.COMMAND,
+            leading = { ScreenBack(Usage.BACK) },
+        )
         Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f)) {
             UsageBody(snapshot = snapshot, selectedIndex = selectedIndex)

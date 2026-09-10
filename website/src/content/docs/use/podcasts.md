@@ -25,6 +25,7 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 - Type a show name to search the Apple podcast catalog. Hits show artwork on the left. Tap a hit to subscribe and open that show.
 - Paste an RSS URL in the bar to subscribe.
 - Gear (top left) opens podcasts settings.
+- Title `podcasts` is centered at the top.
 - `>` (top right) returns home.
 
 ![Search hits with artwork on the left](../../../assets/screenshots/podcasts-search.png)

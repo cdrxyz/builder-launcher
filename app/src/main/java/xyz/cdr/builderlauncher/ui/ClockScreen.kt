@@ -85,10 +85,9 @@ fun ClockScreen(
         }
     }
     Column(modifier.fillMaxWidth()) {
-        Text(
-            Clock.BACK,
-            color = Accent,
-            modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+        ScreenHeader(
+            title = Clock.COMMAND,
+            leading = { ScreenBack(Clock.BACK, onBack = onBack) },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             ClockTab.entries.forEach { item ->

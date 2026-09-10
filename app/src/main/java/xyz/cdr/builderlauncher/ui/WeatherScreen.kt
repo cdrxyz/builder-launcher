@@ -42,10 +42,9 @@ fun WeatherScreen(
     onOpenSettings: () -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Text(
-            "<",
-            color = Accent,
-            modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+        ScreenHeader(
+            title = "weather",
+            leading = { ScreenBack(onBack = onBack) },
         )
         Spacer(Modifier.height(8.dp))
         Column(

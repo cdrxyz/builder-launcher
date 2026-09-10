@@ -21,6 +21,8 @@ Prefix `-`. Example: `-buy milk`.
 
 On the tasks page:
 
+- Title `tasks` is centered at the top. Copy stays top right.
+
 - Command bar starts with `-` so the next Enter saves another todo.
 - Pencil on the right (before delete) loads that task into the bar. A check on the right of the bar saves the edit.
 - `<` or Back returns home in default command-bar mode (not task mode).
