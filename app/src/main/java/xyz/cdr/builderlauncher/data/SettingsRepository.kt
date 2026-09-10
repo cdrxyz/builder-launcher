@@ -51,6 +51,8 @@ data class BuilderSettings(
     val backupFrequency: BackupFrequency = BackupFrequency.OFF,
     val lastBackupAtEpochMs: Long = 0L,
     val backupIncludeAiCredentials: Boolean = false,
+    val calendarRestrict: Boolean = false,
+    val calendarIds: Set<Long> = emptySet(),
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -212,6 +214,8 @@ class SettingsRepository(context: Context) {
             backupFrequency = BackupFrequency.parse(prefs.getString(KEY_BACKUP_FREQ, BackupFrequency.OFF.name)),
             lastBackupAtEpochMs = prefs.getString(KEY_BACKUP_LAST, "0")?.toLongOrNull() ?: 0L,
             backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
+            calendarRestrict = prefs.getString(KEY_CALENDAR_RESTRICT, "") == "true",
+            calendarIds = decodeCalendarIds(prefs.getString(KEY_CALENDAR_IDS, "")),
         )
     }
 
@@ -258,6 +262,8 @@ class SettingsRepository(context: Context) {
             .putString(KEY_BACKUP_FREQ, next.backupFrequency.name)
             .putString(KEY_BACKUP_LAST, next.lastBackupAtEpochMs.toString())
             .putString(KEY_BACKUP_AI, if (next.backupIncludeAiCredentials) "true" else "false")
+            .putString(KEY_CALENDAR_RESTRICT, if (next.calendarRestrict) "true" else "false")
+            .putString(KEY_CALENDAR_IDS, if (next.calendarRestrict) next.calendarIds.sorted().joinToString(",") else "")
             .putString(KEY_ACCOUNTS, json.encodeToString(accounts))
             .apply()
     }
@@ -294,7 +300,12 @@ class SettingsRepository(context: Context) {
         private const val KEY_BACKUP_FREQ = "backup_frequency"
         private const val KEY_BACKUP_LAST = "backup_last"
         private const val KEY_BACKUP_AI = "backup_include_ai"
+        private const val KEY_CALENDAR_RESTRICT = "calendar_restrict"
+        private const val KEY_CALENDAR_IDS = "calendar_ids"
         private const val KEY_ACCOUNTS = "provider_accounts"
+
+        private fun decodeCalendarIds(raw: String?): Set<Long> =
+            raw.orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
 
         private fun createPrefs(context: Context): SharedPreferences {
             return try {

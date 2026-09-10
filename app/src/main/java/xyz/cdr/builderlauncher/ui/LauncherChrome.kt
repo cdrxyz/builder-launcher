@@ -1591,6 +1591,9 @@ fun SettingsChrome(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
+        CaretLink("… calendar >", modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        Text("Calendar access: granted", color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
         CaretLink("… backup >", modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
         Text("Last backup: never", color = Dim, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(20.dp))
@@ -1667,6 +1670,74 @@ fun BackupChrome(
         Text("Restore from S3", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Text("Share unencrypted JSON", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Text("Last backup: $lastBackup", color = Dim, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+data class CalendarChromeRow(
+    val name: String,
+    val account: String,
+    val checked: Boolean,
+)
+
+@Composable
+fun CalendarChrome(
+    accessGranted: Boolean = true,
+    homeLine: String = "Home: dentist · 15:00",
+    rows: List<CalendarChromeRow> = listOf(
+        CalendarChromeRow("Personal", "alex@example.com", true),
+        CalendarChromeRow("Work", "work@example.com", true),
+        CalendarChromeRow("Holidays", "Holidays", false),
+    ),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("Calendar", color = Accent)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Choose which calendars feed the next event under the home clock. Unchecked calendars stay off home even if they are on in the system calendar app.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (accessGranted) "Calendar access: granted" else "Calendar access: not granted",
+            color = if (accessGranted) Accent else Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (!accessGranted) {
+            Text("Grant calendar access", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+            Text("Open Android settings", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(homeLine, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        Text("Include on home", color = Dim, style = MaterialTheme.typography.labelSmall)
+        if (!accessGranted) {
+            Text(
+                "Grant access to list calendars on this phone.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else {
+            rows.forEach { item ->
+                Text(
+                    if (item.checked) "[x] ${item.name}" else "[ ] ${item.name}",
+                    color = Paper,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                if (item.account.isNotBlank() && item.account != item.name) {
+                    Text(item.account, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
     }
 }
 

@@ -777,6 +777,28 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun settingsCalendar() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                CalendarChrome()
+            }
+        }
+    }
+
+    @Test
+    fun settingsCalendarDenied() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                CalendarChrome(
+                    accessGranted = false,
+                    homeLine = "Home next event stays hidden until access is granted.",
+                    rows = emptyList(),
+                )
+            }
+        }
+    }
+
+    @Test
     fun aiProviders() {
         paparazzi.snapshot {
             BuilderTheme {

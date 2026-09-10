@@ -2,6 +2,7 @@
 
 package xyz.cdr.builderlauncher.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -14,6 +15,8 @@ import android.provider.Settings
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -124,6 +127,8 @@ import xyz.cdr.builderlauncher.backup.S3Signer
 import xyz.cdr.builderlauncher.apps.InstalledApps
 import xyz.cdr.builderlauncher.apps.LaunchableApp
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
+import xyz.cdr.builderlauncher.calendar.CalendarSelection
+import xyz.cdr.builderlauncher.calendar.DeviceCalendar
 import xyz.cdr.builderlauncher.calendar.UpcomingEvent
 import xyz.cdr.builderlauncher.calendar.UpcomingEvents
 import xyz.cdr.builderlauncher.clock.Clock
@@ -316,13 +321,7 @@ fun BuilderRoot(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    DisposableEffect(calendar) {
-        val stop = calendar.observe { scope.launch { calendar.refresh() } }
-        onDispose { stop() }
-    }
-    LaunchedEffect(appsEpoch) {
-        calendar.refresh()
-    }
+    CalendarHomeSync(calendar, settings, appsEpoch)
     DisposableEffect(page) {
         if (page != Page.Settings) ClockSoundPlayer.stopPreview()
         onDispose { ClockSoundPlayer.stopPreview() }
@@ -2461,6 +2460,8 @@ fun BuilderRoot(
                     onOpenBackup = { page = Page.BackupSettings },
                     repo = settingsRepo,
                     weather = weather,
+                    calendar = calendar,
+                    resumeEpoch = appsEpoch,
                     onRequestHome = onRequestHome,
                 )
             }
@@ -3790,8 +3791,11 @@ private fun SettingsPage(
     onOpenBackup: () -> Unit,
     repo: SettingsRepository,
     weather: WeatherRepository,
+    calendar: CalendarRepository,
+    resumeEpoch: Int,
     onRequestHome: () -> Unit,
 ) {
+    var calendarOpen by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
@@ -3805,6 +3809,18 @@ private fun SettingsPage(
         }
         kotlinx.coroutines.delay(280)
         suggestions = weather.suggest(q)
+    }
+
+    if (calendarOpen) {
+        BackHandler { calendarOpen = false }
+        CalendarSettingsPage(
+            settings = settings,
+            onBack = { calendarOpen = false },
+            repo = repo,
+            calendar = calendar,
+            resumeEpoch = resumeEpoch,
+        )
+        return
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -3998,6 +4014,19 @@ private fun SettingsPage(
         )
         Spacer(Modifier.height(16.dp))
         CaretLink(
+            "… calendar >",
+            modifier = Modifier
+                .clickable { calendarOpen = true }
+                .padding(vertical = 6.dp)
+                .fillMaxWidth(),
+        )
+        Text(
+            if (calendar.hasPermission()) "Calendar access: granted" else "Calendar access: not granted",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        CaretLink(
             "… backup >",
             modifier = Modifier
                 .clickable { onOpenBackup() }
@@ -4039,6 +4068,144 @@ private fun SettingsPage(
         )
         Spacer(Modifier.height(24.dp))
         Text("Tokens stay on the device. They are sent only as a Bearer token to the provider you chose.", color = Dim, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun CalendarHomeSync(
+    calendar: CalendarRepository,
+    settings: BuilderSettings,
+    appsEpoch: Int,
+) {
+    val scope = rememberCoroutineScope()
+    val selection = CalendarSelection(settings.calendarRestrict, settings.calendarIds)
+    val selectionState = rememberUpdatedState(selection)
+    DisposableEffect(calendar) {
+        val stop = calendar.observe {
+            scope.launch { calendar.refresh(selection = selectionState.value) }
+        }
+        onDispose { stop() }
+    }
+    LaunchedEffect(appsEpoch, settings.calendarRestrict, settings.calendarIds) {
+        calendar.refresh(selection = CalendarSelection(settings.calendarRestrict, settings.calendarIds))
+    }
+}
+
+@Composable
+private fun CalendarSettingsPage(
+    settings: BuilderSettings,
+    onBack: () -> Unit,
+    repo: SettingsRepository,
+    calendar: CalendarRepository,
+    resumeEpoch: Int,
+) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val upcoming by calendar.current.collectAsState()
+    var granted by remember { mutableStateOf(calendar.hasPermission()) }
+    var listed by remember { mutableStateOf<List<DeviceCalendar>>(emptyList()) }
+    val selection = CalendarSelection(settings.calendarRestrict, settings.calendarIds)
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        granted = calendar.hasPermission()
+        scope.launch {
+            listed = calendar.calendars()
+            calendar.refresh(selection = selection)
+        }
+    }
+    LaunchedEffect(resumeEpoch, settings.calendarRestrict, settings.calendarIds) {
+        granted = calendar.hasPermission()
+        listed = calendar.calendars()
+        calendar.refresh(selection = CalendarSelection(settings.calendarRestrict, settings.calendarIds))
+    }
+    val event = upcoming
+    val homeLine = when {
+        !granted -> "Home next event stays hidden until access is granted."
+        event == null -> "Home: no upcoming event in the next 14 days."
+        else -> "Home: ${UpcomingEvents.line(event, System.currentTimeMillis())}"
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "<",
+                color = Accent,
+                modifier = Modifier.clickable { onBack() }.padding(vertical = 6.dp),
+            )
+            Text("Calendar", color = Accent)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Choose which calendars feed the next event under the home clock. Unchecked calendars stay off home even if they are on in the system calendar app.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (granted) "Calendar access: granted" else "Calendar access: not granted",
+            color = if (granted) Accent else Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (!granted) {
+            Text(
+                "Grant calendar access",
+                color = Paper,
+                modifier = Modifier
+                    .clickable { permissionLauncher.launch(Manifest.permission.READ_CALENDAR) }
+                    .padding(vertical = 8.dp),
+            )
+            Text(
+                "Open Android settings",
+                color = Paper,
+                modifier = Modifier
+                    .clickable {
+                        runCatching { ctx.startActivity(calendar.appSettingsIntent()) }
+                    }
+                    .padding(vertical = 8.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(homeLine, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        Text("Include on home", color = Dim, style = MaterialTheme.typography.labelSmall)
+        if (!granted) {
+            Text(
+                "Grant access to list calendars on this phone.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else if (listed.isEmpty()) {
+            Text(
+                "No calendars on this phone.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else {
+            listed.forEach { item ->
+                val on = selection.checked(item)
+                Text(
+                    if (on) "[x] ${item.name}" else "[ ] ${item.name}",
+                    color = Paper,
+                    modifier = Modifier
+                        .clickable {
+                            val next = selection.toggle(item.id, listed)
+                            repo.update { it.copy(calendarRestrict = next.restrict, calendarIds = next.ids) }
+                            scope.launch { calendar.refresh(selection = next) }
+                        }
+                        .padding(top = 8.dp),
+                )
+                if (item.account.isNotBlank() && item.account != item.name) {
+                    Text(
+                        item.account,
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
     }
 }
 
