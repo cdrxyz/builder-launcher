@@ -94,6 +94,13 @@ class ClockTest {
     }
 
     @Test
+    fun homeTickSlowsWhenIdle() {
+        assertEquals(Clock.TIMER_TICK_MS, Clock.homeTickMs(timerRunning = true, analog = true))
+        assertEquals(Clock.ANALOG_TICK_MS, Clock.homeTickMs(timerRunning = false, analog = true))
+        assertEquals(Clock.DIGITAL_TICK_MS, Clock.homeTickMs(timerRunning = false, analog = false))
+    }
+
+    @Test
     fun startPauseReset() {
         val now = 1_000_000L
         val started = Clock.start(TimerState(durationMs = 60_000, remainingMs = 60_000), now)

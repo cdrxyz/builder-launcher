@@ -17,6 +17,15 @@ object Clock {
     const val RAMP_MS = 4_000L
     const val PEAK_GAIN = 1.0f
     const val FLOOR_GAIN = 0.45f
+    const val TIMER_TICK_MS = 200L
+    const val ANALOG_TICK_MS = 1_000L
+    const val DIGITAL_TICK_MS = 15_000L
+
+    fun homeTickMs(timerRunning: Boolean, analog: Boolean): Long = when {
+        timerRunning -> TIMER_TICK_MS
+        analog -> ANALOG_TICK_MS
+        else -> DIGITAL_TICK_MS
+    }
 
     fun formatTimer(ms: Long): String {
         val total = (ms.coerceAtLeast(0L) + 999) / 1000
