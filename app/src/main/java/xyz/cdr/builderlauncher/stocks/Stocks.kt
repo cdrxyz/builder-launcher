@@ -14,8 +14,8 @@ object Stocks {
     const val PREFIX = "$"
     const val COMMAND = "stocks"
     const val MAX = 100
-    const val QUOTE_MS = 60_000L
-    const val HOME_QUOTE_MS = 5 * 60_000L
+    const val QUOTE_MS = 15 * 60_000L
+    const val HOME_QUOTE_MS = QUOTE_MS
 
     fun quoteIntervalMs(onHome: Boolean): Long = if (onHome) HOME_QUOTE_MS else QUOTE_MS
 

@@ -208,7 +208,7 @@ object Podcasts {
     }
 
     const val POSITION_PUBLISH_MS = 1_000L
-    const val POSITION_SAVE_MS = 5_000L
+    const val POSITION_SAVE_MS = 30_000L
 
     fun shouldPublishPlayback(previous: PlaybackState, next: PlaybackState): Boolean {
         if (previous.episodeId != next.episodeId) return true
