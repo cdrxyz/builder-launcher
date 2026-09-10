@@ -248,6 +248,27 @@ class PodcastsRepository(
         }
     }
 
+    fun checkpoint(episodeId: String, positionMs: Long, durationMs: Long) {
+        val next = Podcasts.checkpointProgress(
+            previous = _progress.value[episodeId],
+            episodeId = episodeId,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            now = System.currentTimeMillis(),
+        )
+        val prev = _progress.value[episodeId]
+        if (prev != null &&
+            prev.positionMs == next.positionMs &&
+            prev.durationMs == next.durationMs &&
+            !prev.finished &&
+            !prev.skipped
+        ) {
+            return
+        }
+        _progress.value = _progress.value + (episodeId to next)
+        persist()
+    }
+
     fun setSkipped(episodeId: String, skipped: Boolean, durationMs: Long = 0L) {
         val prev = _progress.value[episodeId]
         val dur = durationMs.takeIf { it > 0L } ?: prev?.durationMs ?: 0L
@@ -356,16 +377,24 @@ class PodcastsRepository(
             .build()
 
     private fun persist() {
-        val stored = PodcastStore(
-            shows = _shows.value,
-            episodes = _episodes.value,
-            progress = _progress.value.values.toList(),
-            cacheBytes = _cacheBytes.value,
-            playbackSpeed = _playbackSpeed.value,
-            skipSilence = _skipSilence.value,
-            downloads = _downloads.value.values.toList(),
-        )
-        file.writeText(json.encodeToString(stored))
+        runCatching {
+            val stored = PodcastStore(
+                shows = _shows.value,
+                episodes = _episodes.value,
+                progress = _progress.value.values.toList(),
+                cacheBytes = _cacheBytes.value,
+                playbackSpeed = _playbackSpeed.value,
+                skipSilence = _skipSilence.value,
+                downloads = _downloads.value.values.toList(),
+            )
+            val text = json.encodeToString(stored)
+            val tmp = File(file.parentFile, "${file.name}.tmp")
+            tmp.writeText(text)
+            if (!tmp.renameTo(file)) {
+                tmp.copyTo(file, overwrite = true)
+                tmp.delete()
+            }
+        }
     }
 
     private fun load(): PodcastStore {

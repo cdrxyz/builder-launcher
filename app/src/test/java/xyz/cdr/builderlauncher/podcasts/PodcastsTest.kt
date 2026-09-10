@@ -202,6 +202,51 @@ class PodcastsTest {
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(skipSilence = false)))
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(episodeId = "f")))
         assertEquals(1_000L, Podcasts.POSITION_PUBLISH_MS)
+        assertEquals(5_000L, Podcasts.POSITION_SAVE_MS)
+        assertFalse(
+            Podcasts.shouldCheckpointPlayback(
+                lastSavedAtElapsedMs = 0L,
+                nowElapsedMs = 4_000L,
+                lastSavedPositionMs = 1_000L,
+                positionMs = 3_000L,
+            ),
+        )
+        assertTrue(
+            Podcasts.shouldCheckpointPlayback(
+                lastSavedAtElapsedMs = 0L,
+                nowElapsedMs = 5_000L,
+                lastSavedPositionMs = 1_000L,
+                positionMs = 3_000L,
+            ),
+        )
+        assertTrue(
+            Podcasts.shouldCheckpointPlayback(
+                lastSavedAtElapsedMs = 0L,
+                nowElapsedMs = 1_000L,
+                lastSavedPositionMs = 1_000L,
+                positionMs = 6_000L,
+            ),
+        )
+        assertFalse(
+            Podcasts.shouldCheckpointPlayback(
+                lastSavedAtElapsedMs = 0L,
+                nowElapsedMs = 10_000L,
+                lastSavedPositionMs = 3_000L,
+                positionMs = 3_000L,
+            ),
+        )
+        val nearEnd = Podcasts.checkpointProgress(
+            previous = EpisodeProgress("e", positionMs = 3_500_000, durationMs = 3_600_000, finished = false),
+            episodeId = "e",
+            positionMs = 3_580_000,
+            durationMs = 3_600_000,
+            now = 9L,
+        )
+        assertEquals(3_580_000L, nearEnd.positionMs)
+        assertFalse(nearEnd.finished)
+        assertFalse(nearEnd.skipped)
+        assertEquals(9L, nearEnd.lastPlayedAt)
+        assertTrue(Podcasts.finished(EpisodeProgress("e", positionMs = 3_580_000, durationMs = 3_600_000)))
     }
 
     @Test

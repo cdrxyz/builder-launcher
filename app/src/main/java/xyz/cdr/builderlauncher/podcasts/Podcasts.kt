@@ -208,6 +208,7 @@ object Podcasts {
     }
 
     const val POSITION_PUBLISH_MS = 1_000L
+    const val POSITION_SAVE_MS = 5_000L
 
     fun shouldPublishPlayback(previous: PlaybackState, next: PlaybackState): Boolean {
         if (previous.episodeId != next.episodeId) return true
@@ -216,6 +217,37 @@ object Podcasts {
         if (previous.skipSilence != next.skipSilence) return true
         if (previous.durationMs != next.durationMs) return true
         return previous.positionMs / POSITION_PUBLISH_MS != next.positionMs / POSITION_PUBLISH_MS
+    }
+
+    fun shouldCheckpointPlayback(
+        lastSavedAtElapsedMs: Long,
+        nowElapsedMs: Long,
+        lastSavedPositionMs: Long,
+        positionMs: Long,
+        intervalMs: Long = POSITION_SAVE_MS,
+    ): Boolean {
+        if (positionMs == lastSavedPositionMs) return false
+        if (nowElapsedMs - lastSavedAtElapsedMs >= intervalMs) return true
+        return kotlin.math.abs(positionMs - lastSavedPositionMs) >= intervalMs
+    }
+
+    fun checkpointProgress(
+        previous: EpisodeProgress?,
+        episodeId: String,
+        positionMs: Long,
+        durationMs: Long,
+        now: Long,
+    ): EpisodeProgress {
+        val dur = durationMs.takeIf { it > 0L } ?: previous?.durationMs ?: 0L
+        val pos = positionMs.coerceAtLeast(0L)
+        return EpisodeProgress(
+            episodeId = episodeId,
+            positionMs = pos,
+            durationMs = dur,
+            lastPlayedAt = now,
+            finished = false,
+            skipped = false,
+        )
     }
 
     fun speedProgress(speed: Float): Float =
