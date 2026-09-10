@@ -91,7 +91,7 @@ class BackupService(
                 alert = null,
             ),
         )
-        ClockScheduler.sync(context, clock.snapshot())
+        ClockScheduler.reconcile(context, clock)
         settings.applyBackup(doc.settings)
     }
 
