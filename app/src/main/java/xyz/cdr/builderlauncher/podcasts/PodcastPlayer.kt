@@ -2,6 +2,9 @@ package xyz.cdr.builderlauncher.podcasts
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -29,6 +32,18 @@ object PodcastPlayer {
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
     var onProgress: ((String, Long, Long, Boolean) -> Unit)? = null
+    var onCheckpoint: ((String, Long, Long) -> Unit)? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var lastSavedAtElapsedMs = 0L
+    private var lastSavedEpisodeId: String? = null
+    private var lastSavedPositionMs = 0L
+    private val tick = object : Runnable {
+        override fun run() {
+            if (player == null) return
+            poll()
+            if (player != null) handler.postDelayed(this, Podcasts.POSITION_PUBLISH_MS)
+        }
+    }
 
     fun attach(context: Context) {
         app = context.applicationContext
@@ -63,6 +78,8 @@ object PodcastPlayer {
             speed = _state.value.speed,
             skipSilence = _state.value.skipSilence,
         )
+        checkpoint(id, start, episode.durationMs)
+        scheduleTick()
     }
 
     fun pause() {
@@ -111,7 +128,8 @@ object PodcastPlayer {
 
     fun poll() {
         val exo = player ?: return
-        snapshot(playing = playing(exo), save = false)
+        val playingNow = playing(exo)
+        snapshot(playing = playingNow, save = playingNow && dueForCheckpoint(exo))
     }
 
     fun persist() {
@@ -131,7 +149,38 @@ object PodcastPlayer {
         val next = PlaybackState(id, playing, pos, dur, _state.value.speed, _state.value.skipSilence)
         if (!save && !Podcasts.shouldPublishPlayback(_state.value, next)) return
         _state.value = next
-        if (save) onProgress?.invoke(id, pos, dur, false)
+        if (save) {
+            checkpoint(id, pos, dur)
+            if (!playing) onProgress?.invoke(id, pos, dur, false)
+        }
+    }
+
+    private fun dueForCheckpoint(exo: ExoPlayer): Boolean {
+        val id = _state.value.episodeId ?: return false
+        val pos = runCatching { exo.currentPosition }.getOrDefault(_state.value.positionMs).coerceAtLeast(0L)
+        if (lastSavedEpisodeId != id) return true
+        return Podcasts.shouldCheckpointPlayback(
+            lastSavedAtElapsedMs = lastSavedAtElapsedMs,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+            lastSavedPositionMs = lastSavedPositionMs,
+            positionMs = pos,
+        )
+    }
+
+    private fun checkpoint(id: String, pos: Long, dur: Long) {
+        onCheckpoint?.invoke(id, pos, dur)
+        lastSavedEpisodeId = id
+        lastSavedPositionMs = pos
+        lastSavedAtElapsedMs = SystemClock.elapsedRealtime()
+    }
+
+    private fun scheduleTick() {
+        handler.removeCallbacks(tick)
+        handler.postDelayed(tick, Podcasts.POSITION_PUBLISH_MS)
+    }
+
+    private fun stopTick() {
+        handler.removeCallbacks(tick)
     }
 
     private fun stopInternal(save: Boolean, release: Boolean) {
@@ -139,6 +188,7 @@ object PodcastPlayer {
         val exo = player
         if (release) {
             player = null
+            stopTick()
             runCatching { exo?.release() }
         } else {
             runCatching { exo?.stop() }
@@ -148,7 +198,10 @@ object PodcastPlayer {
     }
 
     private fun abandon(exo: ExoPlayer) {
-        if (player === exo) player = null
+        if (player === exo) {
+            player = null
+            stopTick()
+        }
         runCatching { exo.release() }
         _state.value = PlaybackState(speed = _state.value.speed, skipSilence = _state.value.skipSilence)
     }
@@ -185,6 +238,7 @@ object PodcastPlayer {
         )
         created.skipSilenceEnabled = _state.value.skipSilence
         created.playbackParameters = PlaybackParameters(_state.value.speed)
+        scheduleTick()
         created.addListener(
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -200,6 +254,7 @@ object PodcastPlayer {
                             _state.value.speed,
                             _state.value.skipSilence,
                         )
+                        checkpoint(id, dur, dur)
                         onProgress?.invoke(id, dur, dur, true)
                     } else {
                         snapshot(playing = playing(created), save = false)

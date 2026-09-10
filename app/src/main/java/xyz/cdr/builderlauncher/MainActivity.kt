@@ -37,6 +37,7 @@ import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
+import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 
@@ -75,6 +76,8 @@ class MainActivity : ComponentActivity() {
         val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, clock)
         ClockScheduler.reconcile(this, clock)
         applyAlertWindow()
+        PodcastPlayer.attach(this)
+        PodcastPlayer.onCheckpoint = { id, pos, dur -> podcasts.checkpoint(id, pos, dur) }
         setContent {
             val current by settings.settings.collectAsState()
             BuilderTheme(accent = accentColor(current.accentHex)) {
@@ -106,6 +109,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         stopped = true
+        PodcastPlayer.persist()
     }
 
     override fun onNewIntent(intent: Intent) {
