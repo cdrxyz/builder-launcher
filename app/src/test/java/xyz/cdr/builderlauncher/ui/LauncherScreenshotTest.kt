@@ -128,6 +128,38 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeAskSingleLine() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "weather tomorrow",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun homeAskWrap() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "15:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "write a longer follow-up that wraps instead of scrolling sideways on this screen",
+                    prompt = "?",
+                    todos = listOf("buy milk", "ship builder-launcher CI", "call dentist"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeTodoWrap() {
         paparazzi.snapshot {
             BuilderTheme {

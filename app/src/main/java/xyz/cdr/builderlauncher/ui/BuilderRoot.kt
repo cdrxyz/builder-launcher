@@ -894,10 +894,6 @@ fun BuilderRoot(
     fun applyMode(next: PrefixCommands.Mode) {
         prompt = next.prompt
         val line = next.line
-        if (line.startsWith(Chats.PREFIX) && page != Page.Chat && page != Page.ChatHistory && page != Page.NoteEditor && page != Page.Apps) {
-            openAsk(Chats.questionFromInput(line))
-            return
-        }
         if (line.startsWith(Notes.PREFIX) && page != Page.NoteEditor && page != Page.Apps && page != Page.Chat && page != Page.ChatHistory) {
             openNoteEditor(id = null, draft = Notes.draftFromInput(line), fromList = false)
             return
@@ -2103,27 +2099,6 @@ fun BuilderRoot(
                     },
                 )
                 Spacer(Modifier.height(8.dp))
-                CommandBar(
-                    prompt = '?',
-                    value = input,
-                    hardware = hardware,
-                    wrap = true,
-                    onValue = { typed ->
-                        input = if (typed.startsWith(Chats.PREFIX)) typed.drop(1) else typed
-                    },
-                    onPick = { glyph ->
-                        page = Page.Home
-                        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), glyph))
-                    },
-                    onClearMode = {
-                        page = Page.Home
-                        clearBar()
-                    },
-                    onSubmit = { runCommand() },
-                    onSlash = { pickSlash(it) },
-                    onHub = { openHub() },
-                )
-                Spacer(Modifier.height(8.dp))
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
@@ -2166,6 +2141,26 @@ fun BuilderRoot(
                         }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                CommandBar(
+                    prompt = '?',
+                    value = input,
+                    hardware = hardware,
+                    onValue = { typed ->
+                        input = if (typed.startsWith(Chats.PREFIX)) typed.drop(1) else typed
+                    },
+                    onPick = { glyph ->
+                        page = Page.Home
+                        applyMode(PrefixCommands.pick(PrefixCommands.Mode(), glyph))
+                    },
+                    onClearMode = {
+                        page = Page.Home
+                        clearBar()
+                    },
+                    onSubmit = { runCommand() },
+                    onSlash = { pickSlash(it) },
+                    onHub = { openHub() },
+                )
                 }
                 if (providerMenu) {
                     Box(

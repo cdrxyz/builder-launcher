@@ -551,8 +551,6 @@ fun ChatChrome(
             },
         )
         Spacer(Modifier.height(8.dp))
-        CommandRow(input, prompt = "?", wrap = true)
-        Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (messages.isEmpty() && !busy) {
                 Text("Ask a question.", color = Dim)
@@ -568,6 +566,8 @@ fun ChatChrome(
                 Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
             }
         }
+        Spacer(Modifier.height(8.dp))
+        CommandRow(input, prompt = "?")
     }
         if (providerMenu) {
             ProviderMenu(
@@ -2094,8 +2094,8 @@ private fun CommandRow(
             )
             if (confirm) {
                 CheckIcon(Modifier.padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 0.dp))
-            } else if (wrap) {
-                SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+            } else if (wrap || prompt.singleOrNull()?.let { PrefixCommands.showsSend(it) } == true) {
+                SendIcon(Modifier.padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 6.dp, bottom = if (wrapExpanded) 0.dp else 6.dp))
             }
         }
         HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))

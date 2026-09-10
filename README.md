@@ -80,7 +80,7 @@ Type on the home screen, then Enter.
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the stocks list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >` |
-| `?` | `?` then write | Full-screen AI chat. Markdown answers (tables, lists, code). `<` home; tap the provider mark to open Grok/ChatGPT/Claude/Hermes with the prompt; long-press it to switch providers; history icon lists past chats with a date and delete |
+| `?` | `?` then write, Enter | Write on home (bar stays at the bottom, one line until it wraps). Submit opens full-screen AI chat with the same bar at the bottom. Markdown answers (tables, lists, code). `<` home; tap the provider mark to open Grok/ChatGPT/Claude/Hermes with the prompt; long-press it to switch providers; history icon lists past chats with a date and delete |
 | `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather) |
 | (none) | `Termux` | Search and launch apps. Tap a match to open it |
 | | `pin Termux` / `unpin Termux` | Filter by the name after `pin` or `unpin`; tap a match to pin or unpin. Names on home; icons if settings says so. Pin time (off by default) shows `30m (17%)` beside names, or `30m` then `17%` under icons |
@@ -107,7 +107,7 @@ Settings (`settings` or `/settings`) → **… AI providers >**:
 
 OAuth tokens are stored in encrypted prefs on the device and refreshed automatically. Each provider keeps its own sign-in. If Hermes is selected and unreachable, `?` falls back to a connected cloud account and notes that above the reply. Sign out from settings. An API key remains as a fallback if OAuth is unavailable for your plan.
 
-Nothing is sent anywhere until you type `?`. No analytics.
+Nothing is sent anywhere until you submit a question. No analytics.
 
 ## Backup
 
