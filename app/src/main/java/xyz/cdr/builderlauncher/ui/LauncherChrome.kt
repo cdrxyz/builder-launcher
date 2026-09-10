@@ -256,7 +256,12 @@ fun HomeChrome(
             todos.take(HomeTodos.PREVIEW).forEach { text ->
                 Text(text, color = Paper, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
             }
-            CaretLink(HomeTodos.MORE_TASKS, modifier = Modifier.padding(vertical = 4.dp))
+            CaretLink(
+                HomeTodos.MORE_TASKS,
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = Dim,
+                caretColor = Dim,
+            )
             Spacer(Modifier.height(8.dp))
             }
             if (appIcons && pins.isNotEmpty() && apps.isEmpty()) {
@@ -299,7 +304,12 @@ fun HomeChrome(
                                 Text(label, color = Paper)
                             }
                         } else if (shortcut) {
-                            CaretLink(label, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                            CaretLink(
+                                label,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                color = Dim,
+                                caretColor = Dim,
+                            )
                         } else {
                             Text(
                                 label,
@@ -2666,17 +2676,22 @@ fun InfoIcon(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun CaretLink(text: String, modifier: Modifier = Modifier) {
+fun CaretLink(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Paper,
+    caretColor: Color = Accent,
+) {
     val caret = text.lastIndexOf('>')
     Text(
         text = if (caret >= 0) {
             buildAnnotatedString {
-                withStyle(SpanStyle(color = Paper)) { append(text.substring(0, caret)) }
-                withStyle(SpanStyle(color = Accent)) { append(">") }
+                withStyle(SpanStyle(color = color)) { append(text.substring(0, caret)) }
+                withStyle(SpanStyle(color = caretColor)) { append(">") }
             }
         } else {
             buildAnnotatedString {
-                withStyle(SpanStyle(color = Paper)) { append(text) }
+                withStyle(SpanStyle(color = color)) { append(text) }
             }
         },
         modifier = modifier,

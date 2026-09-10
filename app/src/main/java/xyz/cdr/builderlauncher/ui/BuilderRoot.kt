@@ -1347,6 +1347,8 @@ fun BuilderRoot(
                                     .fillMaxWidth()
                                     .clickable { openNotesList() }
                                     .padding(vertical = 6.dp),
+                                color = Dim,
+                                caretColor = Dim,
                             )
                         }
                         if (pick == AppPick.Launch && Stocks.matchesQuery(input)) {
@@ -1356,6 +1358,8 @@ fun BuilderRoot(
                                     .fillMaxWidth()
                                     .clickable { openStocksList() }
                                     .padding(vertical = 6.dp),
+                                color = Dim,
+                                caretColor = Dim,
                             )
                         }
                         if (pick == AppPick.Launch && Podcasts.matchesQuery(input)) {
@@ -1365,6 +1369,8 @@ fun BuilderRoot(
                                     .fillMaxWidth()
                                     .clickable { openPodcastsList() }
                                     .padding(vertical = 6.dp),
+                                color = Dim,
+                                caretColor = Dim,
                             )
                         }
                         shown.forEach { app ->
@@ -1388,6 +1394,8 @@ fun BuilderRoot(
                                 .fillMaxWidth()
                                 .clickable { openAppsList(keepQuery = true) }
                                 .padding(vertical = 6.dp),
+                            color = Dim,
+                            caretColor = Dim,
                         )
                     }
                 } else {

@@ -399,6 +399,8 @@ internal fun TodoPreview(
             modifier = Modifier
                 .clickable { onMore() }
                 .padding(vertical = 4.dp),
+            color = Dim,
+            caretColor = Dim,
         )
     }
 }

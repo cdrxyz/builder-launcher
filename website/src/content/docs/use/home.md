@@ -20,7 +20,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 | Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for the watchlist. |
 | Hub | Messages icon, top right. Tap, swipe from the right of home, or D-pad right opens the [hub](hub/). |
 | Open todos | Up to 3 open tasks. Tap to strike through; tap again to reopen. Hidden while the prefix menu or slash list is open, and while typing to filter apps. |
-| `… more tasks >` | Always on home, except while those menus are open or apps are filtering. Opens the full tasks list (no clock). `<` returns home. |
+| `… more tasks >` | Always on home, except while those menus are open or apps are filtering. Grey like the date, quieter than the task titles. Opens the full tasks list (no clock). `<` returns home. |
 | Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to a centered icon row. Hidden while the prefix menu or slash list is open. See [apps](apps/). |
 | Command bar | Bottom of the screen. Type, then Enter. |
 
