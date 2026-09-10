@@ -53,6 +53,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `hub.png` | `hub` |
 | `hub-reply.png` | `hubReply` |
 | `settings.png` | `settings` |
+| `calendar-settings.png` | `settingsCalendar` |
 | `backup.png` | `settingsBackup` |
 | `ai-providers.png` | `aiProviders` |
 | `clock.png` | `clock` |

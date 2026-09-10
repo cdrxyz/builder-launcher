@@ -12,7 +12,9 @@ Home shows the next event from the calendars on the phone, under the date:
 | All-day, today | `dentist · today` |
 | All-day, later | `dentist · Tue` |
 
-Android asks for calendar access once, with contacts. Deny it and the line stays hidden — there is no prompt on home. Grant it and the next event (or the meeting you are already in) appears. Recurring meetings are included. Tap the line to open that event in the calendar app.
+Android asks for calendar access once, with contacts. Deny it and the line stays hidden — there is no prompt on home. Grant it from **settings → … calendar >** (or Android app permissions) and the next event (or the meeting you are already in) appears. Recurring meetings are included. Tap the line to open that event in the calendar app.
+
+Pick calendars on that same settings screen. Unchecked calendars stay off home even if they are visible in the system calendar app. Hidden system calendars stay off until you check them there. The screen also shows whether access is granted and which event home will highlight.
 
 `*` still creates events. It does not write the calendar itself.
 
