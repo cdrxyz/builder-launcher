@@ -5,14 +5,40 @@ import xyz.cdr.builderlauncher.data.LlmProvider
 data class LlmAnswer(
     val text: String,
     val fallbackFrom: LlmProvider? = null,
+    val primaryProvider: LlmProvider? = null,
+    val primaryError: String? = null,
 ) {
     val notice: String?
-        get() = fallbackFrom?.let { AiFallback.notice(it) }
+        get() = fallbackFrom?.let { to ->
+            val from = primaryProvider
+            val error = primaryError
+            if (from != null) AiFallback.report(to, from, error.orEmpty()) else AiFallback.notice(to)
+        }
 }
 
 object AiFallback {
+    const val DEBUG_PROMPT =
+        "Please debug this Builder Launcher AI fallback and propose a fix."
+
     fun notice(provider: LlmProvider): String =
         "Fell back to ${ProviderHandoff.label(provider)}."
+
+    fun headline(content: String): String {
+        content.lineSequence().forEach { line ->
+            val t = line.trim()
+            if (t.startsWith("Fell back to ")) return t
+        }
+        return content.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: content
+    }
+
+    fun report(to: LlmProvider, from: LlmProvider, error: String): String = buildString {
+        appendLine(DEBUG_PROMPT)
+        appendLine()
+        appendLine(notice(to))
+        appendLine("Primary provider: ${ProviderHandoff.label(from)}")
+        appendLine("Error:")
+        append(error.trim().ifBlank { "(empty reply)" })
+    }
 
     fun failed(text: String): Boolean {
         val t = text.trim()
