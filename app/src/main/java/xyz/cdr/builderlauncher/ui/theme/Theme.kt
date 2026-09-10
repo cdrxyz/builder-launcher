@@ -40,9 +40,12 @@ data class ThemeTokens(
     val gain: Color,
     val loss: Color,
     val field: Color,
+    val card: Color,
     val font: FontFamily,
     val light: Boolean,
     val radius: Dp,
+    val chartRadius: Dp,
+    val listGap: Dp,
     val chrome: ThemeChrome,
 ) {
     val tui: Boolean get() = chrome == ThemeChrome.TUI
@@ -58,9 +61,12 @@ object ThemeCatalog {
         gain = Color(AccentColor.argb(AccentColor.DEFAULT_UP_HEX)),
         loss = Color(AccentColor.argb(AccentColor.DEFAULT_DOWN_HEX)),
         field = Color(0xFF0B0B0B),
+        card = Color(0xFF0B0B0B),
         font = FontFamily.Monospace,
         light = false,
         radius = 0.dp,
+        chartRadius = 0.dp,
+        listGap = 10.dp,
         chrome = ThemeChrome.TUI,
     )
 
@@ -73,9 +79,12 @@ object ThemeCatalog {
         gain = Color(0xFF34C759),
         loss = Color(0xFFFF3B30),
         field = Color(0xFF000000),
+        card = Color(0xFF000000),
         font = FontFamily.SansSerif,
         light = false,
         radius = 24.dp,
+        chartRadius = 3.dp,
+        listGap = 10.dp,
         chrome = ThemeChrome.PLAIN,
     )
 
@@ -88,9 +97,12 @@ object ThemeCatalog {
         gain = Color(0xFF1E8E3E),
         loss = Color(0xFFC5221F),
         field = Color(0xFFE7E0EC),
+        card = Color(0xFFFFFFFF),
         font = FontFamily.SansSerif,
         light = true,
         radius = 12.dp,
+        chartRadius = 8.dp,
+        listGap = 8.dp,
         chrome = ThemeChrome.MATERIAL,
     )
 
@@ -103,9 +115,12 @@ object ThemeCatalog {
         gain = Color(0xFF34C759),
         loss = Color(0xFFFF3B30),
         field = Color(0xFFFFFFFF),
+        card = Color(0xFFFFFFFF),
         font = FontFamily.SansSerif,
         light = true,
         radius = 10.dp,
+        chartRadius = 4.dp,
+        listGap = 0.dp,
         chrome = ThemeChrome.IOS,
     )
 

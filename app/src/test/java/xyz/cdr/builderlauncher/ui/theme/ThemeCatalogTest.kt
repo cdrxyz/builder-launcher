@@ -12,6 +12,8 @@ class ThemeCatalogTest {
         assertEquals(ThemeChrome.PLAIN, ThemeCatalog.Plain.chrome)
         assertFalse(ThemeCatalog.Plain.tui)
         assertEquals(24.dp, ThemeCatalog.Plain.radius)
+        assertEquals(8.dp, ThemeCatalog.Material.chartRadius)
+        assertEquals(0.dp, ThemeCatalog.Ios.listGap)
         assertTrue(ThemeCatalog.Cyberpunk.tui)
     }
 }

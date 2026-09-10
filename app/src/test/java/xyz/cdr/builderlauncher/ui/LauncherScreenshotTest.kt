@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.runtime.Composable
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import org.junit.Rule
@@ -1010,5 +1011,86 @@ class LauncherScreenshotTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun stocksThemePlain() { snap(UiTheme.PLAIN) { sampleStocks() } }
+
+    @Test
+    fun stocksThemeMaterial() { snap(UiTheme.MATERIAL) { sampleStocks() } }
+
+    @Test
+    fun stocksThemeIos() { snap(UiTheme.IOS) { sampleStocks() } }
+
+    @Test
+    fun usageThemePlain() { snap(UiTheme.PLAIN) { UsageChrome() } }
+
+    @Test
+    fun usageThemeMaterial() { snap(UiTheme.MATERIAL) { UsageChrome() } }
+
+    @Test
+    fun usageThemeIos() { snap(UiTheme.IOS) { UsageChrome() } }
+
+    @Test
+    fun podcastsThemePlain() { snap(UiTheme.PLAIN) { samplePodcasts() } }
+
+    @Test
+    fun podcastsThemeMaterial() { snap(UiTheme.MATERIAL) { samplePodcasts() } }
+
+    @Test
+    fun podcastsThemeIos() { snap(UiTheme.IOS) { samplePodcasts() } }
+
+    private fun snap(theme: UiTheme, content: @Composable () -> Unit) {
+        paparazzi.snapshot {
+            BuilderTheme(theme = theme, accent = accentColor(theme.defaultAccentHex), content = content)
+        }
+    }
+
+    @Composable
+    private fun sampleStocks() {
+        StocksChrome(
+            rows = listOf(
+                StockListRow("AAPL", "Apple Inc.", "$319.97", "-2.51%", up = false),
+                StockListRow("MSFT", "Microsoft Corporation", "$428.10", "+1.24%", up = true),
+            ),
+            input = "",
+        )
+    }
+
+    @Composable
+    private fun samplePodcasts() {
+        PodcastsChrome(
+            nowPlayingTitle = "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
+            nowPlayingShow = "The Talk Show",
+            nowPlaying = true,
+            continueRows = listOf(
+                PodcastListRow(
+                    "Playing analog with a title long enough to wrap past three lines on the home list so the rest is cut",
+                    "The Talk Show",
+                    "12:00 of 45:00",
+                    highlight = true,
+                    maxTitleLines = Podcasts.TITLE_LINES,
+                    deletable = true,
+                    downloadable = true,
+                    downloaded = true,
+                ),
+            ),
+            newRows = listOf(
+                PodcastListRow(
+                    "Newest",
+                    "Accidental Tech Podcast with a show name long enough that it must stay on one line",
+                    "1:02:03",
+                    maxTitleLines = Podcasts.TITLE_LINES,
+                    maxSubtitleLines = Podcasts.SHOW_LINES,
+                    deletable = true,
+                    downloadable = true,
+                ),
+                PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true),
+            ),
+            shows = listOf(
+                PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
+                PodcastListRow("The Talk Show", "John Gruber", deletable = true),
+            ),
+        )
     }
 }

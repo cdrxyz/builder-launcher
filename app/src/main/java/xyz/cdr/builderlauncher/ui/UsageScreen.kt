@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -33,8 +34,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.LocalTokens
 import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Paper
+import xyz.cdr.builderlauncher.ui.theme.ThemedList
+import xyz.cdr.builderlauncher.ui.theme.ThemedRow
+import xyz.cdr.builderlauncher.ui.theme.ThemedSegmented
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsageApp
 import xyz.cdr.builderlauncher.usage.UsageBar
@@ -102,18 +107,11 @@ fun UsageBody(
     val other = bar?.otherMs ?: snapshot.otherMs
     val apps = bar?.apps ?: snapshot.apps
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            UsagePeriod.entries.forEach { period ->
-                Text(
-                    period.label,
-                    color = if (snapshot.period == period) Accent else Dim,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .clickable { onPeriod(period) }
-                        .padding(vertical = 6.dp, horizontal = 2.dp),
-                )
-            }
-        }
+        ThemedSegmented(
+            labels = UsagePeriod.entries.map { it.label },
+            selected = UsagePeriod.entries.indexOf(snapshot.period).coerceAtLeast(0),
+            onSelect = { onPeriod(UsagePeriod.entries[it]) },
+        )
         Spacer(Modifier.height(8.dp))
         Text(Usage.formatDuration(total), style = MaterialTheme.typography.headlineLarge, color = Paper)
         val subtitle = bar?.detail ?: Usage.vsLabel(snapshot.vsLastWeekMs)
@@ -139,14 +137,18 @@ fun UsageBody(
             onSelect = { scrub = it },
         )
         Spacer(Modifier.height(16.dp))
-        UsageShare(label = "productive", ms = productive, share = Usage.percent(productive, total), color = Accent)
-        UsageShare(label = "distracting", ms = distracting, share = Usage.percent(distracting, total), color = Loss)
-        UsageShare(label = "other", ms = other, share = Usage.percent(other, total), color = Dim)
+        ThemedList {
+            UsageShare(label = "productive", ms = productive, share = Usage.percent(productive, total), color = Accent, last = false)
+            UsageShare(label = "distracting", ms = distracting, share = Usage.percent(distracting, total), color = Loss, last = false)
+            UsageShare(label = "other", ms = other, share = Usage.percent(other, total), color = Dim, last = true)
+        }
         Spacer(Modifier.height(16.dp))
         Text("most used", color = Dim, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(6.dp))
-        apps.forEach { app ->
-            UsageAppRow(app = app, onCycle = { onCycleApp(app.packageName) })
+        ThemedList {
+            apps.forEachIndexed { index, app ->
+                UsageAppRow(app = app, onCycle = { onCycleApp(app.packageName) }, last = index == apps.lastIndex)
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -158,25 +160,18 @@ fun UsageBody(
 }
 
 @Composable
-private fun UsageShare(label: String, ms: Long, share: Int, color: Color) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text("$label  $share%", color = color, style = MaterialTheme.typography.bodyMedium)
+private fun UsageShare(label: String, ms: Long, share: Int, color: Color, last: Boolean) {
+    ThemedRow(last = last) {
+        Text("$label  $share%", color = color, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(Usage.formatDuration(ms), color = Paper, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
-private fun UsageAppRow(app: UsageApp, onCycle: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onCycle() }
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+private fun UsageAppRow(app: UsageApp, onCycle: () -> Unit, last: Boolean) {
+    ThemedRow(
+        modifier = Modifier.clickable { onCycle() },
+        last = last,
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(app.label, color = Paper, style = MaterialTheme.typography.bodyLarge)
@@ -199,6 +194,7 @@ fun UsageChart(
     val paper = Paper
     val dim = Dim
     val loss = Loss
+    val radiusDp = LocalTokens.current.chartRadius
     val select = rememberUpdatedState(onSelect)
     Canvas(
         modifier
@@ -230,6 +226,7 @@ fun UsageChart(
             },
     ) {
         if (bars.isEmpty()) return@Canvas
+        val radius = radiusDp.toPx()
         val gap = if (bars.size > 10) 2.dp.toPx() else 8.dp.toPx()
         val barWidth = ((size.width - gap * (bars.size - 1)) / bars.size).coerceAtLeast(2.dp.toPx())
         bars.forEachIndexed { index, bar ->
@@ -239,7 +236,16 @@ fun UsageChart(
                 if (ms <= 0L) return
                 val h = (ms.toFloat() / max.toFloat()) * size.height
                 y -= h
-                drawRect(color = color, topLeft = Offset(x, y), size = Size(barWidth, h))
+                if (radius > 0f) {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(x, y),
+                        size = Size(barWidth, h),
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
+                } else {
+                    drawRect(color = color, topLeft = Offset(x, y), size = Size(barWidth, h))
+                }
             }
             stack(bar.otherMs, dim)
             stack(bar.productiveMs, accent)

@@ -110,6 +110,12 @@ import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.Accent
+import xyz.cdr.builderlauncher.ui.theme.ThemedBadge
+import xyz.cdr.builderlauncher.ui.theme.ThemedList
+import xyz.cdr.builderlauncher.ui.theme.ThemedPlayer
+import xyz.cdr.builderlauncher.ui.theme.ThemedPlayWell
+import xyz.cdr.builderlauncher.ui.theme.ThemedRow
+import xyz.cdr.builderlauncher.ui.theme.ThemedSectionLabel
 import xyz.cdr.builderlauncher.ui.theme.CommandBarRule
 import xyz.cdr.builderlauncher.ui.theme.FieldRule
 import xyz.cdr.builderlauncher.ui.theme.commandBarChrome
@@ -643,13 +649,15 @@ fun StocksChrome(
             trailing = { GearIcon(Modifier.padding(vertical = 6.dp)) },
         )
         Spacer(Modifier.height(8.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
             val shown = if (hits.isNotEmpty()) hits else rows
             if (shown.isEmpty()) {
                 Text("Type \$AAPL to add a ticker.", color = Dim)
             } else {
-                shown.forEach { row ->
-                    StockRowChrome(row)
+                ThemedList {
+                    shown.forEachIndexed { index, row ->
+                        StockRowChrome(row, last = index == shown.lastIndex)
+                    }
                 }
             }
         }
@@ -764,23 +772,37 @@ fun PodcastsChrome(
             PodcastNowPlayingBar(title = nowPlayingTitle, show = nowPlayingShow, playing = nowPlaying)
             Spacer(Modifier.height(8.dp))
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
             if (hits.isNotEmpty()) {
-                hits.forEach { PodcastRowChrome(it) }
+                ThemedList {
+                    hits.forEachIndexed { index, row -> PodcastRowChrome(row, last = index == hits.lastIndex) }
+                }
             } else if (continueRows.isEmpty() && newRows.isEmpty() && shows.isEmpty()) {
                 Text("Type a show name, RSS URL, or paste Overcast OPML.", color = Dim)
             } else {
                 if (continueRows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_RECENT)
-                    continueRows.forEach { PodcastRowChrome(it) }
+                    ThemedList {
+                        continueRows.forEachIndexed { index, row ->
+                            PodcastRowChrome(row, last = index == continueRows.lastIndex)
+                        }
+                    }
                 }
                 if (newRows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_NEXT)
-                    newRows.forEach { PodcastRowChrome(it) }
+                    ThemedList {
+                        newRows.forEachIndexed { index, row ->
+                            PodcastRowChrome(row, last = index == newRows.lastIndex)
+                        }
+                    }
                 }
                 if (shows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_SHOWS)
-                    shows.forEach { PodcastRowChrome(it) }
+                    ThemedList {
+                        shows.forEachIndexed { index, row ->
+                            PodcastRowChrome(row, last = index == shows.lastIndex)
+                        }
+                    }
                 }
             }
         }
@@ -791,19 +813,7 @@ fun PodcastsChrome(
 
 @Composable
 fun PodcastSectionHeader(title: String) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp, bottom = 2.dp),
-    ) {
-        HorizontalDivider(color = Line)
-        Text(
-            title,
-            color = Dim,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
+    ThemedSectionLabel(title)
 }
 
 @Composable
@@ -815,10 +825,7 @@ fun PodcastNowPlayingBar(
     onOpen: (() -> Unit)? = null,
     onToggle: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    ThemedPlayer(modifier) {
         val openMod = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier
         Column(Modifier.weight(1f).then(openMod)) {
             Text("now playing", color = Accent, style = MaterialTheme.typography.labelSmall)
@@ -834,22 +841,23 @@ fun PodcastNowPlayingBar(
             }
         }
         val toggleMod = if (onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier
-        PlayPauseIcon(
-            playing = playing,
-            modifier = Modifier
-                .padding(start = 12.dp, top = 8.dp, bottom = 8.dp)
-                .then(toggleMod)
-                .semantics { contentDescription = if (playing) "pause" else "play" },
-        )
+        ThemedPlayWell {
+            val tokens = xyz.cdr.builderlauncher.ui.theme.LocalTokens.current
+            PlayPauseIcon(
+                playing = playing,
+                color = if (tokens.chrome == xyz.cdr.builderlauncher.ui.theme.ThemeChrome.MATERIAL) tokens.ink else Accent,
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 8.dp, bottom = 8.dp)
+                    .then(toggleMod)
+                    .semantics { contentDescription = if (playing) "pause" else "play" },
+            )
+        }
     }
 }
 
 @Composable
-private fun PodcastRowChrome(row: PodcastListRow) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+private fun PodcastRowChrome(row: PodcastListRow, last: Boolean = false) {
+    ThemedRow(last = last) {
         if (row.art) {
             Box(
                 Modifier
@@ -1014,8 +1022,12 @@ fun PodcastShowChrome(
                 Text(label, color = if (label == order) Accent else Dim)
             }
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            episodes.forEach { PodcastRowChrome(it) }
+        Column(modifier = Modifier.weight(1f)) {
+            ThemedList {
+                episodes.forEachIndexed { index, row ->
+                    PodcastRowChrome(row, last = index == episodes.lastIndex)
+                }
+            }
         }
     }
 }
@@ -1390,21 +1402,18 @@ fun StockChart(
 }
 
 @Composable
-private fun StockRowChrome(row: StockListRow) {
+private fun StockRowChrome(row: StockListRow, last: Boolean = false) {
     val tone = if (row.up) Gain else Loss
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+    ThemedRow(last = last) {
+        Column(Modifier.weight(1f).padding(vertical = 2.dp)) {
             Text(row.symbol, color = Paper)
             Text(row.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
         }
-        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 6.dp)) {
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 2.dp).padding(end = 8.dp)) {
             Text(row.price, color = Paper)
-            Text(row.change, color = tone, style = MaterialTheme.typography.bodyMedium)
+            ThemedBadge(row.change, tone)
         }
-        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+        DeleteIcon(Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
     }
 }
 
