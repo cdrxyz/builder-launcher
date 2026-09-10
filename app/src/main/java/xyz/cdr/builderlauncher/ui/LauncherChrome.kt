@@ -1589,6 +1589,9 @@ fun SettingsChrome(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        CaretLink("… backup >", modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        Text("Last backup: never", color = Dim, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))
@@ -1619,11 +1622,10 @@ fun BackupChrome(
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("settings", color = Accent)
-            Text("home", color = Dim)
+            Text("<", color = Accent, modifier = Modifier.padding(vertical = 6.dp))
+            Text("Backup", color = Accent)
         }
         Spacer(Modifier.height(16.dp))
-        Text("Backup", color = Dim, style = MaterialTheme.typography.labelSmall)
         Text(
             "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. Tokens stay off this file.",
             color = Dim,

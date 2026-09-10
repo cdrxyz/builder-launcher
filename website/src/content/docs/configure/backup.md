@@ -3,7 +3,7 @@ title: Backup
 description: Encrypted S3 snapshot, restore, and unencrypted JSON share.
 ---
 
-Type `settings` or `/settings`, then scroll to **Backup**.
+Type `settings` or `/settings`, then **… backup >**.
 
 ![Backup: S3 endpoint, keys, frequency, share](../../../assets/screenshots/backup.png)
 
