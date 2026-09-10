@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -1943,7 +1944,9 @@ private fun CommandRow(
     confirm: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val wrapField = wrap || prompt.singleOrNull()?.let { PrefixCommands.wrapsInput(it) } == true
+    val todoWrap = prompt.singleOrNull()?.let { PrefixCommands.wrapsInput(it) } == true
+    var wrapLines by remember { mutableIntStateOf(1) }
+    val wrapExpanded = wrap || PrefixCommands.wrapExpanded(todoWrap, wrapLines)
     val overlay = slashOpen || commandsOpen
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val menuMax = commandMenuMaxHeight(maxHeight)
@@ -1992,18 +1995,19 @@ private fun CommandRow(
             }
         }
         Row(
-            verticalAlignment = if (wrapField) Alignment.Top else Alignment.CenterVertically,
+            verticalAlignment = if (wrapExpanded) Alignment.Top else Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            PromptGlyph(prompt = prompt, wrapField = wrapField)
+            PromptGlyph(prompt = prompt, wrapField = wrapExpanded)
             Text(
                 value.ifEmpty { "" },
                 color = Paper,
                 style = MaterialTheme.typography.bodyLarge,
+                onTextLayout = { wrapLines = it.lineCount },
                 modifier = Modifier.weight(1f),
             )
             if (confirm) {
-                CheckIcon(Modifier.padding(start = 12.dp, top = if (wrapField) 2.dp else 0.dp))
+                CheckIcon(Modifier.padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 0.dp))
             } else if (wrap) {
                 SendIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
             }

@@ -152,6 +152,14 @@ class PrefixCommandsTest {
     }
 
     @Test
+    fun wrapBarStaysOneLineUntilTextOverflows() {
+        assertFalse(PrefixCommands.wrapExpanded(false, 8))
+        assertFalse(PrefixCommands.wrapExpanded(true, 1))
+        assertFalse(PrefixCommands.wrapExpanded(true, 0))
+        assertTrue(PrefixCommands.wrapExpanded(true, 2))
+    }
+
+    @Test
     fun typeInStockModeDropsAutoSpaceAfterPeriod() {
         val inStock = PrefixCommands.Mode(prompt = '$', input = "OBE.")
         val typed = PrefixCommands.type(inStock, "OBE. TO")
