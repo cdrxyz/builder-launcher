@@ -1014,6 +1014,28 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun settingsThemeIos() {
+        paparazzi.snapshot {
+            BuilderTheme(theme = UiTheme.IOS, accent = accentColor(UiTheme.IOS.defaultAccentHex)) {
+                SettingsChrome(
+                    settings = BuilderSettings(
+                        provider = LlmProvider.HERMES,
+                        hermesBaseUrl = "http://192.168.1.10:8642",
+                        keyboardMode = KeyboardMode.AUTO,
+                        uiTheme = UiTheme.IOS,
+                        accentHex = UiTheme.IOS.defaultAccentHex,
+                    ),
+                    hardware = true,
+                    hermes = "http://192.168.1.10:8642",
+                    apiKey = "",
+                    model = "",
+                    weatherPlace = "Kitchener, Ontario, Canada",
+                )
+            }
+        }
+    }
+
+    @Test
     fun stocksThemePlain() { snap(UiTheme.PLAIN) { sampleStocks() } }
 
     @Test

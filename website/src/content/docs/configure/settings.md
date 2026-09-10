@@ -9,7 +9,7 @@ Type `settings` or `/settings`.
 
 | Block | What to set |
 | --- | --- |
-| Theme | `cyberpunk` (default), `plain`, `material`, or `ios`. Changes type, color, and command-bar chrome. `plain` outlines the command bar in the accent color. Picking a theme also sets its default accent; you can still pick another color. |
+| Theme | `cyberpunk` (default), `plain`, `material`, or `ios`. Changes type, color, and command-bar chrome. `plain` outlines the command bar in the accent color. Picking a theme also sets its default accent; you can still pick another color. [Compare screens](themes/). |
 | Accent | Color chips for the cursor, `>` prompt, selected chips, and the `>` on settings links like AI providers. Home shortcuts such as `… more tasks >` stay grey like the date. Default cyberpunk green. |
 | AI providers | `… AI providers >` opens the dedicated screen. [Details](ai-providers/). |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
