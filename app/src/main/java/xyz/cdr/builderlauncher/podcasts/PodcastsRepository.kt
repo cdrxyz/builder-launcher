@@ -16,8 +16,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import xyz.cdr.builderlauncher.backup.PodcastBackup
+import xyz.cdr.builderlauncher.net.HttpClients
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 @Serializable
 private data class PodcastStore(
@@ -39,10 +39,7 @@ data class PodcastDownload(
 
 class PodcastsRepository(
     context: Context,
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build(),
+    private val http: OkHttpClient = HttpClients.derived(connectSec = 15, readSec = 30),
 ) {
     private val appContext = context.applicationContext
     private val file = File(appContext.filesDir, "podcasts.json")

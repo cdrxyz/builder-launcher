@@ -13,7 +13,7 @@ import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.SettingsRepository
-import java.util.concurrent.TimeUnit
+import xyz.cdr.builderlauncher.net.HttpClients
 
 sealed class AccessCheck {
     data object Testing : AccessCheck()
@@ -76,11 +76,11 @@ object AccessReport {
 class ProviderAccess(
     private val settings: SettingsRepository,
     private val oauth: OAuthService,
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .cookieJar(MemoryCookieJar())
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build(),
+    private val http: OkHttpClient = HttpClients.derived(
+        connectSec = 8,
+        readSec = 15,
+        cookieJar = MemoryCookieJar(),
+    ),
 ) {
     suspend fun check(snapshot: BuilderSettings = settings.settings.value): AccessCheck.Done =
         withContext(Dispatchers.IO) {

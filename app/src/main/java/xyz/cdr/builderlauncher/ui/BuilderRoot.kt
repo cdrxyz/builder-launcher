@@ -25,8 +25,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -215,7 +213,6 @@ import xyz.cdr.builderlauncher.usage.UsageStore
 import xyz.cdr.builderlauncher.usage.UsageToday
 import xyz.cdr.builderlauncher.weather.WeatherKind
 import xyz.cdr.builderlauncher.weather.WeatherPlace
-import xyz.cdr.builderlauncher.weather.WeatherRefresh
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -405,46 +402,20 @@ fun BuilderRoot(
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
         PodcastPlayer.setSkipSilence(podcasts.skipSilence.value)
     }
-    LaunchedEffect(lifecycleOwner, settings.weatherLat, settings.weatherLon) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            weather.refresh()
-            while (true) {
-                kotlinx.coroutines.delay(WeatherRefresh.TTL_MS)
-                weather.refresh()
-            }
-        }
-    }
-    LaunchedEffect(lifecycleOwner, settings.backupFrequency, settings.s3Endpoint, settings.s3Bucket) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            withContext(Dispatchers.IO) { backup.maybeUpload() }
-        }
-    }
-    LaunchedEffect(lifecycleOwner, page, watch.size) {
-        val needQuotes = (page == Page.Home && watch.isNotEmpty()) ||
-            page == Page.Stocks || page == Page.StockDetail
-        if (!needQuotes) return@LaunchedEffect
-        val interval = Stocks.quoteIntervalMs(page == Page.Home)
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            stocks.refreshQuotes()
-            while (true) {
-                kotlinx.coroutines.delay(interval)
-                stocks.refreshQuotes()
-            }
-        }
-    }
-    LaunchedEffect(lifecycleOwner, page, watch.size) {
-        if (watch.isEmpty() || page != Page.Home) {
-            if (watch.isEmpty()) tickerIndex = 0
-            return@LaunchedEffect
-        }
-        tickerIndex = tickerIndex.mod(watch.size)
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            while (true) {
-                kotlinx.coroutines.delay(HomeTicker.ROTATE_MS)
-                tickerIndex = HomeTicker.nextIndex(watch.size, tickerIndex)
-            }
-        }
-    }
+    BuilderLoops(
+        lifecycleOwner = lifecycleOwner,
+        settings = settings,
+        page = page,
+        watchSize = watch.size,
+        playing = playback.playing,
+        episodeId = playback.episodeId,
+        weather = weather,
+        backup = backup,
+        stocks = stocks,
+        podcasts = podcasts,
+        tickerIndex = tickerIndex,
+        onTickerIndex = { tickerIndex = it },
+    )
     LaunchedEffect(page, input) {
         if (page != Page.Stocks) {
             stockHits = emptyList()
@@ -495,20 +466,6 @@ fun BuilderRoot(
         kotlinx.coroutines.delay(280)
         podcastHits = podcasts.search(q)
         podcastBusy = false
-    }
-    LaunchedEffect(page) {
-        if (page == Page.Podcasts || page == Page.PodcastShow) {
-            podcasts.refreshAll()
-        }
-    }
-    LaunchedEffect(lifecycleOwner, playback.playing, playback.episodeId) {
-        if (!playback.playing) return@LaunchedEffect
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            while (true) {
-                kotlinx.coroutines.delay(500)
-                PodcastPlayer.poll()
-            }
-        }
     }
 
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {

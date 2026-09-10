@@ -17,16 +17,16 @@ import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.ChatMessage
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.SettingsRepository
-import java.util.concurrent.TimeUnit
+import xyz.cdr.builderlauncher.net.HttpClients
 
 class LlmClient(
     private val settings: SettingsRepository,
     private val oauth: OAuthService,
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .cookieJar(MemoryCookieJar())
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(90, TimeUnit.SECONDS)
-        .build(),
+    private val http: OkHttpClient = HttpClients.derived(
+        connectSec = 20,
+        readSec = 90,
+        cookieJar = MemoryCookieJar(),
+    ),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
