@@ -351,7 +351,7 @@ internal fun SettingsPage(
             }
         }
         Text(
-            "Minutes today under each pin, as 30m then 17% on the next line. Green if productive, red if not.",
+            "Minutes today. Names: 30m (17%) beside the pin. Icons: 30m then 17% under the icon. Green if productive, red if not.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )

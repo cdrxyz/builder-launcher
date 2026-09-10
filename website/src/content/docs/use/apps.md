@@ -25,7 +25,7 @@ Default: names in a vertical list on home.
 
 Settings → **Home apps** → `icons` switches pins to a centered horizontal row of grayscale icons. All apps keeps color.
 
-**Pin time** (`off` by default, under Home apps) puts today's minutes and share of phone time under each pin, as `30m` then `17%` on the next line. Green if the app is marked productive, red if not. Grant usage access first. Tap `/usage` to change productive / distracting / other.
+**Pin time** (`off` by default, under Home apps) puts today's minutes and share of phone time on each pin. Names: `30m (17%)` on the same line. Icons: `30m` then `17%` under the icon. Green if the app is marked productive, red if not. Grant usage access first. Tap `/usage` to change productive / distracting / other.
 
 ![Pinned apps with minutes today](../../../assets/screenshots/home-pinned-usage.png)
 
