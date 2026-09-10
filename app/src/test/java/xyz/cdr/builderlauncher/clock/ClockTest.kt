@@ -141,6 +141,42 @@ class ClockTest {
     }
 
     @Test
+    fun thursdayAlarmCatchesUpAfterMissedSevenAm() {
+        val zone = ZoneId.of("America/Toronto")
+        val slot = ZonedDateTime.of(2026, 9, 10, 7, 0, 0, 0, zone)
+        val late = slot.plusMinutes(36).toInstant().toEpochMilli()
+        val early = slot.minusMinutes(10).toInstant().toEpochMilli()
+        val alarm = ClockAlarm(id = "thu", hour = 7, minute = 0, days = setOf(4))
+        assertFalse(Clock.catchUpDue(alarm, early, zone))
+        assertTrue(Clock.catchUpDue(alarm, late, zone))
+        val next = Clock.nextTrigger(7, 0, late, setOf(4), zone)
+        val nextZ = java.time.Instant.ofEpochMilli(next).atZone(zone)
+        assertEquals(17, nextZ.dayOfMonth)
+        val fired = Clock.fireAlarm(alarm, late)
+        assertFalse(Clock.catchUpDue(fired.alarm, late, zone))
+        assertFalse(Clock.catchUpDue(alarm.copy(enabled = false), late, zone))
+        val evening = slot.plusHours(3).toInstant().toEpochMilli()
+        assertFalse(Clock.catchUpDue(alarm, evening, zone))
+    }
+
+    @Test
+    fun overdueTimerWhenEndIsPast() {
+        val now = 5_000_000L
+        val running = TimerState(durationMs = 60_000, remainingMs = 60_000, running = true, endsAt = now - 1)
+        assertTrue(Clock.overdueTimer(running, now))
+        assertFalse(Clock.overdueTimer(running.copy(endsAt = now + 1), now))
+        assertFalse(Clock.overdueTimer(running.copy(running = false), now))
+    }
+
+    @Test
+    fun parseThursdaySevenAm() {
+        val parsed = Clock.parseAlarmInput("7am on Thursdays")!!
+        assertEquals(7, parsed.hour)
+        assertEquals(0, parsed.minute)
+        assertEquals(setOf(4), parsed.days)
+    }
+
+    @Test
     fun zoneTimeUsesZoneId() {
         val now = ZonedDateTime.of(2026, 9, 8, 16, 42, 0, 0, ZoneId.of("UTC")).toInstant().toEpochMilli()
         assertEquals("16:42", Clock.formatZoneTime("UTC", now))
@@ -182,10 +218,11 @@ class ClockTest {
     fun alarmSnoozeIsEightMinutes() {
         val now = 3_000_000L
         val alarm = ClockAlarm(id = "a1", hour = 6, minute = 30, label = "up")
-        val fired = Clock.fireAlarm(alarm)
+        val fired = Clock.fireAlarm(alarm, now)
         assertEquals(ClockAlertKind.ALARM, fired.alert.kind)
         assertEquals("a1", fired.alert.alarmId)
         assertNull(fired.alarm.snoozeUntil)
+        assertEquals(now, fired.alarm.lastFiredAt)
         val snoozed = Clock.snooze(fired.alarm, now)
         assertEquals(now + Clock.SNOOZE_MS, snoozed.snoozeUntil)
         assertTrue(snoozed.enabled)

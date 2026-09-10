@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
         val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, clock)
-        ClockScheduler.sync(this, clock.snapshot())
+        ClockScheduler.reconcile(this, clock)
         applyAlertWindow()
         setContent {
             val current by settings.settings.collectAsState()
@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         stopped = false
+        ClockScheduler.reconcile(this, ClockStore.get(this))
         applyAlertWindow()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
             != PackageManager.PERMISSION_GRANTED

@@ -14,6 +14,7 @@ object Clock {
     val PRESETS_MIN = listOf(1, 5, 10, 15, 25, 30)
     const val DEFAULT_TIMER_MS = 5 * 60_000L
     const val SNOOZE_MS = 8 * 60_000L
+    const val CATCH_UP_MS = 2 * 60 * 60_000L
     const val RAMP_MS = 4_000L
     const val PEAK_GAIN = 1.0f
     const val FLOOR_GAIN = 0.45f
@@ -129,6 +130,47 @@ object Clock {
         return candidate.toInstant().toEpochMilli()
     }
 
+    fun previousTrigger(
+        hour: Int,
+        minute: Int,
+        now: Long,
+        days: Set<Int> = emptySet(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Long? {
+        val zoned = Instant.ofEpochMilli(now).atZone(zone)
+        var candidate = zoned.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+        if (candidate.isAfter(zoned)) candidate = candidate.minusDays(1)
+        val wanted = days.filter { it in 1..7 }.toSet()
+        if (wanted.isEmpty()) return candidate.toInstant().toEpochMilli()
+        repeat(8) {
+            if (candidate.dayOfWeek.value in wanted && !candidate.isAfter(zoned)) {
+                return candidate.toInstant().toEpochMilli()
+            }
+            candidate = candidate.minusDays(1)
+        }
+        return null
+    }
+
+    fun catchUpDue(
+        alarm: ClockAlarm,
+        now: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Boolean {
+        if (!alarm.enabled) return false
+        val snooze = alarm.snoozeUntil
+        if (snooze != null && snooze > now) return false
+        val prev = previousTrigger(alarm.hour, alarm.minute, now, alarm.days, zone) ?: return false
+        val age = now - prev
+        if (age !in 1 until CATCH_UP_MS) return false
+        val last = alarm.lastFiredAt
+        return last == null || last < prev
+    }
+
+    fun overdueTimer(timer: TimerState, now: Long): Boolean {
+        val ends = timer.endsAt
+        return timer.running && ends != null && ends <= now
+    }
+
     fun formatZoneTime(zoneId: String, now: Long): String {
         val zone = runCatching { ZoneId.of(zoneId) }.getOrDefault(ZoneId.of("UTC"))
         return DateTimeFormatter.ofPattern("HH:mm", Locale.US)
@@ -182,9 +224,9 @@ object Clock {
         return start(TimerState(durationMs = duration, remainingMs = duration, label = alert.label), now)
     }
 
-    fun fireAlarm(alarm: ClockAlarm): AlarmFire {
+    fun fireAlarm(alarm: ClockAlarm, now: Long): AlarmFire {
         return AlarmFire(
-            alarm = alarm.copy(snoozeUntil = null),
+            alarm = alarm.copy(snoozeUntil = null, lastFiredAt = now),
             alert = ClockAlert(
                 kind = ClockAlertKind.ALARM,
                 alarmId = alarm.id,
@@ -397,6 +439,7 @@ data class ClockAlarm(
     val label: String = "",
     val days: Set<Int> = emptySet(),
     val snoozeUntil: Long? = null,
+    val lastFiredAt: Long? = null,
 )
 
 @Serializable
