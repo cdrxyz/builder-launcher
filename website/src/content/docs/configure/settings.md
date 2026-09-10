@@ -9,7 +9,7 @@ Type `settings` or `/settings`.
 
 | Block | What to set |
 | --- | --- |
-| Accent | Color chips for the cursor, `>` prompt, selected chips, and the `>` on links like more tasks. Default cyberpunk green. |
+| Accent | Color chips for the cursor, `>` prompt, selected chips, and the `>` on settings links like AI providers. Home shortcuts such as `… more tasks >` stay grey like the date. Default cyberpunk green. |
 | AI providers | `… AI providers >` opens the dedicated screen. [Details](ai-providers/). |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
 | Home apps | `plaintext` (default) or `icons`. Names vs grayscale icons for pins and home search. All apps stays in color. **Pin time** `off` (default) or `on` shows minutes today and share of phone time. Names: `30m (17%)` beside the pin. Icons: `30m` then `17%` under the icon. Green if the app is productive, red if not. Needs [usage](../use/usage/) access. |
