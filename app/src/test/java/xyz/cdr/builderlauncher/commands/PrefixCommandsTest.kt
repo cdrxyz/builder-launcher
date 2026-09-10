@@ -143,12 +143,19 @@ class PrefixCommandsTest {
     }
 
     @Test
-    fun todoPromptWrapsInput() {
+    fun todoAndAskPromptsWrapInput() {
         assertTrue(PrefixCommands.wrapsInput('-'))
+        assertTrue(PrefixCommands.wrapsInput('?'))
         assertFalse(PrefixCommands.wrapsInput(PrefixCommands.DEFAULT_PROMPT))
         assertFalse(PrefixCommands.wrapsInput('+'))
-        assertFalse(PrefixCommands.wrapsInput('?'))
         assertFalse(PrefixCommands.wrapsInput('@'))
+    }
+
+    @Test
+    fun askPromptShowsSend() {
+        assertTrue(PrefixCommands.showsSend('?'))
+        assertFalse(PrefixCommands.showsSend('-'))
+        assertFalse(PrefixCommands.showsSend(PrefixCommands.DEFAULT_PROMPT))
     }
 
     @Test

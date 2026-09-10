@@ -8,9 +8,9 @@ Prefix `?`. Pick it from the command menu, or type `?` then a question.
 Nothing is sent anywhere until you submit a question. There is no analytics.
 
 1. Configure a provider in [AI providers](../configure/ai-providers/).
-2. Type `?` on home. The full-screen chat opens.
-3. Write the question in the bar at the top. Long questions wrap. Enter or the send arrow (same as hub reply) sends. Follow-ups stay in the same thread.
-4. The reply streams in below. A short `…` shows until the first token arrives.
+2. Type `?` on home. The bar stays at the bottom. Write the question there.
+3. Enter or the send arrow submits. Then the full-screen chat opens, with the same bar still at the bottom. The bar stays one line until the question wraps.
+4. The reply streams in above the bar. A short `…` shows until the first token arrives. Follow-ups stay in the same thread.
 
 ![Full-screen AI chat with a markdown table answer](../../../assets/screenshots/chat.png)
 
@@ -24,7 +24,7 @@ Answers render markdown: headings, lists, tables, fenced code, bold and italic.
 
 History lists the first line of each question, with the date edited underneath and delete on the right. Tap a row to reopen it. Empty chats are not saved.
 
-A lone `?` opens chat. `help` or `/help` is the command cheat sheet.
+A lone `?` stays on home (help). Submit a question to open [Ask AI](ai/). `help` or `/help` is the command cheat sheet.
 
 | Provider | Default model | Endpoint |
 | --- | --- | --- |

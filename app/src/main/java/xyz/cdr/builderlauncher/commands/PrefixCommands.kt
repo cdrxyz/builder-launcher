@@ -41,8 +41,11 @@ object PrefixCommands {
     /** Prose modes. Default stays off so calculator expressions are not rewritten. */
     fun usesAutocorrect(glyph: Char): Boolean = glyph == '-' || glyph == '+' || glyph == '?'
 
-    /** Soft-wrap the command bar so long todos stay on screen. Chat passes wrap explicitly. */
-    fun wrapsInput(glyph: Char): Boolean = glyph == '-'
+    /** Soft-wrap the command bar so long todos and AI questions stay on screen. */
+    fun wrapsInput(glyph: Char): Boolean = glyph == '-' || glyph == '?'
+
+    /** Send arrow on the bar for AI, home and chat alike. */
+    fun showsSend(glyph: Char): Boolean = glyph == '?'
 
     /** Grow the bar only after the draft actually uses a second line. */
     fun wrapExpanded(allowed: Boolean, lineCount: Int): Boolean = allowed && lineCount > 1

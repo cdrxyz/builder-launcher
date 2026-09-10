@@ -28,6 +28,8 @@ The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt,
 
 Picking a row sets the prompt glyph. Type the rest of the command in the field. Pick **slash** to list slash commands above the bar. The list scrolls if there are more rows than fit.
 
-Software keyboards keep autocorrect **off** in default `>` mode so live calculator expressions (`2+2`, `3*7`) are not rewritten. Autocorrect turns **on** for `-` todos, `+` notes, and `?` AI, and in the full-screen note editor.
+Software keyboards keep autocorrect **off** in default `>` mode so live calculator expressions (`2+2`, `3*7`) are not rewritten. Autocorrect turns **on** for `-` todos, `+` notes, and `?` AI, and in the full-screen note editor. Long `-` todos and `?` questions stay one line until they wrap.
+
+Picking **ask AI** keeps you on home. The dedicated chat screen opens only after you submit a question, with the same bar at the bottom.
 
 On hardware QWERTY, auto mode hides the software keyboard so the bar sits next to the keys. See [Keyboard](../configure/keyboard/).

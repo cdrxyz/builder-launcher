@@ -758,12 +758,12 @@ internal fun CommandBar(
                         .clickable { onSubmit() }
                         .padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 0.dp),
                 )
-            } else if (wrap) {
+            } else if (wrap || PrefixCommands.showsSend(prompt)) {
                 SendIcon(
                     Modifier
                         .semantics { contentDescription = "send" }
                         .clickable { onSubmit() }
-                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                        .padding(start = 12.dp, top = if (wrapExpanded) 2.dp else 6.dp, bottom = if (wrapExpanded) 0.dp else 6.dp),
                 )
             }
         }
