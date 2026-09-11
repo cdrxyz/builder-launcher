@@ -508,8 +508,9 @@ class LauncherScreenshotTest {
                             maxSubtitleLines = Podcasts.SHOW_LINES,
                             deletable = true,
                             downloadable = true,
+                            downloadPercent = "37%",
                         ),
-                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true),
+                        PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true, downloadPercent = "0%"),
                     ),
                     shows = listOf(
                         PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
@@ -563,6 +564,7 @@ class LauncherScreenshotTest {
                             metaBelow = true,
                             deletable = true,
                             downloadable = true,
+                            downloadPercent = "0%",
                         ),
                         PodcastListRow(
                             "Episode 2",
@@ -1098,8 +1100,9 @@ class LauncherScreenshotTest {
                     maxSubtitleLines = Podcasts.SHOW_LINES,
                     deletable = true,
                     downloadable = true,
+                    downloadPercent = "37%",
                 ),
-                PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true),
+                PodcastListRow("New two", "The Talk Show", "45:00", maxTitleLines = Podcasts.TITLE_LINES, maxSubtitleLines = Podcasts.SHOW_LINES, deletable = true, downloadable = true, downloadPercent = "0%"),
             ),
             shows = listOf(
                 PodcastListRow("Accidental Tech Podcast", "Marco Arment", deletable = true),
