@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: Type settings. Theme, AI providers, keyboard, clock face, weather, clock sound, calendar, backup, hub and usage access, default Home.
+description: Type settings. Theme, AI providers, keyboard, home tasks, clock face, weather, clock sound, calendar, backup, hub and usage access, default Home.
 ---
 
 Type `settings` or `/settings`.
@@ -15,6 +15,7 @@ Type `settings` or `/settings`.
 | AI providers | `… AI providers >` opens the dedicated screen. [Details](ai-providers/). |
 | Keyboard | `auto`, `hardware`, or `software`. [Keyboard](keyboard/). |
 | Home apps | `plaintext` (default) or `icons`. Names vs grayscale icons for pins and home search. All apps stays in color. **Pin time** `off` (default) or `on` shows minutes today and share of phone time. Names: `30m (17%)` beside the pin. Icons: `30m` then `17%` under the icon. Green if the app is productive, red if not. Needs [usage](../use/usage/) access. |
+| Home tasks | `0` through `5`. How many open todos sit on home. Default `3`. `0` hides the task lines. `… more tasks >` still opens the full list. |
 | Clock face | `analog` (default) or `digital`. Analog sits in the center of home with the time and date below. |
 | Weather location | Type a city, pick a match. Placeholder: New York. No GPS required. |
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |

@@ -6,12 +6,21 @@ import java.time.ZoneId
 
 object HomeTodos {
     const val PREVIEW = 3
+    const val PREVIEW_MIN = 0
+    const val PREVIEW_MAX = 5
     const val MORE_TASKS = "… more tasks >"
     const val TASK_PREFIX = "-"
     const val BACK = "<"
     const val TITLE = "tasks"
     const val COMPLETED = "completed"
     const val DAY_MS = 86_400_000L
+    const val HOME_SETTING = "Home tasks"
+    const val HOME_SETTING_BLURB =
+        "Open tasks on home. 0 hides them. … more tasks > still opens the full list."
+
+    fun clampPreview(limit: Int): Int = limit.coerceIn(PREVIEW_MIN, PREVIEW_MAX)
+
+    fun previewChoices(): IntRange = PREVIEW_MIN..PREVIEW_MAX
 
     fun of(items: List<LocalItem>): List<LocalItem> =
         items.filter { it.kind.equals("todo", ignoreCase = true) }
@@ -80,8 +89,8 @@ object HomeTodos {
         }
     }
 
-    fun preview(todos: List<LocalItem>): List<LocalItem> =
-        open(todos).take(PREVIEW)
+    fun preview(todos: List<LocalItem>, limit: Int = PREVIEW): List<LocalItem> =
+        open(todos).take(clampPreview(limit))
 
     fun moveOpen(items: List<LocalItem>, from: Int, to: Int): List<LocalItem> {
         val current = open(of(items))

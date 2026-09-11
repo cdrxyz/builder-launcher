@@ -7,6 +7,7 @@ import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.ChatThread
 import xyz.cdr.builderlauncher.data.ClockFace
+import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
@@ -63,6 +64,7 @@ data class BackupSettings(
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
     val pinUsage: Boolean = false,
     val clockFace: ClockFace = ClockFace.ANALOG,
+    val homeTodoCount: Int = HomeTodos.PREVIEW,
 ) {
     companion object {
         fun from(settings: BuilderSettings, includeApiKey: Boolean): BackupSettings = BackupSettings(
@@ -85,6 +87,7 @@ data class BackupSettings(
             appIcons = settings.appIcons,
             pinUsage = settings.pinUsage,
             clockFace = settings.clockFace,
+            homeTodoCount = settings.homeTodoCount,
         )
     }
 }

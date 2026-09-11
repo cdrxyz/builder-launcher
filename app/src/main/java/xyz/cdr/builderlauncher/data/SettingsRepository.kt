@@ -46,6 +46,7 @@ data class BuilderSettings(
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
     val pinUsage: Boolean = false,
     val clockFace: ClockFace = ClockFace.ANALOG,
+    val homeTodoCount: Int = HomeTodos.PREVIEW,
     val s3Endpoint: String = "",
     val s3Bucket: String = "",
     val s3AccessKey: String = "",
@@ -155,6 +156,7 @@ class SettingsRepository(context: Context) {
                 appIcons = restored.appIcons,
                 pinUsage = restored.pinUsage,
                 clockFace = restored.clockFace,
+                homeTodoCount = HomeTodos.clampPreview(restored.homeTodoCount),
             )
         }
     }
@@ -217,6 +219,10 @@ class SettingsRepository(context: Context) {
             appIcons = appIcons,
             pinUsage = prefs.getBoolean(KEY_PIN_USAGE, false),
             clockFace = clockFace,
+            homeTodoCount = HomeTodos.clampPreview(
+                prefs.getString(KEY_HOME_TODO_COUNT, HomeTodos.PREVIEW.toString())?.toIntOrNull()
+                    ?: HomeTodos.PREVIEW,
+            ),
             s3Endpoint = prefs.getString(KEY_S3_ENDPOINT, "") ?: "",
             s3Bucket = prefs.getString(KEY_S3_BUCKET, "") ?: "",
             s3AccessKey = prefs.getString(KEY_S3_ACCESS, "") ?: "",
@@ -267,6 +273,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_APP_ICONS, next.appIcons.name)
             .putBoolean(KEY_PIN_USAGE, next.pinUsage)
             .putString(KEY_CLOCK_FACE, next.clockFace.name)
+            .putString(KEY_HOME_TODO_COUNT, HomeTodos.clampPreview(next.homeTodoCount).toString())
             .putString(KEY_S3_ENDPOINT, next.s3Endpoint)
             .putString(KEY_S3_BUCKET, next.s3Bucket)
             .putString(KEY_S3_ACCESS, next.s3AccessKey)
@@ -313,6 +320,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_APP_ICONS = "app_icons"
         private const val KEY_PIN_USAGE = "pin_usage"
         private const val KEY_CLOCK_FACE = "clock_face"
+        private const val KEY_HOME_TODO_COUNT = "home_todo_count"
         private const val KEY_S3_ENDPOINT = "s3_endpoint"
         private const val KEY_S3_BUCKET = "s3_bucket"
         private const val KEY_S3_ACCESS = "s3_access"

@@ -86,6 +86,15 @@ class BackupDocumentTest {
         )
         assertEquals("sk-secret", settings.apiKey)
     }
+
+    @Test
+    fun backupCarriesHomeTodoCount() {
+        val settings = BackupSettings.from(
+            xyz.cdr.builderlauncher.data.BuilderSettings(homeTodoCount = 5),
+            includeApiKey = false,
+        )
+        assertEquals(5, settings.homeTodoCount)
+    }
 }
 
 class S3SignerTest {

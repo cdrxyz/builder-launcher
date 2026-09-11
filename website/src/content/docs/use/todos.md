@@ -1,6 +1,6 @@
 ---
 title: Todos
-description: Save tasks with -, preview three on home, expand the full list.
+description: Save tasks with -, preview them on home, expand the full list.
 ---
 
 Prefix `-`. Example: `-buy milk`.
@@ -11,7 +11,7 @@ Prefix `-`. Example: `-buy milk`.
 - Long tasks wrap in the bar on home and on the tasks page after they no longer fit on one line. Enter still saves.
 
 ![A long task wrapping in the home command bar](../../../assets/screenshots/home-todo-wrap.png)
-- Home shows up to 3 **open** todos.
+- Home shows **open** todos, up to the count in [settings](../configure/settings/) (default 3). `0` hides them on home.
 - Tap a line to complete it (strikethrough). Tap again to reopen, including on the full list under **done**.
 - `… more tasks >` is always on home and opens the full list.
 

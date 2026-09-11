@@ -400,6 +400,22 @@ internal fun SettingsPage(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
+        Text(HomeTodos.HOME_SETTING, color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            HomeTodos.previewChoices().forEach { count ->
+                Text(
+                    count.toString(),
+                    color = if (settings.homeTodoCount == count) Accent else Dim,
+                    modifier = Modifier.clickable { repo.update { it.copy(homeTodoCount = count) } },
+                )
+            }
+        }
+        Text(
+            HomeTodos.HOME_SETTING_BLURB,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
         Text("Clock face", color = Dim, style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
             ClockFace.entries.forEach { face ->
