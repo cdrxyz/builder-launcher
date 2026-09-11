@@ -232,16 +232,17 @@ private fun UsageCompletedChart(
             val x = index * (barWidth + gap)
             val h = (count.toFloat() / max.toFloat()) * size.height
             val y = size.height - h
-            if (h <= 0f) return@forEachIndexed
-            if (radius > 0f) {
-                drawRoundRect(
-                    color = accent,
-                    topLeft = Offset(x, y),
-                    size = Size(barWidth, h),
-                    cornerRadius = CornerRadius(radius, radius),
-                )
-            } else {
-                drawRect(color = accent, topLeft = Offset(x, y), size = Size(barWidth, h))
+            if (h > 0f) {
+                if (radius > 0f) {
+                    drawRoundRect(
+                        color = accent,
+                        topLeft = Offset(x, y),
+                        size = Size(barWidth, h),
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
+                } else {
+                    drawRect(color = accent, topLeft = Offset(x, y), size = Size(barWidth, h))
+                }
             }
             if (selectedIndex == index) {
                 drawLine(
