@@ -108,4 +108,33 @@ class HomeTodosTest {
             HomeTodos.shareDate(1_788_739_200_000L, java.util.TimeZone.getTimeZone("UTC")),
         )
     }
+
+    @Test
+    fun completedTodayCountsOnlyThatLocalDay() {
+        val zone = java.time.ZoneOffset.UTC
+        val start = HomeTodos.dayStartMs(1_788_739_200_000L, zone)
+        val items = listOf(
+            todo("today-a", completedAt = start + 1_000L),
+            todo("today-b", completedAt = start + 8 * 3_600_000L),
+            todo("yesterday", completedAt = start - 1L),
+            todo("tomorrow", completedAt = start + HomeTodos.DAY_MS),
+            todo("open"),
+        )
+        assertEquals(2, HomeTodos.completedToday(HomeTodos.of(items), now = start + 12 * 3_600_000L, zone = zone))
+        assertEquals("2 completed", HomeTodos.completedLabel(2))
+        assertEquals("1 completed", HomeTodos.completedLabel(1))
+        assertEquals("4 · Tue 10 Sep", HomeTodos.completedDayLabel(4, "Tue 10 Sep"))
+    }
+
+    @Test
+    fun completedByDaysFollowsBarStarts() {
+        val start = 1_725_667_200_000L
+        val starts = (0 until 7).map { start + it * HomeTodos.DAY_MS }
+        assertEquals(
+            listOf(2, 0, 1, 4, 0, 3, 2),
+            HomeTodos.completedByDays(HomeTodos.sampleCompleted(start), starts),
+        )
+        assertEquals(7, HomeTodos.recentDayStarts(now = start + 3_600_000L, zone = java.time.ZoneOffset.UTC).size)
+        assertEquals(start, HomeTodos.recentDayStarts(now = start + 3_600_000L, zone = java.time.ZoneOffset.UTC).last())
+    }
 }

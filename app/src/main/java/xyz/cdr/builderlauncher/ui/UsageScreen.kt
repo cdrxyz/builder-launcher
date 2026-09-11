@@ -40,6 +40,8 @@ import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.ui.theme.ThemedList
 import xyz.cdr.builderlauncher.ui.theme.ThemedRow
 import xyz.cdr.builderlauncher.ui.theme.ThemedSegmented
+import xyz.cdr.builderlauncher.data.HomeTodos
+import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.usage.Usage
 import xyz.cdr.builderlauncher.usage.UsageApp
 import xyz.cdr.builderlauncher.usage.UsageBar
@@ -51,6 +53,7 @@ import xyz.cdr.builderlauncher.usage.UsageSnapshot
 fun UsageScreen(
     snapshot: UsageSnapshot,
     modifier: Modifier = Modifier,
+    todos: List<LocalItem> = emptyList(),
     onBack: () -> Unit,
     onPeriod: (UsagePeriod) -> Unit,
     onGrant: () -> Unit,
@@ -63,22 +66,30 @@ fun UsageScreen(
         )
         Spacer(Modifier.height(12.dp))
         if (!snapshot.granted) {
-            Text(
-                "Grant usage access to see how much time you spend in apps.",
-                color = Dim,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Open usage access",
-                color = Accent,
-                modifier = Modifier
-                    .clickable { onGrant() }
-                    .padding(vertical = 8.dp)
-                    .semantics { contentDescription = "open usage access" },
-            )
+            Column(
+                Modifier
+                    .weight(1f, fill = true)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    "Grant usage access to see how much time you spend in apps.",
+                    color = Dim,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Open usage access",
+                    color = Accent,
+                    modifier = Modifier
+                        .clickable { onGrant() }
+                        .padding(vertical = 8.dp)
+                        .semantics { contentDescription = "open usage access" },
+                )
+                UsageCompletedSection(snapshot = snapshot, todos = todos, selectedIndex = null)
+            }
         } else {
             UsageBody(
                 snapshot = snapshot,
+                todos = todos,
                 onPeriod = onPeriod,
                 onCycleApp = onCycleApp,
                 modifier = Modifier
@@ -93,6 +104,7 @@ fun UsageScreen(
 fun UsageBody(
     snapshot: UsageSnapshot,
     modifier: Modifier = Modifier,
+    todos: List<LocalItem> = emptyList(),
     onPeriod: (UsagePeriod) -> Unit = {},
     onCycleApp: (String) -> Unit = {},
     selectedIndex: Int? = null,
@@ -156,6 +168,100 @@ fun UsageBody(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        UsageCompletedSection(snapshot = snapshot, todos = todos, selectedIndex = selected)
+    }
+}
+
+@Composable
+internal fun UsageCompletedSection(
+    snapshot: UsageSnapshot,
+    todos: List<LocalItem>,
+    selectedIndex: Int?,
+) {
+    val zone = java.time.ZoneId.systemDefault()
+    val starts = snapshot.bars.map { it.startMs }.ifEmpty { HomeTodos.recentDayStarts(zone = zone) }
+    val labels = if (snapshot.bars.isNotEmpty()) {
+        snapshot.bars.map { it.label }
+    } else {
+        starts.map { Usage.barLabel(it, UsagePeriod.W1, zone) }
+    }
+    val details = if (snapshot.bars.isNotEmpty()) {
+        snapshot.bars.map { it.detail }
+    } else {
+        starts.map { Usage.barDetail(it, UsagePeriod.W1, zone) }
+    }
+    val period = if (snapshot.bars.isNotEmpty()) snapshot.period else UsagePeriod.W1
+    val counts = HomeTodos.completedByDays(todos, starts)
+    val selected = selectedIndex?.let { counts.getOrNull(it) }
+    val subtitle = if (selected != null) {
+        HomeTodos.completedDayLabel(selected, details.getOrNull(selectedIndex).orEmpty())
+    } else {
+        HomeTodos.completedLabel(counts.sum())
+    }
+    Spacer(Modifier.height(20.dp))
+    Text(HomeTodos.COMPLETED, color = Dim, style = MaterialTheme.typography.labelSmall)
+    Spacer(Modifier.height(6.dp))
+    UsageCompletedChart(counts = counts, labels = labels, period = period, selectedIndex = selectedIndex)
+    Spacer(Modifier.height(8.dp))
+    Text(subtitle, color = Paper, style = MaterialTheme.typography.bodyMedium)
+}
+
+@Composable
+private fun UsageCompletedChart(
+    counts: List<Int>,
+    labels: List<String>,
+    period: UsagePeriod,
+    selectedIndex: Int? = null,
+) {
+    val max = counts.maxOrNull()?.coerceAtLeast(1) ?: 1
+    val accent = Accent
+    val paper = Paper
+    val dim = Dim
+    val radiusDp = LocalTokens.current.chartRadius
+    Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .semantics { contentDescription = "tasks completed chart" },
+    ) {
+        if (counts.isEmpty()) return@Canvas
+        val radius = radiusDp.toPx()
+        val gap = if (counts.size > 10) 2.dp.toPx() else 8.dp.toPx()
+        val barWidth = ((size.width - gap * (counts.size - 1)) / counts.size).coerceAtLeast(2.dp.toPx())
+        counts.forEachIndexed { index, count ->
+            val x = index * (barWidth + gap)
+            val h = (count.toFloat() / max.toFloat()) * size.height
+            val y = size.height - h
+            if (h <= 0f) return@forEachIndexed
+            if (radius > 0f) {
+                drawRoundRect(
+                    color = accent,
+                    topLeft = Offset(x, y),
+                    size = Size(barWidth, h),
+                    cornerRadius = CornerRadius(radius, radius),
+                )
+            } else {
+                drawRect(color = accent, topLeft = Offset(x, y), size = Size(barWidth, h))
+            }
+            if (selectedIndex == index) {
+                drawLine(
+                    color = paper,
+                    start = Offset(x + barWidth / 2f, 0f),
+                    end = Offset(x + barWidth / 2f, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth()) {
+        labels.forEachIndexed { index, label ->
+            Text(
+                if (Usage.axisLabel(index, labels.size, period)) label else "",
+                color = dim,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 

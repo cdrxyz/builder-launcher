@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -70,6 +71,7 @@ import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.HomeTodos
+import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.WeatherUnits
@@ -218,6 +220,8 @@ fun HomeChrome(
     analog: Boolean = true,
     event: String = "",
     podcastMark: HomePodcastMark = HomePodcastMark.HEADPHONES,
+    todosToday: Int = 3,
+    productiveShare: Int? = 62,
 ) {
     val (hour, minute) = parseHomeClock(time)
     Column(
@@ -248,12 +252,26 @@ fun HomeChrome(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (analog) {
-                    AnalogClock(hour = hour, minute = minute, modifier = Modifier.padding(top = 8.dp))
+                    ClockFaceRow(
+                        analog = true,
+                        time = time,
+                        hour = hour,
+                        minute = minute,
+                        todosToday = todosToday,
+                        productiveShare = productiveShare,
+                    )
                     Spacer(Modifier.height(16.dp))
                     Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 } else {
-                    Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
+                    ClockFaceRow(
+                        analog = false,
+                        time = time,
+                        hour = hour,
+                        minute = minute,
+                        todosToday = todosToday,
+                        productiveShare = productiveShare,
+                    )
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (event.isNotBlank()) {
@@ -2043,7 +2061,11 @@ fun WeatherChrome(
 }
 
 @Composable
-fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = null) {
+fun UsageChrome(
+    snapshot: UsageSnapshot = Usage.sample(),
+    selectedIndex: Int? = null,
+    todos: List<LocalItem> = HomeTodos.sampleCompleted(),
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2056,7 +2078,7 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = 
         )
         Spacer(Modifier.height(12.dp))
         Column(Modifier.weight(1f)) {
-            UsageBody(snapshot = snapshot, selectedIndex = selectedIndex)
+            UsageBody(snapshot = snapshot, todos = todos, selectedIndex = selectedIndex)
         }
         Spacer(Modifier.height(8.dp))
         CommandRow("")
@@ -2338,6 +2360,73 @@ fun HeadphonesIcon(modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(3.dp.toPx()),
             style = stroke,
         )
+    }
+}
+
+@Composable
+fun ClockFaceRow(
+    analog: Boolean,
+    time: String,
+    hour: Int,
+    minute: Int,
+    second: Int = 0,
+    todosToday: Int,
+    productiveShare: Int?,
+    onOpenClock: () -> Unit = {},
+    onOpenTodos: () -> Unit = {},
+    onOpenUsage: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        ClockFlank(
+            value = todosToday.toString(),
+            description = HomeTodos.completedLabel(todosToday) + " today",
+            onClick = onOpenTodos,
+        )
+        Box(Modifier.clickable(onClick = onOpenClock)) {
+            if (analog) {
+                AnalogClock(hour = hour, minute = minute, second = second, modifier = Modifier.padding(top = 8.dp))
+            } else {
+                Text(time, style = MaterialTheme.typography.headlineLarge, color = Paper)
+            }
+        }
+        ClockFlank(
+            value = productiveShare?.let { "$it%" }.orEmpty(),
+            description = productiveShare?.let { "$it percent productive" }.orEmpty(),
+            onClick = onOpenUsage,
+            visible = productiveShare != null,
+        )
+    }
+}
+
+@Composable
+fun ClockFlank(
+    value: String,
+    description: String,
+    onClick: () -> Unit,
+    visible: Boolean = true,
+) {
+    Box(
+        modifier = Modifier
+            .width(56.dp)
+            .then(
+                if (visible) {
+                    Modifier
+                        .clickable(onClick = onClick)
+                        .semantics { contentDescription = description }
+                } else {
+                    Modifier
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (visible) {
+            Text(value, color = Paper, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 

@@ -60,6 +60,8 @@ class UsageTest {
             granted = true,
         )
         assertEquals(180 * 60_000L, today.totalMs)
+        assertEquals(90 * 60_000L, today.productiveMs)
+        assertEquals(50, today.productiveShare)
         assertEquals("30m", today.mark("com.termux")?.duration)
         assertEquals("17%", today.mark("com.termux")?.share)
         assertEquals(true, today.mark("com.termux")?.productive)

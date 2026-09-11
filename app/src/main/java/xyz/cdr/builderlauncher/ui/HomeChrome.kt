@@ -231,11 +231,15 @@ internal fun ClockHeader(
     event: UpcomingEvent?,
     timer: TimerState,
     analog: Boolean,
+    todosToday: Int,
+    productiveShare: Int?,
     onOpenClock: () -> Unit,
     onOpenWeather: () -> Unit,
     onOpenHub: () -> Unit,
     onOpenTicker: () -> Unit,
     onOpenEvent: () -> Unit,
+    onOpenTodos: () -> Unit,
+    onOpenUsage: () -> Unit,
     playing: Boolean = false,
     episodeLoaded: Boolean = false,
     onOpenPodcasts: () -> Unit = {},
@@ -338,21 +342,29 @@ internal fun ClockHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
-                Modifier.clickable { onOpenClock() },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (timer.running || !analog) {
-                    Text(time, style = MaterialTheme.typography.headlineLarge)
-                    Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    AnalogClock(
-                        hour = cal.get(Calendar.HOUR),
-                        minute = cal.get(Calendar.MINUTE),
-                        second = cal.get(Calendar.SECOND),
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                val analogFace = analog && !timer.running
+                ClockFaceRow(
+                    analog = analogFace,
+                    time = time,
+                    hour = cal.get(Calendar.HOUR),
+                    minute = cal.get(Calendar.MINUTE),
+                    second = cal.get(Calendar.SECOND),
+                    todosToday = todosToday,
+                    productiveShare = productiveShare,
+                    onOpenClock = onOpenClock,
+                    onOpenTodos = onOpenTodos,
+                    onOpenUsage = onOpenUsage,
+                )
+                Column(
+                    Modifier.clickable { onOpenClock() },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (analogFace) {
+                        Spacer(Modifier.height(16.dp))
+                        Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
+                    }
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 }
             }
