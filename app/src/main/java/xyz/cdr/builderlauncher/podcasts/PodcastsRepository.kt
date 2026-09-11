@@ -2,12 +2,16 @@ package xyz.cdr.builderlauncher.podcasts
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -53,8 +57,9 @@ class PodcastsRepository(
     val progress: StateFlow<Map<String, EpisodeProgress>> = _progress.asStateFlow()
     private val _downloads = MutableStateFlow<Map<String, PodcastDownload>>(emptyMap())
     val downloads: StateFlow<Map<String, PodcastDownload>> = _downloads.asStateFlow()
-    private val _downloadProgress = MutableStateFlow(DownloadProgress())
-    val downloadProgress: StateFlow<DownloadProgress> = _downloadProgress.asStateFlow()
+    private val _downloadProgress = MutableStateFlow<Map<String, DownloadProgress>>(emptyMap())
+    val downloadProgress: StateFlow<Map<String, DownloadProgress>> = _downloadProgress.asStateFlow()
+    private val downloadMutex = Mutex()
     private val _cacheBytes = MutableStateFlow(Podcasts.DEFAULT_CACHE_BYTES)
     val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
     private val _playbackSpeed = MutableStateFlow(Podcasts.DEFAULT_SPEED)
@@ -283,7 +288,26 @@ class PodcastsRepository(
         persist()
     }
 
-    suspend fun download(episode: PodcastEpisode): File? = withContext(Dispatchers.IO) {
+    fun markDownloadQueued(episodeId: String) {
+        if (episodeId.isBlank()) return
+        _downloadProgress.update { current ->
+            if (current.containsKey(episodeId)) current
+            else current + (episodeId to DownloadProgress(episodeId, 0L, 0L))
+        }
+    }
+
+    suspend fun download(episode: PodcastEpisode): File? {
+        markDownloadQueued(episode.id)
+        return try {
+            withContext(NonCancellable) {
+                downloadMutex.withLock { downloadOne(episode) }
+            }
+        } finally {
+            _downloadProgress.update { it - episode.id }
+        }
+    }
+
+    private suspend fun downloadOne(episode: PodcastEpisode): File? = withContext(Dispatchers.IO) {
         val url = episode.enclosureUrl
         if (url.isBlank()) return@withContext null
         cacheDir.mkdirs()
@@ -293,7 +317,7 @@ class PodcastsRepository(
             return@withContext dest
         }
         val tmp = File(cacheDir, dest.name + ".part")
-        _downloadProgress.value = DownloadProgress(episode.id, 0L, 0L)
+        setTransfer(episode.id, 0L, 0L)
         val ok = runCatching {
             http.newCall(request(url)).execute().use { resp ->
                 if (!resp.isSuccessful) return@use false
@@ -308,7 +332,7 @@ class PodcastsRepository(
                             if (n < 0) break
                             out.write(buf, 0, n)
                             received += n
-                            _downloadProgress.value = DownloadProgress(episode.id, received, total)
+                            setTransfer(episode.id, received, total)
                         }
                     }
                 }
@@ -317,7 +341,6 @@ class PodcastsRepository(
         }.getOrDefault(false)
         if (!ok) {
             tmp.delete()
-            _downloadProgress.value = DownloadProgress()
             return@withContext null
         }
         if (dest.exists()) dest.delete()
@@ -326,9 +349,12 @@ class PodcastsRepository(
             tmp.delete()
         }
         touchDownload(episode.id, dest.length())
-        evict(keepIds = setOf(episode.id))
-        _downloadProgress.value = DownloadProgress()
+        evict(keepIds = _downloadProgress.value.keys)
         dest.takeIf { it.exists() }
+    }
+
+    private fun setTransfer(episodeId: String, received: Long, total: Long) {
+        _downloadProgress.update { it + (episodeId to DownloadProgress(episodeId, received, total)) }
     }
 
     fun deleteDownload(episodeId: String) {
@@ -356,8 +382,9 @@ class PodcastsRepository(
         }
         val drop = Podcasts.filesToDelete(files, _cacheBytes.value, keepIds)
         drop.forEach { deleteDownload(it) }
+        val activeParts = _downloadProgress.value.keys.map { Podcasts.cacheFileName(it) + ".part" }.toSet()
         cacheDir.listFiles()?.forEach { f ->
-            if (f.name.endsWith(".part")) f.delete()
+            if (f.name.endsWith(".part") && f.name !in activeParts) f.delete()
         }
     }
 
