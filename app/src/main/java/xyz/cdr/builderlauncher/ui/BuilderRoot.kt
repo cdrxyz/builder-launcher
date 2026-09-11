@@ -189,7 +189,6 @@ import xyz.cdr.builderlauncher.stocks.WatchItem
 import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.EpisodeOrder
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
-import xyz.cdr.builderlauncher.podcasts.DownloadProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastArtwork
 import xyz.cdr.builderlauncher.podcasts.PodcastHit
 import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
@@ -298,7 +297,6 @@ fun BuilderRoot(
     var podcastBusy by remember { mutableStateOf(false) }
     var podcastShowUrl by remember { mutableStateOf<String?>(null) }
     var podcastEpisodeId by remember { mutableStateOf<String?>(null) }
-    var podcastDownloadBusy by remember { mutableStateOf(false) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
@@ -615,13 +613,16 @@ fun BuilderRoot(
     }
 
     fun queueDownload(episode: PodcastEpisode) {
-        if (podcastDownloads.containsKey(episode.id)) return
-        if (podcastDownloadBusy || podcastTransfer.episodeId == episode.id) return
-        if (episode.enclosureUrl.isBlank()) return
+        if (!Podcasts.canQueueDownload(
+                episode.id,
+                episode.enclosureUrl,
+                downloaded = podcasts.downloads.value.keys,
+                queued = podcasts.downloadProgress.value.keys,
+            )
+        ) return
+        podcasts.markDownloadQueued(episode.id)
         scope.launch {
-            podcastDownloadBusy = true
             val file = podcasts.download(episode)
-            podcastDownloadBusy = false
             Toast.makeText(
                 ctx,
                 if (file != null) "Downloaded" else "Download failed",
@@ -2922,13 +2923,11 @@ fun BuilderRoot(
                             .padding(vertical = 6.dp),
                     )
                     if (ep != null) {
-                        val downloading = podcastDownloadBusy || podcastTransfer.episodeId == ep.id
-                        val downloadKnown = podcastTransfer.episodeId == ep.id && podcastTransfer.totalBytes > 0L
-                        val downloadPct = Podcasts.downloadPercent(podcastTransfer.receivedBytes, podcastTransfer.totalBytes)
+                        val percent = Podcasts.downloadProgressLabel(ep.id, podcastTransfer)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (downloading) {
+                            if (percent.isNotBlank()) {
                                 Text(
-                                    if (downloadKnown) "$downloadPct%" else "…",
+                                    percent,
                                     color = Dim,
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.padding(end = 8.dp),

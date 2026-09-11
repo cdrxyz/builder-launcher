@@ -319,6 +319,26 @@ class PodcastsTest {
     }
 
     @Test
+    fun queuesMultipleDownloadsAndShowsZeroUntilActive() {
+        var queued = emptyList<String>()
+        queued = Podcasts.enqueueDownload(queued, "a", "https://a.mp3", downloaded = emptySet())
+        queued = Podcasts.enqueueDownload(queued, "b", "https://b.mp3", downloaded = emptySet())
+        queued = Podcasts.enqueueDownload(queued, "a", "https://a.mp3", downloaded = emptySet())
+        queued = Podcasts.enqueueDownload(queued, "c", "", downloaded = emptySet())
+        queued = Podcasts.enqueueDownload(queued, "d", "https://d.mp3", downloaded = setOf("d"))
+        assertEquals(listOf("a", "b"), queued)
+        assertTrue(Podcasts.canQueueDownload("e", "https://e.mp3", downloaded = emptySet(), queued = queued.toSet()))
+        assertFalse(Podcasts.canQueueDownload("a", "https://a.mp3", downloaded = emptySet(), queued = queued.toSet()))
+        val transfers = mapOf(
+            "a" to DownloadProgress("a", 37, 100),
+            "b" to DownloadProgress("b", 0, 0),
+        )
+        assertEquals("37%", Podcasts.downloadProgressLabel("a", transfers))
+        assertEquals("0%", Podcasts.downloadProgressLabel("b", transfers))
+        assertEquals("", Podcasts.downloadProgressLabel("c", transfers))
+    }
+
+    @Test
     fun deletesPlayedDownloadsAndKeepsUnfinished() {
         val progress = mapOf(
             "done" to EpisodeProgress("done", 3_600_000, 3_600_000, finished = true),

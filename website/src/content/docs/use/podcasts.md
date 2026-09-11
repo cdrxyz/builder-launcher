@@ -17,7 +17,7 @@ Order:
 
 1. **now playing** bar under gear/`>` when an episode is loaded and not finished. Tap the title for the episode screen. Play/pause icons on the right. The bar stays up while you search.
 2. **recent** — up to 3 unfinished plays, most recently listened, excluding the current episode. Tap to play without leaving the list. Download sits beside ×. × dismisses it (skipped, reversible).
-3. **next 5 episodes** — newest episodes that are not finished or skipped. Titles wrap to 3 lines. Show names stay on one line. Tap to play. Download sits beside ×. × skips.
+3. **next 5 episodes** — newest episodes that are not finished or skipped. Titles wrap to 3 lines. Show names stay on one line. Tap to play. Download sits beside ×. Tap several downloads to queue them; each shows 0% until that file starts, then percent while it fetches. One file downloads at a time. × skips.
 4. **podcasts** — every subscription, A–Z. An × on the right unsubscribes, same as notes and todos.
 
 Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
@@ -32,7 +32,7 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
 ## Show
 
-Open a subscription. Episode titles are shown in full. Length (or resume position) sits under the title on the left; the publish date sits on the right. Skipped and played episodes are grey. Tap a skipped title to restore it. Tap a played title to open it again. The download icon sits beside × — outline if not downloaded, filled if it is. Percent shows while a file is fetching. × skips or restores. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show and also sets which episode plays next when the current one finishes. Unsubscribe from the podcasts list.
+Open a subscription. Episode titles are shown in full. Length (or resume position) sits under the title on the left; the publish date sits on the right. Skipped and played episodes are grey. Tap a skipped title to restore it. Tap a played title to open it again. The download icon sits beside × — outline if not downloaded, filled if it is. Tap several episodes to queue downloads. Each shows 0% until that file starts, then percent while it fetches. One file downloads at a time. × skips or restores. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show and also sets which episode plays next when the current one finishes. Unsubscribe from the podcasts list.
 
 ![Oldest first on a show](../../../assets/screenshots/podcast-show.png)
 
@@ -41,7 +41,7 @@ Open a subscription. Episode titles are shown in full. Length (or resume positio
 ![Play, position, and download](../../../assets/screenshots/podcast-episode.png)
 
 - Play/pause icons stream the enclosure, or the downloaded file when it exists.
-- A download icon sits at the top right. Outline if not downloaded, filled if it is. Percent shows to the left of the icon while a file is fetching. Finished episodes delete their download.
+- A download icon sits at the top right. Outline if not downloaded, filled if it is. Percent shows 0% as soon as the episode is queued, then the fetch percent. Queued files wait until the active download finishes. Finished episodes delete their download.
 - Drag the progress bar. It sits inset from the screen edges so a side back gesture is not triggered. **−15** / **+15** skip 15 seconds.
 - Speed sits to the right of `12:00 of 1:02:03`. Tap it for 0.8×, 1×, 1.1×, 1.2×, 1.4×, 1.6×, 1.8×, 2×, 2.5×, 3×. That choice is the default for every show.
 - Position is saved every 30 seconds while playing, and again on pause, seek, or stop. Play again resumes where you left off after a crash or update. Near the end counts as finished and hides the now playing bar. The next episode in that show then starts, following **newest first** or **oldest first**. Finished and skipped episodes are left out. If nothing is left, playback stops.
