@@ -31,6 +31,21 @@ class HomeTodosTest {
     }
 
     @Test
+    fun previewHonorsLimitAndClamps() {
+        val todos = HomeTodos.of(
+            listOf(todo("one"), todo("two"), todo("three"), todo("four"), todo("five"), todo("six")),
+        )
+        assertEquals(emptyList<String>(), HomeTodos.preview(todos, 0).map { it.text })
+        assertEquals(listOf("one"), HomeTodos.preview(todos, 1).map { it.text })
+        assertEquals(listOf("one", "two", "three", "four", "five"), HomeTodos.preview(todos, 5).map { it.text })
+        assertEquals(listOf("one", "two", "three", "four", "five"), HomeTodos.preview(todos, 99).map { it.text })
+        assertEquals(0, HomeTodos.clampPreview(-4))
+        assertEquals(5, HomeTodos.clampPreview(9))
+        assertEquals(3, HomeTodos.clampPreview(3))
+        assertEquals(0..5, HomeTodos.previewChoices())
+    }
+
+    @Test
     fun previewStaysEmptyWhenOnlyCompletedExist() {
         val todos = HomeTodos.of(listOf(todo("done", completedAt = 9)))
         assertEquals(emptyList<LocalItem>(), HomeTodos.preview(todos))

@@ -1248,7 +1248,7 @@ fun BuilderRoot(
                 Column(Modifier.fillMaxSize().clipToBounds().background(Ink)) {
                     when (HomeStrip.pageAt(index)) {
                         Page.Home -> {
-                val previewTodos = HomeTodos.preview(HomeTodos.of(local))
+                val previewTodos = HomeTodos.preview(HomeTodos.of(local), settings.homeTodoCount)
                 val ticker = HomeTicker.line(watch, quotes, tickerIndex)
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
