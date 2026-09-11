@@ -231,6 +231,8 @@ internal fun ClockHeader(
     event: UpcomingEvent?,
     timer: TimerState,
     analog: Boolean,
+    todosDoneToday: Int = 0,
+    productiveShare: Int? = null,
     onOpenClock: () -> Unit,
     onOpenWeather: () -> Unit,
     onOpenHub: () -> Unit,
@@ -345,12 +347,41 @@ internal fun ClockHeader(
                     Text(time, style = MaterialTheme.typography.headlineLarge)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 } else {
-                    AnalogClock(
-                        hour = cal.get(Calendar.HOUR),
-                        minute = cal.get(Calendar.MINUTE),
-                        second = cal.get(Calendar.SECOND),
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .semantics { contentDescription = "$todosDoneToday tasks done today" },
+                            ) {
+                                Text("$todosDoneToday", color = Paper, style = MaterialTheme.typography.bodyMedium)
+                                Text("done", color = Dim, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        AnalogClock(
+                            hour = cal.get(Calendar.HOUR),
+                            minute = cal.get(Calendar.MINUTE),
+                            second = cal.get(Calendar.SECOND),
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                            if (productiveShare != null) {
+                                Column(
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .semantics { contentDescription = "$productiveShare% productive time" },
+                                ) {
+                                    Text("$productiveShare%", color = Paper, style = MaterialTheme.typography.bodyMedium)
+                                    Text("productive", color = Dim, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                     Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
