@@ -19,6 +19,36 @@ object HomeTodos {
     fun preview(todos: List<LocalItem>): List<LocalItem> =
         open(todos).take(PREVIEW)
 
+    fun completedToday(
+        todos: List<LocalItem>,
+        nowMs: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Int = completedByDay(todos, days = 1, nowMs = nowMs, zone = zone).firstOrNull()?.count ?: 0
+
+    fun completedOn(todos: List<LocalItem>, dayStartMs: Long, dayEndMs: Long): List<LocalItem> =
+        todos.filter { it.done && it.completedAt != null && it.completedAt >= dayStartMs && it.completedAt < dayEndMs }
+            .sortedByDescending { it.completedAt ?: 0L }
+
+    fun completedByDay(
+        todos: List<LocalItem>,
+        days: Int = 7,
+        nowMs: Long = System.currentTimeMillis(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): List<DayDone> {
+        val today = java.time.LocalDate.ofInstant(java.time.Instant.ofEpochMilli(nowMs), zone)
+        val pattern = if (days > 7) "d MMM" else "EEE"
+        val fmt = java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.US)
+        return (0 until days).map { offset ->
+            val date = today.minusDays(offset.toLong())
+            val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+            val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            DayDone(
+                label = if (offset == 0) "today" else date.format(fmt),
+                count = completedOn(todos, start, end).size,
+            )
+        }
+    }
+
     fun moveOpen(items: List<LocalItem>, from: Int, to: Int): List<LocalItem> {
         val current = open(of(items))
         val moved = ListReorder.move(current, from, to)
@@ -52,3 +82,5 @@ object HomeTodos {
         return lines.joinToString("\n")
     }
 }
+
+data class DayDone(val label: String, val count: Int)

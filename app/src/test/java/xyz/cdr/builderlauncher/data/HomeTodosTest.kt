@@ -108,4 +108,36 @@ class HomeTodosTest {
             HomeTodos.shareDate(1_788_739_200_000L, java.util.TimeZone.getTimeZone("UTC")),
         )
     }
+
+    @Test
+    fun completedTodayCountsOnlyThisLocalDay() {
+        val zone = java.time.ZoneId.of("UTC")
+        val today = java.time.LocalDate.of(2026, 9, 7)
+        val start = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val now = today.atTime(15, 0).atZone(zone).toInstant().toEpochMilli()
+        val items = listOf(
+            todo("today", id = "a", completedAt = start + 1),
+            todo("yesterday", id = "b", completedAt = start - 1),
+            todo("open"),
+            LocalItem("n", "note", "note", 0, completedAt = start + 2),
+        )
+        assertEquals(1, HomeTodos.completedToday(HomeTodos.of(items), nowMs = now, zone = zone))
+    }
+
+    @Test
+    fun completedByDayIsNewestFirst() {
+        val zone = java.time.ZoneId.of("UTC")
+        val today = java.time.LocalDate.of(2026, 9, 7)
+        val now = today.atTime(15, 0).atZone(zone).toInstant().toEpochMilli()
+        val t0 = today.atStartOfDay(zone).toInstant().toEpochMilli() + 1
+        val t1 = today.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() + 1
+        val todos = listOf(
+            todo("a", id = "a", completedAt = t0),
+            todo("b", id = "b", completedAt = t1),
+            todo("c", id = "c", completedAt = t1 + 2),
+        )
+        val days = HomeTodos.completedByDay(todos, days = 3, nowMs = now, zone = zone)
+        assertEquals(listOf("today", "Sun", "Sat"), days.map { it.label })
+        assertEquals(listOf(1, 2, 0), days.map { it.count })
+    }
 }

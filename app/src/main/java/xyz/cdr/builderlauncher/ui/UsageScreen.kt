@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.data.DayDone
 import xyz.cdr.builderlauncher.ui.theme.LocalTokens
 import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Paper
@@ -55,6 +56,7 @@ fun UsageScreen(
     onPeriod: (UsagePeriod) -> Unit,
     onGrant: () -> Unit,
     onCycleApp: (String) -> Unit,
+    doneByDay: List<DayDone> = emptyList(),
 ) {
     Column(modifier.fillMaxWidth()) {
         ScreenHeader(
@@ -81,6 +83,7 @@ fun UsageScreen(
                 snapshot = snapshot,
                 onPeriod = onPeriod,
                 onCycleApp = onCycleApp,
+                doneByDay = doneByDay,
                 modifier = Modifier
                     .weight(1f, fill = true)
                     .verticalScroll(rememberScrollState()),
@@ -96,6 +99,7 @@ fun UsageBody(
     onPeriod: (UsagePeriod) -> Unit = {},
     onCycleApp: (String) -> Unit = {},
     selectedIndex: Int? = null,
+    doneByDay: List<DayDone> = emptyList(),
 ) {
     var scrub by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(snapshot.period) { scrub = null }
@@ -156,6 +160,19 @@ fun UsageBody(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        if (doneByDay.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Text("tasks done", color = Dim, style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(6.dp))
+            ThemedList {
+                doneByDay.forEachIndexed { index, day ->
+                    ThemedRow(last = index == doneByDay.lastIndex) {
+                        Text(day.label, color = Paper, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Text("${day.count}", color = Paper, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
     }
 }
 

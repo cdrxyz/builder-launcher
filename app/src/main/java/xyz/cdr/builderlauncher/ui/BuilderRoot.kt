@@ -341,7 +341,7 @@ fun BuilderRoot(
         }
     }
     LaunchedEffect(page, appsEpoch, settings.pinUsage) {
-        if (page == Page.Home && settings.pinUsage) {
+        if (page == Page.Home) {
             usageToday = usageReader.loadToday(usageStore)
         }
     }
@@ -1260,6 +1260,8 @@ fun BuilderRoot(
                     analog = settings.clockFace == ClockFace.ANALOG &&
                         index == pagerState.currentPage &&
                         !HomeStrip.coversPager(page),
+                    todosDoneToday = HomeTodos.completedToday(HomeTodos.of(local)),
+                    productiveShare = if (usageToday.granted) usageToday.productiveShare else null,
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
@@ -2397,6 +2399,10 @@ fun BuilderRoot(
                         usageStore.cycle(pkg)
                         usageSnapshot = usageReader.load(usageStore, usagePeriod)
                     },
+                    doneByDay = HomeTodos.completedByDay(
+                        HomeTodos.of(local),
+                        days = if (usagePeriod == UsagePeriod.W1) Usage.DAYS else Usage.MONTH_DAYS,
+                    ),
                 )
                 Spacer(Modifier.height(8.dp))
                 CommandBar(

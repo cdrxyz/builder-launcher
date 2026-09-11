@@ -20,6 +20,7 @@ Android keeps the totals. Builder Launcher does not upload them. Grant **Usage a
 | Chart | Stacked bars: productive (accent), distracting (red), other (dim). Press or drag a bar to read that day. |
 | Breakdown | Share of productive / distracting / other for the range, or for the pressed bar. |
 | Most used | Top apps in the range, or in the pressed day. Tap a row to cycle **other → productive → distracting**. Your choice sticks on the device. |
+| Tasks done | Completed todos per day for the selected range (**1W** seven days, **1M** thirty), newest first. Counts come from tasks saved on this phone, not Android usage stats. |
 
 YouTube, Instagram, and similar apps start as distracting. Termux, Slack, Gmail, calendars, and maps start as productive. Everything else starts as other, including this launcher and browsers.
 

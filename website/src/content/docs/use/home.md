@@ -15,7 +15,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 | --- | --- |
 | Podcasts | Headphones mark, top left. Tap it for [podcasts](podcasts/). While audio is playing it is pause (tap to pause); after pause it is play for 8 seconds, then headphones again. Swipe from the left of home, or D-pad left, also opens the list. The whole home screen slides with your finger. |
 | Weather | Condition icon over the temperature, on the left of the clock. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
-| Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). Fired timers and alarms cover home full screen; over the lock when the phone is locked. |
+| Clock | Centered. Analog face by default, with digital time and weekday/date below. The analog face also shows today's completed-task count on the left and, after you grant [usage](usage/) access, percent productive time on the right. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). Fired timers and alarms cover home full screen; over the lock when the phone is locked. |
 | Next event | Under the date. Title and time from the device calendar (`dentist · 09:00`, or `dentist · Tue 09:00` if it is not today). All-day events say `today` or the weekday. Hidden until you grant calendar access, and while nothing is upcoming. Tap it to open that event. Pick calendars in [settings](../configure/calendar/). See [Calendar](calendar/). |
 | Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for the watchlist. |
 | Hub | Messages icon, top right. Tap, swipe from the right of home, or D-pad right opens the [hub](hub/). |
@@ -24,7 +24,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 | Pinned apps | Names by default. Tap to launch. Hold and drag to reorder. [Settings](../configure/settings/) can switch to a centered icon row. Hidden while the prefix menu or slash list is open. See [apps](apps/). |
 | Command bar | Bottom of the screen. Type, then Enter. |
 
-Finished todos do **not** sit on home. They live on the tasks list under open items, newest completed first.
+Finished todos do **not** sit as a list on home. They live on the tasks list under open items, newest completed first. Today's completed count sits left of the analog clock.
 
 Swipe up to Home (or the Home button) while already in Builder Launcher returns to this home screen — tasks, hub, notes, settings, and the rest. Home from another app restores the last launcher page instead: leave from tasks, come back on tasks.
 

@@ -34,4 +34,4 @@ On the tasks page:
   - [ ] buy milk
   ```
 
-Completed items sort newest-finished first and stay off home.
+Completed items sort newest-finished first and stay off the home list. Today's completed count sits left of the analog clock. `/usage` also lists completed tasks per day at the bottom.

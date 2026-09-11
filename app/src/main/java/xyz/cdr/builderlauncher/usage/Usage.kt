@@ -90,6 +90,14 @@ data class UsageToday(
     val millisByPackage: Map<String, Long> = emptyMap(),
     val overrides: Map<String, UsageKind> = emptyMap(),
 ) {
+    val productiveMs: Long
+        get() = millisByPackage
+            .filterKeys { Usage.kindOf(it, overrides) == UsageKind.PRODUCTIVE }
+            .values
+            .sum()
+
+    val productiveShare: Int get() = Usage.percent(productiveMs, totalMs)
+
     fun mark(packageName: String): PinUsageMark? {
         if (!granted) return null
         val ms = millisByPackage[packageName] ?: 0L
