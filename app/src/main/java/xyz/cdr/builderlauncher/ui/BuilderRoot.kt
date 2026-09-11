@@ -1260,10 +1260,17 @@ fun BuilderRoot(
                     analog = settings.clockFace == ClockFace.ANALOG &&
                         index == pagerState.currentPage &&
                         !HomeStrip.coversPager(page),
+                    todosToday = HomeTodos.completedToday(HomeTodos.of(local)),
+                    productiveShare = if (usageToday.granted) usageToday.productiveShare else null,
                     onOpenClock = { openClock() },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
                     onOpenTicker = { openStocksList() },
+                    onOpenTodos = {
+                        taskMode()
+                        page = Page.Todos
+                    },
+                    onOpenUsage = { openUsage() },
                     playing = playback.playing,
                     episodeLoaded = Podcasts.nowPlayingBarVisible(
                         playback.episodeId,
@@ -2387,6 +2394,7 @@ fun BuilderRoot(
             Page.Usage -> {
                 UsageScreen(
                     snapshot = usageSnapshot,
+                    todos = HomeTodos.of(local),
                     modifier = Modifier.weight(1f),
                     onBack = { page = Page.Home },
                     onPeriod = { next -> usagePeriod = next },

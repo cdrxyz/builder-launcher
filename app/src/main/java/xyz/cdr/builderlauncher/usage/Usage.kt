@@ -87,9 +87,12 @@ data class PinUsageMark(
 data class UsageToday(
     val granted: Boolean,
     val totalMs: Long = 0L,
+    val productiveMs: Long = 0L,
     val millisByPackage: Map<String, Long> = emptyMap(),
     val overrides: Map<String, UsageKind> = emptyMap(),
 ) {
+    val productiveShare: Int get() = Usage.percent(productiveMs, totalMs)
+
     fun mark(packageName: String): PinUsageMark? {
         if (!granted) return null
         val ms = millisByPackage[packageName] ?: 0L
@@ -146,14 +149,17 @@ object Usage {
         if (!granted) return UsageToday(granted = false)
         val millis = linkedMapOf<String, Long>()
         var total = 0L
+        var productive = 0L
         raw.apps.forEach { app ->
             if (app.millis < MIN_MS || isNoise(app.packageName)) return@forEach
             millis[app.packageName] = (millis[app.packageName] ?: 0L) + app.millis
             total += app.millis
+            if (kindOf(app.packageName, overrides) == UsageKind.PRODUCTIVE) productive += app.millis
         }
         return UsageToday(
             granted = true,
             totalMs = total,
+            productiveMs = productive,
             millisByPackage = millis,
             overrides = overrides,
         )
