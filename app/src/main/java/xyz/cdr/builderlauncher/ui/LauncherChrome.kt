@@ -69,6 +69,7 @@ import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.commands.PrefixCommands
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.AccentColor
+import xyz.cdr.builderlauncher.data.DayDone
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
@@ -218,6 +219,8 @@ fun HomeChrome(
     analog: Boolean = true,
     event: String = "",
     podcastMark: HomePodcastMark = HomePodcastMark.HEADPHONES,
+    todosDoneToday: Int = 3,
+    productiveShare: Int? = 62,
 ) {
     val (hour, minute) = parseHomeClock(time)
     Column(
@@ -244,11 +247,38 @@ fun HomeChrome(
                 }
             }
             Column(
-                Modifier.align(Alignment.TopCenter),
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 56.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (analog) {
-                    AnalogClock(hour = hour, minute = minute, modifier = Modifier.padding(top = 8.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                modifier = Modifier.padding(end = 8.dp),
+                            ) {
+                                Text("$todosDoneToday", color = Paper, style = MaterialTheme.typography.bodyMedium)
+                                Text("done", color = Dim, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        AnalogClock(hour = hour, minute = minute, modifier = Modifier.padding(top = 8.dp))
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                            if (productiveShare != null) {
+                                Column(
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                ) {
+                                    Text("$productiveShare%", color = Paper, style = MaterialTheme.typography.bodyMedium)
+                                    Text("productive", color = Dim, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                     Text(time, color = Paper, style = MaterialTheme.typography.bodyMedium)
                     Text(date, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -2043,7 +2073,19 @@ fun WeatherChrome(
 }
 
 @Composable
-fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = null) {
+fun UsageChrome(
+    snapshot: UsageSnapshot = Usage.sample(),
+    selectedIndex: Int? = null,
+    doneByDay: List<DayDone> = listOf(
+        DayDone("today", 3),
+        DayDone("Sun", 1),
+        DayDone("Sat", 4),
+        DayDone("Fri", 0),
+        DayDone("Thu", 2),
+        DayDone("Wed", 0),
+        DayDone("Tue", 1),
+    ),
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2055,8 +2097,8 @@ fun UsageChrome(snapshot: UsageSnapshot = Usage.sample(), selectedIndex: Int? = 
             leading = { ScreenBack(Usage.BACK) },
         )
         Spacer(Modifier.height(12.dp))
-        Column(Modifier.weight(1f)) {
-            UsageBody(snapshot = snapshot, selectedIndex = selectedIndex)
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            UsageBody(snapshot = snapshot, selectedIndex = selectedIndex, doneByDay = doneByDay)
         }
         Spacer(Modifier.height(8.dp))
         CommandRow("")
