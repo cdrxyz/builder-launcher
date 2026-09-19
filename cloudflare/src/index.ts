@@ -2,6 +2,7 @@ import { objectUrl, regionFor, sign } from '../../website/public/web/s3.js';
 import { handleAuth } from './auth';
 import {
 	isItunesHost,
+	isFyydHost,
 	isSafeHttpsUrl,
 	isYahooHost,
 	jsonError,
@@ -11,6 +12,7 @@ import {
 	textError,
 	USER_AGENT,
 } from './safe';
+import { fyydToItunes } from './podcasts';
 import { handleVault } from './vault';
 
 export interface Env {
@@ -175,8 +177,19 @@ async function yahooChart(symbol: string): Promise<Response> {
 async function itunesSearch(q: string): Promise<Response> {
 	const query = q.trim().slice(0, 80);
 	if (!query) return jsonError('q is required');
-	const target = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=podcast&entity=podcast&limit=8`;
-	return proxyJson(target, 'itunes.apple.com');
+	// Cloudflare rate-limits Worker subrequests to itunes.apple.com (429
+	// "itunes-apple-com|general|<cf-ip>"). The PWA hits Apple from the
+	// browser (CORS *). This endpoint uses fyyd so search still works
+	// when Apple is blocked or the client cannot call itunes directly.
+	const target = `https://api.fyyd.de/0.2/search/podcast?term=${encodeURIComponent(query)}&count=8`;
+	const url = isSafeHttpsUrl(target);
+	if (!url || !isFyydHost(url.hostname)) return jsonError('Host not allowed');
+	const res = await fetch(url.toString(), { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+	const text = await res.text();
+	if (!res.ok) return jsonError('Podcast search failed', 502);
+	return new Response(fyydToItunes(text), {
+		headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+	});
 }
 
 async function proxyJson(target: string, expectedHost: string): Promise<Response> {

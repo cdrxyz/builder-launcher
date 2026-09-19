@@ -2,7 +2,7 @@ const PRIVATE_HOST =
 	/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|169\.254\.\d+\.\d+|.*\.local|metadata\.google\.internal)$/i;
 
 export const MAX_S3_BYTES = 4_000_000;
-export const MAX_FEED_BYTES = 2_000_000;
+export const MAX_FEED_BYTES = 24_000_000;
 export const USER_AGENT = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 BuilderLauncher';
 
 export function isSafeHttpsUrl(raw: string): URL | null {
@@ -26,6 +26,10 @@ export function isYahooHost(host: string): boolean {
 
 export function isItunesHost(host: string): boolean {
 	return host === 'itunes.apple.com';
+}
+
+export function isFyydHost(host: string): boolean {
+	return host === 'api.fyyd.de';
 }
 
 export function s3EndpointOk(endpoint: string): boolean {

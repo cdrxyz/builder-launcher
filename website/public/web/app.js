@@ -1304,10 +1304,7 @@ async function searchOrSubscribe(query) {
 		return;
 	}
 	try {
-		const url = state.api
-			? `/api/podcasts/search?q=${encodeURIComponent(q)}`
-			: `${ITUNES}?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=8`;
-		const hits = parseItunes(await fetchText(url));
+		const hits = await searchPodcastCatalog(q);
 		if (!hits.length) {
 			setStatus('No podcast matches.');
 			return;
@@ -1315,8 +1312,20 @@ async function searchOrSubscribe(query) {
 		state.hits = hits;
 		render();
 	} catch {
-		setStatus('Podcast search blocked in this browser. Paste an RSS URL instead.');
+		setStatus('Podcast search failed. Paste an RSS URL instead.');
 	}
+}
+
+async function searchPodcastCatalog(q) {
+	const itunes = `${ITUNES}?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=8`;
+	try {
+		const hits = parseItunes(await fetchText(itunes));
+		if (hits.length) return hits;
+	} catch {
+		/* Cloudflare cannot fetch itunes.apple.com; browsers can (CORS *). */
+	}
+	if (!state.api) return [];
+	return parseItunes(await fetchText(`/api/podcasts/search?q=${encodeURIComponent(q)}`));
 }
 
 async function subscribeHit(hit, rerender = true) {
