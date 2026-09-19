@@ -23,7 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: android-actions/setup-android@v3
+      # Google stopped serving the SDK `tools` package (~2026-09-15).
+      # setup-android@v3 still tries `sdkmanager tools` by default, so every
+      # CI run dies before Gradle and no APK / GitHub Release is published.
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - uses: cashapp/activate-hermit@v1
         with:
