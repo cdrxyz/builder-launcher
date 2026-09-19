@@ -1,4 +1,5 @@
 import { objectUrl, regionFor, sign } from '../../website/public/web/s3.js';
+import { handleAuth } from './auth';
 import {
 	isItunesHost,
 	isSafeHttpsUrl,
@@ -10,9 +11,11 @@ import {
 	textError,
 	USER_AGENT,
 } from './safe';
+import { handleVault } from './vault';
 
 export interface Env {
 	ASSETS: { fetch: (request: Request) => Promise<Response> };
+	DB?: D1Database;
 }
 
 const STATIC = /\.(css|js|mjs|map|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|webmanifest)$/i;
@@ -24,8 +27,8 @@ export default {
 			return Response.json({ ok: true, service: 'builder-launcher' });
 		}
 		if (url.pathname.startsWith('/api/')) {
-			if (!sameOrigin(request)) return jsonError('Origin not allowed', 403);
-			return handleApi(request, url);
+			if (!apiAllowed(request)) return jsonError('Origin not allowed', 403);
+			return handleApi(request, url, env);
 		}
 		if (STATIC.test(url.pathname) || url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest') {
 			const asset = await env.ASSETS.fetch(request);
@@ -42,8 +45,15 @@ export default {
 	},
 };
 
-async function handleApi(request: Request, url: URL): Promise<Response> {
+async function handleApi(request: Request, url: URL, env: Env): Promise<Response> {
 	try {
+		if (url.pathname.startsWith('/api/auth/') || url.pathname === '/api/vault') {
+			if (!env.DB) return jsonError('Account sync is not configured on this Worker', 503);
+			const auth = await handleAuth(request, url, { DB: env.DB });
+			if (auth) return auth;
+			const vault = await handleVault(request, url, { DB: env.DB });
+			if (vault) return vault;
+		}
 		if (url.pathname === '/api/s3/get' && request.method === 'POST') return s3Get(request);
 		if (url.pathname === '/api/s3/put' && request.method === 'POST') return s3Put(request);
 		if (url.pathname === '/api/yahoo/search' && request.method === 'GET') {
@@ -194,9 +204,9 @@ async function fetchFeed(raw: string): Promise<Response> {
 	});
 }
 
-function sameOrigin(request: Request): boolean {
+function apiAllowed(request: Request): boolean {
 	const origin = request.headers.get('Origin');
-	if (!origin) return request.method === 'GET';
+	if (!origin) return true;
 	try {
 		return new URL(origin).origin === new URL(request.url).origin;
 	} catch {

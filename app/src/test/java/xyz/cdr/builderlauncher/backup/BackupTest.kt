@@ -273,3 +273,26 @@ class S3ClientTest {
         assertEquals("S3 access good — backup present. Set encryption key to verify.", result.line)
     }
 }
+
+class BackupMergeTest {
+    @Test
+    fun unionsItemsAndDropsDeleted() {
+        val a = BackupDocument(
+            exportedAt = 2,
+            items = listOf(LocalItem("1", "todo", "new", updatedAt = 5)),
+            deletedIds = listOf("9"),
+        )
+        val b = BackupDocument(
+            exportedAt = 1,
+            items = listOf(
+                LocalItem("1", "todo", "old", updatedAt = 1),
+                LocalItem("2", "todo", "keep"),
+                LocalItem("9", "todo", "gone"),
+            ),
+        )
+        val merged = BackupMerge.merge(a, b)
+        assertEquals("new", merged.items.find { it.id == "1" }?.text)
+        assertTrue(merged.items.any { it.id == "2" })
+        assertFalse(merged.items.any { it.id == "9" })
+    }
+}

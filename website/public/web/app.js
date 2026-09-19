@@ -1,5 +1,7 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
+import { apiJson } from './account.js';
+import { emptyDoc, mergeDocs } from './merge.js';
 import {
 	doneTodos,
 	newId,
@@ -46,6 +48,7 @@ import {
 
 const CREDS_KEY = 'builder-launcher-web-creds';
 const SNAP_KEY = 'builder-launcher-web-snapshot';
+const ACCOUNT_KEY = 'builder-launcher-web-account';
 const DOCS = 'https://cdrxyz.github.io/builder-launcher/configure/web/';
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SEARCH = 'https://query1.finance.yahoo.com/v1/finance/search';
@@ -72,6 +75,8 @@ const state = {
 	hits: [],
 	quotes: {},
 	creds: loadCreds(),
+	account: loadAccount(),
+	revision: 0,
 	doc: loadSnapshot(),
 };
 
@@ -93,7 +98,16 @@ boot();
 async function boot() {
 	state.api = await probeApi();
 	globalThis.__BL_PROXY = state.api;
-	if (!readyCreds(state.creds) && !state.doc) {
+	if (state.api) {
+		try {
+			const me = await apiJson('/api/auth/me');
+			state.account = { email: me.email };
+			saveAccount(state.account);
+		} catch {
+			if (state.account?.email && !state.account.token) state.account = { email: '', token: '' };
+		}
+	}
+	if (!hasSync() && !state.doc) {
 		state.tab = 'settings';
 		state.prompt = '/';
 	}
@@ -101,8 +115,12 @@ async function boot() {
 		state.tickerAt += 1;
 		if (state.tab === 'home' && !document.activeElement?.classList?.contains('command-input')) render();
 	}, 5000);
+	setInterval(() => {
+		if (signedIn() && state.dirty) push({ quiet: true }).catch(() => {});
+		else if (signedIn()) pull({ quiet: true }).catch(() => {});
+	}, 30_000);
 	render();
-	if (readyCreds(state.creds) && !state.doc) pull().catch(() => {});
+	if (hasSync() && (!state.doc || signedIn())) pull({ quiet: true }).catch(() => {});
 	else if (state.doc) refreshQuotes();
 }
 
@@ -138,8 +156,28 @@ function loadCreds() {
 	}
 }
 
+function loadAccount() {
+	try {
+		return { email: '', token: '', ...JSON.parse(localStorage.getItem(ACCOUNT_KEY) || '{}') };
+	} catch {
+		return { email: '', token: '' };
+	}
+}
+
+function saveAccount(account) {
+	localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ email: account.email || '', token: account.token || '' }));
+}
+
 function saveCreds(creds) {
 	localStorage.setItem(CREDS_KEY, JSON.stringify(creds));
+}
+
+function signedIn() {
+	return Boolean(state.account?.email);
+}
+
+function hasSync() {
+	return signedIn() || readyCreds(state.creds);
 }
 
 function loadSnapshot() {
@@ -163,7 +201,7 @@ function items() {
 }
 
 function ensureDoc() {
-	if (!state.doc) state.doc = { version: 1, exportedAt: Date.now(), items: [], watchlist: [], podcasts: { shows: [], episodes: [], progress: [] } };
+	if (!state.doc) state.doc = emptyDoc();
 }
 
 function mutate(next) {
@@ -183,13 +221,14 @@ function setStatus(message) {
 	render();
 }
 
-async function pull() {
+async function pull(opts = {}) {
+	if (signedIn()) return pullAccount(opts);
 	if (!readyCreds(state.creds)) {
-		setStatus('Set endpoint, bucket, keys, and encryption key.');
+		if (!opts.quiet) setStatus('Create a builder.cdr.xyz account, or set S3 fields.');
 		return;
 	}
 	state.busy = true;
-	setStatus('Pulling…');
+	if (!opts.quiet) setStatus('Pulling…');
 	try {
 		const blob = await s3Get(state.creds);
 		const plain = await decrypt(blob, state.creds.encryptionKey);
@@ -207,12 +246,39 @@ async function pull() {
 	}
 }
 
-async function push() {
+async function pullAccount(opts = {}) {
+	state.busy = true;
+	if (!opts.quiet) setStatus('Syncing…');
+	try {
+		const remote = await apiJson('/api/vault', { token: state.account.token });
+		state.revision = remote.revision || 0;
+		if (remote.document) {
+			state.doc = mergeDocs(state.doc, remote.document);
+		} else if (!state.doc) {
+			state.doc = emptyDoc();
+		}
+		saveSnapshot(state.doc);
+		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true });
+		state.dirty = false;
+		state.hits = [];
+		state.status = pulledLabel(state.doc);
+		refreshQuotes();
+	} catch (err) {
+		state.status = err.message || String(err);
+	} finally {
+		state.busy = false;
+		render();
+	}
+}
+
+async function push(opts = {}) {
+	if (signedIn()) return pushAccount(opts);
 	if (!readyCreds(state.creds) || !state.doc) {
-		setStatus('Pull a backup before pushing.');
+		if (!opts.quiet) setStatus('Create an account or pull a backup before pushing.');
 		return;
 	}
 	if (
+		!opts.skipConfirm &&
 		!window.confirm(
 			'Upload this snapshot? The last successful upload wins. The phone will see these tasks, notes, stocks, and podcasts on restore.',
 		)
@@ -220,7 +286,7 @@ async function push() {
 		return;
 	}
 	state.busy = true;
-	setStatus('Pushing…');
+	if (!opts.quiet) setStatus('Pushing…');
 	try {
 		const next = { ...state.doc, exportedAt: Date.now() };
 		const blob = await encrypt(encodeUtf8(`${JSON.stringify(next, null, 2)}\n`), state.creds.encryptionKey);
@@ -234,6 +300,30 @@ async function push() {
 	} finally {
 		state.busy = false;
 		render();
+	}
+}
+
+async function pushAccount(opts = {}) {
+	ensureDoc();
+	state.busy = true;
+	if (!opts.quiet) setStatus('Syncing…');
+	try {
+		const next = { ...state.doc, exportedAt: Date.now() };
+		const remote = await apiJson('/api/vault', {
+			method: 'PUT',
+			token: state.account.token,
+			body: { document: next },
+		});
+		state.doc = remote.document || next;
+		state.revision = remote.revision || state.revision;
+		state.dirty = false;
+		saveSnapshot(state.doc);
+		state.status = `Synced ${new Date(state.doc.exportedAt).toLocaleString()}`;
+	} catch (err) {
+		state.status = err.message || String(err);
+	} finally {
+		state.busy = false;
+		if (!opts.quiet) render();
 	}
 }
 
@@ -856,6 +946,60 @@ function episodeScreen() {
 }
 
 function settingsScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'settings';
+	wrap.append(accountCard(), s3Card());
+	const note = document.createElement('p');
+	note.className = 'footer-note';
+	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Email and password. Two-way merge of tasks, notes, stocks, and podcasts across phone, laptop, and this PWA. S3 is optional if you want your own bucket. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
+	wrap.append(note);
+	return wrap;
+}
+
+function accountCard() {
+	const form = document.createElement('form');
+	form.className = 'settings';
+	const heading = document.createElement('p');
+	heading.className = 'hint';
+	heading.textContent = signedIn() ? `Signed in as ${state.account.email}` : 'Builder account (recommended)';
+	form.append(heading);
+	if (!signedIn()) {
+		form.append(
+			field('Email', 'email', state.account.email, 'you@example.com', 'email'),
+			field('Password', 'password', '', '8+ characters', 'password'),
+		);
+	}
+	const actions = document.createElement('div');
+	actions.className = 'actions';
+	if (signedIn()) {
+		actions.append(
+			button('sync now', () => pull(), 'primary'),
+			button('sign out', () => signOut(), 'ghost'),
+		);
+	} else {
+		const create = document.createElement('button');
+		create.className = 'primary';
+		create.type = 'submit';
+		create.textContent = 'create account';
+		form.addEventListener('submit', (event) => {
+			event.preventDefault();
+			submitAccount(form, 'signup');
+		});
+		actions.append(
+			create,
+			button('sign in', () => submitAccount(form, 'login'), 'ghost'),
+		);
+	}
+	form.append(actions);
+	return form;
+}
+
+function s3Card() {
+	const details = document.createElement('details');
+	details.className = 's3-secondary';
+	if (readyCreds(state.creds) && !signedIn()) details.open = true;
+	const summary = document.createElement('summary');
+	summary.textContent = 'S3 backup (optional)';
 	const form = document.createElement('form');
 	form.className = 'settings';
 	form.addEventListener('submit', (event) => {
@@ -871,10 +1015,10 @@ function settingsScreen() {
 		saveCreds(state.creds);
 		setStatus(
 			credentialsReady(state.creds.endpoint, state.creds.bucket, state.creds.accessKey, state.creds.secretKey)
-				? 'Saved on this device. Pull to load the snapshot.'
+				? 'Saved S3 on this device. Pull to load the snapshot.'
 				: 'Need endpoint, bucket, access key, and secret key.',
 		);
-		if (readyCreds(state.creds)) pull();
+		if (readyCreds(state.creds) && !signedIn()) pull();
 	});
 	form.append(
 		field('Endpoint', 'endpoint', state.creds.endpoint, 'https://….r2.cloudflarestorage.com'),
@@ -890,22 +1034,46 @@ function settingsScreen() {
 	save.type = 'submit';
 	save.textContent = 'save & pull';
 	const fileBtn = button('open file', () => fileInput(), 'ghost');
-	const forget = button('forget', () => {
+	const forget = button('forget S3', () => {
 		localStorage.removeItem(CREDS_KEY);
-		localStorage.removeItem(SNAP_KEY);
 		state.creds = loadCreds();
-		state.doc = null;
-		state.dirty = false;
-		state.quotes = {};
-		setStatus('Cleared credentials and cache on this device.');
+		setStatus('Cleared S3 credentials on this device.');
 	}, 'ghost danger');
 	actions.append(save, fileBtn, forget);
 	form.append(actions);
-	const note = document.createElement('p');
-	note.className = 'footer-note';
-	note.innerHTML = `Same fields as Settings → backup on the phone. Object key is always <code>builder-launcher/backup.enc</code>. Snapshot, not two-way sync. Hosted at <a href="https://builder.cdr.xyz">builder.cdr.xyz</a> so the bucket does not need CORS. Tasks, notes, stocks, and podcasts push together. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
-	form.append(note);
-	return form;
+	details.append(summary, form);
+	return details;
+}
+
+async function submitAccount(form, mode) {
+	const data = new FormData(form);
+	const email = String(data.get('email') || '').trim();
+	const password = String(data.get('password') || '');
+	state.busy = true;
+	setStatus(mode === 'signup' ? 'Creating account…' : 'Signing in…');
+	try {
+		const path = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+		const res = await apiJson(path, { method: 'POST', body: { email, password } });
+		state.account = { email: res.email, token: res.token || '' };
+		saveAccount(state.account);
+		state.status = `Signed in as ${res.email}`;
+		await pull();
+	} catch (err) {
+		state.status = err.message || String(err);
+		state.busy = false;
+		render();
+	}
+}
+
+async function signOut() {
+	try {
+		await apiJson('/api/auth/logout', { method: 'POST', token: state.account.token, body: {} });
+	} catch {
+		/* cookie may already be gone */
+	}
+	localStorage.removeItem(ACCOUNT_KEY);
+	state.account = { email: '', token: '' };
+	setStatus('Signed out. Local snapshot stays on this device.');
 }
 
 function showRow(show) {
@@ -980,6 +1148,8 @@ function field(labelText, name, value, placeholder, type = 'text') {
 	input.value = value || '';
 	input.placeholder = placeholder || '';
 	input.autocomplete = 'off';
+	if (type === 'email') input.autocomplete = 'username';
+	if (name === 'password') input.autocomplete = 'current-password';
 	input.autocapitalize = 'off';
 	input.spellcheck = false;
 	label.append(span, input);
@@ -1053,7 +1223,9 @@ function toggleTodo(id) {
 }
 
 function removeItem(id) {
-	setItems(items().filter((item) => item.id !== id));
+	ensureDoc();
+	const deletedIds = [...new Set([...(state.doc.deletedIds || []), id])];
+	mutate({ items: items().filter((item) => item.id !== id), deletedIds });
 }
 
 function addStock(hit) {

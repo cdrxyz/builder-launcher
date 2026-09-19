@@ -344,6 +344,18 @@ form.settings label {
 	color: var(--accent);
 }
 
+details.s3-secondary {
+	margin-top: 1.5rem;
+	border-top: 1px solid var(--line);
+	padding-top: 0.85rem;
+}
+
+details.s3-secondary summary {
+	color: var(--muted);
+	cursor: pointer;
+	padding: 0.35rem 0 0.75rem;
+}
+
 .help pre {
 	white-space: pre-wrap;
 	color: var(--muted);

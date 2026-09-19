@@ -21,7 +21,7 @@ Type `settings` or `/settings`.
 | Weather units | `metric` (Celsius) or `imperial` (Fahrenheit). |
 | Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Tap a name to hear it. Pulse, chime, bell, and hum are Android Open Source Project tones (Apache 2.0). Orthodox is a public-domain Eastern Orthodox chant loop. Alerts play on the alarm stream through silent and vibrate. |
 | Calendar | `… calendar >` opens the dedicated screen. Shows whether calendar access is granted and which calendars feed the next event on home. [Details](calendar/). |
-| Backup | `… backup >` opens the dedicated screen. S3 snapshot, restore, and JSON share. [Details](backup/). Same credentials unlock the [web app](web/) on a laptop or iPhone. |
+| Backup | `… backup >` opens the dedicated screen. **Builder account** (preferred) or optional S3. [Details](backup/). Same account unlocks the [web app](web/) on a laptop or iPhone. |
 | Notification access (hub) | Opens Android's notification listener settings. |
 | Usage access | Opens Android's usage-access settings so [usage](../use/usage/) can read screen time. |
 | Set as default home app | Asks Android again if you declined the first prompt. |

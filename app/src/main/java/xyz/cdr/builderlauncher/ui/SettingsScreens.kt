@@ -727,6 +727,8 @@ internal fun BackupSettingsPage(
     var s3Access by remember { mutableStateOf(settings.s3AccessKey) }
     var s3Secret by remember { mutableStateOf(settings.s3SecretKey) }
     var s3Encryption by remember { mutableStateOf(settings.s3EncryptionKey) }
+    var accountEmail by remember { mutableStateOf(settings.accountEmail) }
+    var accountPassword by remember { mutableStateOf("") }
     var backupMsg by remember { mutableStateOf<String?>(null) }
     var backupBusy by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
@@ -748,7 +750,70 @@ internal fun BackupSettingsPage(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces todos, notes, chats, pins, stocks, podcasts, alarms, and settings. OAuth tokens stay on this phone.",
+            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Two-way merge of todos, notes, chats, pins, stocks, podcasts, alarms, and settings. OAuth tokens stay on this phone.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (settings.accountToken.isNotBlank()) {
+            Text(
+                "Signed in as ${settings.accountEmail}",
+                color = Accent,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            Text(
+                "Sign out",
+                color = Paper,
+                modifier = Modifier
+                    .clickable(enabled = !backupBusy) {
+                        backupBusy = true
+                        scope.launch {
+                            backupMsg = runCatching { withContext(Dispatchers.IO) { backup.logout() } }
+                                .getOrElse { it.message ?: "Sign out failed" }
+                            backupBusy = false
+                        }
+                    }
+                    .padding(vertical = 8.dp),
+            )
+        } else {
+            LabeledField("Email", accountEmail, "you@example.com") { accountEmail = it }
+            LabeledField("Password", accountPassword, "8+ characters") { accountPassword = it }
+            Text(
+                "Create account",
+                color = if (backupBusy) Dim else Paper,
+                modifier = Modifier
+                    .clickable(enabled = !backupBusy) {
+                        backupBusy = true
+                        scope.launch {
+                            backupMsg = runCatching {
+                                withContext(Dispatchers.IO) { backup.signup(accountEmail, accountPassword) }
+                            }.getOrElse { it.message ?: "Create failed" }
+                            accountPassword = ""
+                            backupBusy = false
+                        }
+                    }
+                    .padding(vertical = 8.dp),
+            )
+            Text(
+                "Sign in",
+                color = if (backupBusy) Dim else Paper,
+                modifier = Modifier
+                    .clickable(enabled = !backupBusy) {
+                        backupBusy = true
+                        scope.launch {
+                            backupMsg = runCatching {
+                                withContext(Dispatchers.IO) { backup.login(accountEmail, accountPassword) }
+                            }.getOrElse { it.message ?: "Sign in failed" }
+                            accountPassword = ""
+                            backupBusy = false
+                        }
+                    }
+                    .padding(vertical = 8.dp),
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "S3 backup (optional). Use this only if you want your own bucket instead of a Builder account.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -817,7 +882,7 @@ internal fun BackupSettingsPage(
             }
         }
         Text(
-            "Backup now",
+            if (settings.accountToken.isNotBlank()) "Sync now" else "Backup now",
             color = if (backupBusy) Dim else Paper,
             modifier = Modifier
                 .clickable(enabled = !backupBusy) {
@@ -833,7 +898,7 @@ internal fun BackupSettingsPage(
                 .padding(vertical = 8.dp),
         )
         Text(
-            if (confirmRestore) "Tap again to replace local data" else "Restore from S3",
+            if (confirmRestore) "Tap again to replace local data" else if (settings.accountToken.isNotBlank()) "Restore from account" else "Restore from S3",
             color = if (backupBusy) Dim else Paper,
             modifier = Modifier
                 .clickable(enabled = !backupBusy) {
