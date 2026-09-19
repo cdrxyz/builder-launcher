@@ -27,8 +27,13 @@ import {
 	finished,
 	formatDuration,
 	formatPercent,
+	formatPosition,
 	formatPrice,
+	formatSpeed,
+	formatChange,
+	formatChartTime,
 	homeRows,
+	indexAt,
 	looksLikeFeedUrl,
 	looksLikeSymbol,
 	mergeFeed,
@@ -39,8 +44,13 @@ import {
 	parseYahooSearch,
 	podcastsOf,
 	progressMap,
+	quoteStats,
 	removeTicker,
+	scrubBaseline,
 	skipped,
+	SPEED_STEPS,
+	STOCK_RANGES,
+	timestamps,
 	unsubscribe,
 	upsertProgress,
 	watchlist,
@@ -68,6 +78,12 @@ const state = {
 	noteMode: 'edit',
 	showId: null,
 	episodeId: null,
+	stockSymbol: null,
+	stockRange: '1D',
+	stockChart: null,
+	stockScrub: null,
+	speed: loadSpeed(),
+	speedMenu: false,
 	status: '',
 	busy: false,
 	dirty: false,
@@ -86,7 +102,11 @@ if ('serviceWorker' in navigator) {
 	navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
-audio.addEventListener('timeupdate', () => checkpoint(false));
+audio.playbackRate = loadSpeed();
+audio.addEventListener('timeupdate', () => {
+	checkpoint(false);
+	updatePlayerChrome();
+});
 audio.addEventListener('pause', () => checkpoint(true));
 audio.addEventListener('ended', () => {
 	checkpoint(true, true);
@@ -376,6 +396,12 @@ function header() {
 		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
 		return el;
 	}
+	if (state.tab === 'stock') {
+		el.append(button('<', () => go('stocks'), 'ghost'));
+		el.append(title(state.stockSymbol || 'stock'));
+		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
+		return el;
+	}
 	if (state.tab === 'episode') {
 		el.append(button('<', () => (state.showId ? go('show') : go('pods')), 'ghost'));
 		el.append(title('episode'));
@@ -408,6 +434,7 @@ function main() {
 	else if (state.tab === 'notes') el.append(notesScreen());
 	else if (state.tab === 'note') el.append(noteScreen());
 	else if (state.tab === 'stocks') el.append(stocksScreen());
+	else if (state.tab === 'stock') el.append(stockDetailScreen());
 	else if (state.tab === 'pods') el.append(podsScreen());
 	else if (state.tab === 'show') el.append(showScreen());
 	else if (state.tab === 'episode') el.append(episodeScreen());
@@ -426,6 +453,10 @@ function go(tab, prompt) {
 	if (tab !== 'note') state.noteId = null;
 	if (tab !== 'show' && tab !== 'episode') state.showId = tab === 'pods' ? null : state.showId;
 	if (tab !== 'episode') state.episodeId = tab === 'show' ? state.episodeId : null;
+	if (tab !== 'stock') {
+		state.stockSymbol = tab === 'stocks' ? state.stockSymbol : null;
+		state.stockScrub = null;
+	}
 	render();
 }
 
@@ -824,6 +855,7 @@ function stocksScreen() {
 			.filter(Boolean)
 			.join('  ');
 		row.append(body, meta);
+		row.addEventListener('click', () => openStock(item.symbol));
 		row.addEventListener('contextmenu', (event) => {
 			event.preventDefault();
 			mutate({ watchlist: removeTicker(watchlist(state.doc), item.symbol) });
@@ -901,46 +933,71 @@ function episodeScreen() {
 		return wrap;
 	}
 	const show = bag.shows.find((item) => item.feedUrl === episode.showId);
+	const showLine = document.createElement('p');
+	showLine.className = 'hint';
+	showLine.textContent = show?.title || '';
 	const h = document.createElement('h2');
 	h.textContent = episode.title;
-	const sub = document.createElement('p');
-	sub.className = 'hint';
-	sub.textContent = show?.title || '';
-	wrap.append(h, sub);
+	wrap.append(showLine, h);
 	if (episode.enclosureUrl) {
 		if (audio.src !== episode.enclosureUrl) {
 			const p = progressMap(bag.progress).get(episode.id);
 			audio.src = episode.enclosureUrl;
+			audio.playbackRate = state.speed;
 			if (p?.positionMs) audio.currentTime = p.positionMs / 1000;
 		}
-		const controls = document.createElement('div');
-		controls.className = 'actions';
-		controls.append(
-			button(audio.paused ? 'play' : 'pause', () => togglePlay(episode), 'primary'),
-			button('−15', () => {
-				audio.currentTime = Math.max(0, audio.currentTime - 15);
-				checkpoint(true);
-			}, 'ghost'),
-			button('+15', () => {
-				audio.currentTime = audio.currentTime + 15;
-				checkpoint(true);
-			}, 'ghost'),
-		);
+		const durMs = playerDurationMs(episode);
+		const posMs = audio.currentTime * 1000;
+		const posRow = document.createElement('div');
+		posRow.className = 'player-meta';
 		const pos = document.createElement('p');
 		pos.className = 'hint';
 		pos.id = 'play-pos';
-		const durMs =
-			Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration * 1000 : episode.durationMs || 0;
-		pos.textContent = `${formatDuration(audio.currentTime * 1000)} / ${formatDuration(durMs)}`;
-		wrap.append(controls, pos);
+		pos.textContent = formatPosition(posMs, durMs);
+		const speedWrap = document.createElement('div');
+		speedWrap.className = 'speed-wrap';
+		speedWrap.append(button(formatSpeed(state.speed), () => {
+			state.speedMenu = !state.speedMenu;
+			render();
+		}, 'ghost'));
+		if (state.speedMenu) {
+			const menu = document.createElement('div');
+			menu.className = 'speed-menu';
+			for (const step of SPEED_STEPS) {
+				menu.append(button(formatSpeed(step), () => setSpeed(step), step === state.speed ? 'primary' : 'ghost'));
+			}
+			speedWrap.append(menu);
+		}
+		posRow.append(pos, speedWrap);
+		const scrub = document.createElement('div');
+		scrub.className = 'scrub';
+		scrub.id = 'play-scrub';
+		const fill = document.createElement('div');
+		fill.className = 'scrub-fill';
+		fill.id = 'play-scrub-fill';
+		const knob = document.createElement('div');
+		knob.className = 'scrub-knob';
+		knob.id = 'play-scrub-knob';
+		scrub.append(fill, knob);
+		bindScrub(scrub, (t) => seekTo(t * durMs));
+		setScrub(durMs ? posMs / durMs : 0, fill, knob);
+		const controls = document.createElement('div');
+		controls.className = 'player-controls';
+		controls.append(
+			button('−15', () => skipBy(-15_000), 'ghost'),
+			button(audio.paused ? 'play' : 'pause', () => togglePlay(episode), 'primary'),
+			button('+15', () => skipBy(15_000), 'ghost'),
+		);
+		wrap.append(posRow, scrub, controls);
 	} else {
 		wrap.append(empty('No audio URL in this episode.'));
 	}
 	if (episode.description) {
 		const notes = document.createElement('div');
 		notes.className = 'note-preview';
-		notes.innerHTML = renderMarkdown(episode.description.replace(/<[^>]+>/g, ''));
-		wrap.append(notes);
+		const plain = episode.description.replace(/<[^>]+>/g, '');
+		notes.append(notesWithTimestamps(plain));
+		wrap.append(section('Show notes'), notes);
 	}
 	return wrap;
 }
@@ -1397,7 +1454,256 @@ function checkpoint(force, ended = false) {
 	state.dirty = true;
 	saveSnapshot(state.doc);
 	const el = document.getElementById('play-pos');
-	if (el) el.textContent = `${formatDuration(pos)} / ${formatDuration(next.durationMs)}`;
+	if (el) el.textContent = formatPosition(pos, next.durationMs);
+	updatePlayerChrome();
+}
+
+function loadSpeed() {
+	try {
+		const n = Number(localStorage.getItem('builder-launcher-web-speed'));
+		return SPEED_STEPS.includes(n) ? n : 1;
+	} catch {
+		return 1;
+	}
+}
+
+function setSpeed(speed) {
+	state.speed = snapOr(speed);
+	state.speedMenu = false;
+	audio.playbackRate = state.speed;
+	try {
+		localStorage.setItem('builder-launcher-web-speed', String(state.speed));
+	} catch {
+		/* ignore */
+	}
+	render();
+}
+
+function snapOr(speed) {
+	return SPEED_STEPS.reduce((best, step) => (Math.abs(step - speed) < Math.abs(best - speed) ? step : best), 1);
+}
+
+function playerDurationMs(episode) {
+	if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration * 1000;
+	return episode?.durationMs || 0;
+}
+
+function skipBy(deltaMs) {
+	const cap = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+	audio.currentTime = Math.min(Math.max(0, audio.currentTime + deltaMs / 1000), cap || audio.currentTime + deltaMs / 1000);
+	checkpoint(true);
+	updatePlayerChrome();
+}
+
+function seekTo(ms) {
+	audio.currentTime = Math.max(0, ms / 1000);
+	checkpoint(true);
+	updatePlayerChrome();
+}
+
+function setScrub(t, fill, knob) {
+	const pct = `${Math.min(1, Math.max(0, t)) * 100}%`;
+	if (fill) fill.style.width = pct;
+	if (knob) knob.style.left = pct;
+}
+
+function updatePlayerChrome() {
+	const bag = podcastsOf(state.doc);
+	const episode = bag.episodes.find((item) => item.id === state.episodeId);
+	const durMs = playerDurationMs(episode);
+	const posMs = audio.currentTime * 1000;
+	const el = document.getElementById('play-pos');
+	if (el) el.textContent = formatPosition(posMs, durMs);
+	setScrub(durMs ? posMs / durMs : 0, document.getElementById('play-scrub-fill'), document.getElementById('play-scrub-knob'));
+}
+
+function bindScrub(el, onFraction) {
+	const read = (event) => {
+		const rect = el.getBoundingClientRect();
+		const x = (event.touches ? event.touches[0].clientX : event.clientX) - rect.left;
+		onFraction(Math.min(1, Math.max(0, x / rect.width)));
+	};
+	el.addEventListener('pointerdown', (event) => {
+		event.preventDefault();
+		el.setPointerCapture?.(event.pointerId);
+		read(event);
+		const move = (ev) => read(ev);
+		const up = () => {
+			el.removeEventListener('pointermove', move);
+			el.removeEventListener('pointerup', up);
+		};
+		el.addEventListener('pointermove', move);
+		el.addEventListener('pointerup', up);
+	});
+}
+
+function notesWithTimestamps(plain) {
+	const wrap = document.createElement('p');
+	const hits = timestamps(plain);
+	let i = 0;
+	for (const hit of hits) {
+		if (hit.start > i) wrap.append(plain.slice(i, hit.start));
+		const link = document.createElement('button');
+		link.type = 'button';
+		link.className = 'stamp';
+		link.textContent = hit.raw;
+		link.addEventListener('click', () => seekTo(hit.positionMs));
+		wrap.append(link);
+		i = hit.end;
+	}
+	if (i < plain.length) wrap.append(plain.slice(i));
+	return wrap;
+}
+
+function openStock(symbol) {
+	state.tab = 'stock';
+	state.stockSymbol = String(symbol || '').toUpperCase();
+	state.stockRange = '1D';
+	state.stockChart = null;
+	state.stockScrub = null;
+	state.hits = [];
+	state.prompt = '$';
+	render();
+	loadStockChart();
+}
+
+async function loadStockChart() {
+	const symbol = state.stockSymbol;
+	if (!symbol) return;
+	const range = STOCK_RANGES.find((row) => row.label === state.stockRange) || STOCK_RANGES[0];
+	try {
+		const url = state.api
+			? `/api/yahoo/chart?symbol=${encodeURIComponent(symbol)}&range=${range.range}&interval=${range.interval}`
+			: `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=${range.interval}&range=${range.range}&includePrePost=true`;
+		const chart = parseYahooChart(await fetchText(url));
+		if (state.stockSymbol !== symbol) return;
+		state.stockChart = chart;
+		if (chart) {
+			state.quotes = { ...state.quotes, [chart.symbol]: chart };
+		}
+		if (state.tab === 'stock') render();
+	} catch (err) {
+		if (state.tab === 'stock') setStatus(err.message || 'Chart failed');
+	}
+}
+
+function stockDetailScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'stock-detail';
+	const list = watchlist(state.doc);
+	const item = list.find((row) => String(row.symbol).toUpperCase() === state.stockSymbol) || { symbol: state.stockSymbol, name: '' };
+	const live = state.stockChart || state.quotes[state.stockSymbol] || item;
+	const points = state.stockChart?.points || [];
+	const mark = state.stockScrub != null ? points[state.stockScrub] : null;
+	const price = mark?.close ?? live.price;
+	const base = scrubBaseline(points, state.stockRange, live.previousClose);
+	const change = mark && base ? mark.close - base : live.change;
+	const pct = mark && base ? ((mark.close - base) / base) * 100 : live.changePercent;
+	const up = (pct ?? 0) >= 0;
+	const symbol = document.createElement('h2');
+	symbol.textContent = live.symbol || state.stockSymbol;
+	const name = document.createElement('p');
+	name.className = 'hint';
+	name.textContent = live.name || item.name || '';
+	const priceEl = document.createElement('h2');
+	priceEl.id = 'stock-price';
+	priceEl.textContent = formatPrice(price, live.currency);
+	const changeEl = document.createElement('p');
+	changeEl.id = 'stock-change';
+	changeEl.className = `hint ${up ? 'up' : 'down'}`;
+	changeEl.textContent = [formatChange(change), formatPercent(pct)].filter(Boolean).join('  ');
+	wrap.append(symbol, name, priceEl, changeEl);
+	const date = document.createElement('p');
+	date.className = 'hint';
+	date.id = 'stock-date';
+	date.textContent = mark ? formatChartTime(mark.time, state.stockRange) : '';
+	wrap.append(date);
+	wrap.append(stockChartEl(points, up, state.stockScrub));
+	const ranges = document.createElement('div');
+	ranges.className = 'ranges';
+	for (const row of STOCK_RANGES) {
+		const btn = button(row.label, () => {
+			state.stockRange = row.label;
+			state.stockScrub = null;
+			state.stockChart = null;
+			render();
+			loadStockChart();
+		}, row.label === state.stockRange ? 'primary' : 'ghost');
+		ranges.append(btn);
+	}
+	wrap.append(ranges);
+	for (const row of quoteStats(live)) {
+		const line = document.createElement('div');
+		line.className = 'stat-row';
+		const left = document.createElement('div');
+		left.innerHTML = `<span class="hint">${row.leftLabel}</span><div>${row.leftValue}</div>`;
+		const right = document.createElement('div');
+		right.className = 'stat-right';
+		right.innerHTML = `<span class="hint">${row.rightLabel}</span><div>${row.rightValue}</div>`;
+		line.append(left, right);
+		wrap.append(line);
+	}
+	return wrap;
+}
+
+function stockChartEl(points, up, selectedIndex) {
+	const box = document.createElement('div');
+	box.className = `stock-chart${up ? ' up' : ' down'}`;
+	if (!points.length) {
+		box.append(empty('Loading chart…'));
+		return box;
+	}
+	const w = 320;
+	const h = 140;
+	const ys = points.map((p) => p.close);
+	const min = Math.min(...ys);
+	const max = Math.max(...ys);
+	const span = max - min || 1;
+	const dx = points.length > 1 ? w / (points.length - 1) : w;
+	const coords = points.map((p, i) => {
+		const x = i * dx;
+		const y = h - ((p.close - min) / span) * h;
+		return [x, y];
+	});
+	const line = coords.map((c, i) => `${i ? 'L' : 'M'}${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(' ');
+	const fill = `${line} L${w},${h} L0,${h} Z`;
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+	svg.setAttribute('preserveAspectRatio', 'none');
+	svg.innerHTML = `<path class="fill" d="${fill}"></path><path class="line" d="${line}"></path>`;
+	if (selectedIndex != null && coords[selectedIndex]) {
+		const [x, y] = coords[selectedIndex];
+		svg.innerHTML += `<line class="mark" x1="${x}" x2="${x}" y1="0" y2="${h}"></line><circle class="mark" cx="${x}" cy="${y}" r="3.5"></circle>`;
+	}
+	bindScrub(box, (t) => {
+		state.stockScrub = indexAt(t * 100, 100, points.length);
+		paintStockScrub(points);
+	});
+	box.addEventListener('pointerup', () => {
+		state.stockScrub = null;
+		paintStockScrub(points);
+	});
+	box.append(svg);
+	return box;
+}
+
+function paintStockScrub(points) {
+	const live = state.stockChart || {};
+	const mark = state.stockScrub != null ? points[state.stockScrub] : null;
+	const price = mark?.close ?? live.price;
+	const base = scrubBaseline(points, state.stockRange, live.previousClose);
+	const change = mark && base ? mark.close - base : live.change;
+	const pct = mark && base ? ((mark.close - base) / base) * 100 : live.changePercent;
+	const up = (pct ?? 0) >= 0;
+	const priceEl = document.getElementById('stock-price');
+	const changeEl = document.getElementById('stock-change');
+	const dateEl = document.getElementById('stock-date');
+	if (priceEl) priceEl.textContent = formatPrice(price, live.currency);
+	if (changeEl) {
+		changeEl.className = `hint ${up ? 'up' : 'down'}`;
+		changeEl.textContent = [formatChange(change), formatPercent(pct)].filter(Boolean).join('  ');
+	}
+	if (dateEl) dateEl.textContent = mark ? formatChartTime(mark.time, state.stockRange) : '';
 }
 
 function fileInput() {

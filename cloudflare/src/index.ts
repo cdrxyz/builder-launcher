@@ -62,7 +62,11 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 			return yahooSearch(url.searchParams.get('q') || '');
 		}
 		if (url.pathname === '/api/yahoo/chart' && request.method === 'GET') {
-			return yahooChart(url.searchParams.get('symbol') || '');
+			return yahooChart(
+				url.searchParams.get('symbol') || '',
+				url.searchParams.get('range') || '1d',
+				url.searchParams.get('interval') || '1d',
+			);
 		}
 		if (url.pathname === '/api/podcasts/search' && request.method === 'GET') {
 			return itunesSearch(url.searchParams.get('q') || '');
@@ -167,10 +171,12 @@ async function yahooSearch(q: string): Promise<Response> {
 	return proxyJson(target, 'query1.finance.yahoo.com');
 }
 
-async function yahooChart(symbol: string): Promise<Response> {
+async function yahooChart(symbol: string, rangeRaw: string, intervalRaw: string): Promise<Response> {
 	const s = symbol.trim().toUpperCase().slice(0, 12);
 	if (!s) return jsonError('symbol is required');
-	const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=1d&range=1d`;
+	const range = ['1d', '5d', '1mo', '3mo', '1y', '5y', '10y'].includes(rangeRaw) ? rangeRaw : '1d';
+	const interval = ['5m', '15m', '1d', '1wk'].includes(intervalRaw) ? intervalRaw : '1d';
+	const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=${interval}&range=${range}&includePrePost=true`;
 	return proxyJson(target, 'query1.finance.yahoo.com');
 }
 

@@ -73,6 +73,17 @@ export function parseYahooSearch(raw, limit = 8) {
 	return hits.filter((hit) => (seen.has(hit.symbol) ? false : (seen.add(hit.symbol), true)));
 }
 
+export const STOCK_RANGES = [
+	{ label: '1D', range: '1d', interval: '5m' },
+	{ label: '1W', range: '5d', interval: '15m' },
+	{ label: '1M', range: '1mo', interval: '1d' },
+	{ label: '3M', range: '3mo', interval: '1d' },
+	{ label: '1Y', range: '1y', interval: '1d' },
+	{ label: '5Y', range: '5y', interval: '1wk' },
+];
+
+export const SPEED_STEPS = [0.8, 1, 1.1, 1.2, 1.4, 1.6, 1.8, 2, 2.5, 3];
+
 export function parseYahooChart(raw) {
 	let root;
 	try {
@@ -90,6 +101,19 @@ export function parseYahooChart(raw) {
 	const previous = num(meta?.chartPreviousClose) ?? num(meta?.previousClose) ?? price;
 	const change = price - previous;
 	const changePercent = previous === 0 ? 0 : (change / previous) * 100;
+	const quoteArr = result?.indicators?.quote?.[0] || {};
+	const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : [];
+	const closes = Array.isArray(quoteArr.close) ? quoteArr.close : [];
+	const volumes = Array.isArray(quoteArr.volume) ? quoteArr.volume : [];
+	const points = [];
+	for (let i = 0; i < timestamps.length; i++) {
+		const close = num(closes[i]);
+		if (close == null) continue;
+		points.push({ time: Number(timestamps[i]), close });
+	}
+	const highs = (quoteArr.high || []).map(num).filter((n) => n != null);
+	const lows = (quoteArr.low || []).map(num).filter((n) => n != null);
+	const volNums = volumes.map((v) => (v == null ? null : Number(v))).filter((n) => Number.isFinite(n));
 	return {
 		symbol,
 		name: meta.shortName || meta.longName || symbol,
@@ -99,7 +123,98 @@ export function parseYahooChart(raw) {
 		changePercent,
 		currency: meta.currency || 'USD',
 		exchange: meta.exchangeName || meta.fullExchangeName || '',
+		open: num(meta.regularMarketOpen) ?? num((quoteArr.open || []).find((n) => n != null)),
+		high: num(meta.regularMarketDayHigh) ?? (highs.length ? Math.max(...highs) : null),
+		low: num(meta.regularMarketDayLow) ?? (lows.length ? Math.min(...lows) : null),
+		volume: num(meta.regularMarketVolume) ?? (volNums.length ? volNums[volNums.length - 1] : null),
+		week52High: num(meta.fiftyTwoWeekHigh),
+		week52Low: num(meta.fiftyTwoWeekLow),
+		points,
+		volumes: volNums,
 	};
+}
+
+export function formatVolume(volume) {
+	if (volume == null || Number.isNaN(volume)) return '—';
+	const abs = Math.abs(volume);
+	if (abs >= 1_000_000_000) return `${(volume / 1_000_000_000).toFixed(1)}B`;
+	if (abs >= 1_000_000) return `${(volume / 1_000_000).toFixed(1)}M`;
+	if (abs >= 1_000) return `${(volume / 1_000).toFixed(1)}K`;
+	return String(volume);
+}
+
+export function formatNumber(value) {
+	if (value == null || Number.isNaN(value)) return '—';
+	if (Math.abs(value) >= 1000) {
+		return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	}
+	return value.toFixed(2);
+}
+
+export function formatChange(change) {
+	if (change == null || Number.isNaN(change)) return '';
+	const sign = change >= 0 ? '+' : '';
+	return `${sign}${change.toFixed(2)}`;
+}
+
+export function indexAt(x, width, count) {
+	if (count <= 1 || width <= 0) return 0;
+	const t = Math.min(1, Math.max(0, x / width));
+	return Math.round(t * (count - 1));
+}
+
+export function scrubBaseline(points, rangeLabel, previousClose) {
+	if (rangeLabel === '1D' && previousClose > 0) return previousClose;
+	return points?.[0]?.close > 0 ? points[0].close : null;
+}
+
+export function formatChartTime(timeSec, rangeLabel) {
+	if (!timeSec) return '';
+	const d = new Date(timeSec * 1000);
+	if (rangeLabel === '1D') {
+		return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+	}
+	if (rangeLabel === '1W') {
+		return d.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+	}
+	if (rangeLabel === '1M' || rangeLabel === '3M') {
+		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	}
+	return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function quoteStats(quote) {
+	return [
+		{ leftLabel: 'Open', leftValue: formatNumber(quote?.open), rightLabel: 'High', rightValue: formatNumber(quote?.high) },
+		{ leftLabel: 'Low', leftValue: formatNumber(quote?.low), rightLabel: 'Vol', rightValue: formatVolume(quote?.volume) },
+		{ leftLabel: '52W H', leftValue: formatNumber(quote?.week52High), rightLabel: '52W L', rightValue: formatNumber(quote?.week52Low) },
+	];
+}
+
+export function formatPosition(positionMs, durationMs) {
+	return `${formatDuration(positionMs)} of ${formatDuration(durationMs)}`;
+}
+
+export function formatSpeed(speed) {
+	const s = snapSpeed(speed);
+	return Number.isInteger(s) ? `${s}×` : `${s.toFixed(1)}×`;
+}
+
+export function snapSpeed(speed) {
+	return SPEED_STEPS.reduce((best, step) => (Math.abs(step - speed) < Math.abs(best - speed) ? step : best), SPEED_STEPS[1]);
+}
+
+export function timestamps(text) {
+	const hits = [];
+	const re = /\b(?:\d{1,2}:)?\d{1,2}:\d{2}\b/g;
+	let match;
+	const src = String(text || '');
+	while ((match = re.exec(src))) {
+		const ms = parseDuration(match[0]);
+		if (ms == null) continue;
+		hits.push({ start: match.index, end: match.index + match[0].length, positionMs: ms, raw: match[0] });
+	}
+	return hits;
 }
 
 export function podcastsOf(doc) {

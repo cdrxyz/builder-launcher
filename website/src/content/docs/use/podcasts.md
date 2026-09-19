@@ -42,7 +42,7 @@ Open a subscription. Episode titles are shown in full. Length (or resume positio
 
 - Play/pause icons stream the enclosure, or the downloaded file when it exists.
 - A download icon sits at the top right. Outline if not downloaded, filled if it is. Percent shows to the left of the icon while a file is fetching. Finished episodes delete their download.
-- Drag the progress bar. It sits inset from the screen edges so a side back gesture is not triggered. **−15** / **+15** skip 15 seconds.
+- Drag the progress bar. It sits inset from the screen edges so a side back gesture is not triggered. **−15** / **+15** skip 15 seconds. The [web app](../../configure/web/) uses the same layout.
 - Speed sits to the right of `12:00 of 1:02:03`. Tap it for 0.8×, 1×, 1.1×, 1.2×, 1.4×, 1.6×, 1.8×, 2×, 2.5×, 3×. That choice is the default for every show.
 - Position is saved every 30 seconds while playing, and again on pause, seek, or stop. Play again resumes where you left off after a crash or update. Near the end counts as finished and hides the now playing bar. The next episode in that show then starts, following **newest first** or **oldest first**. Finished and skipped episodes are left out. If nothing is left, playback stops.
 - **Show notes** from the feed sit under the player. Timestamps (`0:00`, `12:34`, `1:02:03`) are links; tap one to jump there.
