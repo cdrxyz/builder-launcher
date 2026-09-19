@@ -1,0 +1,238 @@
+:root {
+	color-scheme: dark;
+	--bg: #0b0b0b;
+	--fg: #e8e4d9;
+	--muted: #8a867c;
+	--line: #2a2a2a;
+	--accent: #b7c9a8;
+	--danger: #c47c7c;
+	--font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+		monospace;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	min-height: 100%;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: var(--font);
+	font-size: 15px;
+	line-height: 1.45;
+}
+
+body {
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+		env(safe-area-inset-left);
+}
+
+#app {
+	max-width: 42rem;
+	margin: 0 auto;
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+}
+
+header.app-bar,
+footer.tab-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.85rem 1rem;
+	border-bottom: 1px solid var(--line);
+}
+
+footer.tab-bar {
+	border-bottom: 0;
+	border-top: 1px solid var(--line);
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	background: var(--bg);
+}
+
+header.app-bar h1,
+.screen-title {
+	flex: 1;
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 500;
+	text-align: center;
+	letter-spacing: 0.02em;
+}
+
+.ghost,
+.primary,
+.tab,
+.linkish {
+	background: none;
+	border: 0;
+	color: var(--accent);
+	font: inherit;
+	cursor: pointer;
+	padding: 0.35rem 0.2rem;
+}
+
+.primary {
+	border: 1px solid var(--accent);
+	padding: 0.45rem 0.7rem;
+}
+
+.ghost.danger,
+.tab.danger {
+	color: var(--danger);
+}
+
+.tab {
+	flex: 1;
+	color: var(--muted);
+	padding: 0.7rem 0.15rem;
+	font-size: 0.9rem;
+}
+
+.tab.active {
+	color: var(--fg);
+}
+
+main {
+	flex: 1;
+	padding: 0.5rem 1rem 1.25rem;
+}
+
+.status {
+	color: var(--muted);
+	font-size: 0.85rem;
+	min-height: 1.3em;
+	margin: 0.35rem 1rem 0;
+}
+
+.row {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.65rem;
+	padding: 0.7rem 0;
+	border-bottom: 1px solid var(--line);
+	width: 100%;
+	text-align: left;
+	background: none;
+	border-left: 0;
+	border-right: 0;
+	border-top: 0;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.row .body {
+	flex: 1;
+	min-width: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.row.done .body {
+	color: var(--muted);
+	text-decoration: line-through;
+}
+
+.row .meta,
+.hint,
+label span {
+	color: var(--muted);
+	font-size: 0.8rem;
+}
+
+.mark {
+	color: var(--accent);
+	width: 1.1rem;
+	flex: none;
+}
+
+.composer {
+	display: flex;
+	gap: 0.5rem;
+	padding: 0.75rem 0 0.25rem;
+	position: sticky;
+	bottom: 3.4rem;
+	background: var(--bg);
+}
+
+.composer input,
+.composer textarea,
+form.settings input,
+form.settings select,
+.note-editor textarea {
+	flex: 1;
+	background: #161616;
+	border: 1px solid var(--line);
+	color: var(--fg);
+	font: inherit;
+	padding: 0.65rem 0.7rem;
+	width: 100%;
+}
+
+.note-editor textarea {
+	min-height: calc(100dvh - 8rem);
+	resize: vertical;
+}
+
+form.settings {
+	display: grid;
+	gap: 0.75rem;
+	padding-top: 0.5rem;
+}
+
+form.settings label {
+	display: grid;
+	gap: 0.3rem;
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+	margin-top: 0.5rem;
+}
+
+.note-preview h1,
+.note-preview h2,
+.note-preview h3 {
+	font-size: 1rem;
+	font-weight: 600;
+	margin: 0.2rem 0 0.6rem;
+}
+
+.note-preview p,
+.note-preview ul {
+	margin: 0 0 0.6rem;
+}
+
+.note-preview code {
+	font: inherit;
+	color: var(--accent);
+}
+
+.empty {
+	color: var(--muted);
+	padding: 1.5rem 0;
+}
+
+.footer-note {
+	color: var(--muted);
+	font-size: 0.8rem;
+	margin-top: 1.5rem;
+	overflow-wrap: anywhere;
+}
+
+.footer-note a {
+	color: var(--accent);
+}
+
+.hidden {
+	display: none !important;
+}
