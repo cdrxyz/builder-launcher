@@ -4,7 +4,7 @@ description: What leaves the device, and what never does.
 ---
 
 - **No analytics.**
-- **Todos and notes** stay in local storage on the phone unless you turn on [Backup](backup/) (encrypted S3 snapshot you own), tap **Share unencrypted JSON**, or open the [web app](web/) with the same S3 credentials. The Pages host never sees those keys.
+- **Todos, notes, stocks, and podcasts** stay in local storage on the phone unless you turn on [Backup](backup/) (encrypted S3 snapshot you own), tap **Share unencrypted JSON**, or open the [web app](web/) with the same S3 credentials. The Pages host never sees those keys.
 - **API keys and OAuth tokens** sit in encrypted SharedPreferences. They leave the device only as a Bearer token to the AI provider you chose, and only when you type `?`. The Hermes Web UI password is posted to `/api/auth/login` on your Web UI host (session cookie) and, when set, also sent as `Authorization: Bearer` on those requests. If Web UI auth fails, the same secret is sent as a Bearer token to the API server on `:8642`. OAuth tokens are never written into a backup. API keys stay out of S3 backups and the JSON share unless you turn on **Include AI credentials** (off by default).
 - **S3 backup** uploads only after you set endpoint, bucket, keys, and an encryption key. The object is encrypted on the phone. Frequency `off` means manual only. Changing S3 credentials runs an access test against the bucket.
 - **Weather** calls Open-Meteo with the coordinates of the city you picked (or a last GPS point if you never set a city and the OS already has a location).

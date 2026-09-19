@@ -5,6 +5,20 @@ import { decrypt, encodeUtf8, encrypt, MAGIC } from '../public/web/crypto.js';
 import { doneTodos, noteTitle, notesByEdited, openTodos, seedNote } from '../public/web/items.js';
 import { renderMarkdown } from '../public/web/markdown.js';
 import { credentialsReady, objectUrl, regionFor, sign } from '../public/web/s3.js';
+import {
+	addTicker,
+	finished,
+	formatPercent,
+	formatPrice,
+	homeRows,
+	parseItunes,
+	parseOpml,
+	parseRss,
+	parseYahooChart,
+	parseYahooSearch,
+	podcastsOf,
+	watchlist,
+} from '../public/web/media.js';
 
 test('regionFor matches Kotlin', () => {
 	assert.equal(regionFor('https://abc.r2.cloudflarestorage.com'), 'auto');
@@ -97,8 +111,79 @@ test('markdown escapes html', () => {
 });
 
 test('web shell files exist', async () => {
-	for (const name of ['index.html', 'app.js', 'sw.js', 'manifest.webmanifest', 'app.css']) {
+	for (const name of ['index.html', 'app.js', 'sw.js', 'manifest.webmanifest', 'app.css', 'media.js']) {
 		const text = await readFile(new URL(`../public/web/${name}`, import.meta.url), 'utf8');
 		assert.ok(text.length > 20, name);
 	}
+});
+
+test('watchlist add and format match the phone', () => {
+	const next = addTicker([], { symbol: 'aapl', name: 'Apple Inc.' });
+	assert.equal(next[0].symbol, 'AAPL');
+	assert.deepEqual(addTicker(next, { symbol: 'AAPL', name: 'dup' }), next);
+	assert.equal(formatPrice(12.3), '$12.30');
+	assert.equal(formatPercent(-1.5), '-1.50%');
+	assert.deepEqual(watchlist({ watchlist: next }), next);
+});
+
+test('yahoo search and chart parse', () => {
+	const hits = parseYahooSearch(
+		JSON.stringify({ quotes: [{ symbol: 'aapl', shortname: 'Apple Inc.', exchDisp: 'NMS' }] }),
+	);
+	assert.equal(hits[0].symbol, 'AAPL');
+	const quote = parseYahooChart(
+		JSON.stringify({
+			chart: {
+				result: [
+					{
+						meta: {
+							symbol: 'AAPL',
+							regularMarketPrice: 110,
+							chartPreviousClose: 100,
+							shortName: 'Apple',
+							currency: 'USD',
+						},
+					},
+				],
+			},
+		}),
+	);
+	assert.equal(quote.changePercent, 10);
+});
+
+test('podcast home rows match phone sections', () => {
+	const shows = [{ feedUrl: 'https://x/rss', title: 'Show' }];
+	const episodes = [
+		{ id: 'old', showId: 'https://x/rss', title: 'Old', pubDate: 1 },
+		{ id: 'new', showId: 'https://x/rss', title: 'New', pubDate: 9 },
+		{ id: 'mid', showId: 'https://x/rss', title: 'Mid', pubDate: 5 },
+	];
+	const progress = [
+		{ episodeId: 'mid', positionMs: 10, durationMs: 600000, lastPlayedAt: 50, finished: false, skipped: false },
+	];
+	const rows = homeRows(shows, episodes, progress);
+	assert.deepEqual(
+		rows.map((row) => row.kind + (row.episode?.id || row.show?.title || row.title)),
+		['headerrecent', 'continuemid', 'headernext 5 episodes', 'freshnew', 'freshold', 'headerpodcasts', 'subscriptionShow'],
+	);
+	assert.equal(finished({ finished: true }), true);
+	assert.equal(podcastsOf({}).shows.length, 0);
+});
+
+test('rss itunes and opml parse', () => {
+	const rss = parseRss(
+		`<rss><channel><title>Show</title><itunes:author>Ada</itunes:author>
+      <item><title>Ep</title><guid>g1</guid><enclosure url="https://cdn/a.mp3"/><pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate></item>
+    </channel></rss>`,
+		'https://x/rss',
+	);
+	assert.equal(rss.show.title, 'Show');
+	assert.equal(rss.episodes[0].id, 'g1');
+	assert.equal(rss.episodes[0].enclosureUrl, 'https://cdn/a.mp3');
+	const itunes = parseItunes(
+		JSON.stringify({ results: [{ collectionName: 'Show', artistName: 'Ada', feedUrl: 'https://x/rss' }] }),
+	);
+	assert.equal(itunes[0].feedUrl, 'https://x/rss');
+	const opml = parseOpml(`<opml><body><outline text="Show" xmlUrl="https://x/rss"/></body></opml>`);
+	assert.equal(opml[0].feedUrl, 'https://x/rss');
 });

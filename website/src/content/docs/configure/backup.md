@@ -7,7 +7,7 @@ Type `settings` or `/settings`, then **… backup >**.
 
 ![Backup: S3 endpoint, keys, frequency, share](../../../assets/screenshots/backup.png)
 
-This is a snapshot, not two-way sync. The last successful upload wins. Restore replaces what is on the phone. The [web app](web/) reads the same object on a laptop or iPhone if you paste the same credentials (the bucket needs CORS for the browser).
+This is a snapshot, not two-way sync. The last successful upload wins. Restore replaces what is on the phone. The [web app](web/) reads the same object on a laptop or iPhone if you paste the same credentials (the bucket needs CORS for the browser). Tasks, notes, the watchlist, and podcasts are the screens that app edits.
 
 | Field | What it is |
 | --- | --- |
