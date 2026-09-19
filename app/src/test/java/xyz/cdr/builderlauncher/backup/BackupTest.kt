@@ -279,15 +279,15 @@ class BackupMergeTest {
     fun unionsItemsAndDropsDeleted() {
         val a = BackupDocument(
             exportedAt = 2,
-            items = listOf(LocalItem("1", "todo", "new", updatedAt = 5)),
+            items = listOf(LocalItem("1", "todo", "new", createdAt = 1, updatedAt = 5)),
             deletedIds = listOf("9"),
         )
         val b = BackupDocument(
             exportedAt = 1,
             items = listOf(
-                LocalItem("1", "todo", "old", updatedAt = 1),
-                LocalItem("2", "todo", "keep"),
-                LocalItem("9", "todo", "gone"),
+                LocalItem("1", "todo", "old", createdAt = 1, updatedAt = 1),
+                LocalItem("2", "todo", "keep", createdAt = 1),
+                LocalItem("9", "todo", "gone", createdAt = 1),
             ),
         )
         val merged = BackupMerge.merge(a, b)
