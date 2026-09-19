@@ -10,6 +10,17 @@ import {
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
 import {
+	DEFAULT_PROMPT,
+	PREFIXES,
+	builtinPage,
+	homePreview,
+	isModePrompt,
+	pagePrompt,
+	slashMatches,
+	slashResolve,
+	typeMode,
+} from './commands.js';
+import {
 	addTicker,
 	finished,
 	formatDuration,
@@ -45,7 +56,11 @@ let lastSavedAt = 0;
 let lastSavedPos = 0;
 
 const state = {
-	tab: 'tasks',
+	tab: 'home',
+	prompt: DEFAULT_PROMPT,
+	draft: '',
+	menu: null,
+	tickerAt: 0,
 	noteId: null,
 	noteMode: 'edit',
 	showId: null,
@@ -78,7 +93,14 @@ boot();
 async function boot() {
 	state.api = await probeApi();
 	globalThis.__BL_PROXY = state.api;
-	if (!readyCreds(state.creds) && !state.doc) state.tab = 'settings';
+	if (!readyCreds(state.creds) && !state.doc) {
+		state.tab = 'settings';
+		state.prompt = '/';
+	}
+	setInterval(() => {
+		state.tickerAt += 1;
+		if (state.tab === 'home' && !document.activeElement?.classList?.contains('command-input')) render();
+	}, 5000);
 	render();
 	if (readyCreds(state.creds) && !state.doc) pull().catch(() => {});
 	else if (state.doc) refreshQuotes();
@@ -225,13 +247,28 @@ function pulledLabel(doc) {
 }
 
 function render() {
+	const focus = document.activeElement?.classList?.contains('command-input');
+	const draft = state.draft;
 	app.replaceChildren();
-	app.append(header(), statusLine(), main(), tabs());
+	app.append(header(), statusLine(), main(), commandDock());
+	if (focus) {
+		const input = app.querySelector('.command-input');
+		if (input) {
+			input.focus();
+			input.value = draft;
+		}
+	}
 }
 
 function header() {
 	const el = document.createElement('header');
 	el.className = 'app-bar';
+	if (state.tab === 'home') {
+		el.append(button(state.busy ? '…' : 'pull', () => pull(), 'ghost'));
+		el.append(title(''));
+		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
+		return el;
+	}
 	if (state.tab === 'note') {
 		el.append(button('<', () => go('notes'), 'ghost'));
 		el.append(title('note'));
@@ -255,8 +292,8 @@ function header() {
 		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
 		return el;
 	}
-	el.append(button(state.busy ? '…' : 'pull', () => pull(), 'ghost'));
-	el.append(title(state.tab === 'pods' ? 'podcasts' : state.tab));
+	el.append(button('<', () => go('home'), 'ghost'));
+	el.append(title(state.tab === 'pods' ? 'podcasts' : state.tab === 'tasks' ? 'tasks' : state.tab));
 	el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
 	return el;
 }
@@ -284,53 +321,327 @@ function main() {
 	else if (state.tab === 'pods') el.append(podsScreen());
 	else if (state.tab === 'show') el.append(showScreen());
 	else if (state.tab === 'episode') el.append(episodeScreen());
-	else el.append(tasksScreen());
+	else if (state.tab === 'tasks') el.append(tasksScreen());
+	else if (state.tab === 'help') el.append(helpScreen());
+	else el.append(homeScreen());
 	return el;
 }
 
-function tabs() {
-	const el = document.createElement('footer');
-	el.className = 'tab-bar';
-	const active = (name) => {
-		if (name === 'notes' && state.tab === 'note') return true;
-		if (name === 'pods' && (state.tab === 'show' || state.tab === 'episode')) return true;
-		return state.tab === name;
-	};
-	const labels = [
-		['tasks', 'tasks'],
-		['notes', 'notes'],
-		['stocks', 'stocks'],
-		['pods', 'pods'],
-		['settings', 'set'],
-	];
-	for (const [name, label] of labels) {
-		el.append(
-			button(label, () => go(name), `tab${active(name) ? ' active' : ''}`),
-		);
-	}
-	return el;
-}
-
-function go(tab) {
+function go(tab, prompt) {
 	state.tab = tab;
 	state.hits = [];
+	state.menu = null;
+	state.draft = '';
+	state.prompt = prompt || pagePrompt(tab);
 	if (tab !== 'note') state.noteId = null;
 	if (tab !== 'show' && tab !== 'episode') state.showId = tab === 'pods' ? null : state.showId;
 	if (tab !== 'episode') state.episodeId = tab === 'show' ? state.episodeId : null;
 	render();
 }
 
+function homeScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'home';
+	const hero = document.createElement('div');
+	hero.className = 'home-hero';
+	const left = document.createElement('div');
+	left.className = 'home-side';
+	const now = playingId();
+	left.textContent = now ? 'pause' : '';
+	left.addEventListener('click', () => {
+		if (now) go('pods');
+	});
+	const clock = analogClock();
+	const right = document.createElement('div');
+	right.className = 'home-side right';
+	const list = watchlist(state.doc);
+	if (list.length) {
+		const item = list[state.tickerAt % list.length];
+		const live = state.quotes[String(item.symbol).toUpperCase()];
+		const pct = live?.changePercent ?? item.changePercent;
+		const name = document.createElement('div');
+		name.textContent = item.symbol;
+		const change = document.createElement('div');
+		change.className = `pct${pct == null ? '' : pct >= 0 ? ' up' : ' down'}`;
+		change.textContent = formatPercent(pct);
+		right.append(name, change);
+		right.addEventListener('click', () => go('stocks'));
+	}
+	hero.append(left, clock, right);
+	wrap.append(hero);
+	if (!state.menu) {
+		const todos = document.createElement('div');
+		todos.className = 'home-todos';
+		for (const item of homePreview(items())) todos.append(todoRow(item, false));
+		wrap.append(todos);
+		const more = button('… more tasks >', () => go('tasks'), 'more-link');
+		wrap.append(more);
+	}
+	return wrap;
+}
+
+function analogClock() {
+	const now = new Date();
+	const wrap = document.createElement('div');
+	wrap.className = 'clock';
+	wrap.addEventListener('click', () => go('help'));
+	const h = now.getHours() % 12;
+	const m = now.getMinutes();
+	const s = now.getSeconds();
+	const hour = (h + m / 60) * 30;
+	const minute = (m + s / 60) * 6;
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('class', 'clock-face');
+	svg.setAttribute('viewBox', '0 0 100 100');
+	svg.innerHTML = `
+		<circle cx="50" cy="50" r="46" fill="none" stroke="#2a2a2a" stroke-width="2"/>
+		<circle cx="50" cy="50" r="2.5" fill="#b7c9a8"/>
+		<line x1="50" y1="50" x2="50" y2="28" stroke="#e8e4d9" stroke-width="3" stroke-linecap="round" transform="rotate(${hour} 50 50)"/>
+		<line x1="50" y1="50" x2="50" y2="18" stroke="#b7c9a8" stroke-width="2" stroke-linecap="round" transform="rotate(${minute} 50 50)"/>
+	`;
+	const time = document.createElement('div');
+	time.className = 'clock-time';
+	time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	const date = document.createElement('div');
+	date.className = 'clock-date';
+	date.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+	wrap.append(svg, time, date);
+	return wrap;
+}
+
+function helpScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'help';
+	const pre = document.createElement('pre');
+	pre.textContent = [
+		'>  type, then Enter',
+		'-  todo',
+		'+  note',
+		'$  stock',
+		'/  slash (notes stocks podcasts settings tasks pull push)',
+		'',
+		'Tap the prompt glyph for the prefix menu.',
+		'Back on home resets to >.',
+	].join('\n');
+	wrap.append(pre);
+	return wrap;
+}
+
+function commandDock() {
+	const dock = document.createElement('div');
+	dock.className = 'command-dock';
+	if (state.menu === 'prefix') dock.append(prefixMenu());
+	else if (state.prompt === '/' || state.menu === 'slash') dock.append(slashMenu());
+	dock.append(commandBar());
+	return dock;
+}
+
+function prefixMenu() {
+	const list = document.createElement('div');
+	list.className = 'command-list';
+	for (const row of PREFIXES) {
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'row';
+		const mark = document.createElement('span');
+		mark.className = 'mark';
+		mark.textContent = row.glyph;
+		const body = document.createElement('span');
+		body.className = 'body';
+		body.textContent = row.label;
+		btn.append(mark, body);
+		btn.addEventListener('click', () => pickPrefix(row.glyph));
+		list.append(btn);
+	}
+	return list;
+}
+
+function slashMenu() {
+	const list = document.createElement('div');
+	list.className = 'command-list';
+	for (const row of slashMatches(state.draft)) {
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'row';
+		const mark = document.createElement('span');
+		mark.className = 'mark';
+		mark.textContent = '/';
+		const body = document.createElement('span');
+		body.className = 'body';
+		body.textContent = `${row.name}  ${row.label}`;
+		btn.append(mark, body);
+		btn.addEventListener('click', () => runSlash(row.name));
+		list.append(btn);
+	}
+	return list;
+}
+
+function commandBar() {
+	const form = document.createElement('form');
+	form.className = 'command-bar';
+	const glyph = document.createElement('button');
+	glyph.type = 'button';
+	glyph.className = 'prompt-glyph';
+	glyph.textContent = state.prompt;
+	glyph.addEventListener('click', () => {
+		if (state.tab === 'home' && isModePrompt(state.prompt) && state.prompt !== DEFAULT_PROMPT && !state.draft) {
+			state.prompt = DEFAULT_PROMPT;
+			state.menu = null;
+			render();
+			return;
+		}
+		state.menu = state.menu === 'prefix' ? null : 'prefix';
+		render();
+	});
+	const input = document.createElement('input');
+	input.className = 'command-input';
+	input.value = state.draft;
+	input.autocomplete = 'off';
+	input.autocapitalize = state.prompt === '$' ? 'off' : 'sentences';
+	input.spellcheck = state.prompt === '-' || state.prompt === '+';
+	input.addEventListener('input', () => {
+		const next = typeMode(state.prompt, input.value);
+		const promptChanged = next.prompt !== state.prompt;
+		state.prompt = next.prompt;
+		state.draft = next.input;
+		if (next.prompt === '/') state.menu = 'slash';
+		else if (state.menu === 'slash') state.menu = null;
+		if (promptChanged || next.prompt === '/') render();
+	});
+	form.append(glyph, input);
+	form.addEventListener('submit', (event) => {
+		event.preventDefault();
+		submitCommand();
+	});
+	return form;
+}
+
+function pickPrefix(glyph) {
+	state.prompt = glyph;
+	state.draft = '';
+	state.menu = glyph === '/' ? 'slash' : null;
+	render();
+}
+
+function submitCommand() {
+	const text = state.draft.trim();
+	const prompt = state.prompt;
+	if (prompt === '-') {
+		if (!text) return;
+		addItem('todo', text);
+		state.draft = '';
+		if (state.tab === 'home') render();
+		return;
+	}
+	if (prompt === '+') {
+		if (!text) {
+			go('notes', '+');
+			return;
+		}
+		addNote(text);
+		state.draft = '';
+		return;
+	}
+	if (prompt === '$') {
+		if (!text) {
+			go('stocks', '$');
+			return;
+		}
+		searchOrAddStock(text);
+		state.draft = '';
+		return;
+	}
+	if (prompt === '/') {
+		runSlash(text);
+		return;
+	}
+	if (prompt === '?' || prompt === '@' || prompt === '#' || prompt === '*') {
+		setStatus('Use the Android app for text, calls, calendar, and AI.');
+		return;
+	}
+	if (!text) return;
+	const page = builtinPage(text);
+	if (page === 'pull') {
+		state.draft = '';
+		pull();
+		return;
+	}
+	if (page === 'push') {
+		state.draft = '';
+		push();
+		return;
+	}
+	if (page === 'help') {
+		go('help');
+		return;
+	}
+	if (page) {
+		go(page);
+		return;
+	}
+	if (state.tab === 'pods') {
+		searchOrSubscribe(text);
+		state.draft = '';
+		return;
+	}
+	setStatus('Unknown command. Tap > or type /help.');
+}
+
+function runSlash(name) {
+	const hit = slashResolve(name) || builtinPage(name);
+	const key = hit?.name || hit;
+	state.draft = '';
+	state.menu = null;
+	if (key === 'pull') {
+		state.prompt = DEFAULT_PROMPT;
+		pull();
+		return;
+	}
+	if (key === 'push') {
+		state.prompt = DEFAULT_PROMPT;
+		push();
+		return;
+	}
+	if (key === 'help') {
+		go('help');
+		return;
+	}
+	if (key === 'home') {
+		go('home');
+		return;
+	}
+	if (key === 'notes') {
+		go('notes');
+		return;
+	}
+	if (key === 'podcasts') {
+		go('pods');
+		return;
+	}
+	if (key === 'settings') {
+		go('settings');
+		return;
+	}
+	if (key === 'stocks') {
+		go('stocks');
+		return;
+	}
+	if (key === 'tasks') {
+		go('tasks');
+		return;
+	}
+	setStatus('Unknown slash command.');
+}
 function tasksScreen() {
 	const wrap = document.createElement('div');
 	const open = openTodos(items());
 	const done = doneTodos(items());
-	if (!open.length && !done.length) wrap.append(empty('No tasks yet. Pull from S3 or type below.'));
+	if (!open.length && !done.length) wrap.append(empty('No tasks yet. Pull from S3 or type -buy milk.'));
 	for (const item of open) wrap.append(todoRow(item, false));
 	if (done.length) {
 		wrap.append(section('done'));
 		for (const item of done) wrap.append(todoRow(item, true));
 	}
-	wrap.append(composer('-', 'buy milk', (text) => addItem('todo', text)));
 	return wrap;
 }
 
@@ -356,7 +667,7 @@ function todoRow(item, done) {
 function notesScreen() {
 	const wrap = document.createElement('div');
 	const notes = notesByEdited(items());
-	if (!notes.length) wrap.append(empty('No notes yet. Pull from S3 or type below.'));
+	if (!notes.length) wrap.append(empty('No notes yet. Pull from S3 or type +.'));
 	for (const item of notes) {
 		const row = document.createElement('button');
 		row.className = 'row';
@@ -378,7 +689,6 @@ function notesScreen() {
 		});
 		wrap.append(row);
 	}
-	wrap.append(composer('+', 'note title', (text) => addNote(text)));
 	return wrap;
 }
 
@@ -444,11 +754,6 @@ function stocksScreen() {
 		row.addEventListener('click', () => addStock(hit));
 		wrap.append(row);
 	}
-	wrap.append(
-		composer('$', 'AAPL', async (text) => {
-			await searchOrAddStock(text);
-		}),
-	);
 	return wrap;
 }
 
@@ -474,11 +779,6 @@ function podsScreen() {
 		}
 		wrap.append(episodeRow(row.episode, row.show, row.progress));
 	}
-	wrap.append(
-		composer('', 'show, RSS, or OPML', async (text) => {
-			await searchOrSubscribe(text);
-		}),
-	);
 	return wrap;
 }
 
@@ -684,31 +984,6 @@ function field(labelText, name, value, placeholder, type = 'text') {
 	input.spellcheck = false;
 	label.append(span, input);
 	return label;
-}
-
-function composer(prefix, placeholder, onSubmit) {
-	const form = document.createElement('form');
-	form.className = 'composer';
-	const input = document.createElement('input');
-	input.placeholder = prefix ? `${prefix}${placeholder}` : placeholder;
-	input.autocomplete = 'off';
-	input.autocapitalize = 'off';
-	input.spellcheck = false;
-	const go = document.createElement('button');
-	go.className = 'primary';
-	go.type = 'submit';
-	go.textContent = prefix || '>';
-	form.append(input, go);
-	form.addEventListener('submit', (event) => {
-		event.preventDefault();
-		const raw = input.value.trim();
-		if (!raw) return;
-		const text = prefix && raw.startsWith(prefix) ? raw.slice(prefix.length).trim() : raw;
-		if (!text) return;
-		onSubmit(text);
-		input.value = '';
-	});
-	return form;
 }
 
 function button(label, onClick, className) {
@@ -961,7 +1236,7 @@ function fileInput() {
 			}
 			state.dirty = false;
 			saveSnapshot(state.doc);
-			state.tab = 'tasks';
+			state.tab = 'home';
 			setStatus(pulledLabel(state.doc));
 			refreshQuotes();
 		} catch (err) {

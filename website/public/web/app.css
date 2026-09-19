@@ -26,8 +26,7 @@ body {
 }
 
 body {
-	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-		env(safe-area-inset-left);
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 #app {
@@ -38,22 +37,11 @@ body {
 	flex-direction: column;
 }
 
-header.app-bar,
-footer.tab-bar {
+header.app-bar {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.85rem 1rem;
-	border-bottom: 1px solid var(--line);
-}
-
-footer.tab-bar {
-	border-bottom: 0;
-	border-top: 1px solid var(--line);
-	margin-top: auto;
-	position: sticky;
-	bottom: 0;
-	background: var(--bg);
 }
 
 header.app-bar h1,
@@ -68,8 +56,9 @@ header.app-bar h1,
 
 .ghost,
 .primary,
-.tab,
-.linkish {
+.linkish,
+.more-link,
+.prompt-glyph {
 	background: none;
 	border: 0;
 	color: var(--accent);
@@ -83,32 +72,91 @@ header.app-bar h1,
 	padding: 0.45rem 0.7rem;
 }
 
-.ghost.danger,
-.tab.danger {
+.ghost.danger {
 	color: var(--danger);
 }
 
-.tab {
-	flex: 1;
+.more-link {
 	color: var(--muted);
-	padding: 0.7rem 0.1rem;
-	font-size: 0.78rem;
-}
-
-.tab.active {
-	color: var(--fg);
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 0.85rem 0 0.4rem;
+	font-size: 0.9rem;
 }
 
 main {
 	flex: 1;
-	padding: 0.5rem 1rem 1.25rem;
+	padding: 0.5rem 1.1rem 1rem;
+	display: flex;
+	flex-direction: column;
 }
 
 .status {
 	color: var(--muted);
+	font-size: 0.8rem;
+	min-height: 1.1em;
+	margin: 0 1.1rem;
+}
+
+.home {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	min-height: 0;
+}
+
+.home-hero {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 1.5rem;
+}
+
+.home-side {
+	color: var(--muted);
 	font-size: 0.85rem;
-	min-height: 1.3em;
-	margin: 0.35rem 1rem 0;
+	min-height: 2.4rem;
+}
+
+.home-side.right {
+	text-align: right;
+}
+
+.home-side .pct.up {
+	color: #8fbf8f;
+}
+
+.home-side .pct.down {
+	color: var(--danger);
+}
+
+.clock {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.clock-face {
+	width: 7.2rem;
+	height: 7.2rem;
+}
+
+.clock-time {
+	font-size: 1.05rem;
+	letter-spacing: 0.04em;
+}
+
+.clock-date {
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.home-todos {
+	margin-top: 0.5rem;
 }
 
 .row {
@@ -126,6 +174,11 @@ main {
 	color: inherit;
 	font: inherit;
 	cursor: pointer;
+}
+
+.home-todos .row {
+	border-bottom: 0;
+	padding: 0.45rem 0;
 }
 
 .row .body {
@@ -168,38 +221,81 @@ label span {
 	flex: none;
 }
 
-.composer {
-	display: flex;
-	gap: 0.5rem;
-	padding: 0.75rem 0 0.25rem;
+.command-dock {
 	position: sticky;
-	bottom: 3.4rem;
+	bottom: 0;
 	background: var(--bg);
+	padding: 0 0.6rem calc(0.45rem + env(safe-area-inset-bottom));
 }
 
-.composer input,
-.composer textarea,
+.command-list {
+	max-height: 40dvh;
+	overflow: auto;
+	border-top: 1px solid var(--line);
+	padding: 0.35rem 0.5rem 0;
+}
+
+.command-list .row {
+	border-bottom: 0;
+	padding: 0.55rem 0.2rem;
+}
+
+.command-list .mark {
+	width: 1.4rem;
+}
+
+.command-bar {
+	display: flex;
+	align-items: flex-end;
+	gap: 0.15rem;
+	padding: 0.35rem 0.15rem 0.15rem;
+}
+
+.prompt-glyph {
+	color: var(--accent);
+	font-size: 1.35rem;
+	min-width: 2.4rem;
+	min-height: 2.6rem;
+	padding: 0.35rem 0.2rem;
+	line-height: 1;
+}
+
+.command-bar input,
+.command-bar textarea,
 form.settings input,
-form.settings select,
 .note-editor textarea {
 	flex: 1;
-	background: #161616;
-	border: 1px solid var(--line);
+	background: transparent;
+	border: 0;
 	color: var(--fg);
 	font: inherit;
-	padding: 0.65rem 0.7rem;
+	padding: 0.7rem 0.35rem;
 	width: 100%;
+	outline: none;
+}
+
+.command-bar input {
+	border-bottom: 1px solid var(--line);
 }
 
 .note-editor textarea {
 	min-height: calc(100dvh - 8rem);
 	resize: vertical;
+	background: #161616;
+	border: 1px solid var(--line);
+	padding: 0.65rem 0.7rem;
 }
 
 form.settings {
 	display: grid;
 	gap: 0.75rem;
 	padding-top: 0.5rem;
+}
+
+form.settings input {
+	background: #161616;
+	border: 1px solid var(--line);
+	padding: 0.65rem 0.7rem;
 }
 
 form.settings label {
@@ -246,6 +342,13 @@ form.settings label {
 
 .footer-note a {
 	color: var(--accent);
+}
+
+.help pre {
+	white-space: pre-wrap;
+	color: var(--muted);
+	font: inherit;
+	font-size: 0.85rem;
 }
 
 .hidden {
