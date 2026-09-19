@@ -1,4 +1,4 @@
-const CACHE = 'builder-launcher-web-v2';
+const CACHE = 'builder-launcher-web-v3';
 const SHELL = [
 	'./',
 	'./index.html',
@@ -32,6 +32,10 @@ self.addEventListener('fetch', (event) => {
 	if (req.method !== 'GET') return;
 	const url = new URL(req.url);
 	if (url.origin !== self.location.origin) return;
+	if (url.pathname.startsWith('/api/')) {
+		event.respondWith(fetch(req));
+		return;
+	}
 	event.respondWith(
 		caches.match(req).then((hit) => {
 			if (hit) return hit;

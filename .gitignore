@@ -15,3 +15,6 @@ keystore.jks
 *.keystore
 google-services.json
 .cxx/
+/cloudflare/node_modules/
+/cloudflare/public/
+/cloudflare/.wrangler/

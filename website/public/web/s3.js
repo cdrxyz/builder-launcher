@@ -76,11 +76,65 @@ export async function sign({
 }
 
 export async function s3Get(creds, now = new Date()) {
+	if (globalThis.__BL_PROXY) return proxyGet(creds);
 	return s3Fetch('GET', creds, new Uint8Array(0), now);
 }
 
 export async function s3Put(creds, body, now = new Date()) {
+	if (globalThis.__BL_PROXY) return proxyPut(creds, body);
 	return s3Fetch('PUT', creds, body, now, { 'content-type': 'application/octet-stream' });
+}
+
+async function proxyGet(creds) {
+	const res = await fetch('/api/s3/get', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			endpoint: creds.endpoint,
+			bucket: creds.bucket,
+			accessKey: creds.accessKey,
+			secretKey: creds.secretKey,
+		}),
+	});
+	const bytes = new Uint8Array(await res.arrayBuffer());
+	if (!res.ok) throw new Error(proxyMessage(res.status, bytes, false));
+	return bytes;
+}
+
+async function proxyPut(creds, body) {
+	const res = await fetch('/api/s3/put', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			endpoint: creds.endpoint,
+			bucket: creds.bucket,
+			accessKey: creds.accessKey,
+			secretKey: creds.secretKey,
+			bodyB64: bytesToB64(body),
+		}),
+	});
+	const bytes = new Uint8Array(await res.arrayBuffer());
+	if (!res.ok) throw new Error(proxyMessage(res.status, bytes, true));
+	return bytes;
+}
+
+function bytesToB64(body) {
+	let bin = '';
+	const bytes = body instanceof Uint8Array ? body : new Uint8Array(body);
+	for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+	return btoa(bin);
+}
+
+function proxyMessage(status, bytes, upload) {
+	try {
+		const text = new TextDecoder().decode(bytes);
+		const json = JSON.parse(text);
+		if (json?.error) return json.error;
+		if (text) return text.slice(0, 180);
+	} catch {
+		/* fall through */
+	}
+	return s3Error(status, '', upload);
 }
 
 async function s3Fetch(method, creds, payload, now, extraHeaders = {}) {
@@ -118,9 +172,7 @@ async function s3Fetch(method, creds, payload, now, extraHeaders = {}) {
 }
 
 export function corsHint() {
-	return (
-		'The bucket blocked this browser (CORS). On R2: bucket Settings → CORS. Allow origin https://cdrxyz.github.io, methods GET and PUT, headers *.'
-	);
+	return 'The bucket blocked this browser (CORS). Use https://builder.cdr.xyz — the Worker talks to S3 for you. On GitHub Pages, set bucket CORS for this origin.';
 }
 
 export function uriEncode(input, encodeSlash) {

@@ -53,6 +53,7 @@ const state = {
 	status: '',
 	busy: false,
 	dirty: false,
+	api: false,
 	hits: [],
 	quotes: {},
 	creds: loadCreds(),
@@ -72,10 +73,33 @@ audio.addEventListener('ended', () => {
 	render();
 });
 
-if (!readyCreds(state.creds) && !state.doc) state.tab = 'settings';
-render();
-if (readyCreds(state.creds) && !state.doc) pull().catch(() => {});
-else if (state.doc) refreshQuotes();
+boot();
+
+async function boot() {
+	state.api = await probeApi();
+	globalThis.__BL_PROXY = state.api;
+	if (!readyCreds(state.creds) && !state.doc) state.tab = 'settings';
+	render();
+	if (readyCreds(state.creds) && !state.doc) pull().catch(() => {});
+	else if (state.doc) refreshQuotes();
+}
+
+async function probeApi() {
+	try {
+		const res = await fetch('/api/up', { cache: 'no-store' });
+		if (!res.ok) return false;
+		const body = await res.json();
+		return body?.ok === true;
+	} catch {
+		return false;
+	}
+}
+
+async function fetchText(url) {
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	return res.text();
+}
 
 function loadCreds() {
 	try {
@@ -579,7 +603,7 @@ function settingsScreen() {
 	form.append(actions);
 	const note = document.createElement('p');
 	note.className = 'footer-note';
-	note.innerHTML = `Same fields as Settings → backup on the phone. Object key is always <code>builder-launcher/backup.enc</code>. Snapshot, not two-way sync. Tasks, notes, stocks, and podcasts push together. Live Yahoo quotes need Yahoo to allow this origin; otherwise last backup prices still show. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
+	note.innerHTML = `Same fields as Settings → backup on the phone. Object key is always <code>builder-launcher/backup.enc</code>. Snapshot, not two-way sync. Hosted at <a href="https://builder.cdr.xyz">builder.cdr.xyz</a> so the bucket does not need CORS. Tasks, notes, stocks, and podcasts push together. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
 	form.append(note);
 	return form;
 }
@@ -774,8 +798,10 @@ async function searchOrAddStock(query) {
 	const q = query.trim();
 	if (!q) return;
 	try {
-		const url = `${YAHOO_SEARCH}?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0&listsCount=0`;
-		const raw = await (await fetch(url)).text();
+		const url = state.api
+			? `/api/yahoo/search?q=${encodeURIComponent(q)}`
+			: `${YAHOO_SEARCH}?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0&listsCount=0`;
+		const raw = await fetchText(url);
 		const hits = parseYahooSearch(raw);
 		if (hits.length === 1 || hits.some((hit) => hit.symbol === q.toUpperCase())) {
 			addStock(hits.find((hit) => hit.symbol === q.toUpperCase()) || hits[0]);
@@ -803,8 +829,10 @@ async function refreshQuotes() {
 	await Promise.all(
 		list.slice(0, 40).map(async (item) => {
 			try {
-				const url = `${YAHOO_CHART}/${encodeURIComponent(item.symbol)}?interval=1d&range=1d`;
-				const quote = parseYahooChart(await (await fetch(url)).text());
+				const url = state.api
+					? `/api/yahoo/chart?symbol=${encodeURIComponent(item.symbol)}`
+					: `${YAHOO_CHART}/${encodeURIComponent(item.symbol)}?interval=1d&range=1d`;
+				const quote = parseYahooChart(await fetchText(url));
 				if (quote) next[quote.symbol] = quote;
 			} catch {
 				/* keep backup price */
@@ -829,8 +857,10 @@ async function searchOrSubscribe(query) {
 		return;
 	}
 	try {
-		const url = `${ITUNES}?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=8`;
-		const hits = parseItunes(await (await fetch(url)).text());
+		const url = state.api
+			? `/api/podcasts/search?q=${encodeURIComponent(q)}`
+			: `${ITUNES}?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=8`;
+		const hits = parseItunes(await fetchText(url));
 		if (!hits.length) {
 			setStatus('No podcast matches.');
 			return;
@@ -847,7 +877,9 @@ async function subscribeHit(hit, rerender = true) {
 	const bag = podcastsOf(state.doc);
 	let feed;
 	try {
-		const xml = await (await fetch(hit.feedUrl)).text();
+		const xml = await fetchText(
+			state.api ? `/api/feed?url=${encodeURIComponent(hit.feedUrl)}` : hit.feedUrl,
+		);
 		feed = parseRss(xml, hit.feedUrl);
 	} catch {
 		feed = null;

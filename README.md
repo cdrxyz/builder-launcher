@@ -111,7 +111,7 @@ Nothing is sent anywhere until you submit a question. No analytics.
 
 ## Backup
 
-Settings → **… backup >**. Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key, frequency `off` / `daily` / `weekly`. Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Include AI credentials** is off by default. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program). The same credentials open notes, tasks, stocks, and podcasts in the [web app](https://cdrxyz.github.io/builder-launcher/web/) (laptop or iPhone; the bucket needs CORS).
+Settings → **… backup >**. Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key, frequency `off` / `daily` / `weekly`. Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Include AI credentials** is off by default. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program). The same credentials open notes, tasks, stocks, and podcasts in the [web app](https://builder.cdr.xyz) (laptop or iPhone).
 
 ## Keyboard phones
 

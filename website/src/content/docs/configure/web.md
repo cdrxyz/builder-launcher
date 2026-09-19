@@ -1,57 +1,37 @@
 ---
 title: Web
-description: Notes, tasks, stocks, and podcasts from the same encrypted S3 backup on a laptop or iPhone.
+description: Notes, tasks, stocks, and podcasts from the same encrypted S3 backup, hosted on Cloudflare.
 ---
 
-Open [the web app](/builder-launcher/web/). Add to Home Screen on iPhone, or install as an app on a laptop.
+Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhone, or install as an app on a laptop. No npm, no GitHub Pages CORS.
 
 ![Web app tasks list from the S3 snapshot](../../../assets/screenshots/web.png)
 
-It uses the **same S3 fields as the phone**: endpoint, bucket, access key, secret key, encryption key. Credentials stay in this browser. They are sent only to your bucket, as SigV4, to `builder-launcher/backup.enc`.
+It uses the **same S3 fields as the phone**: endpoint, bucket, access key, secret key, encryption key. Credentials stay in this browser. They are posted only to the Builder Launcher Worker, which talks to your bucket (SigV4) at `builder-launcher/backup.enc`. Decrypt still happens in the browser.
 
 This is a snapshot, not two-way file sync. The last successful upload wins. Restore on the phone replaces local todos, notes, watchlist, and podcasts with that snapshot.
 
 ## First load
 
 1. On the phone: Settings → **… backup >**. Fill S3 and encryption key. **Backup now**.
-2. On the bucket, allow this origin (browsers require CORS; the Android app does not).
-3. Open the web app, paste the same five fields, **save & pull**.
+2. Open [builder.cdr.xyz](https://builder.cdr.xyz), paste the same five fields, **save & pull**.
+3. Safari: Share → Add to Home Screen. Chrome/desktop: Install app.
 
-Safari / Chrome: Share → Add to Home Screen (iPhone) or Install app (desktop). After that it opens without browser chrome.
+The Worker origin is `https://builder.cdr.xyz` (also `https://builder-launcher.cdrxyz.workers.dev`). The bucket does **not** need CORS.
 
-## CORS
-
-R2 example. Bucket → Settings → CORS:
-
-```json
-[
-  {
-    "AllowedOrigins": [
-      "https://cdrxyz.github.io"
-    ],
-    "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-Local docs preview also needs `http://localhost:4321`. A failed fetch with no HTTP status is almost always CORS, not a wrong secret.
-
-Yahoo Finance and some RSS hosts also have to allow this origin for **live** quotes and feed refresh. The snapshot still shows last backup prices, subscriptions, episodes, and playback position if those calls are blocked.
+A static copy still ships on GitHub Pages at `/web/` if you want it. That copy talks to S3 from the browser and needs CORS; prefer the Cloudflare host.
 
 ## What it shows
 
 - **tasks** — open items, then done. Tap to complete. Long-press / right-click deletes. Composer is `-` like the phone.
 - **notes** — listed by date edited. Tap to read. Composer is `+`.
-- **stocks** — the watchlist from the snapshot. Live quotes when Yahoo allows the browser; otherwise last backup price. Type `$AAPL` to add. Long-press / right-click removes.
-- **pods** — recent unfinished plays, next episodes, then subscriptions A–Z, same order as the phone. Tap an episode to play the enclosure in the browser. Position is saved on this device and included in **push**. Search uses Apple's catalog; paste an RSS URL or Overcast OPML if search is blocked.
+- **stocks** — the watchlist from the snapshot. Live Yahoo quotes through the Worker. Type `$AAPL` to add. Long-press / right-click removes.
+- **pods** — recent unfinished plays, next episodes, then subscriptions A–Z. Tap an episode to play. Position is saved on this device and included in **push**. Search uses Apple's catalog via the Worker; paste an RSS URL or Overcast OPML.
 - **pull** / **push** — download or replace `builder-launcher/backup.enc`. Push asks once. Chats, pins, and the rest of the snapshot ride along unchanged.
-- **open file** — a `.enc` blob or the unencrypted JSON share, if you would rather not talk to S3 from the browser.
+- **open file** — a `.enc` blob or the unencrypted JSON share.
 
 Offline, the last pulled snapshot stays on the device. Pull again when you are back on the network.
 
 ## Privacy
 
-S3 keys and the encryption key are stored in `localStorage` on that browser. **forget** clears them. The GitHub Pages host never sees the keys or the backup. API keys inside a snapshot are not shown in the UI.
+S3 keys and the encryption key are stored in `localStorage` on that browser. **forget** clears them. The Worker does not keep the keys. API keys inside a snapshot are not shown in the UI.
