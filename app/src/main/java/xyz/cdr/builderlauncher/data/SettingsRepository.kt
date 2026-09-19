@@ -52,6 +52,8 @@ data class BuilderSettings(
     val s3AccessKey: String = "",
     val s3SecretKey: String = "",
     val s3EncryptionKey: String = "",
+    val accountEmail: String = "",
+    val accountToken: String = "",
     val backupFrequency: BackupFrequency = BackupFrequency.OFF,
     val lastBackupAtEpochMs: Long = 0L,
     val backupIncludeAiCredentials: Boolean = false,
@@ -228,6 +230,8 @@ class SettingsRepository(context: Context) {
             s3AccessKey = prefs.getString(KEY_S3_ACCESS, "") ?: "",
             s3SecretKey = prefs.getString(KEY_S3_SECRET, "") ?: "",
             s3EncryptionKey = prefs.getString(KEY_S3_ENCRYPTION, "") ?: "",
+            accountEmail = prefs.getString(KEY_ACCOUNT_EMAIL, "") ?: "",
+            accountToken = prefs.getString(KEY_ACCOUNT_TOKEN, "") ?: "",
             backupFrequency = BackupFrequency.parse(prefs.getString(KEY_BACKUP_FREQ, BackupFrequency.OFF.name)),
             lastBackupAtEpochMs = prefs.getString(KEY_BACKUP_LAST, "0")?.toLongOrNull() ?: 0L,
             backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
@@ -279,6 +283,8 @@ class SettingsRepository(context: Context) {
             .putString(KEY_S3_ACCESS, next.s3AccessKey)
             .putString(KEY_S3_SECRET, next.s3SecretKey)
             .putString(KEY_S3_ENCRYPTION, next.s3EncryptionKey)
+            .putString(KEY_ACCOUNT_EMAIL, next.accountEmail)
+            .putString(KEY_ACCOUNT_TOKEN, next.accountToken)
             .putString(KEY_BACKUP_FREQ, next.backupFrequency.name)
             .putString(KEY_BACKUP_LAST, next.lastBackupAtEpochMs.toString())
             .putString(KEY_BACKUP_AI, if (next.backupIncludeAiCredentials) "true" else "false")
@@ -326,6 +332,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_S3_ACCESS = "s3_access"
         private const val KEY_S3_SECRET = "s3_secret"
         private const val KEY_S3_ENCRYPTION = "s3_encryption"
+        private const val KEY_ACCOUNT_EMAIL = "account_email"
+        private const val KEY_ACCOUNT_TOKEN = "account_token"
         private const val KEY_BACKUP_FREQ = "backup_frequency"
         private const val KEY_BACKUP_LAST = "backup_last"
         private const val KEY_BACKUP_AI = "backup_include_ai"

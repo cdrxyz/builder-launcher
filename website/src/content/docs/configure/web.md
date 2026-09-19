@@ -1,25 +1,26 @@
 ---
 title: Web
-description: Notes, tasks, stocks, and podcasts from the same encrypted S3 backup, hosted on Cloudflare.
+description: Notes, tasks, stocks, and podcasts on laptop or iPhone via a Builder account or the same S3 backup.
 ---
 
 Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhone, or install as an app on a laptop. No npm, no GitHub Pages CORS.
 
 ![Web home: clock, open tasks, command bar](../../../assets/screenshots/web.png)
 
-It uses the **same S3 fields as the phone**: endpoint, bucket, access key, secret key, encryption key. Credentials stay in this browser. They are posted only to the Builder Launcher Worker, which talks to your bucket (SigV4) at `builder-launcher/backup.enc`. Decrypt still happens in the browser.
+**Preferred:** create a builder.cdr.xyz account (email + password). The same account on the Android app two-way merges tasks, notes, stocks, and podcasts. No S3 fields.
 
-This is a snapshot, not two-way file sync. The last successful upload wins. Restore on the phone replaces local todos, notes, watchlist, and podcasts with that snapshot.
+**Secondary:** the same five S3 fields as the phone. Credentials stay in this browser. They are posted only to the Builder Launcher Worker, which talks to your bucket (SigV4) at `builder-launcher/backup.enc`. Decrypt still happens in the browser. Last S3 upload wins.
 
 ## First load
 
-1. On the phone: Settings → **… backup >**. Fill S3 and encryption key. **Backup now**.
-2. Open [builder.cdr.xyz](https://builder.cdr.xyz), paste the same five fields, **save & pull**.
-3. Safari: Share → Add to Home Screen. Chrome/desktop: Install app.
+1. Open [builder.cdr.xyz](https://builder.cdr.xyz).
+2. Create an account or sign in. Sync runs on its own every 30 seconds while you are signed in.
+3. On the phone: Settings → **… backup >**. Same email and password. **Create account** or **Sign in**, then **Sync now**.
+4. Safari: Share → Add to Home Screen. Chrome/desktop: Install app.
 
-The Worker origin is `https://builder.cdr.xyz` (also `https://builder-launcher.cdrxyz.workers.dev`). The bucket does **not** need CORS.
+S3 is still available under **S3 backup (optional)** if you already have a bucket.
 
-A static copy still ships on GitHub Pages at `/web/` if you want it. That copy talks to S3 from the browser and needs CORS; prefer the Cloudflare host.
+The Worker origin is `https://builder.cdr.xyz` (also `https://builder-launcher.cdrxyz.workers.dev`).
 
 ## What it shows
 
@@ -29,11 +30,10 @@ Home matches the phone: analog clock, up to 3 open tasks, `… more tasks >`, an
 - **notes** — listed by date edited. Command bar starts in `+`.
 - **stocks** — watchlist. Command bar starts in `$`.
 - **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode.
-- **settings** — S3 fields, save & pull, open file, forget.
-- **pull** / **push** — also on the home header. Last upload wins.
+- **settings** — Builder account first, S3 collapsed underneath. `pull` / `push` on the home header.
 
-Offline, the last pulled snapshot stays on the device. Pull again when you are back on the network.
+Offline, the last snapshot stays on the device.
 
 ## Privacy
 
-S3 keys and the encryption key are stored in `localStorage` on that browser. **forget** clears them. The Worker does not keep the keys. API keys inside a snapshot are not shown in the UI.
+Account email is stored on Cloudflare (D1). The password is Argon2id. The snapshot JSON sits in D1 for that account. Session cookie is HttpOnly. S3 keys, when used, stay in `localStorage` on that browser. **forget S3** clears them. The Worker does not keep S3 keys. API keys inside a snapshot are not shown in the UI.

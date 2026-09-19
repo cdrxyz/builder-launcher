@@ -209,3 +209,13 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.equal(builtinPage('notes'), 'notes');
 	assert.equal(homePreview([{ kind: 'todo', text: 'a' }, { kind: 'todo', text: 'b', completedAt: 1 }, { kind: 'note', text: 'n' }, { kind: 'todo', text: 'c' }]).map((i) => i.text).join(','), 'a,c');
 });
+
+test('mergeDocs unions items and honors deletedIds', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const a = { exportedAt: 2, items: [{ id: '1', text: 'new', updatedAt: 5 }], deletedIds: ['9'] };
+	const b = { exportedAt: 1, items: [{ id: '1', text: 'old', updatedAt: 1 }, { id: '2', text: 'keep' }, { id: '9', text: 'gone' }] };
+	const merged = mergeDocs(a, b);
+	assert.equal(merged.items.find((i) => i.id === '1').text, 'new');
+	assert.equal(merged.items.some((i) => i.id === '2'), true);
+	assert.equal(merged.items.some((i) => i.id === '9'), false);
+});

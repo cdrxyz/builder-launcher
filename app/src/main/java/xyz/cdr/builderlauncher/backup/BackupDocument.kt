@@ -26,6 +26,7 @@ data class BackupDocument(
     val version: Int = 1,
     val exportedAt: Long,
     val items: List<LocalItem> = emptyList(),
+    val deletedIds: List<String> = emptyList(),
     val chats: List<ChatThread> = emptyList(),
     val pins: List<String> = emptyList(),
     val watchlist: List<WatchItem> = emptyList(),

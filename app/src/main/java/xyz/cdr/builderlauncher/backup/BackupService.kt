@@ -31,6 +31,7 @@ class BackupService(
     private val podcasts: PodcastsRepository,
     private val clock: ClockStore,
     private val s3: S3Client = S3Client(),
+    private val account: AccountClient = AccountClient(),
     private val json: Json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
@@ -59,6 +60,7 @@ class BackupService(
 
     fun upload(nowMs: Long = System.currentTimeMillis()): String {
         val s = settings.settings.value
+        if (s.accountToken.isNotBlank()) return syncUp(nowMs)
         requireReady(s)
         val plain = encode(document(nowMs = nowMs)).toByteArray(Charsets.UTF_8)
         val blob = BackupCrypto.encrypt(plain, s.s3EncryptionKey)
@@ -69,12 +71,58 @@ class BackupService(
 
     fun restore(): String {
         val s = settings.settings.value
+        if (s.accountToken.isNotBlank()) return syncDown()
         requireReady(s)
         val blob = s3.get(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)
         val plain = BackupCrypto.decrypt(blob, s.s3EncryptionKey)
         val doc = decode(plain.decodeToString())
         apply(doc)
         return "Restored ${summary(doc)}"
+    }
+
+    fun signup(email: String, password: String): String {
+        val session = account.signup(email, password)
+        settings.update { it.copy(accountEmail = session.email, accountToken = session.token) }
+        return "Created ${session.email}"
+    }
+
+    fun login(email: String, password: String): String {
+        val session = account.login(email, password)
+        settings.update { it.copy(accountEmail = session.email, accountToken = session.token) }
+        return "Signed in as ${session.email}"
+    }
+
+    fun logout(): String {
+        val token = settings.settings.value.accountToken
+        if (token.isNotBlank()) account.logout(token)
+        settings.update { it.copy(accountEmail = "", accountToken = "") }
+        return "Signed out"
+    }
+
+    private fun syncUp(nowMs: Long): String {
+        val s = settings.settings.value
+        val local = document(nowMs = nowMs)
+        val remote = account.getVault(s.accountToken)
+        val merged = if (remote.document != null) {
+            BackupMerge.merge(local, remote.document).copy(exportedAt = nowMs)
+        } else {
+            local
+        }
+        account.putVault(s.accountToken, merged)
+        apply(merged)
+        settings.markBackup(nowMs)
+        return "Synced to builder.cdr.xyz"
+    }
+
+    private fun syncDown(): String {
+        val s = settings.settings.value
+        val remote = account.getVault(s.accountToken)
+        val remoteDoc = remote.document ?: return "No cloud snapshot yet. Sync now to upload this phone."
+        val merged = BackupMerge.merge(document(), remoteDoc)
+        apply(merged)
+        account.putVault(s.accountToken, merged.copy(exportedAt = System.currentTimeMillis()))
+        settings.markBackup(System.currentTimeMillis())
+        return "Restored ${summary(merged)}"
     }
 
     fun apply(doc: BackupDocument) {
@@ -114,10 +162,13 @@ class BackupService(
 
     fun maybeUpload(nowMs: Long = System.currentTimeMillis()): String? {
         val s = settings.settings.value
+        if (!s.backupFrequency.due(nowMs, s.lastBackupAtEpochMs)) return null
+        if (s.accountToken.isNotBlank()) {
+            return runCatching { upload(nowMs) }.getOrElse { it.message }
+        }
         if (!S3Signer.ready(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey, s.s3EncryptionKey)) {
             return null
         }
-        if (!s.backupFrequency.due(nowMs, s.lastBackupAtEpochMs)) return null
         return runCatching { upload(nowMs) }.getOrElse { it.message }
     }
 
