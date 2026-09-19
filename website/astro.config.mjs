@@ -64,6 +64,7 @@ export default defineConfig({
 						{ label: 'Themes', slug: 'configure/themes' },
 						{ label: 'Calendar', slug: 'configure/calendar' },
 						{ label: 'Backup', slug: 'configure/backup' },
+						{ label: 'Web', slug: 'configure/web' },
 						{ label: 'AI providers', slug: 'configure/ai-providers' },
 						{ label: 'Weather', slug: 'configure/weather' },
 						{ label: 'Keyboard', slug: 'configure/keyboard' },

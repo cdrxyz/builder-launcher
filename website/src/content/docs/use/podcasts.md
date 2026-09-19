@@ -5,7 +5,7 @@ description: Search, subscribe, stream, and download podcasts with a capped cach
 
 Type `podcasts`, `/podcasts`, tap the headphones mark at the top left of [home](home/), swipe from the left of home, press D-pad left, or tap `… all podcasts >`.
 
-There is no live Overcast account sync. Export OPML from Overcast (Settings → Export OPML), copy it, and paste on podcasts settings.
+There is no live Overcast account sync. Export OPML from Overcast (Settings → Export OPML), copy it, and paste on podcasts settings. The same subscriptions, episodes, and playback position are in the [web app](../../configure/web/) when you use the S3 backup.
 
 ![Typing podcasts shows the all-podcasts shortcut](../../../assets/screenshots/home-podcasts.png)
 
