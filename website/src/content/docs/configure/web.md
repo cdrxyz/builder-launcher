@@ -5,7 +5,7 @@ description: Notes, tasks, stocks, and podcasts from the same encrypted S3 backu
 
 Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhone, or install as an app on a laptop. No npm, no GitHub Pages CORS.
 
-![Web app tasks list from the S3 snapshot](../../../assets/screenshots/web.png)
+![Web home: clock, open tasks, command bar](../../../assets/screenshots/web.png)
 
 It uses the **same S3 fields as the phone**: endpoint, bucket, access key, secret key, encryption key. Credentials stay in this browser. They are posted only to the Builder Launcher Worker, which talks to your bucket (SigV4) at `builder-launcher/backup.enc`. Decrypt still happens in the browser.
 
@@ -23,12 +23,14 @@ A static copy still ships on GitHub Pages at `/web/` if you want it. That copy t
 
 ## What it shows
 
-- **tasks** — open items, then done. Tap to complete. Long-press / right-click deletes. Composer is `-` like the phone.
-- **notes** — listed by date edited. Tap to read. Composer is `+`.
-- **stocks** — the watchlist from the snapshot. Live Yahoo quotes through the Worker. Type `$AAPL` to add. Long-press / right-click removes.
-- **pods** — recent unfinished plays, next episodes, then subscriptions A–Z. Tap an episode to play. Position is saved on this device and included in **push**. Search uses Apple's catalog via the Worker; paste an RSS URL or Overcast OPML.
-- **pull** / **push** — download or replace `builder-launcher/backup.enc`. Push asks once. Chats, pins, and the rest of the snapshot ride along unchanged.
-- **open file** — a `.enc` blob or the unencrypted JSON share.
+Home matches the phone: analog clock, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). The field stays empty. Tap the glyph for the prefix menu. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `settings`, `tasks`, `pull`, `push`).
+
+- **tasks** — full list. Command bar starts in `-`.
+- **notes** — listed by date edited. Command bar starts in `+`.
+- **stocks** — watchlist. Command bar starts in `$`.
+- **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode.
+- **settings** — S3 fields, save & pull, open file, forget.
+- **pull** / **push** — also on the home header. Last upload wins.
 
 Offline, the last pulled snapshot stays on the device. Pull again when you are back on the network.
 

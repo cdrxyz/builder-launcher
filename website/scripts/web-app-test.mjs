@@ -19,6 +19,14 @@ import {
 	podcastsOf,
 	watchlist,
 } from '../public/web/media.js';
+import {
+	builtinPage,
+	homePreview,
+	pagePrompt,
+	slashMatches,
+	slashResolve,
+	typeMode,
+} from '../public/web/commands.js';
 
 test('regionFor matches Kotlin', () => {
 	assert.equal(regionFor('https://abc.r2.cloudflarestorage.com'), 'auto');
@@ -111,7 +119,7 @@ test('markdown escapes html', () => {
 });
 
 test('web shell files exist', async () => {
-	for (const name of ['index.html', 'app.js', 'sw.js', 'manifest.webmanifest', 'app.css', 'media.js']) {
+	for (const name of ['index.html', 'app.js', 'sw.js', 'manifest.webmanifest', 'app.css', 'media.js', 'commands.js']) {
 		const text = await readFile(new URL(`../public/web/${name}`, import.meta.url), 'utf8');
 		assert.ok(text.length > 20, name);
 	}
@@ -186,4 +194,18 @@ test('rss itunes and opml parse', () => {
 	assert.equal(itunes[0].feedUrl, 'https://x/rss');
 	const opml = parseOpml(`<opml><body><outline text="Show" xmlUrl="https://x/rss"/></body></opml>`);
 	assert.equal(opml[0].feedUrl, 'https://x/rss');
+});
+
+test('prefix typeMode and slash match the phone', () => {
+	assert.deepEqual(typeMode('>', '-milk'), { prompt: '-', input: 'milk' });
+	assert.deepEqual(typeMode('-', 'milk'), { prompt: '-', input: 'milk' });
+	assert.equal(pagePrompt('home'), '>');
+	assert.equal(pagePrompt('tasks'), '-');
+	assert.equal(slashResolve('set').name, 'settings');
+	assert.deepEqual(
+		slashMatches('').map((row) => row.name),
+		['help', 'home', 'notes', 'podcasts', 'pull', 'push', 'settings', 'stocks', 'tasks'],
+	);
+	assert.equal(builtinPage('notes'), 'notes');
+	assert.equal(homePreview([{ kind: 'todo', text: 'a' }, { kind: 'todo', text: 'b', completedAt: 1 }, { kind: 'note', text: 'n' }, { kind: 'todo', text: 'c' }]).map((i) => i.text).join(','), 'a,c');
 });
