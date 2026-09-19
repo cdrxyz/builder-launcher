@@ -29,7 +29,7 @@ Home matches the phone: analog clock, up to 3 open tasks, `… more tasks >`, an
 - **tasks** — full list. Command bar starts in `-`.
 - **notes** — listed by date edited. Command bar starts in `+`.
 - **stocks** — watchlist. Command bar starts in `$`.
-- **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode.
+- **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode. Search uses Apple's catalog from this browser (it allows CORS). If that fails, the Worker searches fyyd.de. Subscribe fetches RSS through `/api/feed` because most feeds do not send CORS.
 - **settings** — Builder account first, S3 collapsed underneath. `pull` / `push` on the home header.
 
 Offline, the last snapshot stays on the device.

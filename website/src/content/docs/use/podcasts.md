@@ -22,7 +22,7 @@ Order:
 
 Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
-- Type a show name to search the Apple podcast catalog. Hits show artwork on the left. Tap a hit to subscribe and open that show.
+- Type a show name to search the Apple podcast catalog. Hits show artwork on the left. Tap a hit to subscribe and open that show. On [the web app](../../configure/web/) the browser talks to Apple directly (CORS is open). Cloudflare Workers are rate-limited to `itunes.apple.com`, so `/api/podcasts/search` is a fyyd.de fallback. RSS subscribe still goes through the Worker.
 - Paste an RSS URL in the bar to subscribe.
 - Gear (top left) opens podcasts settings.
 - Title `podcasts` is centered at the top.
