@@ -79,7 +79,7 @@ export function homePreview(items, limit = 3) {
 export function pagePrompt(tab) {
 	if (tab === 'tasks') return '-';
 	if (tab === 'notes' || tab === 'note') return '+';
-	if (tab === 'stocks') return '$';
+	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';
 	if (tab === 'settings' || tab === 'help') return '/';
 	return DEFAULT_PROMPT;

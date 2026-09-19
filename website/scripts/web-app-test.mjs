@@ -9,14 +9,18 @@ import {
 	addTicker,
 	finished,
 	formatPercent,
+	formatPosition,
 	formatPrice,
+	formatSpeed,
 	homeRows,
+	indexAt,
 	parseItunes,
 	parseOpml,
 	parseRss,
 	parseYahooChart,
 	parseYahooSearch,
 	podcastsOf,
+	timestamps,
 	watchlist,
 } from '../public/web/media.js';
 import {
@@ -151,12 +155,19 @@ test('yahoo search and chart parse', () => {
 							shortName: 'Apple',
 							currency: 'USD',
 						},
+						timestamp: [1],
+						indicators: { quote: [{ close: [110] }] },
 					},
 				],
 			},
 		}),
 	);
 	assert.equal(quote.changePercent, 10);
+	assert.equal(quote.points[0].close, 110);
+	assert.equal(indexAt(50, 100, 5), 2);
+	assert.equal(formatPosition(0, 62_000), '0:00 of 1:02');
+	assert.equal(timestamps('intro 1:02 later')[0].positionMs, 62_000);
+	assert.equal(formatSpeed(1.2), '1.2×');
 });
 
 test('podcast home rows match phone sections', () => {
