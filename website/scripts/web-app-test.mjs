@@ -429,6 +429,20 @@ test('command bar shows a tappable check or send on the right', async () => {
 	assert.doesNotMatch(css, /\.command-submit \{[^}]*clip-path:\s*inset\(50%\)/s);
 });
 
+test('command dock keeps extra bottom space on iPhone standalone PWA', async () => {
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	const sw = await readFile(new URL('../public/web/sw.js', import.meta.url), 'utf8');
+	assert.match(
+		css,
+		/@media \(max-width: 48rem\) \{[\s\S]*?padding-bottom:\s*max\(2\.25rem, calc\(1\.1rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/,
+	);
+	assert.match(
+		css,
+		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
+	);
+	assert.match(sw, /builder-launcher-web-v17/);
+});
+
 test('mobile shell pins home to the top and follows the visual viewport', async () => {
 	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
 	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
