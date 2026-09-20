@@ -9,11 +9,9 @@ Type `settings` or `/settings`, then **… backup >**.
 
 ## Builder account (preferred)
 
-Create an account with email and password on the phone or at [builder.cdr.xyz](https://builder.cdr.xyz). Same login on both. The Worker stores one snapshot per account and **merges** todos, notes, chats, pins, watchlist, and podcasts by id when either side syncs. Password is Argon2id. Session token stays in encrypted prefs on the phone and in an HttpOnly cookie on the web app.
+Create an account with email and password on the phone or at [builder.cdr.xyz](https://builder.cdr.xyz). Same login on both. **Create account** and **Sign in** show an alert: signing in **overwrites** local todos, notes, chats, pins, stocks, podcasts, alarms, and settings with the account snapshot. Cancel leaves this device alone. After you are signed in, **Sync now** merges both ways. Password is Argon2id.
 
-**Sync now** uploads and merges. **Restore from account** pulls the cloud snapshot, merges with what is on the phone, then writes back. Frequency `daily` / `weekly` uses the account when you are signed in.
-
-OAuth tokens never go in. API keys stay out unless **Include AI credentials** is on.
+**Include AI credentials** is off by default. Turn it on in Settings → backup if you want the current provider API key in the account snapshot (true `?` sync across devices). OAuth tokens never go in.
 
 ## S3 (optional)
 

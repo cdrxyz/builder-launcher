@@ -1,6 +1,6 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
-import { apiJson } from './account.js';
+import { apiJson, confirmOverwriteLocal } from './account.js';
 import { emptyDoc, joinDocs, mergeDocs } from './merge.js';
 import {
 	doneTodos,
@@ -66,6 +66,7 @@ import {
 const CREDS_KEY = 'builder-launcher-web-creds';
 const SNAP_KEY = 'builder-launcher-web-snapshot';
 const ACCOUNT_KEY = 'builder-launcher-web-account';
+const INCLUDE_AI_KEY = 'builder-launcher-web-include-ai';
 const DOCS = 'https://cdrxyz.github.io/builder-launcher/configure/web/';
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SEARCH = 'https://query1.finance.yahoo.com/v1/finance/search';
@@ -102,6 +103,7 @@ const state = {
 	quotes: {},
 	creds: loadCreds(),
 	account: loadAccount(),
+	includeAi: loadIncludeAi(),
 	revision: 0,
 	doc: loadSnapshot(),
 };
@@ -198,6 +200,19 @@ function saveAccount(account) {
 	localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ email: account.email || '', token: account.token || '' }));
 }
 
+function loadIncludeAi() {
+	try {
+		return localStorage.getItem(INCLUDE_AI_KEY) === 'true';
+	} catch {
+		return false;
+	}
+}
+
+function saveIncludeAi(on) {
+	state.includeAi = Boolean(on);
+	localStorage.setItem(INCLUDE_AI_KEY, state.includeAi ? 'true' : 'false');
+}
+
 function saveCreds(creds) {
 	localStorage.setItem(CREDS_KEY, JSON.stringify(creds));
 }
@@ -263,7 +278,7 @@ async function pull(opts = {}) {
 		const blob = await s3Get(state.creds);
 		const plain = await decrypt(blob, state.creds.encryptionKey);
 		const remote = JSON.parse(decodeUtf8(plain));
-		state.doc = joinDocs(state.doc, remote);
+		state.doc = opts.overwrite ? remote : joinDocs(state.doc, remote);
 		state.dirty = false;
 		state.hits = [];
 		saveSnapshot(state.doc);
@@ -283,7 +298,8 @@ async function pullAccount(opts = {}) {
 	try {
 		const remote = await apiJson('/api/vault', { token: state.account.token });
 		state.revision = remote.revision || 0;
-		state.doc = joinDocs(state.doc, remote.document);
+		if (opts.overwrite && remote.document) state.doc = remote.document;
+		else state.doc = joinDocs(state.doc, remote.document);
 		saveSnapshot(state.doc);
 		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true });
 		state.dirty = false;
@@ -1012,10 +1028,10 @@ function episodeScreen() {
 function settingsScreen() {
 	const wrap = document.createElement('div');
 	wrap.className = 'settings';
-	wrap.append(accountCard(), s3Card());
+	wrap.append(accountCard(), includeAiCard(), s3Card());
 	const note = document.createElement('p');
 	note.className = 'footer-note';
-	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Email and password. Two-way merge of tasks, notes, stocks, and podcasts across phone, laptop, and this PWA. S3 is optional if you want your own bucket. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
+	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in overwrites local data with the account snapshot. Sync now merges. Opt in below to include AI API keys for true ? sync. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
 	wrap.append(note);
 	return wrap;
 }
@@ -1058,6 +1074,29 @@ function accountCard() {
 	return form;
 }
 
+function includeAiCard() {
+	const wrap = document.createElement('div');
+	wrap.className = 'settings';
+	const row = document.createElement('button');
+	row.type = 'button';
+	row.className = 'row';
+	const body = document.createElement('span');
+	body.className = 'body';
+	body.textContent = state.includeAi ? '[x] Include AI credentials' : '[ ] Include AI credentials';
+	row.append(body);
+	row.addEventListener('click', () => {
+		saveIncludeAi(!state.includeAi);
+		render();
+	});
+	const hint = document.createElement('p');
+	hint.className = 'hint';
+	hint.textContent = state.includeAi
+		? 'On. The phone includes the current provider API key in Builder account sync, S3, and JSON share so other devices can use the same ?. OAuth tokens stay on the phone. This PWA has no API keys of its own.'
+		: 'Off. API keys stay out of Builder account sync, S3 backups, and the JSON share.';
+	wrap.append(row, hint);
+	return wrap;
+}
+
 function s3Card() {
 	const details = document.createElement('details');
 	details.className = 's3-secondary';
@@ -1068,6 +1107,7 @@ function s3Card() {
 	form.className = 'settings';
 	form.addEventListener('submit', (event) => {
 		event.preventDefault();
+		if (!confirmOverwriteLocal()) return;
 		const data = new FormData(form);
 		state.creds = {
 			endpoint: String(data.get('endpoint') || '').trim(),
@@ -1082,7 +1122,7 @@ function s3Card() {
 				? 'Saved S3 on this device. Pull to load the snapshot.'
 				: 'Need endpoint, bucket, access key, and secret key.',
 		);
-		if (readyCreds(state.creds) && !signedIn()) pull();
+		if (readyCreds(state.creds) && !signedIn()) pull({ overwrite: true });
 	});
 	form.append(
 		field('Endpoint', 'endpoint', state.creds.endpoint, 'https://….r2.cloudflarestorage.com'),
@@ -1110,6 +1150,7 @@ function s3Card() {
 }
 
 async function submitAccount(form, mode) {
+	if (!confirmOverwriteLocal()) return;
 	const data = new FormData(form);
 	const email = String(data.get('email') || '').trim();
 	const password = String(data.get('password') || '');
@@ -1121,7 +1162,7 @@ async function submitAccount(form, mode) {
 		state.account = { email: res.email, token: res.token || '' };
 		saveAccount(state.account);
 		state.status = `Signed in as ${res.email}`;
-		await pull();
+		await pull({ overwrite: mode === 'login', quiet: true });
 	} catch (err) {
 		state.status = err.message || String(err);
 		state.busy = false;

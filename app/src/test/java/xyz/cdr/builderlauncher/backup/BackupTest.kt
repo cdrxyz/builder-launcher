@@ -344,4 +344,10 @@ class BackupMergeTest {
         assertTrue(joined.items.any { it.id == "cloud" && it.text == "in cloud" })
         assertEquals(setOf("AAPL", "TSLA"), joined.watchlist.map { it.symbol }.toSet())
     }
+
+    @Test
+    fun overwriteWarningNamesLocalData() {
+        assertTrue(BackupService.OVERWRITE_WARNING.contains("overwrite any local data"))
+        assertTrue(BackupService.OVERWRITE_WARNING.contains("OAuth tokens stay here"))
+    }
 }

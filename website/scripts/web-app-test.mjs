@@ -322,3 +322,10 @@ test('first join unions local with existing account or S3 snapshot', async () =>
 	assert.equal(joined.items.some((i) => i.id === 'cloud' && i.text === 'in cloud'), true);
 	assert.deepEqual(joined.watchlist.map((w) => w.symbol).sort(), ['AAPL', 'TSLA']);
 });
+
+test('overwrite warning is confirmed before login or S3 pull', async () => {
+	const { OVERWRITE_WARNING, confirmOverwriteLocal } = await import('../public/web/account.js');
+	assert.match(OVERWRITE_WARNING, /overwrite any local data/);
+	assert.equal(confirmOverwriteLocal(() => true), true);
+	assert.equal(confirmOverwriteLocal(() => false), false);
+});

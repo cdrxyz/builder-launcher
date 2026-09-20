@@ -76,9 +76,8 @@ class BackupService(
         val blob = s3.get(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)
         val plain = BackupCrypto.decrypt(blob, s.s3EncryptionKey)
         val remote = decode(plain.decodeToString())
-        val merged = BackupMerge.join(document(), remote)
-        apply(merged)
-        return "Restored ${summary(merged)}"
+        apply(remote)
+        return "Restored ${summary(remote)}"
     }
 
     fun signup(email: String, password: String): String {
@@ -115,11 +114,9 @@ class BackupService(
         val s = settings.settings.value
         val remote = account.getVault(s.accountToken)
         val remoteDoc = remote.document ?: return "No cloud snapshot yet. Sync now to upload this phone."
-        val merged = BackupMerge.join(document(), remoteDoc)
-        apply(merged)
-        account.putVault(s.accountToken, merged.copy(exportedAt = System.currentTimeMillis()))
+        apply(remoteDoc)
         settings.markBackup(System.currentTimeMillis())
-        return "Restored ${summary(merged)}"
+        return "Restored ${summary(remoteDoc)}"
     }
 
     fun apply(doc: BackupDocument) {
@@ -178,6 +175,9 @@ class BackupService(
     }
 
     companion object {
+        const val OVERWRITE_WARNING =
+            "This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens stay here. Continue?"
+
         fun lastBackupLabel(epochMs: Long): String {
             if (epochMs <= 0L) return "never"
             val fmt = SimpleDateFormat("d MMM HH:mm", Locale.getDefault())
