@@ -408,3 +408,10 @@ test('home podcast mark matches the phone', () => {
 	assert.equal(homePodcastMark(false, true, 1000), 'PLAY');
 	assert.equal(homePodcastMark(false, true, 8000), 'HEADPHONES');
 });
+
+test('command bar enter key is go so iOS Return submits a todo', async () => {
+	const text = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(text, /input\.enterKeyHint = promptEnterHint\(\)/);
+	assert.match(text, /function promptEnterHint\(\) \{\s*return 'go';\s*\}/);
+	assert.doesNotMatch(text, /return 'done'/);
+});

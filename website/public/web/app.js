@@ -1245,9 +1245,8 @@ function s3Card() {
 	return details;
 }
 
+// iOS enterkeyhint=done is a check that dismisses the keyboard without adding the task.
 function promptEnterHint() {
-	if (state.prompt === '-') return 'done';
-	if (state.prompt === '+' || state.prompt === '$') return 'go';
 	return 'go';
 }
 
