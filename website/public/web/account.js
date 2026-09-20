@@ -1,3 +1,10 @@
+export const OVERWRITE_WARNING =
+	'This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens stay here. Continue?';
+
+export function confirmOverwriteLocal(ask = typeof window !== 'undefined' ? window.confirm.bind(window) : () => false) {
+	return Boolean(ask(OVERWRITE_WARNING));
+}
+
 export async function apiJson(path, { method = 'GET', body, token } = {}) {
 	const headers = { accept: 'application/json' };
 	if (body !== undefined) headers['content-type'] = 'application/json';

@@ -4,9 +4,11 @@ package xyz.cdr.builderlauncher.ui
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Handler
@@ -721,6 +723,7 @@ internal fun BackupSettingsPage(
     repo: SettingsRepository,
     backup: BackupService,
 ) {
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var s3Endpoint by remember { mutableStateOf(settings.s3Endpoint) }
     var s3Bucket by remember { mutableStateOf(settings.s3Bucket) }
@@ -750,7 +753,7 @@ internal fun BackupSettingsPage(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Two-way merge of todos, notes, chats, pins, stocks, podcasts, alarms, and settings. OAuth tokens stay on this phone.",
+            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Sign-in replaces local data with the account snapshot. Sync now merges both ways. OAuth tokens stay on this phone.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -783,13 +786,15 @@ internal fun BackupSettingsPage(
                 color = if (backupBusy) Dim else Paper,
                 modifier = Modifier
                     .clickable(enabled = !backupBusy) {
-                        backupBusy = true
-                        scope.launch {
-                            backupMsg = runCatching {
-                                withContext(Dispatchers.IO) { backup.signup(accountEmail, accountPassword) }
-                            }.getOrElse { it.message ?: "Create failed" }
-                            accountPassword = ""
-                            backupBusy = false
+                        confirmOverwriteLocal(ctx) {
+                            backupBusy = true
+                            scope.launch {
+                                backupMsg = runCatching {
+                                    withContext(Dispatchers.IO) { backup.signup(accountEmail, accountPassword) }
+                                }.getOrElse { it.message ?: "Create failed" }
+                                accountPassword = ""
+                                backupBusy = false
+                            }
                         }
                     }
                     .padding(vertical = 8.dp),
@@ -799,13 +804,18 @@ internal fun BackupSettingsPage(
                 color = if (backupBusy) Dim else Paper,
                 modifier = Modifier
                     .clickable(enabled = !backupBusy) {
-                        backupBusy = true
-                        scope.launch {
-                            backupMsg = runCatching {
-                                withContext(Dispatchers.IO) { backup.login(accountEmail, accountPassword) }
-                            }.getOrElse { it.message ?: "Sign in failed" }
-                            accountPassword = ""
-                            backupBusy = false
+                        confirmOverwriteLocal(ctx) {
+                            backupBusy = true
+                            scope.launch {
+                                backupMsg = runCatching {
+                                    withContext(Dispatchers.IO) {
+                                        val signed = backup.login(accountEmail, accountPassword)
+                                        signed + ". " + backup.restore()
+                                    }
+                                }.getOrElse { it.message ?: "Sign in failed" }
+                                accountPassword = ""
+                                backupBusy = false
+                            }
                         }
                     }
                     .padding(vertical = 8.dp),
@@ -863,9 +873,9 @@ internal fun BackupSettingsPage(
         )
         Text(
             if (settings.backupIncludeAiCredentials) {
-                "On. Do not enable unless you use encrypted S3 backups or you understand the risk. Applies to S3 and the JSON share. OAuth tokens still stay on this phone."
+                "On. The current provider API key is included in Builder account sync, S3 backups, and the JSON share so other devices can use the same ?. OAuth tokens still stay on this phone."
             } else {
-                "Off. API keys stay out of S3 backups and the JSON share."
+                "Off. API keys stay out of Builder account sync, S3 backups, and the JSON share."
             },
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
@@ -898,22 +908,19 @@ internal fun BackupSettingsPage(
                 .padding(vertical = 8.dp),
         )
         Text(
-            if (confirmRestore) "Tap again to replace local data" else if (settings.accountToken.isNotBlank()) "Restore from account" else "Restore from S3",
+            "Restore from account".takeIf { settings.accountToken.isNotBlank() } ?: "Restore from S3",
             color = if (backupBusy) Dim else Paper,
             modifier = Modifier
                 .clickable(enabled = !backupBusy) {
-                    if (!confirmRestore) {
-                        confirmRestore = true
-                        backupMsg = "Restore replaces todos, notes, chats, pins, stocks, podcasts, alarms, and settings."
-                        return@clickable
-                    }
-                    backupBusy = true
-                    confirmRestore = false
-                    backupMsg = "Restoring…"
-                    scope.launch {
-                        backupMsg = runCatching { withContext(Dispatchers.IO) { backup.restore() } }
-                            .getOrElse { it.message ?: "Restore failed" }
-                        backupBusy = false
+                    confirmOverwriteLocal(ctx) {
+                        backupBusy = true
+                        confirmRestore = false
+                        backupMsg = "Restoring…"
+                        scope.launch {
+                            backupMsg = runCatching { withContext(Dispatchers.IO) { backup.restore() } }
+                                .getOrElse { it.message ?: "Restore failed" }
+                            backupBusy = false
+                        }
                     }
                 }
                 .padding(vertical = 8.dp),
@@ -1303,4 +1310,13 @@ internal fun WeatherLocationField(
                 .padding(vertical = 8.dp),
         )
     }
+}
+
+private fun confirmOverwriteLocal(ctx: Context, onConfirm: () -> Unit) {
+    AlertDialog.Builder(ctx)
+        .setTitle("Overwrite local data?")
+        .setMessage(BackupService.OVERWRITE_WARNING)
+        .setPositiveButton("Overwrite") { _, _ -> onConfirm() }
+        .setNegativeButton("Cancel", null)
+        .show()
 }
