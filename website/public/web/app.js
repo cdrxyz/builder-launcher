@@ -95,6 +95,13 @@ const CREDS_KEY = 'builder-launcher-web-creds';
 const SNAP_KEY = 'builder-launcher-web-snapshot';
 const ACCOUNT_KEY = 'builder-launcher-web-account';
 const INCLUDE_AI_KEY = 'builder-launcher-web-include-ai';
+const AUTOSYNC_KEY = 'builder-launcher-web-autosync';
+const AUTOSYNC = [
+	{ id: 'off', label: 'off' },
+	{ id: 'save', label: 'on save' },
+	{ id: '30s', label: '30s', ms: 30_000 },
+	{ id: '5m', label: '5 min', ms: 5 * 60_000 },
+];
 const DOCS = 'https://cdrxyz.github.io/builder-launcher/configure/web/';
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SEARCH = 'https://query1.finance.yahoo.com/v1/finance/search';
@@ -123,6 +130,8 @@ const state = {
 	marketPoints: null,
 	speed: loadSpeed(),
 	speedMenu: false,
+	autoSync: loadAutoSync(),
+	editTodoId: null,
 	status: '',
 	busy: false,
 	dirty: false,
@@ -188,10 +197,7 @@ async function boot() {
 		state.tickerAt += 1;
 		if (state.tab === 'home' && !document.activeElement?.classList?.contains('command-input')) render();
 	}, 5000);
-	setInterval(() => {
-		if (signedIn() && state.dirty) push({ quiet: true, skipHydrate: true }).catch(() => {});
-		else if (signedIn()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
-	}, 30_000);
+	armAutoSync();
 	render();
 	(async () => {
 		if (hasSync() && (!state.doc || signedIn())) await pull({ quiet: true });
@@ -275,6 +281,51 @@ function saveIncludeAi(on) {
 	localStorage.setItem(INCLUDE_AI_KEY, state.includeAi ? 'true' : 'false');
 }
 
+function loadAutoSync() {
+	try {
+		const raw = localStorage.getItem(AUTOSYNC_KEY) || 'save';
+		return AUTOSYNC.some((item) => item.id === raw) ? raw : 'save';
+	} catch {
+		return 'save';
+	}
+}
+
+function saveAutoSync(id) {
+	state.autoSync = AUTOSYNC.some((item) => item.id === id) ? id : 'save';
+	localStorage.setItem(AUTOSYNC_KEY, state.autoSync);
+	armAutoSync();
+}
+
+let syncTimer = 0;
+let saveTimer = 0;
+
+function armAutoSync() {
+	if (syncTimer) {
+		clearInterval(syncTimer);
+		syncTimer = 0;
+	}
+	const spec = AUTOSYNC.find((item) => item.id === state.autoSync);
+	if (!spec?.ms) return;
+	syncTimer = setInterval(() => tickAutoSync(), spec.ms);
+}
+
+function tickAutoSync() {
+	if (!hasSync()) return;
+	if (state.dirty) push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
+	else if (signedIn()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
+}
+
+function maybeSyncSave() {
+	if (state.autoSync !== 'save' || !hasSync() || !state.dirty) return;
+	if (saveTimer) clearTimeout(saveTimer);
+	saveTimer = setTimeout(() => {
+		saveTimer = 0;
+		if (state.autoSync === 'save' && hasSync() && state.dirty) {
+			push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
+		}
+	}, 800);
+}
+
 function saveCreds(creds) {
 	localStorage.setItem(CREDS_KEY, JSON.stringify(creds));
 }
@@ -322,6 +373,7 @@ function mutate(next) {
 	state.dirty = true;
 	saveSnapshot(state.doc);
 	render();
+	maybeSyncSave();
 }
 
 function setItems(next) {
@@ -389,6 +441,7 @@ async function push(opts = {}) {
 	}
 	if (
 		!opts.skipConfirm &&
+		!opts.quiet &&
 		!window.confirm(
 			'Upload this snapshot? The last successful upload wins. The phone will see these tasks, notes, stocks, and podcasts on restore.',
 		)
@@ -465,9 +518,9 @@ function header() {
 	const el = document.createElement('header');
 	el.className = 'app-bar';
 	if (state.tab === 'home') {
-		el.append(button(state.busy ? '…' : 'pull', () => pull(), 'ghost'));
+		el.append(gearButton());
 		el.append(title(''));
-		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
+		el.append(headerSlot());
 		return el;
 	}
 	if (state.tab === 'note') {
@@ -481,27 +534,38 @@ function header() {
 		);
 		return el;
 	}
-	if (state.tab === 'show') {
-		el.append(button('<', () => go('pods'), 'ghost'));
-		el.append(title('show'));
-		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
+	if (state.tab === 'settings') {
+		el.append(button('<', () => go('home'), 'ghost'));
+		el.append(title('settings'));
+		el.append(headerSlot());
 		return el;
 	}
-	if (state.tab === 'stock') {
-		el.append(button('<', () => go('stocks'), 'ghost'));
-		el.append(title(state.stockSymbol || 'stock'));
-		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
-		return el;
-	}
-	if (state.tab === 'episode') {
-		el.append(button('<', () => (state.showId ? go('show') : go('pods')), 'ghost'));
-		el.append(title('episode'));
-		el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
-		return el;
-	}
-	el.append(button('<', () => go('home'), 'ghost'));
-	el.append(title(state.tab === 'pods' ? 'podcasts' : state.tab === 'tasks' ? 'tasks' : state.tab));
-	el.append(button(state.dirty ? 'push*' : 'push', () => push(), 'ghost'));
+	const back = state.tab === 'show'
+		? () => go('pods')
+		: state.tab === 'stock'
+			? () => go('stocks')
+			: state.tab === 'episode'
+				? () => (state.showId ? go('show') : go('pods'))
+				: () => go('home');
+	el.append(button('<', back, 'ghost'));
+	el.append(title(state.tab === 'pods' ? 'podcasts' : state.tab === 'tasks' ? 'tasks' : state.tab === 'stock' ? (state.stockSymbol || 'stock') : state.tab));
+	el.append(gearButton());
+	return el;
+}
+
+function headerSlot() {
+	const el = document.createElement('span');
+	el.className = 'app-bar-slot';
+	return el;
+}
+
+function gearButton() {
+	const el = document.createElement('button');
+	el.type = 'button';
+	el.className = 'ghost gear';
+	el.setAttribute('aria-label', 'settings');
+	el.innerHTML = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><circle cx="9" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 1.5v2.1M9 14.4v2.1M1.5 9h2.1M14.4 9h2.1M3.4 3.4l1.5 1.5M13.1 13.1l1.5 1.5M3.4 14.6l1.5-1.5M13.1 4.9l1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+	el.addEventListener('click', () => go('settings'));
 	return el;
 }
 
@@ -541,6 +605,7 @@ function go(tab, prompt) {
 	state.hits = [];
 	state.menu = null;
 	state.draft = '';
+	state.editTodoId = null;
 	state.prompt = prompt || pagePrompt(tab);
 	if (tab !== 'note') state.noteId = null;
 	if (tab !== 'show' && tab !== 'episode') state.showId = tab === 'pods' ? null : state.showId;
@@ -802,8 +867,11 @@ function submitCommand() {
 	const prompt = state.prompt;
 	if (prompt === '-') {
 		if (!text) return;
+		const editing = state.editTodoId;
 		state.draft = '';
-		addItem('todo', text);
+		state.editTodoId = null;
+		if (editing) updateTodoText(editing, text);
+		else addItem('todo', text);
 		return;
 	}
 	if (prompt === '+') {
@@ -923,21 +991,29 @@ function tasksScreen() {
 }
 
 function todoRow(item, done) {
-	const row = document.createElement('button');
+	const row = document.createElement('div');
 	row.className = `row${done ? ' done' : ''}`;
-	row.type = 'button';
-	const mark = document.createElement('span');
-	mark.className = 'mark';
-	mark.textContent = done ? '×' : '·';
-	const body = document.createElement('span');
-	body.className = 'body';
+	const body = document.createElement('button');
+	body.type = 'button';
+	body.className = 'body todo-text';
 	body.textContent = item.text;
-	row.append(mark, body);
-	row.addEventListener('click', () => toggleTodo(item.id));
-	row.addEventListener('contextmenu', (event) => {
-		event.preventDefault();
-		removeItem(item.id);
-	});
+	body.addEventListener('click', () => toggleTodo(item.id));
+	row.append(body);
+	if (done) {
+		row.append(iconButton('delete task', 'M5 5l8 8M13 5L5 13', () => removeItem(item.id)));
+	} else {
+		row.append(
+			iconButton('edit task', 'M12.2 2.8l3 3L6.2 14.8H3.2v-3L12.2 2.8z', () => {
+				state.editTodoId = item.id;
+				state.tab = 'tasks';
+				state.prompt = '-';
+				state.draft = item.text;
+				state.menu = null;
+				render();
+				app.querySelector('.command-input')?.focus({ preventScroll: true });
+			}),
+		);
+	}
 	return row;
 }
 
@@ -1022,6 +1098,8 @@ function stocksScreen() {
 
 function podsScreen() {
 	const wrap = document.createElement('div');
+	const now = nowPlayingBar();
+	if (now) wrap.append(now);
 	const bag = podcastsOf(state.doc);
 	if (state.hits.length) {
 		wrap.append(section('search'));
@@ -1146,7 +1224,7 @@ function episodeScreen() {
 function settingsScreen() {
 	const wrap = document.createElement('div');
 	wrap.className = 'settings';
-	wrap.append(accountCard(), weatherCard(), includeAiCard(), s3Card());
+	wrap.append(accountCard(), autoSyncCard(), weatherCard(), includeAiCard(), s3Card());
 	const note = document.createElement('p');
 	note.className = 'footer-note';
 	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in overwrites local data with the account snapshot. Sync now merges. Opt in below to include AI API keys for true ? sync. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
@@ -1190,6 +1268,33 @@ function accountCard() {
 	}
 	form.append(actions);
 	return form;
+}
+
+function autoSyncCard() {
+	const wrap = document.createElement('div');
+	wrap.className = 'settings';
+	const heading = document.createElement('p');
+	heading.className = 'hint';
+	heading.textContent = 'Auto-sync';
+	const actions = document.createElement('div');
+	actions.className = 'actions';
+	for (const item of AUTOSYNC) {
+		actions.append(
+			button(item.label, () => {
+				saveAutoSync(item.id);
+				render();
+			}, state.autoSync === item.id ? 'primary' : 'ghost'),
+		);
+	}
+	const hint = document.createElement('p');
+	hint.className = 'hint';
+	hint.textContent = state.autoSync === 'off'
+		? 'Off. Use sync now in the account card, or /pull and /push.'
+		: state.autoSync === 'save'
+			? 'Pushes a few hundred milliseconds after you edit. Pull still happens when you open the app or tap sync now.'
+			: `Pushes when dirty, otherwise pulls, every ${state.autoSync === '5m' ? '5 minutes' : '30 seconds'}.`;
+	wrap.append(heading, actions, hint);
+	return wrap;
 }
 
 function includeAiCard() {
@@ -1684,6 +1789,63 @@ function button(label, onClick, className) {
 	return el;
 }
 
+function iconButton(label, path, onClick) {
+	const el = document.createElement('button');
+	el.type = 'button';
+	el.className = 'ghost row-icon';
+	el.setAttribute('aria-label', label);
+	el.innerHTML = `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+	el.addEventListener('click', (event) => {
+		event.stopPropagation();
+		onClick();
+	});
+	return el;
+}
+
+function nowPlayingBar() {
+	if (!state.episodeId) return null;
+	const bag = podcastsOf(state.doc);
+	const episode = bag.episodes.find((item) => item.id === state.episodeId);
+	if (!episode) return null;
+	const progress = progressMap(bag.progress).get(episode.id);
+	if (finished(progress) && audio.paused) return null;
+	const show = bag.shows.find((item) => item.feedUrl === episode.showId);
+	const wrap = document.createElement('div');
+	wrap.className = 'now-playing';
+	const copy = document.createElement('button');
+	copy.type = 'button';
+	copy.className = 'copy';
+	const label = document.createElement('span');
+	label.className = 'label';
+	label.textContent = 'now playing';
+	const titleEl = document.createElement('span');
+	titleEl.className = 'title';
+	titleEl.textContent = episode.title;
+	copy.append(label, titleEl);
+	if (show?.title) {
+		const sub = document.createElement('span');
+		sub.className = 'sub';
+		sub.textContent = show.title;
+		copy.append(sub);
+	}
+	copy.addEventListener('click', () => {
+		state.tab = 'episode';
+		state.showId = episode.showId;
+		state.episodeId = episode.id;
+		render();
+	});
+	const play = document.createElement('button');
+	play.type = 'button';
+	play.className = 'ghost play';
+	play.setAttribute('aria-label', audio.paused ? 'play' : 'pause');
+	play.innerHTML = audio.paused
+		? '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M5 3.5l11 5.5L5 14.5z" fill="currentColor"/></svg>'
+		: '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M5 3.5h3v11H5zM10 3.5h3v11h-3z" fill="currentColor"/></svg>';
+	play.addEventListener('click', () => togglePlay(episode));
+	wrap.append(copy, play);
+	return wrap;
+}
+
 function empty(text) {
 	const p = document.createElement('p');
 	p.className = 'empty';
@@ -1729,6 +1891,11 @@ function updateNote(id, text) {
 	};
 	state.dirty = true;
 	saveSnapshot(state.doc);
+	maybeSyncSave();
+}
+
+function updateTodoText(id, text) {
+	setItems(items().map((item) => (item.id === id ? { ...item, text, updatedAt: Date.now() } : item)));
 }
 
 function toggleTodo(id) {
@@ -1947,6 +2114,7 @@ function checkpoint(force, ended = false) {
 	state.doc = { ...state.doc, podcasts: { ...bag, progress: upsertProgress(bag.progress, next) } };
 	state.dirty = true;
 	saveSnapshot(state.doc);
+	maybeSyncSave();
 	const el = document.getElementById('play-pos');
 	if (el) el.textContent = formatPosition(pos, next.durationMs);
 	updatePlayerChrome();

@@ -580,7 +580,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v20/);
+	assert.match(sw, /builder-launcher-web-v21/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -594,6 +594,26 @@ test('list rows stack title over subtitle so long show names cannot crush the ti
 	assert.match(css, /\.row \.copy \.body \{[^}]*-webkit-line-clamp:\s*3/s);
 	assert.match(css, /\.row \.body \{[^}]*word-break:\s*normal/s);
 	assert.doesNotMatch(css, /word-break:\s*break-word/);
+});
+
+test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	assert.match(js, /function gearButton\(/);
+	assert.match(js, /aria-label', 'settings'/);
+	assert.doesNotMatch(js, /push\*' : 'push'/);
+	assert.match(js, /function autoSyncCard\(/);
+	assert.match(js, /id: 'save', label: 'on save'/);
+	assert.match(js, /function maybeSyncSave\(/);
+	assert.match(js, /function nowPlayingBar\(/);
+	assert.match(js, /label\.textContent = 'now playing'/);
+	assert.match(js, /className = 'body todo-text'/);
+	assert.match(js, /iconButton\('edit task'/);
+	assert.match(js, /iconButton\('delete task'/);
+	assert.match(js, /function updateTodoText\(/);
+	assert.doesNotMatch(js, /mark\.textContent = done \? '×' : '·'/);
+	assert.match(css, /\.now-playing \{/);
+	assert.match(css, /\.ghost\.gear/);
 });
 
 test('mobile shell pins home to the top and follows the visual viewport', async () => {
