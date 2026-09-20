@@ -121,6 +121,29 @@ export function slimDoc(doc) {
 	};
 }
 
+export function isQuotaError(err) {
+	if (!err) return false;
+	if (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014) return true;
+	return /quota has been exceeded/i.test(String(err.message || err));
+}
+
+export function writeSnapshot(storage, key, doc) {
+	const payload = JSON.stringify(slimDoc(doc));
+	try {
+		storage.setItem(key, payload);
+		return true;
+	} catch (err) {
+		if (!isQuotaError(err)) throw err;
+		try {
+			storage.removeItem(key);
+			storage.setItem(key, payload);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+}
+
 function unique(list) {
 	const seen = new Set();
 	const out = [];

@@ -33,7 +33,7 @@ Home matches the phone: analog clock, headphones and weather on the left, rotati
 - **weather** — city in Settings (synced with the phone snapshot). Home shows the condition icon over the temperature, like the ticker. Tap it, or type `weather` / `/weather`, for the forecast. Open-Meteo via the Worker if the browser cannot fetch it.
 - **settings** — Builder account first, weather location and units, **Include AI credentials**, S3 collapsed underneath. Sign-in and S3 save & pull ask before overwriting local data.
 
-Offline, the last snapshot stays on the device.
+Offline, the last snapshot stays on the device. The browser only keeps a slim copy (subscriptions, playback progress, tickers, todos, notes) — episode catalogs stay in memory after RSS hydrate so Safari does not hit localStorage quota.
 
 ## Privacy
 

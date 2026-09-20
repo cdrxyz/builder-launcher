@@ -1,4 +1,4 @@
-const CACHE = 'builder-launcher-web-v17';
+const CACHE = 'builder-launcher-web-v18';
 const SHELL = [
 	'./',
 	'./index.html',
@@ -41,13 +41,6 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 	event.respondWith(
-		caches.match(req).then((hit) => {
-			if (hit) return hit;
-			return fetch(req).then((res) => {
-				const copy = res.clone();
-				caches.open(CACHE).then((cache) => cache.put(req, copy));
-				return res;
-			});
-		}),
+		caches.match(req).then((hit) => hit || fetch(req)),
 	);
 });
