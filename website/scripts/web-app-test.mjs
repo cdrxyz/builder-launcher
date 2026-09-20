@@ -415,3 +415,16 @@ test('command bar enter key is go so iOS Return submits a todo', async () => {
 	assert.match(text, /function promptEnterHint\(\) \{\s*return 'go';\s*\}/);
 	assert.doesNotMatch(text, /return 'done'/);
 });
+
+test('command bar shows a tappable check or send on the right', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	assert.match(js, /function commandSubmitKind\(prompt\) \{\s*return prompt === '-' \? 'check' : 'send';\s*\}/);
+	assert.match(js, /submit\.className = 'command-submit'/);
+	assert.match(js, /commandSubmitIcon\(commandSubmitKind\(state\.prompt\)\)/);
+	assert.match(js, /save task/);
+	assert.match(js, /'✓'/);
+	assert.match(css, /\.command-submit \{[^}]*min-width:\s*2\.6rem/s);
+	assert.match(css, /\.command-bar \{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto/s);
+	assert.doesNotMatch(css, /\.command-submit \{[^}]*clip-path:\s*inset\(50%\)/s);
+});

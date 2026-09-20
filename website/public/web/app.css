@@ -315,11 +315,11 @@ label span {
 }
 
 .command-bar {
-	display: flex;
-	align-items: flex-end;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: end;
 	gap: 0.15rem;
 	padding: 0.35rem 0.15rem 0.15rem;
-	position: relative;
 }
 
 .prompt-glyph {
@@ -347,17 +347,32 @@ form.settings input,
 
 .command-bar input {
 	border-bottom: 1px solid var(--line);
+	width: auto;
+	min-width: 0;
 }
 
 .command-submit {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip: rect(0 0 0 0);
-	clip-path: inset(50%);
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.6rem;
+	min-height: 2.6rem;
+	padding: 0.35rem;
+	background: none;
 	border: 0;
-	padding: 0;
+	color: var(--accent);
+	cursor: pointer;
+	-webkit-appearance: none;
+	appearance: none;
+	font: inherit;
+	font-size: 1.2rem;
+	line-height: 1;
+}
+
+.command-submit span {
+	display: block;
+	line-height: 1;
 }
 
 .note-editor textarea {

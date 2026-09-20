@@ -737,8 +737,8 @@ function commandBar() {
 	const submit = document.createElement('button');
 	submit.type = 'submit';
 	submit.className = 'command-submit';
-	submit.textContent = 'go';
-	submit.setAttribute('aria-label', 'run command');
+	submit.setAttribute('aria-label', commandSubmitKind(state.prompt) === 'check' ? 'save task' : 'run command');
+	submit.append(commandSubmitIcon(commandSubmitKind(state.prompt)));
 	form.append(glyph, input, submit);
 	form.addEventListener('submit', (event) => {
 		event.preventDefault();
@@ -1248,6 +1248,16 @@ function s3Card() {
 // iOS enterkeyhint=done is a check that dismisses the keyboard without adding the task.
 function promptEnterHint() {
 	return 'go';
+}
+
+function commandSubmitKind(prompt) {
+	return prompt === '-' ? 'check' : 'send';
+}
+
+function commandSubmitIcon(kind) {
+	const mark = document.createElement('span');
+	mark.textContent = kind === 'check' ? '✓' : '→';
+	return mark;
 }
 
 function weatherSettings() {
