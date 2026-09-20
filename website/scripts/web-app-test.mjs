@@ -36,7 +36,10 @@ import {
 	slashMatches,
 	slashResolve,
 	typeMode,
+	webPrefixes,
 } from '../public/web/commands.js';
+import { homePodcastMark } from '../public/web/media.js';
+import { displayTemperature, homeTemperature, kindOfCode, parseForecast, parseGeocode } from '../public/web/weather.js';
 
 test('regionFor matches Kotlin', () => {
 	assert.equal(regionFor('https://abc.r2.cloudflarestorage.com'), 'auto');
@@ -270,9 +273,12 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.equal(slashResolve('set').name, 'settings');
 	assert.deepEqual(
 		slashMatches('').map((row) => row.name),
-		['help', 'home', 'notes', 'podcasts', 'pull', 'push', 'settings', 'stocks', 'tasks'],
+		['help', 'home', 'notes', 'podcasts', 'pull', 'push', 'settings', 'stocks', 'tasks', 'weather'],
 	);
 	assert.equal(builtinPage('notes'), 'notes');
+	assert.equal(builtinPage('weather'), 'weather');
+	assert.deepEqual(webPrefixes().map((row) => row.glyph), ['-', '+', '$', '/']);
+	assert.equal(webPrefixes().some((row) => row.glyph === '*'), false);
 	assert.equal(homePreview([{ kind: 'todo', text: 'a' }, { kind: 'todo', text: 'b', completedAt: 1 }, { kind: 'note', text: 'n' }, { kind: 'todo', text: 'c' }]).map((i) => i.text).join(','), 'a,c');
 });
 
@@ -376,4 +382,29 @@ test('overwrite warning is confirmed before login or S3 pull', async () => {
 	assert.match(OVERWRITE_WARNING, /overwrite any local data/);
 	assert.equal(confirmOverwriteLocal(() => true), true);
 	assert.equal(confirmOverwriteLocal(() => false), false);
+});
+
+test('weather parse and home temperature match the phone', () => {
+	const places = parseGeocode(JSON.stringify({
+		results: [{ name: 'Kitchener', latitude: 43.45, longitude: -80.49, admin1: 'Ontario', country: 'Canada' }],
+	}));
+	assert.equal(places[0].label, 'Kitchener, Ontario, Canada');
+	const forecast = parseForecast(JSON.stringify({
+		latitude: 43.45,
+		longitude: -80.49,
+		timezone: 'America/Toronto',
+		current: { temperature_2m: 12.4, apparent_temperature: 10, weather_code: 3, is_day: 1 },
+		daily: { time: ['2026-09-20'], weather_code: [3], temperature_2m_max: [18], temperature_2m_min: [7], precipitation_probability_max: [20] },
+	}));
+	assert.equal(forecast.current.temperatureC, 12);
+	assert.equal(kindOfCode(3), 'CLOUDY');
+	assert.equal(homeTemperature(12, 'METRIC'), '12°');
+	assert.equal(displayTemperature(12, 'IMPERIAL'), 54);
+});
+
+test('home podcast mark matches the phone', () => {
+	assert.equal(homePodcastMark(false, false, null), 'HEADPHONES');
+	assert.equal(homePodcastMark(true, true, null), 'PAUSE');
+	assert.equal(homePodcastMark(false, true, 1000), 'PLAY');
+	assert.equal(homePodcastMark(false, true, 8000), 'HEADPHONES');
 });

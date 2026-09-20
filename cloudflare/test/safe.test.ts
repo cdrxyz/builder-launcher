@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isSafeHttpsUrl, isYahooHost, s3EndpointOk } from '../src/safe.ts';
+import { isSafeHttpsUrl, isYahooHost, isOpenMeteoHost, s3EndpointOk } from '../src/safe.ts';
 
 test('rejects private feed hosts', () => {
 	assert.equal(isSafeHttpsUrl('http://example.com/rss'), null);
@@ -21,4 +21,10 @@ test('s3 endpoint must be public https', () => {
 	assert.equal(s3EndpointOk('https://abc.r2.cloudflarestorage.com'), true);
 	assert.equal(s3EndpointOk('http://abc.r2.cloudflarestorage.com'), false);
 	assert.equal(s3EndpointOk('https://127.0.0.1:9000'), false);
+});
+
+test('open-meteo host allowlist', () => {
+	assert.equal(isOpenMeteoHost('api.open-meteo.com'), true);
+	assert.equal(isOpenMeteoHost('geocoding-api.open-meteo.com'), true);
+	assert.equal(isOpenMeteoHost('evil.example'), false);
 });

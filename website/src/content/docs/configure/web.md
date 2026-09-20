@@ -24,13 +24,14 @@ The Worker origin is `https://builder.cdr.xyz` (also `https://builder-launcher.c
 
 ## What it shows
 
-Home matches the phone: analog clock, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). The field stays empty. Tap the glyph for the prefix menu. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `settings`, `tasks`, `pull`, `push`).
+Home matches the phone: analog clock, headphones and weather on the left, rotating ticker on the right, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). Calendar is phone-only. The field stays empty. Tap the glyph for the prefix menu. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `weather`, `settings`, `tasks`, `pull`, `push`).
 
 - **tasks** — full list. Command bar starts in `-`.
 - **notes** — listed by date edited. Command bar starts in `+`.
 - **stocks** — watchlist. Command bar starts in `$`. Tap a row for the chart (1D / 1W / 1M / 3M / 1Y / 5Y). Drag across the chart to read price and date. Stats match the phone: open, high, low, volume, P/E, market cap, EPS, yield, beta, average volume, 52-week, CAGR.
-- **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode. Search uses Apple's catalog from this browser (it allows CORS). If that fails, the Worker searches fyyd.de. Subscribe fetches RSS through `/api/feed` because most feeds do not send CORS. Episode screen has a scrub bar, −15 / +15, and playback speed.
-- **settings** — Builder account first, **Include AI credentials**, S3 collapsed underneath. Sign-in and S3 save & pull ask before overwriting local data.
+- **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode. Search uses Apple's catalog from this browser (it allows CORS). If that fails, the Worker searches fyyd.de. Subscribe fetches RSS through `/api/feed` because most feeds do not send CORS. Episode screen has a scrub bar, −15 / +15, and playback speed. Home shows headphones (tap for the list); play/pause while audio is loaded.
+- **weather** — city in Settings (synced with the phone snapshot). Home shows the condition icon over the temperature, like the ticker. Tap it, or type `weather` / `/weather`, for the forecast. Open-Meteo via the Worker if the browser cannot fetch it.
+- **settings** — Builder account first, weather location and units, **Include AI credentials**, S3 collapsed underneath. Sign-in and S3 save & pull ask before overwriting local data.
 
 Offline, the last snapshot stays on the device.
 

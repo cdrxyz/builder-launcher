@@ -3,6 +3,7 @@ import { handleAuth } from './auth';
 import {
 	isItunesHost,
 	isFyydHost,
+	isOpenMeteoHost,
 	isSafeHttpsUrl,
 	isYahooHost,
 	jsonError,
@@ -77,6 +78,12 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 		}
 		if (url.pathname === '/api/feed' && request.method === 'GET') {
 			return fetchFeed(url.searchParams.get('url') || '');
+		}
+		if (url.pathname === '/api/weather/search' && request.method === 'GET') {
+			return weatherSearch(url.searchParams.get('q') || '');
+		}
+		if (url.pathname === '/api/weather/forecast' && request.method === 'GET') {
+			return weatherForecast(url.searchParams.get('lat') || '', url.searchParams.get('lon') || '');
 		}
 		return jsonError('Not found', 404);
 	} catch (err) {
@@ -234,6 +241,40 @@ async function fetchFeed(raw: string): Promise<Response> {
 	if (!res.ok) return textError(`Feed HTTP ${res.status}`, 502);
 	return new Response(buf, {
 		headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
+	});
+}
+
+async function weatherSearch(q: string): Promise<Response> {
+	const query = q.trim().slice(0, 80);
+	if (query.length < 2) return jsonError('q is required');
+	const target = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=en&format=json`;
+	return proxyOpenMeteo(target);
+}
+
+async function weatherForecast(latRaw: string, lonRaw: string): Promise<Response> {
+	const lat = Number(latRaw);
+	const lon = Number(lonRaw);
+	if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+		return jsonError('lat and lon are required');
+	}
+	const target =
+		`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(String(lat))}` +
+		`&longitude=${encodeURIComponent(String(lon))}` +
+		'&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,precipitation,wind_speed_10m,is_day' +
+		'&hourly=temperature_2m,weather_code,is_day' +
+		'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+		'&forecast_days=7&timezone=auto&temperature_unit=celsius';
+	return proxyOpenMeteo(target);
+}
+
+async function proxyOpenMeteo(target: string): Promise<Response> {
+	const url = isSafeHttpsUrl(target);
+	if (!url || !isOpenMeteoHost(url.hostname)) return jsonError('Host not allowed');
+	const res = await fetch(url.toString(), { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+	const text = await res.text();
+	return new Response(text, {
+		status: res.ok ? 200 : res.status,
+		headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
 	});
 }
 

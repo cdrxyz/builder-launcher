@@ -13,7 +13,7 @@ import {
 import { renderMarkdown } from './markdown.js';
 import {
 	DEFAULT_PROMPT,
-	PREFIXES,
+	webPrefixes,
 	builtinPage,
 	homePreview,
 	isModePrompt,
@@ -37,6 +37,8 @@ import {
 	formatChartTime,
 	formatExtended,
 	homeRows,
+	homePodcastMark,
+	HOME_MARK_IDLE_MS,
 	indexAt,
 	looksLikeFeedUrl,
 	looksLikeSymbol,
@@ -62,6 +64,19 @@ import {
 	upsertProgress,
 	watchlist,
 } from './media.js';
+import {
+	FORECAST,
+	GEOCODE,
+	homeTemperature,
+	kindOfCode,
+	parseForecast,
+	parseGeocode,
+	podcastMarkSvg,
+	weatherGlyphSvg,
+	weatherLabel,
+	weekdayShort,
+	displayTemperature,
+} from './weather.js';
 
 const CREDS_KEY = 'builder-launcher-web-creds';
 const SNAP_KEY = 'builder-launcher-web-snapshot';
@@ -101,6 +116,10 @@ const state = {
 	api: false,
 	hits: [],
 	quotes: {},
+	weather: null,
+	weatherHits: [],
+	weatherQuery: '',
+	pausedAt: 0,
 	creds: loadCreds(),
 	account: loadAccount(),
 	includeAi: loadIncludeAi(),
@@ -119,7 +138,15 @@ audio.addEventListener('timeupdate', () => {
 	checkpoint(false);
 	updatePlayerChrome();
 });
-audio.addEventListener('pause', () => checkpoint(true));
+audio.addEventListener('pause', () => {
+	state.pausedAt = Date.now();
+	checkpoint(true);
+	if (state.tab === 'home') render();
+});
+audio.addEventListener('play', () => {
+	state.pausedAt = 0;
+	if (state.tab === 'home') render();
+});
 audio.addEventListener('ended', () => {
 	checkpoint(true, true);
 	render();
@@ -153,7 +180,10 @@ async function boot() {
 	}, 30_000);
 	render();
 	if (hasSync() && (!state.doc || signedIn())) pull({ quiet: true }).catch(() => {});
-	else if (state.doc) refreshQuotes();
+	else if (state.doc) {
+		refreshQuotes();
+		refreshWeather();
+	}
 }
 
 async function probeApi() {
@@ -464,6 +494,7 @@ function main() {
 	else if (state.tab === 'episode') el.append(episodeScreen());
 	else if (state.tab === 'tasks') el.append(tasksScreen());
 	else if (state.tab === 'help') el.append(helpScreen());
+	else if (state.tab === 'weather') el.append(weatherScreen());
 	else el.append(homeScreen());
 	return el;
 }
@@ -491,27 +522,12 @@ function homeScreen() {
 	hero.className = 'home-hero';
 	const left = document.createElement('div');
 	left.className = 'home-side';
-	const now = playingId();
-	left.textContent = now ? 'pause' : '';
-	left.addEventListener('click', () => {
-		if (now) go('pods');
-	});
+	left.append(podcastMark(), weatherMark());
 	const clock = analogClock();
 	const right = document.createElement('div');
 	right.className = 'home-side right';
-	const list = watchlist(state.doc);
-	if (list.length) {
-		const item = list[state.tickerAt % list.length];
-		const live = state.quotes[String(item.symbol).toUpperCase()];
-		const pct = live?.changePercent ?? item.changePercent;
-		const name = document.createElement('div');
-		name.textContent = item.symbol;
-		const change = document.createElement('div');
-		change.className = `pct${pct == null ? '' : pct >= 0 ? ' up' : ' down'}`;
-		change.textContent = formatPercent(pct);
-		right.append(name, change);
-		right.addEventListener('click', () => go('stocks'));
-	}
+	const ticker = tickerMark();
+	if (ticker) right.append(ticker);
 	hero.append(left, clock, right);
 	wrap.append(hero);
 	if (!state.menu) {
@@ -522,6 +538,65 @@ function homeScreen() {
 		const more = button('… more tasks >', () => go('tasks'), 'more-link');
 		wrap.append(more);
 	}
+	return wrap;
+}
+
+function podcastMark() {
+	const playing = Boolean(audio.src) && !audio.paused;
+	const loaded = Boolean(state.episodeId && audio.src);
+	const pausedFor = state.pausedAt ? Date.now() - state.pausedAt : null;
+	const mark = homePodcastMark(playing, loaded, pausedFor, HOME_MARK_IDLE_MS);
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'home-mark podcast-mark';
+	btn.title = mark === 'PAUSE' ? 'pause' : mark === 'PLAY' ? 'play' : 'podcasts';
+	btn.innerHTML = podcastMarkSvg(mark);
+	btn.addEventListener('click', () => {
+		if (mark === 'HEADPHONES') go('pods');
+		else if (state.episodeId) {
+			const ep = podcastsOf(state.doc).episodes.find((row) => row.id === state.episodeId);
+			if (ep) togglePlay(ep);
+			else go('pods');
+		} else go('pods');
+	});
+	return btn;
+}
+
+function weatherMark() {
+	const snap = state.weather?.current;
+	if (!snap) return document.createElement('div');
+	const units = weatherUnits();
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'home-mark weather-mark';
+	const kind = kindOfCode(snap.code);
+	const icon = document.createElement('span');
+	icon.className = 'weather-glyph';
+	icon.innerHTML = weatherGlyphSvg(kind, snap.isDay);
+	const temp = document.createElement('div');
+	temp.textContent = homeTemperature(snap.temperatureC, units);
+	btn.append(icon, temp);
+	btn.title = `${homeTemperature(snap.temperatureC, units)} ${weatherLabel(snap.code)}`;
+	btn.addEventListener('click', () => go('weather'));
+	return btn;
+}
+
+function tickerMark() {
+	const list = watchlist(state.doc);
+	if (!list.length) return null;
+	const item = list[state.tickerAt % list.length];
+	const live = state.quotes[String(item.symbol).toUpperCase()];
+	const pct = live?.changePercent ?? item.changePercent;
+	const wrap = document.createElement('button');
+	wrap.type = 'button';
+	wrap.className = 'home-mark ticker-mark';
+	const name = document.createElement('div');
+	name.textContent = item.symbol;
+	const change = document.createElement('div');
+	change.className = `pct${pct == null ? '' : pct >= 0 ? ' up' : ' down'}`;
+	change.textContent = formatPercent(pct) || '—';
+	wrap.append(name, change);
+	wrap.addEventListener('click', () => go('stocks'));
 	return wrap;
 }
 
@@ -563,7 +638,7 @@ function helpScreen() {
 		'-  todo',
 		'+  note',
 		'$  stock',
-		'/  slash (notes stocks podcasts settings tasks pull push)',
+		'/  slash (notes stocks podcasts weather settings tasks pull push)',
 		'',
 		'Tap the prompt glyph for the prefix menu.',
 		'Back on home resets to >.',
@@ -584,7 +659,7 @@ function commandDock() {
 function prefixMenu() {
 	const list = document.createElement('div');
 	list.className = 'command-list';
-	for (const row of PREFIXES) {
+	for (const row of webPrefixes()) {
 		const btn = document.createElement('button');
 		btn.type = 'button';
 		btn.className = 'row';
@@ -644,6 +719,7 @@ function commandBar() {
 	input.autocomplete = 'off';
 	input.autocapitalize = state.prompt === '$' ? 'off' : 'sentences';
 	input.spellcheck = state.prompt === '-' || state.prompt === '+';
+	input.enterKeyHint = promptEnterHint();
 	input.addEventListener('input', () => {
 		const next = typeMode(state.prompt, input.value);
 		const promptChanged = next.prompt !== state.prompt;
@@ -653,7 +729,17 @@ function commandBar() {
 		else if (state.menu === 'slash') state.menu = null;
 		if (promptChanged || next.prompt === '/') render();
 	});
-	form.append(glyph, input);
+	input.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter' || event.isComposing) return;
+		event.preventDefault();
+		submitCommand();
+	});
+	const submit = document.createElement('button');
+	submit.type = 'submit';
+	submit.className = 'command-submit';
+	submit.textContent = 'go';
+	submit.setAttribute('aria-label', 'run command');
+	form.append(glyph, input, submit);
 	form.addEventListener('submit', (event) => {
 		event.preventDefault();
 		submitCommand();
@@ -669,13 +755,18 @@ function pickPrefix(glyph) {
 }
 
 function submitCommand() {
+	const live = app.querySelector('.command-input');
+	if (live) {
+		const next = typeMode(state.prompt, live.value);
+		state.prompt = next.prompt;
+		state.draft = next.input;
+	}
 	const text = state.draft.trim();
 	const prompt = state.prompt;
 	if (prompt === '-') {
 		if (!text) return;
-		addItem('todo', text);
 		state.draft = '';
-		if (state.tab === 'home') render();
+		addItem('todo', text);
 		return;
 	}
 	if (prompt === '+') {
@@ -683,8 +774,8 @@ function submitCommand() {
 			go('notes', '+');
 			return;
 		}
-		addNote(text);
 		state.draft = '';
+		addNote(text);
 		return;
 	}
 	if (prompt === '$') {
@@ -700,8 +791,8 @@ function submitCommand() {
 		runSlash(text);
 		return;
 	}
-	if (prompt === '?' || prompt === '@' || prompt === '#' || prompt === '*') {
-		setStatus('Use the Android app for text, calls, calendar, and AI.');
+	if (prompt === '?' || prompt === '@' || prompt === '#') {
+		setStatus('Use the Android app for text, calls, and AI.');
 		return;
 	}
 	if (!text) return;
@@ -773,6 +864,10 @@ function runSlash(name) {
 	}
 	if (key === 'tasks') {
 		go('tasks');
+		return;
+	}
+	if (key === 'weather') {
+		go('weather');
 		return;
 	}
 	setStatus('Unknown slash command.');
@@ -1029,7 +1124,7 @@ function episodeScreen() {
 function settingsScreen() {
 	const wrap = document.createElement('div');
 	wrap.className = 'settings';
-	wrap.append(accountCard(), includeAiCard(), s3Card());
+	wrap.append(accountCard(), weatherCard(), includeAiCard(), s3Card());
 	const note = document.createElement('p');
 	note.className = 'footer-note';
 	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in overwrites local data with the account snapshot. Sync now merges. Opt in below to include AI API keys for true ? sync. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
@@ -1148,6 +1243,172 @@ function s3Card() {
 	form.append(actions);
 	details.append(summary, form);
 	return details;
+}
+
+function promptEnterHint() {
+	if (state.prompt === '-') return 'done';
+	if (state.prompt === '+' || state.prompt === '$') return 'go';
+	return 'go';
+}
+
+function weatherSettings() {
+	return state.doc?.settings || {};
+}
+
+function weatherUnits() {
+	return String(weatherSettings().weatherUnits || 'METRIC').toUpperCase() === 'IMPERIAL' ? 'IMPERIAL' : 'METRIC';
+}
+
+function setWeatherSettings(next) {
+	ensureDoc();
+	mutate({ settings: { ...weatherSettings(), ...next } });
+	refreshWeather(true);
+}
+
+function weatherCard() {
+	const wrap = document.createElement('div');
+	wrap.className = 'settings';
+	const heading = document.createElement('p');
+	heading.className = 'hint';
+	heading.textContent = 'Weather';
+	const loc = field('Weather location', 'weatherPlace', state.weatherQuery || weatherSettings().weatherPlace || '', 'Kitchener');
+	const input = loc.querySelector('input');
+	input.addEventListener('input', () => {
+		const q = input.value.trim();
+		state.weatherQuery = input.value;
+		if (!q) {
+			state.weatherHits = [];
+			setWeatherSettings({ weatherPlace: '', weatherLat: null, weatherLon: null });
+			return;
+		}
+		searchWeatherPlaces(q);
+	});
+	const hits = document.createElement('div');
+	for (const place of state.weatherHits) {
+		hits.append(
+			button(place.label, () => {
+				state.weatherHits = [];
+				state.weatherQuery = place.label;
+				setWeatherSettings({
+					weatherPlace: place.label,
+					weatherLat: place.latitude,
+					weatherLon: place.longitude,
+				});
+			}, 'row'),
+		);
+	}
+	const units = document.createElement('div');
+	units.className = 'actions';
+	for (const item of ['METRIC', 'IMPERIAL']) {
+		units.append(
+			button(item.toLowerCase(), () => setWeatherSettings({ weatherUnits: item }), weatherUnits() === item ? 'primary' : 'ghost'),
+		);
+	}
+	const hint = document.createElement('p');
+	hint.className = 'hint';
+	hint.textContent = weatherSettings().weatherLat
+		? `${weatherSettings().weatherPlace}. Tap the home mark for the forecast. Units ${weatherUnits().toLowerCase()}.`
+		: 'Type a city and pick a match. No GPS. Open-Meteo.';
+	wrap.append(heading, loc, hits, units, hint);
+	return wrap;
+}
+
+function weatherScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'weather';
+	const snap = state.weather;
+	if (!weatherSettings().weatherLat) {
+		wrap.append(empty('Set a city in settings.'));
+		return wrap;
+	}
+	if (!snap?.current) {
+		wrap.append(empty('Loading weather…'));
+		refreshWeather();
+		return wrap;
+	}
+	const units = weatherUnits();
+	const now = document.createElement('div');
+	now.className = 'weather-now';
+	const glyph = document.createElement('span');
+	glyph.className = 'weather-glyph lg';
+	glyph.innerHTML = weatherGlyphSvg(kindOfCode(snap.current.code), snap.current.isDay);
+	const temp = document.createElement('div');
+	temp.className = 'weather-temp';
+	temp.textContent = homeTemperature(snap.current.temperatureC, units);
+	const cond = document.createElement('div');
+	cond.className = 'hint';
+	cond.textContent = `${weatherLabel(snap.current.code)} · feels ${homeTemperature(snap.current.feelsC, units)}`;
+	now.append(glyph, temp, cond);
+	wrap.append(now);
+	const days = document.createElement('div');
+	days.className = 'weather-days';
+	for (const day of snap.daily || []) {
+		const row = document.createElement('div');
+		row.className = 'row weather-day';
+		const icon = document.createElement('span');
+		icon.className = 'weather-glyph';
+		icon.innerHTML = weatherGlyphSvg(kindOfCode(day.code), true);
+		const name = document.createElement('span');
+		name.className = 'body';
+		name.textContent = weekdayShort(day.date);
+		const hi = document.createElement('span');
+		hi.className = 'mark';
+		hi.textContent = `${displayTemperature(day.highC, units)}° / ${displayTemperature(day.lowC, units)}°`;
+		row.append(icon, name, hi);
+		days.append(row);
+	}
+	wrap.append(days);
+	return wrap;
+}
+
+let weatherSearchAt = 0;
+
+async function searchWeatherPlaces(query) {
+	const token = ++weatherSearchAt;
+	try {
+		const url = state.api
+			? `/api/weather/search?q=${encodeURIComponent(query)}`
+			: `${GEOCODE}?name=${encodeURIComponent(query)}&count=6&language=en&format=json`;
+		const hits = parseGeocode(await fetchText(url));
+		if (token !== weatherSearchAt) return;
+		state.weatherHits = hits;
+		if (state.tab === 'settings') {
+			const focus = document.activeElement?.name === 'weatherPlace';
+			const draft = state.weatherQuery;
+			render();
+			if (focus) {
+				const input = app.querySelector('input[name="weatherPlace"]');
+				if (input) {
+					input.focus();
+					input.value = draft;
+				}
+			}
+		}
+	} catch {
+		if (token !== weatherSearchAt) return;
+		state.weatherHits = [];
+	}
+}
+
+async function refreshWeather(force = false) {
+	const s = weatherSettings();
+	const lat = Number(s.weatherLat);
+	const lon = Number(s.weatherLon);
+	if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+		state.weather = null;
+		return;
+	}
+	if (!force && state.weather?.fetchedAt && Date.now() - state.weather.fetchedAt < 15 * 60_000) return;
+	try {
+		const qs = `latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,precipitation,wind_speed_10m,is_day&hourly=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=auto&temperature_unit=celsius`;
+		const url = state.api ? `/api/weather/forecast?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}` : `${FORECAST}?${qs}`;
+		const next = parseForecast(await fetchText(url));
+		if (!next) return;
+		state.weather = next;
+		if (state.tab === 'home' || state.tab === 'weather') render();
+	} catch {
+		/* keep last snapshot */
+	}
 }
 
 async function submitAccount(form, mode) {
@@ -1376,7 +1637,7 @@ async function searchOrAddStock(query) {
 }
 
 async function hydrateMedia() {
-	await Promise.all([refreshQuotes(), refreshPodcastFeeds()]);
+	await Promise.all([refreshQuotes(), refreshPodcastFeeds(), refreshWeather()]);
 }
 
 async function refreshPodcastFeeds() {
