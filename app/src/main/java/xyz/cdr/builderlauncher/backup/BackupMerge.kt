@@ -10,6 +10,11 @@ import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.stocks.WatchItem
 
 object BackupMerge {
+    fun join(local: BackupDocument, remote: BackupDocument?): BackupDocument {
+        if (remote == null) return local
+        return merge(local, remote)
+    }
+
     fun merge(a: BackupDocument, b: BackupDocument): BackupDocument {
         val preferA = a.exportedAt >= b.exportedAt
         val newer = if (preferA) a else b

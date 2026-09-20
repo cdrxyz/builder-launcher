@@ -230,3 +230,40 @@ test('mergeDocs unions items and honors deletedIds', async () => {
 	assert.equal(merged.items.some((i) => i.id === '2'), true);
 	assert.equal(merged.items.some((i) => i.id === '9'), false);
 });
+
+test('first join keeps local-only data when remote is empty', async () => {
+	const { joinDocs, emptyDoc } = await import('../public/web/merge.js');
+	const local = {
+		exportedAt: 10,
+		items: [
+			{ id: 'todo-1', kind: 'todo', text: 'buy milk', createdAt: 1, updatedAt: 1 },
+			{ id: 'note-1', kind: 'note', text: 'secret', createdAt: 2, updatedAt: 2 },
+		],
+		watchlist: [{ symbol: 'AAPL', name: 'Apple' }],
+		podcasts: { shows: [{ id: 'https://feeds.example/show', feedUrl: 'https://feeds.example/show', title: 'Show' }], episodes: [], progress: [] },
+	};
+	for (const joined of [joinDocs(local, null), joinDocs(local, emptyDoc(1))]) {
+		assert.equal(joined.items.find((i) => i.id === 'todo-1').text, 'buy milk');
+		assert.equal(joined.items.find((i) => i.id === 'note-1').text, 'secret');
+		assert.equal(joined.watchlist[0].symbol, 'AAPL');
+		assert.equal(joined.podcasts.shows[0].title, 'Show');
+	}
+});
+
+test('first join unions local with existing account or S3 snapshot', async () => {
+	const { joinDocs } = await import('../public/web/merge.js');
+	const local = {
+		exportedAt: 5,
+		items: [{ id: 'phone', text: 'on phone', createdAt: 1, updatedAt: 1 }],
+		watchlist: [{ symbol: 'TSLA', name: 'Tesla' }],
+	};
+	const remote = {
+		exportedAt: 8,
+		items: [{ id: 'cloud', text: 'in cloud', createdAt: 2, updatedAt: 2 }],
+		watchlist: [{ symbol: 'AAPL', name: 'Apple' }],
+	};
+	const joined = joinDocs(local, remote);
+	assert.equal(joined.items.some((i) => i.id === 'phone' && i.text === 'on phone'), true);
+	assert.equal(joined.items.some((i) => i.id === 'cloud' && i.text === 'in cloud'), true);
+	assert.deepEqual(joined.watchlist.map((w) => w.symbol).sort(), ['AAPL', 'TSLA']);
+});
