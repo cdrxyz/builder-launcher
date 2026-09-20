@@ -3,6 +3,7 @@ const PRIVATE_HOST =
 
 export const MAX_S3_BYTES = 4_000_000;
 export const MAX_FEED_BYTES = 24_000_000;
+export const UPSTREAM_TIMEOUT_MS = 12_000;
 export const USER_AGENT = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 BuilderLauncher';
 
 export function isSafeHttpsUrl(raw: string): URL | null {

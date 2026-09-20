@@ -9,6 +9,7 @@ import {
 	jsonError,
 	MAX_FEED_BYTES,
 	MAX_S3_BYTES,
+	UPSTREAM_TIMEOUT_MS,
 	s3EndpointOk,
 	textError,
 	USER_AGENT,
@@ -214,7 +215,10 @@ async function itunesSearch(q: string): Promise<Response> {
 	const target = `https://api.fyyd.de/0.2/search/podcast?term=${encodeURIComponent(query)}&count=8`;
 	const url = isSafeHttpsUrl(target);
 	if (!url || !isFyydHost(url.hostname)) return jsonError('Host not allowed');
-	const res = await fetch(url.toString(), { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+	const res = await fetch(url.toString(), {
+		headers: { 'user-agent': USER_AGENT, accept: 'application/json' },
+		signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+	});
 	const text = await res.text();
 	if (!res.ok) return jsonError('Podcast search failed', 502);
 	return new Response(fyydToItunes(text), {
@@ -227,7 +231,10 @@ async function proxyJson(target: string, expectedHost: string): Promise<Response
 	if (!url) return jsonError('Bad URL');
 	if (url.hostname !== expectedHost) return jsonError('Host not allowed');
 	if (!isYahooHost(url.hostname) && !isItunesHost(url.hostname)) return jsonError('Host not allowed');
-	const res = await fetch(url.toString(), { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+	const res = await fetch(url.toString(), {
+		headers: { 'user-agent': USER_AGENT, accept: 'application/json' },
+		signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+	});
 	const text = await res.text();
 	return new Response(text, {
 		status: res.ok ? 200 : res.status,
@@ -238,13 +245,20 @@ async function proxyJson(target: string, expectedHost: string): Promise<Response
 async function fetchFeed(raw: string): Promise<Response> {
 	const url = isSafeHttpsUrl(raw);
 	if (!url) return textError('Feed URL must be https on a public host');
-	const res = await fetch(url.toString(), { headers: { 'user-agent': USER_AGENT, accept: 'application/rss+xml, application/xml, text/xml, */*' } });
-	const buf = await res.arrayBuffer();
-	if (buf.byteLength > MAX_FEED_BYTES) return textError('Feed too large', 413);
-	if (!res.ok) return textError(`Feed HTTP ${res.status}`, 502);
-	return new Response(buf, {
-		headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
-	});
+	try {
+		const res = await fetch(url.toString(), {
+			headers: { 'user-agent': USER_AGENT, accept: 'application/rss+xml, application/xml, text/xml, */*' },
+			signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+		});
+		const buf = await res.arrayBuffer();
+		if (buf.byteLength > MAX_FEED_BYTES) return textError('Feed too large', 413);
+		if (!res.ok) return textError(`Feed HTTP ${res.status}`, 502);
+		return new Response(buf, {
+			headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
+		});
+	} catch {
+		return textError('Feed timed out', 504);
+	}
 }
 
 async function weatherSearch(q: string): Promise<Response> {
@@ -287,7 +301,10 @@ function weatherCoords(latRaw: string, lonRaw: string): { lat: number; lon: numb
 async function proxyOpenMeteo(target: string): Promise<Response> {
 	const url = isSafeHttpsUrl(target);
 	if (!url || !isOpenMeteoHost(url.hostname)) return jsonError('Host not allowed');
-	const res = await fetch(url.toString(), { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+	const res = await fetch(url.toString(), {
+		headers: { 'user-agent': USER_AGENT, accept: 'application/json' },
+		signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+	});
 	const text = await res.text();
 	return new Response(text, {
 		status: res.ok ? 200 : res.status,

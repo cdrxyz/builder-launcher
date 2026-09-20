@@ -411,6 +411,9 @@ export function timestamps(text) {
 	return hits;
 }
 
+export const FETCH_TIMEOUT_MS = 12_000;
+export const FEED_HYDRATE_LIMIT = 4;
+
 export function podcastsOf(doc) {
 	const bag = doc?.podcasts || {};
 	return {
@@ -419,6 +422,13 @@ export function podcastsOf(doc) {
 		progress: Array.isArray(bag.progress) ? bag.progress : [],
 		cacheBytes: bag.cacheBytes || 0,
 	};
+}
+
+/** Account snapshots omit episode catalogs. Those shows need RSS after pull. */
+export function showsNeedingFeed(bag) {
+	const shows = bag?.shows || [];
+	const have = new Set((bag?.episodes || []).map((ep) => String(ep.showId || '').toLowerCase()));
+	return shows.filter((show) => !have.has(String(show.feedUrl || '').toLowerCase()));
 }
 
 export function progressMap(progress) {

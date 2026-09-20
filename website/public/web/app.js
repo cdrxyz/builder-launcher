@@ -51,8 +51,11 @@ import {
 	parseYahooChart,
 	parseYahooSearch,
 	performance,
+	FETCH_TIMEOUT_MS,
+	FEED_HYDRATE_LIMIT,
 	podcastsOf,
 	progressMap,
+	showsNeedingFeed,
 	quoteStats,
 	removeTicker,
 	scrubBaseline,
@@ -236,7 +239,7 @@ async function probeApi() {
 }
 
 async function fetchText(url) {
-	const res = await fetch(url);
+	const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 	if (!res.ok) throw new Error(`HTTP ${res.status}`);
 	return res.text();
 }
@@ -347,7 +350,7 @@ function loadSnapshot() {
 }
 
 function saveSnapshot(doc) {
-	writeSnapshot(localStorage, SNAP_KEY, doc);
+	return writeSnapshot(localStorage, SNAP_KEY, doc);
 }
 
 function statusFromError(err) {
@@ -400,14 +403,14 @@ async function pull(opts = {}) {
 		state.doc = opts.overwrite ? remote : joinDocs(state.doc, remote);
 		state.dirty = false;
 		state.hits = [];
-		saveSnapshot(state.doc);
-		state.status = pulledLabel(state.doc);
-		await hydrateMedia();
+		const saved = saveSnapshot(state.doc);
+		state.status = saved === false ? statusFromError({ name: 'QuotaExceededError' }) : pulledLabel(state.doc);
+		if (!opts.skipHydrate) hydrateMedia().catch(() => {});
 	} catch (err) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		if (!opts.quiet) render();
+		render();
 	}
 }
 
@@ -419,17 +422,17 @@ async function pullAccount(opts = {}) {
 		state.revision = remote.revision || 0;
 		if (opts.overwrite && remote.document) state.doc = remote.document;
 		else state.doc = joinDocs(state.doc, remote.document);
-		saveSnapshot(state.doc);
-		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true });
+		const saved = saveSnapshot(state.doc);
+		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true, skipHydrate: true });
 		state.dirty = false;
 		state.hits = [];
-		state.status = pulledLabel(state.doc);
-		if (!opts.skipHydrate) await hydrateMedia();
+		state.status = saved === false ? statusFromError({ name: 'QuotaExceededError' }) : pulledLabel(state.doc);
+		if (!opts.skipHydrate) hydrateMedia().catch(() => {});
 	} catch (err) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		if (!opts.quiet) render();
+		render();
 	}
 }
 
@@ -482,12 +485,12 @@ async function pushAccount(opts = {}) {
 		state.dirty = false;
 		saveSnapshot(state.doc);
 		state.status = `Synced ${new Date(state.doc.exportedAt).toLocaleString()}`;
-		if (!opts.skipHydrate) await hydrateMedia();
+		if (!opts.skipHydrate) hydrateMedia().catch(() => {});
 	} catch (err) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		if (!opts.quiet) render();
+		render();
 	}
 }
 
@@ -1961,28 +1964,35 @@ async function hydrateMedia() {
 
 async function refreshPodcastFeeds() {
 	const bag = podcastsOf(state.doc);
-	const shows = bag.shows || [];
-	if (!shows.length) return;
-	let episodes = bag.episodes || [];
-	const have = new Set(episodes.map((ep) => String(ep.showId || '').toLowerCase()));
-	const missing = shows.filter((show) => !have.has(String(show.feedUrl || '').toLowerCase()));
+	const missing = showsNeedingFeed(bag);
 	if (!missing.length) return;
-	let nextShows = shows;
-	for (const show of missing) {
-		try {
-			const xml = await fetchText(
-				state.api ? `/api/feed?url=${encodeURIComponent(show.feedUrl)}` : show.feedUrl,
-			);
-			const feed = parseRss(xml, show.feedUrl);
-			if (!feed) continue;
-			const merged = mergeFeed(nextShows, episodes, feed);
-			nextShows = merged.shows;
-			episodes = merged.episodes;
-		} catch {
-			/* keep subscription; RSS fills in on the next open */
+	let episodes = bag.episodes || [];
+	let nextShows = bag.shows || [];
+	const feeds = new Array(missing.length);
+	let cursor = 0;
+	const worker = async () => {
+		while (cursor < missing.length) {
+			const index = cursor;
+			cursor += 1;
+			const show = missing[index];
+			try {
+				const xml = await fetchText(
+					state.api ? `/api/feed?url=${encodeURIComponent(show.feedUrl)}` : show.feedUrl,
+				);
+				feeds[index] = parseRss(xml, show.feedUrl);
+			} catch {
+				feeds[index] = null;
+			}
 		}
+	};
+	await Promise.all(Array.from({ length: Math.min(FEED_HYDRATE_LIMIT, missing.length) }, worker));
+	for (const feed of feeds) {
+		if (!feed) continue;
+		const merged = mergeFeed(nextShows, episodes, feed);
+		nextShows = merged.shows;
+		episodes = merged.episodes;
 	}
-	if (nextShows === shows && episodes === bag.episodes) return;
+	if (nextShows === bag.shows && episodes === bag.episodes) return;
 	state.doc = { ...state.doc, podcasts: { ...bag, shows: nextShows, episodes } };
 	saveSnapshot(state.doc);
 }

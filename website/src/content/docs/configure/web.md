@@ -14,7 +14,7 @@ Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhon
 ## First load
 
 1. Open [builder.cdr.xyz](https://builder.cdr.xyz).
-2. Create an account or sign in. The gear opens Settings. Auto-sync defaults to **on save** (push shortly after an edit). **30s** / **5 min** also pull in the background. **off** is manual: **sync now**, `/pull`, `/push`.
+2. Create an account or sign in. The gear opens Settings. Auto-sync defaults to **on save** (push shortly after an edit). **30s** / **5 min** also pull in the background. **off** is manual: **sync now**, `/pull`, `/push`. **pull** / **Sync now** returns as soon as the account snapshot is in. Podcast RSS, quotes, and weather fill in after that (a hung feed cannot freeze the timestamp).
 3. On the phone: Settings → **… backup >**. Same email and password. **Create account** or **Sign in**, then **Sync now**.
 4. Safari: Share → Add to Home Screen. Chrome/desktop: Install app.
 
