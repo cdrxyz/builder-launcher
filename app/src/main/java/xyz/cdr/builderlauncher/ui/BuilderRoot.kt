@@ -1896,11 +1896,11 @@ fun BuilderRoot(
                         TodoLine(
                             item,
                             onToggle = { lists.toggleComplete(item.id) },
-                            onDelete = { lists.remove(item.id) },
+                            onDelete = { lists.remove(item.id) }.takeIf { HomeTodos.showDelete(item.done) },
                             onEdit = {
                                 editingTodoId = item.id
                                 applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
-                            },
+                            }.takeIf { HomeTodos.showEdit(item.done) },
                             modifier = Modifier
                                 .zIndex(if (lifting) 1f else 0f)
                                 .graphicsLayer { translationY = shift }
@@ -1954,11 +1954,11 @@ fun BuilderRoot(
                         TodoLine(
                             item,
                             onToggle = { lists.toggleComplete(item.id) },
-                            onDelete = { lists.remove(item.id) },
+                            onDelete = { lists.remove(item.id) }.takeIf { HomeTodos.showDelete(item.done) },
                             onEdit = {
                                 editingTodoId = item.id
                                 applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
-                            },
+                            }.takeIf { HomeTodos.showEdit(item.done) },
                         )
                     }
                 }

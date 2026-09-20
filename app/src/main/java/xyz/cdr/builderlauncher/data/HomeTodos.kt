@@ -31,6 +31,12 @@ object HomeTodos {
     fun completed(todos: List<LocalItem>): List<LocalItem> =
         todos.filter { it.done }.sortedByDescending { it.completedAt ?: 0L }
 
+    /** Tasks page: pencil on open rows only. */
+    fun showEdit(done: Boolean): Boolean = !done
+
+    /** Tasks page: delete on completed rows only. */
+    fun showDelete(done: Boolean): Boolean = done
+
     fun dayStartMs(now: Long, zone: ZoneId = ZoneId.systemDefault()): Long =
         LocalDate.ofInstant(Instant.ofEpochMilli(now), zone)
             .atStartOfDay(zone)
