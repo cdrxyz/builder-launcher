@@ -2,6 +2,13 @@ export const STOCKS_MAX = 100;
 export const PODCAST_CONTINUE = 3;
 export const PODCAST_NEW = 5;
 export const FINISH_REMAINING_MS = 30_000;
+export const HOME_MARK_IDLE_MS = 8_000;
+
+export function homePodcastMark(playing, episodeLoaded, pausedForMs, idleMs = HOME_MARK_IDLE_MS) {
+	if (playing && episodeLoaded) return 'PAUSE';
+	if (episodeLoaded && pausedForMs != null && pausedForMs < idleMs) return 'PLAY';
+	return 'HEADPHONES';
+}
 
 export function watchlist(doc) {
 	return Array.isArray(doc?.watchlist) ? doc.watchlist : [];

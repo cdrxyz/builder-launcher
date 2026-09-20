@@ -3,13 +3,16 @@ export const DEFAULT_PROMPT = '>';
 export const PREFIXES = [
 	{ glyph: '@', label: 'text', web: false },
 	{ glyph: '#', label: 'call', web: false },
-	{ glyph: '*', label: 'calendar', web: false },
 	{ glyph: '-', label: 'todo', web: true },
 	{ glyph: '+', label: 'note', web: true },
 	{ glyph: '$', label: 'stock', web: true },
 	{ glyph: '?', label: 'ask AI', web: false },
 	{ glyph: '/', label: 'slash', web: true },
 ];
+
+export function webPrefixes() {
+	return PREFIXES.filter((row) => row.web);
+}
 
 export const SLASH = [
 	{ name: 'help', label: 'commands' },
@@ -21,6 +24,7 @@ export const SLASH = [
 	{ name: 'settings', label: 'settings' },
 	{ name: 'stocks', label: 'watchlist' },
 	{ name: 'tasks', label: 'all tasks' },
+	{ name: 'weather', label: 'forecast' },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 export function findPrefix(glyph) {
@@ -66,6 +70,7 @@ export function builtinPage(query) {
 	if (q === 'podcasts' || q === 'podcast' || q === 'pods') return 'pods';
 	if (q === 'settings' || q === 'setting' || q === 'backup') return 'settings';
 	if (q === 'tasks' || q === 'todos' || q === 'todo') return 'tasks';
+	if (q === 'weather') return 'weather';
 	if (q === 'home') return 'home';
 	if (q === 'help') return 'help';
 	if (q === 'pull' || q === 'push') return q;
@@ -82,5 +87,6 @@ export function pagePrompt(tab) {
 	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';
 	if (tab === 'settings' || tab === 'help') return '/';
+	if (tab === 'weather') return '>';
 	return DEFAULT_PROMPT;
 }

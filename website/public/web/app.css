@@ -121,10 +121,61 @@ main {
 	color: var(--muted);
 	font-size: 0.85rem;
 	min-height: 2.4rem;
+	display: flex;
+	align-items: flex-start;
+	gap: 0.15rem;
 }
 
 .home-side.right {
 	text-align: right;
+	justify-content: flex-end;
+}
+
+.home-mark {
+	background: none;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	padding: 0.2rem 0.35rem;
+	min-width: 2.6rem;
+	min-height: 2.8rem;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.1rem;
+}
+
+.home-side.right .home-mark {
+	align-items: flex-end;
+}
+
+.weather-glyph {
+	width: 1.5rem;
+	height: 1.5rem;
+	color: var(--muted);
+	display: block;
+}
+
+.weather-glyph.lg {
+	width: 3.2rem;
+	height: 3.2rem;
+}
+
+.podcast-mark {
+	color: var(--fg);
+}
+
+.podcast-mark svg,
+.weather-glyph svg {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+
+.ticker-mark {
+	align-items: flex-end;
 }
 
 .home-side .pct.up {
@@ -159,6 +210,23 @@ main {
 
 .home-todos {
 	margin-top: 0.5rem;
+}
+
+.weather-now {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.35rem;
+	margin: 0.5rem 0 1rem;
+}
+
+.weather-temp {
+	font-size: 2.4rem;
+	letter-spacing: 0.02em;
+}
+
+.weather-day {
+	align-items: center;
 }
 
 .row {
@@ -251,6 +319,7 @@ label span {
 	align-items: flex-end;
 	gap: 0.15rem;
 	padding: 0.35rem 0.15rem 0.15rem;
+	position: relative;
 }
 
 .prompt-glyph {
@@ -278,6 +347,17 @@ form.settings input,
 
 .command-bar input {
 	border-bottom: 1px solid var(--line);
+}
+
+.command-submit {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	border: 0;
+	padding: 0;
 }
 
 .note-editor textarea {

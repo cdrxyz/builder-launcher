@@ -32,6 +32,14 @@ export function isFyydHost(host: string): boolean {
 	return host === 'api.fyyd.de';
 }
 
+export function isOpenMeteoHost(host: string): boolean {
+	return (
+		host === 'api.open-meteo.com' ||
+		host === 'geocoding-api.open-meteo.com' ||
+		host === 'air-quality-api.open-meteo.com'
+	);
+}
+
 export function s3EndpointOk(endpoint: string): boolean {
 	const url = isSafeHttpsUrl(endpoint);
 	return Boolean(url);
