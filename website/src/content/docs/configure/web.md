@@ -36,4 +36,4 @@ Offline, the last snapshot stays on the device.
 
 ## Privacy
 
-Account email is stored on Cloudflare (D1). The password is Argon2id. The snapshot JSON sits in D1 for that account. Session cookie is HttpOnly. S3 keys, when used, stay in `localStorage` on that browser. **forget S3** clears them. The Worker does not keep S3 keys. API keys inside a snapshot are not shown in the UI.
+Account email is stored on Cloudflare (D1). The password is Argon2id. The snapshot JSON sits in R2 for that account (D1 keeps revision only). Episode show notes are not stored; RSS still has them. Session cookie is HttpOnly. S3 keys, when used, stay in `localStorage` on that browser. **forget S3** clears them. The Worker does not keep S3 keys. API keys inside a snapshot are not shown in the UI.

@@ -14,3 +14,7 @@ run_worker_first = true
 binding = "DB"
 database_name = "builder-launcher"
 database_id = "af8c29f3-f585-4bd7-9a59-94f272db1104"
+
+[[r2_buckets]]
+binding = "VAULT"
+bucket_name = "builder-launcher-vaults"

@@ -68,13 +68,24 @@ object BackupMerge {
         return out
     }
 
+    private fun mergeEpisode(prev: PodcastEpisode?, ep: PodcastEpisode): PodcastEpisode {
+        if (prev == null) return ep
+        val newer = if (ep.pubDate >= prev.pubDate) ep else prev
+        val older = if (newer === ep) prev else ep
+        return newer.copy(
+            title = newer.title.ifBlank { older.title },
+            enclosureUrl = newer.enclosureUrl.ifBlank { older.enclosureUrl },
+            description = newer.description.ifBlank { older.description },
+            durationMs = maxOf(newer.durationMs, older.durationMs),
+        )
+    }
+
     private fun mergePods(a: PodcastBackup, b: PodcastBackup): PodcastBackup {
         val shows = LinkedHashMap<String, PodcastShow>()
         (a.shows + b.shows).forEach { show -> shows[show.feedUrl] = show }
         val episodes = LinkedHashMap<String, PodcastEpisode>()
         (a.episodes + b.episodes).forEach { ep ->
-            val prev = episodes[ep.id]
-            episodes[ep.id] = if (prev == null || ep.pubDate >= prev.pubDate) ep else prev
+            episodes[ep.id] = mergeEpisode(episodes[ep.id], ep)
         }
         val progress = LinkedHashMap<String, EpisodeProgress>()
         (a.progress + b.progress).forEach { row ->

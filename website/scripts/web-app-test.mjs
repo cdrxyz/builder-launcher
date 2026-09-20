@@ -323,6 +323,45 @@ test('first join unions local with existing account or S3 snapshot', async () =>
 	assert.deepEqual(joined.watchlist.map((w) => w.symbol).sort(), ['AAPL', 'TSLA']);
 });
 
+test('slimDoc drops episode HTML so a fat catalog fits under the old 4 MB cap', async () => {
+	const { slimDoc } = await import('../public/web/merge.js');
+	const html = 'd'.repeat(100_000);
+	const fat = {
+		exportedAt: 1,
+		podcasts: {
+			episodes: Array.from({ length: 50 }, (_, i) => ({
+				id: `ep-${i}`,
+				showId: 'https://feeds.example/show',
+				title: `Ep ${i}`,
+				enclosureUrl: `https://cdn.example/${i}.mp3`,
+				description: html,
+			})),
+		},
+	};
+	const full = JSON.stringify(fat);
+	const slim = JSON.stringify(slimDoc(fat));
+	assert.equal(full.length > 4_000_000, true);
+	assert.equal(slim.length < 50_000, true);
+	assert.equal(slim.includes(html.slice(0, 32)), false);
+	assert.equal(slimDoc(fat).podcasts.episodes[0].title, 'Ep 0');
+});
+
+test('mergeDocs keeps local show notes when the cloud copy omitted them', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const html = '<p>show notes</p>';
+	const merged = mergeDocs(
+		{
+			exportedAt: 10,
+			podcasts: { episodes: [{ id: 'ep-1', title: 'Ep', pubDate: 5, description: html }] },
+		},
+		{
+			exportedAt: 11,
+			podcasts: { episodes: [{ id: 'ep-1', title: 'Ep', pubDate: 5, description: '' }] },
+		},
+	);
+	assert.equal(merged.podcasts.episodes[0].description, html);
+});
+
 test('overwrite warning is confirmed before login or S3 pull', async () => {
 	const { OVERWRITE_WARNING, confirmOverwriteLocal } = await import('../public/web/account.js');
 	assert.match(OVERWRITE_WARNING, /overwrite any local data/);

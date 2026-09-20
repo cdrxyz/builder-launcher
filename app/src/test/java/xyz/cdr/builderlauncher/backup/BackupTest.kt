@@ -98,6 +98,33 @@ class BackupDocumentTest {
         )
         assertEquals(5, settings.homeTodoCount)
     }
+
+    @Test
+    fun slimForAccountDropsEpisodeHtmlUnderTheOldFourMegCap() {
+        val html = "d".repeat(100_000)
+        val fat = BackupDocument(
+            exportedAt = 1,
+            podcasts = PodcastBackup(
+                episodes = (1..50).map { i ->
+                    PodcastEpisode(
+                        id = "ep-$i",
+                        showId = "https://feeds.example/show",
+                        title = "Ep $i",
+                        enclosureUrl = "https://cdn.example/$i.mp3",
+                        description = html,
+                    )
+                },
+            ),
+        )
+        val json = kotlinx.serialization.json.Json { encodeDefaults = true }
+        val full = json.encodeToString(BackupDocument.serializer(), fat)
+        val slim = json.encodeToString(BackupDocument.serializer(), fat.slimForAccount())
+        assertTrue(full.length > 4_000_000)
+        assertTrue(slim.length < 50_000)
+        assertFalse(slim.contains(html.take(32)))
+        assertEquals("", fat.slimForAccount().podcasts.episodes.first().description)
+        assertEquals("Ep 1", fat.slimForAccount().podcasts.episodes.first().title)
+    }
 }
 
 class S3SignerTest {
@@ -343,6 +370,29 @@ class BackupMergeTest {
         assertTrue(joined.items.any { it.id == "phone" && it.text == "on phone" })
         assertTrue(joined.items.any { it.id == "cloud" && it.text == "in cloud" })
         assertEquals(setOf("AAPL", "TSLA"), joined.watchlist.map { it.symbol }.toSet())
+    }
+
+    @Test
+    fun mergeKeepsLocalShowNotesWhenCloudOmitsThem() {
+        val html = "<p>show notes</p>"
+        val local = BackupDocument(
+            exportedAt = 10,
+            podcasts = PodcastBackup(
+                episodes = listOf(
+                    PodcastEpisode("ep-1", "https://feeds.example/show", "Ep", pubDate = 5, description = html),
+                ),
+            ),
+        )
+        val remote = BackupDocument(
+            exportedAt = 11,
+            podcasts = PodcastBackup(
+                episodes = listOf(
+                    PodcastEpisode("ep-1", "https://feeds.example/show", "Ep", pubDate = 5, description = ""),
+                ),
+            ),
+        )
+        val joined = BackupMerge.join(local, remote)
+        assertEquals(html, joined.podcasts.episodes.single().description)
     }
 
     @Test

@@ -34,7 +34,15 @@ data class BackupDocument(
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
-)
+) {
+    fun slimForAccount(): BackupDocument = copy(
+        podcasts = podcasts.copy(
+            episodes = podcasts.episodes.map { episode ->
+                if (episode.description.isEmpty()) episode else episode.copy(description = "")
+            },
+        ),
+    )
+}
 
 @Serializable
 data class PodcastBackup(

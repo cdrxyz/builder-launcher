@@ -1,7 +1,7 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
 import { apiJson, confirmOverwriteLocal } from './account.js';
-import { emptyDoc, joinDocs, mergeDocs } from './merge.js';
+import { emptyDoc, joinDocs, mergeDocs, slimDoc } from './merge.js';
 import {
 	doneTodos,
 	newId,
@@ -355,9 +355,9 @@ async function pushAccount(opts = {}) {
 		const remote = await apiJson('/api/vault', {
 			method: 'PUT',
 			token: state.account.token,
-			body: { document: next },
+			body: { document: slimDoc(next) },
 		});
-		state.doc = remote.document || next;
+		state.doc = joinDocs(next, remote.document || next);
 		state.revision = remote.revision || state.revision;
 		state.dirty = false;
 		saveSnapshot(state.doc);

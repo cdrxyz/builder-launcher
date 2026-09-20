@@ -18,6 +18,7 @@ import { handleVault } from './vault';
 export interface Env {
 	ASSETS: { fetch: (request: Request) => Promise<Response> };
 	DB?: D1Database;
+	VAULT?: R2Bucket;
 }
 
 const STATIC = /\.(css|js|mjs|map|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|webmanifest)$/i;
@@ -53,7 +54,7 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 			if (!env.DB) return jsonError('Account sync is not configured on this Worker', 503);
 			const auth = await handleAuth(request, url, { DB: env.DB });
 			if (auth) return auth;
-			const vault = await handleVault(request, url, { DB: env.DB });
+			const vault = await handleVault(request, url, { DB: env.DB, VAULT: env.VAULT });
 			if (vault) return vault;
 		}
 		if (url.pathname === '/api/s3/get' && request.method === 'POST') return s3Get(request);

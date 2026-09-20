@@ -41,14 +41,56 @@ function mergeWatch(a, b, preferA) {
 	return out;
 }
 
+function mergeEpisode(x, y) {
+	if (!x) return y;
+	if (!y) return x;
+	const newer = (x.pubDate || 0) >= (y.pubDate || 0) ? x : y;
+	const older = newer === x ? y : x;
+	return {
+		...older,
+		...newer,
+		description: newer.description || older.description || '',
+		title: newer.title || older.title || '',
+		enclosureUrl: newer.enclosureUrl || older.enclosureUrl || '',
+		durationMs: Math.max(newer.durationMs || 0, older.durationMs || 0),
+	};
+}
+
+function mergeEpisodes(a, b) {
+	const left = byId(a);
+	const right = byId(b);
+	const ids = new Set([...left.keys(), ...right.keys()]);
+	const out = [];
+	for (const id of ids) out.push(mergeEpisode(left.get(id), right.get(id)));
+	return out;
+}
+
 function mergePods(a, b) {
 	const left = a || {};
 	const right = b || {};
 	return {
 		shows: mergeById(left.shows, right.shows),
-		episodes: mergeById(left.episodes, right.episodes),
+		episodes: mergeEpisodes(left.episodes, right.episodes),
 		progress: mergeById(left.progress, right.progress),
 		cacheBytes: Math.max(left.cacheBytes || 0, right.cacheBytes || 0),
+	};
+}
+
+export function slimDoc(doc) {
+	if (!doc || typeof doc !== 'object') return doc;
+	const pods = doc.podcasts || {};
+	return {
+		...doc,
+		podcasts: {
+			...pods,
+			episodes: (pods.episodes || []).map((ep) => {
+				if (!ep || typeof ep !== 'object') return ep;
+				if (!ep.description) return ep;
+				const next = { ...ep };
+				delete next.description;
+				return next;
+			}),
+		},
 	};
 }
 
