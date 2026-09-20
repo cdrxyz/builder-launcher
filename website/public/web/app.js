@@ -1,7 +1,7 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
 import { apiJson, confirmOverwriteLocal } from './account.js';
-import { emptyDoc, joinDocs, mergeDocs, slimDoc } from './merge.js';
+import { emptyDoc, joinDocs, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
 import {
 	doneTodos,
 	newId,
@@ -176,15 +176,14 @@ async function boot() {
 		if (state.tab === 'home' && !document.activeElement?.classList?.contains('command-input')) render();
 	}, 5000);
 	setInterval(() => {
-		if (signedIn() && state.dirty) push({ quiet: true }).catch(() => {});
-		else if (signedIn()) pull({ quiet: true }).catch(() => {});
+		if (signedIn() && state.dirty) push({ quiet: true, skipHydrate: true }).catch(() => {});
+		else if (signedIn()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
 	}, 30_000);
 	render();
-	if (hasSync() && (!state.doc || signedIn())) pull({ quiet: true }).catch(() => {});
-	else if (state.doc) {
-		refreshQuotes();
-		refreshWeather();
-	}
+	(async () => {
+		if (hasSync() && (!state.doc || signedIn())) await pull({ quiet: true });
+		await hydrateMedia();
+	})().catch(() => {});
 }
 
 function pinVisualViewport() {
@@ -284,7 +283,12 @@ function loadSnapshot() {
 }
 
 function saveSnapshot(doc) {
-	localStorage.setItem(SNAP_KEY, JSON.stringify(doc));
+	writeSnapshot(localStorage, SNAP_KEY, doc);
+}
+
+function statusFromError(err) {
+	if (isQuotaError(err)) return 'This browser is out of storage for the snapshot. Hard-refresh, then sync again.';
+	return err?.message || String(err);
 }
 
 function readyCreds(creds) {
@@ -335,10 +339,10 @@ async function pull(opts = {}) {
 		state.status = pulledLabel(state.doc);
 		await hydrateMedia();
 	} catch (err) {
-		state.status = err.message || String(err);
+		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		render();
+		if (!opts.quiet) render();
 	}
 }
 
@@ -355,12 +359,12 @@ async function pullAccount(opts = {}) {
 		state.dirty = false;
 		state.hits = [];
 		state.status = pulledLabel(state.doc);
-		await hydrateMedia();
+		if (!opts.skipHydrate) await hydrateMedia();
 	} catch (err) {
-		state.status = err.message || String(err);
+		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		render();
+		if (!opts.quiet) render();
 	}
 }
 
@@ -389,7 +393,7 @@ async function push(opts = {}) {
 		saveSnapshot(state.doc);
 		state.status = `Pushed ${new Date(next.exportedAt).toLocaleString()}`;
 	} catch (err) {
-		state.status = err.message || String(err);
+		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
 		render();
@@ -412,9 +416,9 @@ async function pushAccount(opts = {}) {
 		state.dirty = false;
 		saveSnapshot(state.doc);
 		state.status = `Synced ${new Date(state.doc.exportedAt).toLocaleString()}`;
-		await hydrateMedia();
+		if (!opts.skipHydrate) await hydrateMedia();
 	} catch (err) {
-		state.status = err.message || String(err);
+		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
 		if (!opts.quiet) render();
@@ -1674,8 +1678,11 @@ async function refreshPodcastFeeds() {
 	const shows = bag.shows || [];
 	if (!shows.length) return;
 	let episodes = bag.episodes || [];
+	const have = new Set(episodes.map((ep) => String(ep.showId || '').toLowerCase()));
+	const missing = shows.filter((show) => !have.has(String(show.feedUrl || '').toLowerCase()));
+	if (!missing.length) return;
 	let nextShows = shows;
-	for (const show of shows) {
+	for (const show of missing) {
 		try {
 			const xml = await fetchText(
 				state.api ? `/api/feed?url=${encodeURIComponent(show.feedUrl)}` : show.feedUrl,
@@ -2181,7 +2188,7 @@ function fileInput() {
 			setStatus(pulledLabel(state.doc));
 			refreshQuotes();
 		} catch (err) {
-			setStatus(err.message || String(err));
+			setStatus(statusFromError(err));
 		}
 	});
 	input.click();

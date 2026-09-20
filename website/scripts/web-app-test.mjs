@@ -361,6 +361,40 @@ test('slimDoc keeps subscriptions and played progress, not catalogs or quotes', 
 	assert.equal(slim.watchlist[0].price, undefined);
 });
 
+test('writeSnapshot stores a slim copy and recovers from Safari quota', async () => {
+	const { writeSnapshot, isQuotaError } = await import('../public/web/merge.js');
+	assert.equal(isQuotaError({ name: 'QuotaExceededError', message: 'The quota has been exceeded.' }), true);
+	const fat = {
+		podcasts: {
+			shows: [{ feedUrl: 'https://feeds.example/show', title: 'Show' }],
+			episodes: [{ id: 'ep-1', showId: 'https://feeds.example/show', title: 'Ep', description: 'd'.repeat(1000) }],
+			progress: [{ episodeId: 'ep-1', lastPlayedAt: 9 }],
+		},
+	};
+	const store = new Map();
+	let throws = 1;
+	const storage = {
+		setItem(key, value) {
+			if (throws > 0) {
+				throws -= 1;
+				const err = new Error('The quota has been exceeded.');
+				err.name = 'QuotaExceededError';
+				err.code = 22;
+				throw err;
+			}
+			store.set(key, value);
+		},
+		removeItem(key) {
+			store.delete(key);
+		},
+	};
+	assert.equal(writeSnapshot(storage, 'snap', fat), true);
+	const saved = JSON.parse(store.get('snap'));
+	assert.deepEqual(saved.podcasts.episodes, []);
+	assert.equal(saved.podcasts.shows[0].title, 'Show');
+	assert.equal(saved.podcasts.progress[0].episodeId, 'ep-1');
+});
+
 test('mergeDocs keeps local show notes when the cloud copy omitted them', async () => {
 	const { mergeDocs } = await import('../public/web/merge.js');
 	const html = '<p>show notes</p>';
@@ -440,7 +474,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v17/);
+	assert.match(sw, /builder-launcher-web-v18/);
 });
 
 test('mobile shell pins home to the top and follows the visual viewport', async () => {
