@@ -219,21 +219,128 @@ main {
 	margin-top: 0.5rem;
 }
 
-.weather-now {
+.weather .weather-glyph {
+	color: var(--fg);
+}
+
+.weather-place {
+	margin: 0 0 0.15rem;
+	color: var(--muted);
+	font-size: 0.9rem;
+}
+
+.weather-hero {
 	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 0.35rem;
-	margin: 0.5rem 0 1rem;
+	align-items: center;
+	gap: 0.75rem;
 }
 
 .weather-temp {
-	font-size: 2.4rem;
-	letter-spacing: 0.02em;
+	font-size: 4.5rem;
+	font-weight: 500;
+	line-height: 1.05;
+	letter-spacing: -0.03em;
+}
+
+.weather-glyph.hero {
+	width: 4.5rem;
+	height: 4.5rem;
+	color: var(--fg);
+}
+
+.weather-glyph.sm {
+	width: 1.35rem;
+	height: 1.35rem;
+	flex: none;
+}
+
+.weather-cond {
+	margin: 0.15rem 0 0;
+}
+
+.weather-hl {
+	margin: 0.15rem 0 0;
+	color: var(--muted);
+	font-size: 0.9rem;
+}
+
+.weather-stats {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin: 1rem 0;
+}
+
+.weather-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+}
+
+.weather-stat-label {
+	color: var(--muted);
+	font-size: 0.7rem;
+	letter-spacing: 0.04em;
+}
+
+.weather-hours {
+	display: flex;
+	gap: 1rem;
+	overflow-x: auto;
+	padding: 0.75rem 0 1rem;
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+	-webkit-overflow-scrolling: touch;
+}
+
+.weather-hour {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.2rem;
+	width: 2.75rem;
+	flex: none;
+	text-align: center;
+}
+
+.weather-hour-label,
+.weather-hour-pop {
+	color: var(--muted);
+	font-size: 0.75rem;
+}
+
+.weather-days {
+	padding: 0.35rem 0 0.5rem;
+	border-bottom: 1px solid var(--line);
 }
 
 .weather-day {
+	display: flex;
 	align-items: center;
+	gap: 0.55rem;
+	padding: 0.4rem 0;
+}
+
+.weather-day-name {
+	width: 3.5rem;
+	flex: none;
+}
+
+.weather-day-note {
+	flex: 1;
+	min-width: 0;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.weather-day-hi {
+	flex: none;
+}
+
+.weather-details {
+	padding: 0.35rem 0 0.75rem;
 }
 
 .row {

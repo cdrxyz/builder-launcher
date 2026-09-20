@@ -39,7 +39,25 @@ import {
 	webPrefixes,
 } from '../public/web/commands.js';
 import { homePodcastMark } from '../public/web/media.js';
-import { displayTemperature, homeTemperature, kindOfCode, parseForecast, parseGeocode } from '../public/web/weather.js';
+import {
+	aqiLabel,
+	compass,
+	daySummary,
+	displayTemperature,
+	FORECAST_CURRENT,
+	FORECAST_DAILY,
+	FORECAST_HOURLY,
+	homeTemperature,
+	hourLabel,
+	kindOfCode,
+	parseAqi,
+	parseForecast,
+	parseGeocode,
+	precipAmount,
+	pressure,
+	uvLabel,
+	wind,
+} from '../public/web/weather.js';
 
 test('regionFor matches Kotlin', () => {
 	assert.equal(regionFor('https://abc.r2.cloudflarestorage.com'), 'auto');
@@ -423,17 +441,105 @@ test('weather parse and home temperature match the phone', () => {
 		results: [{ name: 'Kitchener', latitude: 43.45, longitude: -80.49, admin1: 'Ontario', country: 'Canada' }],
 	}));
 	assert.equal(places[0].label, 'Kitchener, Ontario, Canada');
+	const fetched = Date.parse('2026-09-08T16:00:00Z');
 	const forecast = parseForecast(JSON.stringify({
 		latitude: 43.45,
 		longitude: -80.49,
 		timezone: 'America/Toronto',
-		current: { temperature_2m: 12.4, apparent_temperature: 10, weather_code: 3, is_day: 1 },
-		daily: { time: ['2026-09-20'], weather_code: [3], temperature_2m_max: [18], temperature_2m_min: [7], precipitation_probability_max: [20] },
-	}));
-	assert.equal(forecast.current.temperatureC, 12);
+		current: {
+			temperature_2m: 18.2,
+			apparent_temperature: 16.4,
+			weather_code: 3,
+			relative_humidity_2m: 64,
+			precipitation: 0.0,
+			wind_speed_10m: 12.4,
+			wind_direction_10m: 270,
+			wind_gusts_10m: 22.0,
+			surface_pressure: 1013.2,
+			visibility: 24100,
+			cloud_cover: 80,
+			is_day: 1,
+			dew_point_2m: 11.1,
+		},
+		hourly: {
+			time: ['2026-09-08T12:00', '2026-09-08T13:00', '2026-09-08T22:00'],
+			temperature_2m: [18.2, 19.0, 12.0],
+			weather_code: [3, 61, 0],
+			precipitation_probability: [40, 70, 5],
+			uv_index: [4.2, 5.1, 0.0],
+			is_day: [1, 1, 0],
+		},
+		daily: {
+			time: ['2026-09-08', '2026-09-09'],
+			weather_code: [3, 61],
+			temperature_2m_max: [22.1, 18.0],
+			temperature_2m_min: [11.0, 10.0],
+			precipitation_probability_max: [40, 80],
+			precipitation_sum: [1.2, 8.4],
+			sunrise: ['2026-09-08T06:42', '2026-09-09T06:43'],
+			sunset: ['2026-09-08T19:51', '2026-09-09T19:49'],
+			uv_index_max: [5.4, 3.1],
+		},
+	}), fetched, 42);
+	assert.equal(forecast.current.temperatureC, 18);
+	assert.equal(forecast.current.feelsC, 16);
+	assert.equal(forecast.current.humidity, 64);
+	assert.equal(forecast.current.precipProb, 40);
+	assert.equal(forecast.current.windDir, 270);
+	assert.equal(forecast.hourly.length, 3);
+	assert.equal(forecast.hourly[0].isDay, true);
+	assert.equal(forecast.hourly[2].isDay, false);
+	assert.equal(forecast.daily[0].precipMm, 1.2);
+	assert.equal(forecast.daily[0].sunrise, '06:42');
+	assert.equal(forecast.aqi, 42);
 	assert.equal(kindOfCode(3), 'CLOUDY');
 	assert.equal(homeTemperature(12, 'METRIC'), '12°');
 	assert.equal(displayTemperature(12, 'IMPERIAL'), 54);
+	assert.equal(hourLabel(fetched, 'America/Toronto'), '12');
+	assert.equal(compass(270), 'W');
+	assert.equal(uvLabel(4.2), '4 mod');
+	assert.equal(aqiLabel(42), '42 good');
+	assert.equal(wind(12.4, 270, 'METRIC'), '12 km/h W');
+	assert.match(pressure(1013.2, 'METRIC'), /hPa/);
+	assert.equal(precipAmount(1.2, 'METRIC'), '1.2 mm');
+	assert.equal(precipAmount(8.4, 'IMPERIAL'), '0.33 in');
+	assert.equal(daySummary({ date: '2026-09-08', code: 3, highC: 22, lowC: 11, precipProb: 40, precipMm: 1.2 }, 'METRIC'), '40% · 1.2 mm');
+	assert.equal(daySummary({ date: '2026-09-09', code: 61, highC: 18, lowC: 10, precipProb: 80, precipMm: 8.4 }, 'METRIC'), '80% · 8.4 mm');
+	assert.equal(daySummary({ date: '2026-09-10', code: 0, highC: 24, lowC: 12, precipProb: 10, uv: 8.2, precipMm: 0 }, 'METRIC'), 'clear · UV 8');
+	assert.equal(daySummary({ date: '2026-09-13', code: 95, highC: 17, lowC: 11, precipProb: 70, precipMm: 12 }, 'METRIC'), 'storms · 12 mm');
+	assert.equal(daySummary({ date: '2026-09-12', code: 45, highC: 19, lowC: 12, precipProb: 10, precipMm: 0 }, 'METRIC'), 'fog');
+	assert.equal(parseAqi(JSON.stringify({ current: { us_aqi: 42, european_aqi: 18 } })), 42);
+});
+
+test('weather screen layout matches the phone', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	const worker = await readFile(new URL('../../cloudflare/src/index.ts', import.meta.url), 'utf8');
+	assert.match(js, /weather-hero/);
+	assert.match(js, /H \$\{temp\(today\.highC, units\)\}  L \$\{temp\(today\.lowC, units\)\}/);
+	assert.match(js, /weatherStat\('Feels'/);
+	assert.match(js, /weatherStat\('Precip'/);
+	assert.match(js, /weatherStat\('Wind'/);
+	assert.match(js, /weather-hours/);
+	assert.match(js, /\['Humidity'/);
+	assert.match(js, /\['Dew point'/);
+	assert.match(js, /\['UV index'/);
+	assert.match(js, /\['Pressure'/);
+	assert.match(js, /\['Visibility'/);
+	assert.match(js, /\['Cloud cover'/);
+	assert.match(js, /\['Sunrise'/);
+	assert.match(js, /\['Sunset'/);
+	assert.match(js, /\['Gusts'/);
+	assert.match(js, /\['Air quality'/);
+	assert.match(js, /\/api\/weather\/air\?/);
+	assert.match(css, /\.weather-hero/);
+	assert.match(css, /\.weather-hours/);
+	assert.match(css, /\.weather-details/);
+	assert.match(worker, /\/api\/weather\/air/);
+	assert.match(worker, new RegExp(FORECAST_CURRENT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+	assert.match(worker, new RegExp(FORECAST_HOURLY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+	assert.match(worker, new RegExp(FORECAST_DAILY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+	assert.match(worker, /air-quality-api\.open-meteo\.com/);
 });
 
 test('home podcast mark matches the phone', () => {
@@ -474,7 +580,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v18/);
+	assert.match(sw, /builder-launcher-web-v19/);
 });
 
 test('mobile shell pins home to the top and follows the visual viewport', async () => {

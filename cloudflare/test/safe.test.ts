@@ -26,5 +26,6 @@ test('s3 endpoint must be public https', () => {
 test('open-meteo host allowlist', () => {
 	assert.equal(isOpenMeteoHost('api.open-meteo.com'), true);
 	assert.equal(isOpenMeteoHost('geocoding-api.open-meteo.com'), true);
+	assert.equal(isOpenMeteoHost('air-quality-api.open-meteo.com'), true);
 	assert.equal(isOpenMeteoHost('evil.example'), false);
 });

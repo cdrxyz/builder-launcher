@@ -85,6 +85,9 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 		if (url.pathname === '/api/weather/forecast' && request.method === 'GET') {
 			return weatherForecast(url.searchParams.get('lat') || '', url.searchParams.get('lon') || '');
 		}
+		if (url.pathname === '/api/weather/air' && request.method === 'GET') {
+			return weatherAir(url.searchParams.get('lat') || '', url.searchParams.get('lon') || '');
+		}
 		return jsonError('Not found', 404);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Proxy failed';
@@ -252,19 +255,33 @@ async function weatherSearch(q: string): Promise<Response> {
 }
 
 async function weatherForecast(latRaw: string, lonRaw: string): Promise<Response> {
+	const coords = weatherCoords(latRaw, lonRaw);
+	if (!coords) return jsonError('lat and lon are required');
+	const target =
+		`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(String(coords.lat))}` +
+		`&longitude=${encodeURIComponent(String(coords.lon))}` +
+		'&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,visibility,cloud_cover,is_day,dew_point_2m' +
+		'&hourly=temperature_2m,weather_code,precipitation_probability,uv_index,is_day' +
+		'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max' +
+		'&forecast_days=7&timezone=auto&temperature_unit=celsius&wind_speed_unit=kmh&precipitation_unit=mm';
+	return proxyOpenMeteo(target);
+}
+
+async function weatherAir(latRaw: string, lonRaw: string): Promise<Response> {
+	const coords = weatherCoords(latRaw, lonRaw);
+	if (!coords) return jsonError('lat and lon are required');
+	const target =
+		`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${encodeURIComponent(String(coords.lat))}` +
+		`&longitude=${encodeURIComponent(String(coords.lon))}` +
+		'&current=us_aqi,european_aqi';
+	return proxyOpenMeteo(target);
+}
+
+function weatherCoords(latRaw: string, lonRaw: string): { lat: number; lon: number } | null {
 	const lat = Number(latRaw);
 	const lon = Number(lonRaw);
-	if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-		return jsonError('lat and lon are required');
-	}
-	const target =
-		`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(String(lat))}` +
-		`&longitude=${encodeURIComponent(String(lon))}` +
-		'&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,precipitation,wind_speed_10m,is_day' +
-		'&hourly=temperature_2m,weather_code,is_day' +
-		'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
-		'&forecast_days=7&timezone=auto&temperature_unit=celsius';
-	return proxyOpenMeteo(target);
+	if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+	return { lat, lon };
 }
 
 async function proxyOpenMeteo(target: string): Promise<Response> {

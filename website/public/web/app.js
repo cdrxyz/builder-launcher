@@ -65,17 +65,30 @@ import {
 	watchlist,
 } from './media.js';
 import {
-	FORECAST,
 	GEOCODE,
+	airUrl,
+	aqiLabel,
+	cloud,
+	daySummary,
+	forecastUrl,
 	homeTemperature,
+	hourLabel,
+	humidity,
 	kindOfCode,
+	parseAqi,
 	parseForecast,
 	parseGeocode,
 	podcastMarkSvg,
+	precipChance,
+	pressure,
+	temp,
+	todayIso,
+	uvLabel,
+	visibility,
 	weatherGlyphSvg,
 	weatherLabel,
-	weekdayShort,
-	displayTemperature,
+	weekday,
+	wind,
 } from './weather.js';
 
 const CREDS_KEY = 'builder-launcher-web-creds';
@@ -1350,48 +1363,135 @@ function weatherScreen() {
 	const wrap = document.createElement('div');
 	wrap.className = 'weather';
 	const snap = state.weather;
+	const place = String(weatherSettings().weatherPlace || '').trim();
 	if (!weatherSettings().weatherLat) {
 		wrap.append(empty('Set a city in settings.'));
+		wrap.append(button('settings', () => go('settings'), 'linkish'));
 		return wrap;
 	}
 	if (!snap?.current) {
-		wrap.append(empty('Loading weather…'));
+		wrap.append(empty('Waiting on forecast…'));
 		refreshWeather();
 		return wrap;
 	}
 	const units = weatherUnits();
-	const now = document.createElement('div');
-	now.className = 'weather-now';
+	const now = snap.current;
+	const today = (snap.daily || [])[0];
+	const placeEl = document.createElement('p');
+	placeEl.className = 'weather-place';
+	placeEl.textContent = place || 'Here';
+	const hero = document.createElement('div');
+	hero.className = 'weather-hero';
+	const tempEl = document.createElement('div');
+	tempEl.className = 'weather-temp';
+	tempEl.textContent = String(temp(now.temperatureC, units)).replace(/°$/, '');
 	const glyph = document.createElement('span');
-	glyph.className = 'weather-glyph lg';
-	glyph.innerHTML = weatherGlyphSvg(kindOfCode(snap.current.code), snap.current.isDay);
-	const temp = document.createElement('div');
-	temp.className = 'weather-temp';
-	temp.textContent = homeTemperature(snap.current.temperatureC, units);
-	const cond = document.createElement('div');
-	cond.className = 'hint';
-	cond.textContent = `${weatherLabel(snap.current.code)} · feels ${homeTemperature(snap.current.feelsC, units)}`;
-	now.append(glyph, temp, cond);
-	wrap.append(now);
+	glyph.className = 'weather-glyph hero';
+	glyph.innerHTML = weatherGlyphSvg(kindOfCode(now.code), now.isDay);
+	glyph.setAttribute('aria-label', weatherLabel(now.code));
+	hero.append(tempEl, glyph);
+	const cond = document.createElement('p');
+	cond.className = 'weather-cond';
+	cond.textContent = weatherLabel(now.code);
+	wrap.append(placeEl, hero, cond);
+	if (today) {
+		const hl = document.createElement('p');
+		hl.className = 'weather-hl';
+		hl.textContent = `H ${temp(today.highC, units)}  L ${temp(today.lowC, units)}`;
+		wrap.append(hl);
+	}
+	const stats = document.createElement('div');
+	stats.className = 'weather-stats';
+	stats.append(
+		weatherStat('Feels', temp(now.feelsC, units)),
+		weatherStat('Precip', precipChance(now.precipProb)),
+		weatherStat('Wind', wind(now.windKmh, now.windDir, units)),
+	);
+	wrap.append(stats);
+	const hours = document.createElement('div');
+	hours.className = 'weather-hours';
+	for (const hour of snap.hourly || []) {
+		const col = document.createElement('div');
+		col.className = 'weather-hour';
+		const when = document.createElement('span');
+		when.className = 'weather-hour-label';
+		when.textContent = hourLabel(hour.epochMs, snap.timezone);
+		const icon = document.createElement('span');
+		icon.className = 'weather-glyph sm';
+		icon.innerHTML = weatherGlyphSvg(kindOfCode(hour.code), hour.isDay);
+		const deg = document.createElement('span');
+		deg.className = 'weather-hour-temp';
+		deg.textContent = temp(hour.temperatureC, units);
+		const pop = document.createElement('span');
+		pop.className = 'weather-hour-pop';
+		pop.textContent = precipChance(hour.precipProb);
+		col.append(when, icon, deg, pop);
+		hours.append(col);
+	}
+	wrap.append(hours);
 	const days = document.createElement('div');
 	days.className = 'weather-days';
-	for (const day of snap.daily || []) {
+	const todayKey = todayIso();
+	for (const day of (snap.daily || []).slice(0, 7)) {
 		const row = document.createElement('div');
-		row.className = 'row weather-day';
-		const icon = document.createElement('span');
-		icon.className = 'weather-glyph';
-		icon.innerHTML = weatherGlyphSvg(kindOfCode(day.code), true);
+		row.className = 'weather-day';
 		const name = document.createElement('span');
-		name.className = 'body';
-		name.textContent = weekdayShort(day.date);
+		name.className = 'weather-day-name';
+		name.textContent = weekday(day.date, todayKey);
+		const icon = document.createElement('span');
+		icon.className = 'weather-glyph sm';
+		icon.innerHTML = weatherGlyphSvg(kindOfCode(day.code), true);
+		const note = document.createElement('span');
+		note.className = 'weather-day-note';
+		note.textContent = daySummary(day, units);
 		const hi = document.createElement('span');
-		hi.className = 'mark';
-		hi.textContent = `${displayTemperature(day.highC, units)}° / ${displayTemperature(day.lowC, units)}°`;
-		row.append(icon, name, hi);
+		hi.className = 'weather-day-hi';
+		hi.textContent = `${temp(day.highC, units)}  ${temp(day.lowC, units)}`;
+		row.append(name, icon, note, hi);
 		days.append(row);
 	}
 	wrap.append(days);
+	const details = document.createElement('div');
+	details.className = 'weather-details';
+	const rows = [
+		['Humidity', humidity(now.humidity)],
+		['Dew point', now.dewC == null ? '—' : temp(now.dewC, units)],
+		['UV index', uvLabel(now.uv ?? today?.uv)],
+		['Pressure', pressure(now.pressureHpa, units)],
+		['Visibility', visibility(now.visibilityM, units)],
+		['Cloud cover', cloud(now.cloud)],
+		['Sunrise', today?.sunrise || '—'],
+		['Sunset', today?.sunset || '—'],
+		['Wind', wind(now.windKmh, now.windDir, units)],
+		['Gusts', now.gustKmh == null ? '—' : wind(now.gustKmh, null, units)],
+		['Air quality', aqiLabel(snap.aqi)],
+	];
+	for (const [label, value] of rows) {
+		const row = document.createElement('div');
+		row.className = 'stat-row weather-detail';
+		const left = document.createElement('span');
+		left.className = 'hint';
+		left.textContent = label;
+		const right = document.createElement('span');
+		right.textContent = value;
+		row.append(left, right);
+		details.append(row);
+	}
+	wrap.append(details);
 	return wrap;
+}
+
+function weatherStat(label, value) {
+	const col = document.createElement('div');
+	col.className = 'weather-stat';
+	const name = document.createElement('span');
+	name.className = 'weather-stat-label';
+	name.textContent = label.toUpperCase();
+	const val = document.createElement('span');
+	val.className = 'weather-stat-value';
+	val.textContent = value;
+	col.append(name, val);
+	return col;
 }
 
 let weatherSearchAt = 0;
@@ -1433,9 +1533,14 @@ async function refreshWeather(force = false) {
 	}
 	if (!force && state.weather?.fetchedAt && Date.now() - state.weather.fetchedAt < 15 * 60_000) return;
 	try {
-		const qs = `latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,precipitation,wind_speed_10m,is_day&hourly=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=auto&temperature_unit=celsius`;
-		const url = state.api ? `/api/weather/forecast?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}` : `${FORECAST}?${qs}`;
-		const next = parseForecast(await fetchText(url));
+		const qs = `lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
+		const url = state.api ? `/api/weather/forecast?${qs}` : forecastUrl(lat, lon);
+		const air = state.api ? `/api/weather/air?${qs}` : airUrl(lat, lon);
+		const [raw, aqiRaw] = await Promise.all([
+			fetchText(url),
+			fetchText(air).catch(() => ''),
+		]);
+		const next = parseForecast(raw, Date.now(), parseAqi(aqiRaw));
 		if (!next) return;
 		state.weather = next;
 		if (state.tab === 'home' || state.tab === 'weather') render();
