@@ -580,7 +580,20 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v19/);
+	assert.match(sw, /builder-launcher-web-v20/);
+});
+
+test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	assert.match(js, /function listRow\(/);
+	assert.match(js, /copy\.className = 'copy'/);
+	assert.match(js, /subtitle: show\?\.title \|\| ''/);
+	assert.doesNotMatch(js, /join\(' · '\)/);
+	assert.match(css, /\.row \.copy \{[^}]*min-width:\s*0/s);
+	assert.match(css, /\.row \.copy \.body \{[^}]*-webkit-line-clamp:\s*3/s);
+	assert.match(css, /\.row \.body \{[^}]*word-break:\s*normal/s);
+	assert.doesNotMatch(css, /word-break:\s*break-word/);
 });
 
 test('mobile shell pins home to the top and follows the visual viewport', async () => {

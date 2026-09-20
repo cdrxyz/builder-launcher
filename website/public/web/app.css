@@ -365,11 +365,52 @@ main {
 	padding: 0.45rem 0;
 }
 
+.row .copy {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.12rem;
+}
+
 .row .body {
 	flex: 1;
 	min-width: 0;
 	white-space: pre-wrap;
-	word-break: break-word;
+	overflow-wrap: break-word;
+	word-break: normal;
+}
+
+.row .copy .body {
+	flex: none;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
+	white-space: normal;
+}
+
+.row .sub {
+	color: var(--muted);
+	font-size: 0.8rem;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.row .trail {
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.12rem;
+	text-align: right;
+	max-width: 42%;
+}
+
+.row .price {
+	white-space: nowrap;
 }
 
 .row.done .body {
@@ -385,6 +426,10 @@ label span {
 	flex: none;
 }
 
+.row .meta {
+	white-space: nowrap;
+}
+
 .meta.up {
 	color: #8fbf8f;
 }
@@ -397,6 +442,8 @@ label span {
 	font-size: 1rem;
 	font-weight: 600;
 	margin: 0.4rem 0 0.2rem;
+	overflow-wrap: break-word;
+	word-break: normal;
 }
 
 .mark {

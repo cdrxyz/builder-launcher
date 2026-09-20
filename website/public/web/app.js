@@ -946,25 +946,19 @@ function notesScreen() {
 	const notes = notesByEdited(items());
 	if (!notes.length) wrap.append(empty('No notes yet. Pull from S3 or type +.'));
 	for (const item of notes) {
-		const row = document.createElement('button');
-		row.className = 'row';
-		row.type = 'button';
-		const body = document.createElement('span');
-		body.className = 'body';
-		body.textContent = noteTitle(item.text);
-		const meta = document.createElement('span');
-		meta.className = 'meta';
-		meta.textContent = item.updatedAt || item.createdAt
-			? new Date(item.updatedAt || item.createdAt).toLocaleDateString()
-			: '';
-		row.append(body, meta);
-		row.addEventListener('click', () => {
-			state.tab = 'note';
-			state.noteId = item.id;
-			state.noteMode = 'view';
-			render();
-		});
-		wrap.append(row);
+		const when = item.updatedAt || item.createdAt;
+		wrap.append(
+			listRow({
+				title: noteTitle(item.text),
+				subtitle: when ? new Date(when).toLocaleDateString() : '',
+				onClick: () => {
+					state.tab = 'note';
+					state.noteId = item.id;
+					state.noteMode = 'view';
+					render();
+				},
+			}),
+		);
 	}
 	return wrap;
 }
@@ -999,38 +993,29 @@ function stocksScreen() {
 		const live = state.quotes[String(item.symbol).toUpperCase()];
 		const price = live?.price ?? item.price;
 		const pct = live?.changePercent ?? item.changePercent;
-		const row = document.createElement('button');
-		row.className = 'row';
-		row.type = 'button';
-		const body = document.createElement('span');
-		body.className = 'body';
-		body.textContent = `${item.symbol}  ${item.name || ''}`;
-		const meta = document.createElement('span');
-		meta.className = `meta${pct == null ? '' : pct >= 0 ? ' up' : ' down'}`;
-		meta.textContent = [formatPrice(price, live?.currency || item.currency), formatPercent(pct)]
-			.filter(Boolean)
-			.join('  ');
-		row.append(body, meta);
-		row.addEventListener('click', () => openStock(item.symbol));
-		row.addEventListener('contextmenu', (event) => {
-			event.preventDefault();
-			mutate({ watchlist: removeTicker(watchlist(state.doc), item.symbol) });
-		});
-		wrap.append(row);
+		wrap.append(
+			listRow({
+				title: item.symbol,
+				subtitle: item.name || '',
+				trail: stockTrail(
+					formatPrice(price, live?.currency || item.currency),
+					formatPercent(pct),
+					pct == null ? 'meta' : pct >= 0 ? 'meta up' : 'meta down',
+				),
+				onClick: () => openStock(item.symbol),
+				onContextMenu: () => mutate({ watchlist: removeTicker(watchlist(state.doc), item.symbol) }),
+			}),
+		);
 	}
 	for (const hit of state.hits) {
-		const row = document.createElement('button');
-		row.className = 'row';
-		row.type = 'button';
-		const body = document.createElement('span');
-		body.className = 'body';
-		body.textContent = `${hit.symbol}  ${hit.name}`;
-		const meta = document.createElement('span');
-		meta.className = 'meta';
-		meta.textContent = hit.exchange || 'add';
-		row.append(body, meta);
-		row.addEventListener('click', () => addStock(hit));
-		wrap.append(row);
+		wrap.append(
+			listRow({
+				title: hit.symbol,
+				subtitle: hit.name,
+				meta: hit.exchange || 'add',
+				onClick: () => addStock(hit),
+			}),
+		);
 	}
 	return wrap;
 }
@@ -1582,65 +1567,94 @@ async function signOut() {
 }
 
 function showRow(show) {
-	const row = document.createElement('button');
-	row.className = 'row';
-	row.type = 'button';
-	const body = document.createElement('span');
-	body.className = 'body';
-	body.textContent = show.title;
-	const meta = document.createElement('span');
-	meta.className = 'meta';
-	meta.textContent = show.author || '';
-	row.append(body, meta);
-	row.addEventListener('click', () => {
-		state.tab = 'show';
-		state.showId = show.feedUrl;
-		render();
+	return listRow({
+		title: show.title,
+		subtitle: show.author || '',
+		onClick: () => {
+			state.tab = 'show';
+			state.showId = show.feedUrl;
+			render();
+		},
+		onContextMenu: () => {
+			const bag = podcastsOf(state.doc);
+			mutate({ podcasts: { ...bag, ...unsubscribe(bag.shows, bag.episodes, bag.progress, show.feedUrl) } });
+		},
 	});
-	row.addEventListener('contextmenu', (event) => {
-		event.preventDefault();
-		const bag = podcastsOf(state.doc);
-		mutate({ podcasts: { ...bag, ...unsubscribe(bag.shows, bag.episodes, bag.progress, show.feedUrl) } });
-	});
-	return row;
 }
 
 function episodeRow(episode, show, progress) {
-	const row = document.createElement('button');
-	const dim = finished(progress) || skipped(progress);
-	row.className = `row${dim ? ' done' : ''}`;
-	row.type = 'button';
-	const body = document.createElement('span');
-	body.className = 'body';
-	body.textContent = episode.title;
-	const meta = document.createElement('span');
-	meta.className = 'meta';
-	meta.textContent = [show?.title, formatDuration(progress?.positionMs || episode.durationMs)]
-		.filter(Boolean)
-		.join(' · ');
-	row.append(body, meta);
-	row.addEventListener('click', () => {
-		state.tab = 'episode';
-		state.showId = episode.showId;
-		state.episodeId = episode.id;
-		render();
+	return listRow({
+		title: episode.title,
+		subtitle: show?.title || '',
+		meta: formatDuration(progress?.positionMs || episode.durationMs),
+		dim: finished(progress) || skipped(progress),
+		onClick: () => {
+			state.tab = 'episode';
+			state.showId = episode.showId;
+			state.episodeId = episode.id;
+			render();
+		},
 	});
-	return row;
 }
 
 function podcastHitRow(hit) {
+	return listRow({
+		title: hit.title,
+		subtitle: hit.author || 'subscribe',
+		onClick: () => subscribeHit(hit),
+	});
+}
+
+function listRow({ title, subtitle = '', meta = '', dim = false, trail = null, onClick, onContextMenu }) {
 	const row = document.createElement('button');
-	row.className = 'row';
 	row.type = 'button';
+	row.className = `row${dim ? ' done' : ''}`;
+	const copy = document.createElement('span');
+	copy.className = 'copy';
 	const body = document.createElement('span');
 	body.className = 'body';
-	body.textContent = hit.title;
-	const meta = document.createElement('span');
-	meta.className = 'meta';
-	meta.textContent = hit.author || 'subscribe';
-	row.append(body, meta);
-	row.addEventListener('click', () => subscribeHit(hit));
+	body.textContent = title;
+	copy.append(body);
+	if (subtitle) {
+		const sub = document.createElement('span');
+		sub.className = 'sub';
+		sub.textContent = subtitle;
+		copy.append(sub);
+	}
+	row.append(copy);
+	if (trail) row.append(trail);
+	else if (meta) {
+		const side = document.createElement('span');
+		side.className = 'meta';
+		side.textContent = meta;
+		row.append(side);
+	}
+	if (onClick) row.addEventListener('click', onClick);
+	if (onContextMenu) {
+		row.addEventListener('contextmenu', (event) => {
+			event.preventDefault();
+			onContextMenu(event);
+		});
+	}
 	return row;
+}
+
+function stockTrail(priceText, pctText, pctClass) {
+	const trail = document.createElement('span');
+	trail.className = 'trail';
+	if (priceText) {
+		const price = document.createElement('span');
+		price.className = 'price';
+		price.textContent = priceText;
+		trail.append(price);
+	}
+	if (pctText) {
+		const pct = document.createElement('span');
+		pct.className = pctClass;
+		pct.textContent = pctText;
+		trail.append(pct);
+	}
+	return trail;
 }
 
 function field(labelText, name, value, placeholder, type = 'text') {
