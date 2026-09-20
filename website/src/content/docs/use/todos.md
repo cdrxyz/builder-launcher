@@ -24,7 +24,7 @@ On the tasks page:
 - Title `tasks` is centered at the top. Copy stays top right.
 
 - Command bar starts with `-` so the next Enter saves another todo.
-- Pencil on the right (before delete) loads that task into the bar. A check on the right of the bar saves the edit.
+- Pencil on an open task loads it into the bar. A check on the right of the bar saves the edit. Delete is only on completed tasks.
 - `<` or Back returns home in default command-bar mode (not task mode).
 - Long-press and drag an open row across the list to reorder. Other rows slide out of the way as you pass them. Order is saved on the device. Home preview stays tap-only.
 - Copy icon writes open todos to the clipboard as:

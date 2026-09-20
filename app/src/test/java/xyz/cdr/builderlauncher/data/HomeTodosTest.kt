@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -114,6 +115,14 @@ class HomeTodosTest {
             """.trimIndent(),
             markdown,
         )
+    }
+
+    @Test
+    fun tasksPageShowsEditOnOpenAndDeleteOnCompleted() {
+        assertTrue(HomeTodos.showEdit(done = false))
+        assertFalse(HomeTodos.showDelete(done = false))
+        assertFalse(HomeTodos.showEdit(done = true))
+        assertTrue(HomeTodos.showDelete(done = true))
     }
 
     @Test

@@ -416,7 +416,6 @@ fun TodosChrome(
                         modifier = Modifier.weight(1f).padding(vertical = 6.dp),
                     )
                     EditIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
-                    DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                 }
             }
             if (doneTodos.isNotEmpty()) {
@@ -437,7 +436,6 @@ fun TodosChrome(
                             style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.LineThrough),
                             modifier = Modifier.weight(1f).padding(vertical = 6.dp),
                         )
-                        EditIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                         DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                     }
                 }
