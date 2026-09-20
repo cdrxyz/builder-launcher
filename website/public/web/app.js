@@ -155,6 +155,7 @@ audio.addEventListener('ended', () => {
 boot();
 
 async function boot() {
+	pinVisualViewport();
 	state.api = await probeApi();
 	globalThis.__BL_PROXY = state.api;
 	if (state.api) {
@@ -184,6 +185,25 @@ async function boot() {
 		refreshQuotes();
 		refreshWeather();
 	}
+}
+
+function pinVisualViewport() {
+	const root = document.documentElement;
+	const apply = () => {
+		const vv = window.visualViewport;
+		const height = vv ? vv.height : window.innerHeight;
+		const top = vv ? vv.offsetTop : 0;
+		root.style.setProperty('--vv-height', `${Math.round(height)}px`);
+		root.style.setProperty('--vv-top', `${Math.round(top)}px`);
+		if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+	};
+	apply();
+	window.visualViewport?.addEventListener('resize', apply);
+	window.visualViewport?.addEventListener('scroll', apply);
+	window.addEventListener('focusin', () => {
+		apply();
+		window.scrollTo(0, 0);
+	});
 }
 
 async function probeApi() {
@@ -418,7 +438,7 @@ function render() {
 	if (focus) {
 		const input = app.querySelector('.command-input');
 		if (input) {
-			input.focus();
+			input.focus({ preventScroll: true });
 			input.value = draft;
 		}
 	}
@@ -737,8 +757,8 @@ function commandBar() {
 	const submit = document.createElement('button');
 	submit.type = 'submit';
 	submit.className = 'command-submit';
-	submit.textContent = 'go';
-	submit.setAttribute('aria-label', 'run command');
+	submit.setAttribute('aria-label', commandSubmitKind(state.prompt) === 'check' ? 'save task' : 'run command');
+	submit.append(commandSubmitIcon(commandSubmitKind(state.prompt)));
 	form.append(glyph, input, submit);
 	form.addEventListener('submit', (event) => {
 		event.preventDefault();
@@ -1245,10 +1265,19 @@ function s3Card() {
 	return details;
 }
 
+// iOS enterkeyhint=done is a check that dismisses the keyboard without adding the task.
 function promptEnterHint() {
-	if (state.prompt === '-') return 'done';
-	if (state.prompt === '+' || state.prompt === '$') return 'go';
 	return 'go';
+}
+
+function commandSubmitKind(prompt) {
+	return prompt === '-' ? 'check' : 'send';
+}
+
+function commandSubmitIcon(kind) {
+	const mark = document.createElement('span');
+	mark.textContent = kind === 'check' ? '✓' : '→';
+	return mark;
 }
 
 function weatherSettings() {
@@ -1379,7 +1408,7 @@ async function searchWeatherPlaces(query) {
 			if (focus) {
 				const input = app.querySelector('input[name="weatherPlace"]');
 				if (input) {
-					input.focus();
+					input.focus({ preventScroll: true });
 					input.value = draft;
 				}
 			}

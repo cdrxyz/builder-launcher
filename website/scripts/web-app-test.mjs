@@ -408,3 +408,36 @@ test('home podcast mark matches the phone', () => {
 	assert.equal(homePodcastMark(false, true, 1000), 'PLAY');
 	assert.equal(homePodcastMark(false, true, 8000), 'HEADPHONES');
 });
+
+test('command bar enter key is go so iOS Return submits a todo', async () => {
+	const text = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(text, /input\.enterKeyHint = promptEnterHint\(\)/);
+	assert.match(text, /function promptEnterHint\(\) \{\s*return 'go';\s*\}/);
+	assert.doesNotMatch(text, /return 'done'/);
+});
+
+test('command bar shows a tappable check or send on the right', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	assert.match(js, /function commandSubmitKind\(prompt\) \{\s*return prompt === '-' \? 'check' : 'send';\s*\}/);
+	assert.match(js, /submit\.className = 'command-submit'/);
+	assert.match(js, /commandSubmitIcon\(commandSubmitKind\(state\.prompt\)\)/);
+	assert.match(js, /save task/);
+	assert.match(js, /'✓'/);
+	assert.match(css, /\.command-submit \{[^}]*min-width:\s*2\.6rem/s);
+	assert.match(css, /\.command-bar \{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto/s);
+	assert.doesNotMatch(css, /\.command-submit \{[^}]*clip-path:\s*inset\(50%\)/s);
+});
+
+test('mobile shell pins home to the top and follows the visual viewport', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	const html = await readFile(new URL('../public/web/index.html', import.meta.url), 'utf8');
+	assert.match(js, /function pinVisualViewport\(/);
+	assert.match(js, /pinVisualViewport\(\)/);
+	assert.match(js, /input\.focus\(\{ preventScroll: true \}\)/);
+	assert.match(css, /\.home \{[^}]*justify-content:\s*flex-start/s);
+	assert.match(css, /#app \{[^}]*height:\s*var\(--vv-height/s);
+	assert.match(css, /html,\s*body \{[^}]*overflow:\s*hidden/s);
+	assert.match(html, /interactive-widget=resizes-content/);
+});

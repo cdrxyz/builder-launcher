@@ -24,7 +24,7 @@ The Worker origin is `https://builder.cdr.xyz` (also `https://builder-launcher.c
 
 ## What it shows
 
-Home matches the phone: analog clock, headphones and weather on the left, rotating ticker on the right, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). Calendar is phone-only. The field stays empty. Tap the glyph for the prefix menu. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `weather`, `settings`, `tasks`, `pull`, `push`).
+Home matches the phone: analog clock, headphones and weather on the left, rotating ticker on the right, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). Calendar is phone-only. The field stays empty. Tap the glyph for the prefix menu. Type, then Enter / Go, or tap the **check** on the right to save a task (send mark in other modes) if the keyboard does not submit. On a phone, home stays pinned at the top with empty space above the bar — opening the keyboard shrinks that space instead of scrolling the clock off-screen. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `weather`, `settings`, `tasks`, `pull`, `push`).
 
 - **tasks** — full list. Command bar starts in `-`.
 - **notes** — listed by date edited. Command bar starts in `+`.
