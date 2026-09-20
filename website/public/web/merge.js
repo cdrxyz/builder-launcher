@@ -41,14 +41,83 @@ function mergeWatch(a, b, preferA) {
 	return out;
 }
 
+function mergeShows(a, b) {
+	const map = new Map();
+	for (const show of [...(a || []), ...(b || [])]) {
+		const key = String(show?.feedUrl || '').toLowerCase();
+		if (!key) continue;
+		const prev = map.get(key);
+		if (!prev || (show.subscribedAt || 0) >= (prev.subscribedAt || 0)) map.set(key, show);
+	}
+	return [...map.values()];
+}
+
+function mergeProgress(a, b) {
+	const map = new Map();
+	for (const row of [...(a || []), ...(b || [])]) {
+		const id = String(row?.episodeId || '');
+		if (!id) continue;
+		const prev = map.get(id);
+		if (!prev || (row.lastPlayedAt || 0) >= (prev.lastPlayedAt || 0)) map.set(id, row);
+	}
+	return [...map.values()];
+}
+
+function mergeEpisode(x, y) {
+	if (!x) return y;
+	if (!y) return x;
+	const newer = (x.pubDate || 0) >= (y.pubDate || 0) ? x : y;
+	const older = newer === x ? y : x;
+	return {
+		...older,
+		...newer,
+		description: newer.description || older.description || '',
+		title: newer.title || older.title || '',
+		enclosureUrl: newer.enclosureUrl || older.enclosureUrl || '',
+		durationMs: Math.max(newer.durationMs || 0, older.durationMs || 0),
+	};
+}
+
+function mergeEpisodes(a, b) {
+	const left = byId(a);
+	const right = byId(b);
+	const ids = new Set([...left.keys(), ...right.keys()]);
+	const out = [];
+	for (const id of ids) out.push(mergeEpisode(left.get(id), right.get(id)));
+	return out;
+}
+
 function mergePods(a, b) {
 	const left = a || {};
 	const right = b || {};
 	return {
-		shows: mergeById(left.shows, right.shows),
-		episodes: mergeById(left.episodes, right.episodes),
-		progress: mergeById(left.progress, right.progress),
+		shows: mergeShows(left.shows, right.shows),
+		episodes: mergeEpisodes(left.episodes, right.episodes),
+		progress: mergeProgress(left.progress, right.progress),
 		cacheBytes: Math.max(left.cacheBytes || 0, right.cacheBytes || 0),
+	};
+}
+
+function slimWatch(list) {
+	return (list || []).map((item) => ({
+		symbol: item.symbol,
+		name: item.name || item.symbol,
+		addedAt: item.addedAt || 0,
+		exchange: item.exchange || '',
+	}));
+}
+
+export function slimDoc(doc) {
+	if (!doc || typeof doc !== 'object') return doc;
+	const pods = doc.podcasts || {};
+	return {
+		...doc,
+		watchlist: slimWatch(doc.watchlist),
+		podcasts: {
+			shows: pods.shows || [],
+			episodes: [],
+			progress: (pods.progress || []).filter((row) => (row?.lastPlayedAt || 0) > 0),
+		},
 	};
 }
 

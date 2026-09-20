@@ -12,7 +12,7 @@ import xyz.cdr.builderlauncher.net.HttpClients
 class AccountClient(
     private val http: OkHttpClient = HttpClients.derived(connectSec = 20, readSec = 60, writeSec = 60),
     private val origin: String = ORIGIN,
-    private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true },
+    private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = false },
 ) {
     fun signup(email: String, password: String): AccountSession = auth("/api/auth/signup", email, password)
 
@@ -33,7 +33,7 @@ class AccountClient(
     }
 
     fun putVault(token: String, document: BackupDocument): VaultEnvelope {
-        val body = json.encodeToString(VaultPut.serializer(), VaultPut(document))
+        val body = json.encodeToString(VaultPut.serializer(), VaultPut(document.slimForAccount()))
         val raw = put("/api/vault", body, token)
         return json.decodeFromString(VaultEnvelope.serializer(), raw)
     }

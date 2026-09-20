@@ -900,8 +900,13 @@ internal fun BackupSettingsPage(
                     confirmRestore = false
                     backupMsg = "Uploading…"
                     scope.launch {
-                        backupMsg = runCatching { withContext(Dispatchers.IO) { backup.upload() } }
-                            .getOrElse { it.message ?: "Backup failed" }
+                        backupMsg = runCatching {
+                            withContext(Dispatchers.IO) {
+                                val msg = backup.upload()
+                                backup.hydrateMedia()
+                                msg
+                            }
+                        }.getOrElse { it.message ?: "Backup failed" }
                         backupBusy = false
                     }
                 }
@@ -917,8 +922,13 @@ internal fun BackupSettingsPage(
                         confirmRestore = false
                         backupMsg = "Restoring…"
                         scope.launch {
-                            backupMsg = runCatching { withContext(Dispatchers.IO) { backup.restore() } }
-                                .getOrElse { it.message ?: "Restore failed" }
+                            backupMsg = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    val msg = backup.restore()
+                                    backup.hydrateMedia()
+                                    msg
+                                }
+                            }.getOrElse { it.message ?: "Restore failed" }
                             backupBusy = false
                         }
                     }

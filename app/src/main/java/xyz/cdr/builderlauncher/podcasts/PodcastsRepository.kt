@@ -85,8 +85,13 @@ class PodcastsRepository(
         )
 
     fun importBackup(backup: PodcastBackup) {
+        val feeds = backup.shows.map { it.feedUrl.lowercase() }.toSet()
         _shows.value = backup.shows
-        _episodes.value = backup.episodes
+        _episodes.value = if (backup.episodes.isEmpty()) {
+            _episodes.value.filter { it.showId.lowercase() in feeds }
+        } else {
+            backup.episodes
+        }
         _progress.value = backup.progress.associateBy { it.episodeId }
         if (backup.cacheBytes > 0L) _cacheBytes.value = backup.cacheBytes
         persist()

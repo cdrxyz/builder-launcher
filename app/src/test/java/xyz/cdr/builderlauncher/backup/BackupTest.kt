@@ -11,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.stocks.WatchItem
@@ -97,6 +98,46 @@ class BackupDocumentTest {
             includeApiKey = false,
         )
         assertEquals(5, settings.homeTodoCount)
+    }
+
+    @Test
+    fun slimForAccountKeepsSubscriptionsAndPlayedProgressOnly() {
+        val html = "d".repeat(100_000)
+        val fat = BackupDocument(
+            exportedAt = 1,
+            watchlist = listOf(
+                WatchItem("AAPL", "Apple", addedAt = 1, price = 190.0, changePercent = 1.2, previousClose = 188.0),
+            ),
+            podcasts = PodcastBackup(
+                shows = listOf(PodcastShow("https://feeds.example/show", "Show")),
+                episodes = (1..50).map { i ->
+                    PodcastEpisode(
+                        id = "ep-$i",
+                        showId = "https://feeds.example/show",
+                        title = "Ep $i",
+                        enclosureUrl = "https://cdn.example/$i.mp3",
+                        description = html,
+                    )
+                },
+                progress = listOf(
+                    EpisodeProgress("ep-1", positionMs = 12_000, lastPlayedAt = 9),
+                    EpisodeProgress("ep-2", positionMs = 0, lastPlayedAt = 0),
+                ),
+                cacheBytes = 99,
+            ),
+        )
+        val json = kotlinx.serialization.json.Json { encodeDefaults = true }
+        val full = json.encodeToString(BackupDocument.serializer(), fat)
+        val slimDoc = fat.slimForAccount()
+        val slim = json.encodeToString(BackupDocument.serializer(), slimDoc)
+        assertTrue(full.length > 4_000_000)
+        assertTrue(slim.length < 2_000)
+        assertTrue(slimDoc.podcasts.episodes.isEmpty())
+        assertEquals(listOf("ep-1"), slimDoc.podcasts.progress.map { it.episodeId })
+        assertEquals("Show", slimDoc.podcasts.shows.single().title)
+        assertEquals("AAPL", slimDoc.watchlist.single().symbol)
+        assertEquals(null, slimDoc.watchlist.single().price)
+        assertEquals(0L, slimDoc.podcasts.cacheBytes)
     }
 }
 
@@ -343,6 +384,29 @@ class BackupMergeTest {
         assertTrue(joined.items.any { it.id == "phone" && it.text == "on phone" })
         assertTrue(joined.items.any { it.id == "cloud" && it.text == "in cloud" })
         assertEquals(setOf("AAPL", "TSLA"), joined.watchlist.map { it.symbol }.toSet())
+    }
+
+    @Test
+    fun mergeKeepsLocalShowNotesWhenCloudOmitsThem() {
+        val html = "<p>show notes</p>"
+        val local = BackupDocument(
+            exportedAt = 10,
+            podcasts = PodcastBackup(
+                episodes = listOf(
+                    PodcastEpisode("ep-1", "https://feeds.example/show", "Ep", pubDate = 5, description = html),
+                ),
+            ),
+        )
+        val remote = BackupDocument(
+            exportedAt = 11,
+            podcasts = PodcastBackup(
+                episodes = listOf(
+                    PodcastEpisode("ep-1", "https://feeds.example/show", "Ep", pubDate = 5, description = ""),
+                ),
+            ),
+        )
+        val joined = BackupMerge.join(local, remote)
+        assertEquals(html, joined.podcasts.episodes.single().description)
     }
 
     @Test

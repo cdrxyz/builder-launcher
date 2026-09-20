@@ -34,7 +34,18 @@ data class BackupDocument(
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
-)
+) {
+    fun slimForAccount(): BackupDocument = copy(
+        watchlist = watchlist.map { item ->
+            item.copy(price = null, changePercent = null, previousClose = null)
+        },
+        podcasts = podcasts.copy(
+            episodes = emptyList(),
+            cacheBytes = 0L,
+            progress = podcasts.progress.filter { it.lastPlayedAt > 0L },
+        ),
+    )
+}
 
 @Serializable
 data class PodcastBackup(

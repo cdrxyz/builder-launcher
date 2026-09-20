@@ -323,6 +323,54 @@ test('first join unions local with existing account or S3 snapshot', async () =>
 	assert.deepEqual(joined.watchlist.map((w) => w.symbol).sort(), ['AAPL', 'TSLA']);
 });
 
+test('slimDoc keeps subscriptions and played progress, not catalogs or quotes', async () => {
+	const { slimDoc } = await import('../public/web/merge.js');
+	const html = 'd'.repeat(100_000);
+	const fat = {
+		exportedAt: 1,
+		watchlist: [{ symbol: 'AAPL', name: 'Apple', addedAt: 1, price: 190, changePercent: 1.2, previousClose: 188 }],
+		podcasts: {
+			shows: [{ feedUrl: 'https://feeds.example/show', title: 'Show' }],
+			episodes: Array.from({ length: 50 }, (_, i) => ({
+				id: `ep-${i}`,
+				showId: 'https://feeds.example/show',
+				title: `Ep ${i}`,
+				enclosureUrl: `https://cdn.example/${i}.mp3`,
+				description: html,
+			})),
+			progress: [
+				{ episodeId: 'ep-1', positionMs: 12000, lastPlayedAt: 9 },
+				{ episodeId: 'ep-2', positionMs: 0, lastPlayedAt: 0 },
+			],
+		},
+	};
+	const full = JSON.stringify(fat);
+	const slim = slimDoc(fat);
+	assert.equal(full.length > 4_000_000, true);
+	assert.equal(JSON.stringify(slim).length < 2_000, true);
+	assert.deepEqual(slim.podcasts.episodes, []);
+	assert.deepEqual(slim.podcasts.progress.map((row) => row.episodeId), ['ep-1']);
+	assert.equal(slim.podcasts.shows[0].title, 'Show');
+	assert.equal(slim.watchlist[0].symbol, 'AAPL');
+	assert.equal(slim.watchlist[0].price, undefined);
+});
+
+test('mergeDocs keeps local show notes when the cloud copy omitted them', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const html = '<p>show notes</p>';
+	const merged = mergeDocs(
+		{
+			exportedAt: 10,
+			podcasts: { episodes: [{ id: 'ep-1', title: 'Ep', pubDate: 5, description: html }] },
+		},
+		{
+			exportedAt: 11,
+			podcasts: { episodes: [{ id: 'ep-1', title: 'Ep', pubDate: 5, description: '' }] },
+		},
+	);
+	assert.equal(merged.podcasts.episodes[0].description, html);
+});
+
 test('overwrite warning is confirmed before login or S3 pull', async () => {
 	const { OVERWRITE_WARNING, confirmOverwriteLocal } = await import('../public/web/account.js');
 	assert.match(OVERWRITE_WARNING, /overwrite any local data/);
