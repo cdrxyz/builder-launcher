@@ -1,7 +1,7 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
 import { apiJson } from './account.js';
-import { emptyDoc, mergeDocs } from './merge.js';
+import { emptyDoc, joinDocs, mergeDocs } from './merge.js';
 import {
 	doneTodos,
 	newId,
@@ -252,7 +252,8 @@ async function pull(opts = {}) {
 	try {
 		const blob = await s3Get(state.creds);
 		const plain = await decrypt(blob, state.creds.encryptionKey);
-		state.doc = JSON.parse(decodeUtf8(plain));
+		const remote = JSON.parse(decodeUtf8(plain));
+		state.doc = joinDocs(state.doc, remote);
 		state.dirty = false;
 		state.hits = [];
 		saveSnapshot(state.doc);
@@ -272,11 +273,7 @@ async function pullAccount(opts = {}) {
 	try {
 		const remote = await apiJson('/api/vault', { token: state.account.token });
 		state.revision = remote.revision || 0;
-		if (remote.document) {
-			state.doc = mergeDocs(state.doc, remote.document);
-		} else if (!state.doc) {
-			state.doc = emptyDoc();
-		}
+		state.doc = joinDocs(state.doc, remote.document);
 		saveSnapshot(state.doc);
 		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true });
 		state.dirty = false;

@@ -64,6 +64,12 @@ function unique(list) {
 	return out;
 }
 
+export function joinDocs(local, remote) {
+	if (!remote) return local || emptyDoc();
+	if (!local) return remote;
+	return mergeDocs(local, remote);
+}
+
 export function mergeDocs(a, b) {
 	if (!a) return b || null;
 	if (!b) return a;

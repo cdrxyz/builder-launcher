@@ -11,6 +11,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
+import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.stocks.WatchItem
 import java.security.SecureRandom
 
 class BackupCryptoTest {
@@ -294,5 +297,51 @@ class BackupMergeTest {
         assertEquals("new", merged.items.find { it.id == "1" }?.text)
         assertTrue(merged.items.any { it.id == "2" })
         assertFalse(merged.items.any { it.id == "9" })
+    }
+
+    @Test
+    fun firstJoinKeepsLocalWhenRemoteIsEmpty() {
+        val local = BackupDocument(
+            exportedAt = 10,
+            items = listOf(
+                LocalItem("todo-1", "todo", "buy milk", createdAt = 1, updatedAt = 1),
+                LocalItem("note-1", "note", "secret", createdAt = 2, updatedAt = 2),
+            ),
+            pins = listOf("xyz.cdr.builderlauncher"),
+            watchlist = listOf(WatchItem("AAPL", "Apple", addedAt = 1)),
+            podcasts = PodcastBackup(
+                shows = listOf(PodcastShow("https://feeds.example/show", "Show")),
+                episodes = listOf(PodcastEpisode("ep-1", "https://feeds.example/show", "Ep")),
+            ),
+        )
+        val emptyRemote = BackupDocument(exportedAt = 1)
+        val fromNull = BackupMerge.join(local, null)
+        val fromEmpty = BackupMerge.join(local, emptyRemote)
+        for (joined in listOf(fromNull, fromEmpty)) {
+            assertEquals("buy milk", joined.items.find { it.id == "todo-1" }?.text)
+            assertEquals("secret", joined.items.find { it.id == "note-1" }?.text)
+            assertTrue(joined.pins.contains("xyz.cdr.builderlauncher"))
+            assertEquals("AAPL", joined.watchlist.single().symbol)
+            assertEquals("Show", joined.podcasts.shows.single().title)
+            assertEquals("ep-1", joined.podcasts.episodes.single().id)
+        }
+    }
+
+    @Test
+    fun firstJoinUnionsLocalWithExistingAccountOrS3() {
+        val local = BackupDocument(
+            exportedAt = 5,
+            items = listOf(LocalItem("phone", "todo", "on phone", createdAt = 1, updatedAt = 1)),
+            watchlist = listOf(WatchItem("TSLA", "Tesla", addedAt = 1)),
+        )
+        val remote = BackupDocument(
+            exportedAt = 8,
+            items = listOf(LocalItem("cloud", "note", "in cloud", createdAt = 2, updatedAt = 2)),
+            watchlist = listOf(WatchItem("AAPL", "Apple", addedAt = 2)),
+        )
+        val joined = BackupMerge.join(local, remote)
+        assertTrue(joined.items.any { it.id == "phone" && it.text == "on phone" })
+        assertTrue(joined.items.any { it.id == "cloud" && it.text == "in cloud" })
+        assertEquals(setOf("AAPL", "TSLA"), joined.watchlist.map { it.symbol }.toSet())
     }
 }

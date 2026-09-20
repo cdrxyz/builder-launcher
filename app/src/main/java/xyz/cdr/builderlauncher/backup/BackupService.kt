@@ -75,9 +75,10 @@ class BackupService(
         requireReady(s)
         val blob = s3.get(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey)
         val plain = BackupCrypto.decrypt(blob, s.s3EncryptionKey)
-        val doc = decode(plain.decodeToString())
-        apply(doc)
-        return "Restored ${summary(doc)}"
+        val remote = decode(plain.decodeToString())
+        val merged = BackupMerge.join(document(), remote)
+        apply(merged)
+        return "Restored ${summary(merged)}"
     }
 
     fun signup(email: String, password: String): String {
@@ -103,11 +104,7 @@ class BackupService(
         val s = settings.settings.value
         val local = document(nowMs = nowMs)
         val remote = account.getVault(s.accountToken)
-        val merged = if (remote.document != null) {
-            BackupMerge.merge(local, remote.document).copy(exportedAt = nowMs)
-        } else {
-            local
-        }
+        val merged = BackupMerge.join(local, remote.document).copy(exportedAt = nowMs)
         account.putVault(s.accountToken, merged)
         apply(merged)
         settings.markBackup(nowMs)
@@ -118,7 +115,7 @@ class BackupService(
         val s = settings.settings.value
         val remote = account.getVault(s.accountToken)
         val remoteDoc = remote.document ?: return "No cloud snapshot yet. Sync now to upload this phone."
-        val merged = BackupMerge.merge(document(), remoteDoc)
+        val merged = BackupMerge.join(document(), remoteDoc)
         apply(merged)
         account.putVault(s.accountToken, merged.copy(exportedAt = System.currentTimeMillis()))
         settings.markBackup(System.currentTimeMillis())
