@@ -9,7 +9,7 @@ Type `settings` or `/settings`, then **… backup >**.
 
 ## Builder account (preferred)
 
-Create an account with email and password on the phone or at [builder.cdr.xyz](https://builder.cdr.xyz). Same login on both. **Create account** and **Sign in** show an alert: signing in **overwrites** local todos, notes, chats, pins, stocks, podcasts, alarms, and settings with the account snapshot. Cancel leaves this device alone. After you are signed in, **Sync now** merges both ways. Password is Argon2id. Account snapshots omit podcast episode HTML (the PWA refetches show notes from RSS). The JSON lives in R2 for that login, not in a 2 MB D1 row.
+Create an account with email and password on the phone or at [builder.cdr.xyz](https://builder.cdr.xyz). Same login on both. **Create account** and **Sign in** show an alert: signing in **overwrites** local todos, notes, chats, pins, stocks, podcasts, alarms, and settings with the account snapshot. Cancel leaves this device alone. After you are signed in, **Sync now** merges both ways. Password is Argon2id. Account snapshots store subscriptions and in-progress playback, plus watchlist tickers and order — not episode catalogs or live quotes. After sync, the client hydrates RSS and Yahoo. The JSON lives in R2 for that login, not in a 2 MB D1 row.
 
 **Include AI credentials** is off by default. Turn it on in Settings → backup if you want the current provider API key in the account snapshot (true `?` sync across devices). OAuth tokens never go in.
 

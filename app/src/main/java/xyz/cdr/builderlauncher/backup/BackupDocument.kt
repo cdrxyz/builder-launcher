@@ -36,10 +36,13 @@ data class BackupDocument(
     val settings: BackupSettings = BackupSettings(),
 ) {
     fun slimForAccount(): BackupDocument = copy(
+        watchlist = watchlist.map { item ->
+            item.copy(price = null, changePercent = null, previousClose = null)
+        },
         podcasts = podcasts.copy(
-            episodes = podcasts.episodes.map { episode ->
-                if (episode.description.isEmpty()) episode else episode.copy(description = "")
-            },
+            episodes = emptyList(),
+            cacheBytes = 0L,
+            progress = podcasts.progress.filter { it.lastPlayedAt > 0L },
         ),
     )
 }

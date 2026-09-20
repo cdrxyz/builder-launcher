@@ -11,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.stocks.WatchItem
@@ -100,11 +101,15 @@ class BackupDocumentTest {
     }
 
     @Test
-    fun slimForAccountDropsEpisodeHtmlUnderTheOldFourMegCap() {
+    fun slimForAccountKeepsSubscriptionsAndPlayedProgressOnly() {
         val html = "d".repeat(100_000)
         val fat = BackupDocument(
             exportedAt = 1,
+            watchlist = listOf(
+                WatchItem("AAPL", "Apple", addedAt = 1, price = 190.0, changePercent = 1.2, previousClose = 188.0),
+            ),
             podcasts = PodcastBackup(
+                shows = listOf(PodcastShow("https://feeds.example/show", "Show")),
                 episodes = (1..50).map { i ->
                     PodcastEpisode(
                         id = "ep-$i",
@@ -114,16 +119,25 @@ class BackupDocumentTest {
                         description = html,
                     )
                 },
+                progress = listOf(
+                    EpisodeProgress("ep-1", positionMs = 12_000, lastPlayedAt = 9),
+                    EpisodeProgress("ep-2", positionMs = 0, lastPlayedAt = 0),
+                ),
+                cacheBytes = 99,
             ),
         )
         val json = kotlinx.serialization.json.Json { encodeDefaults = true }
         val full = json.encodeToString(BackupDocument.serializer(), fat)
-        val slim = json.encodeToString(BackupDocument.serializer(), fat.slimForAccount())
+        val slimDoc = fat.slimForAccount()
+        val slim = json.encodeToString(BackupDocument.serializer(), slimDoc)
         assertTrue(full.length > 4_000_000)
-        assertTrue(slim.length < 50_000)
-        assertFalse(slim.contains(html.take(32)))
-        assertEquals("", fat.slimForAccount().podcasts.episodes.first().description)
-        assertEquals("Ep 1", fat.slimForAccount().podcasts.episodes.first().title)
+        assertTrue(slim.length < 2_000)
+        assertTrue(slimDoc.podcasts.episodes.isEmpty())
+        assertEquals(listOf("ep-1"), slimDoc.podcasts.progress.map { it.episodeId })
+        assertEquals("Show", slimDoc.podcasts.shows.single().title)
+        assertEquals("AAPL", slimDoc.watchlist.single().symbol)
+        assertEquals(null, slimDoc.watchlist.single().price)
+        assertEquals(0L, slimDoc.podcasts.cacheBytes)
     }
 }
 

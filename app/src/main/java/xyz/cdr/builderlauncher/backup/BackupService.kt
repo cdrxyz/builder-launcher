@@ -137,6 +137,11 @@ class BackupService(
         settings.applyBackup(doc.settings)
     }
 
+    suspend fun hydrateMedia() {
+        podcasts.refreshAll()
+        stocks.refreshQuotes()
+    }
+
     fun shareUnencrypted() {
         val text = encode(document())
         val dir = File(context.cacheDir, "backups").apply { mkdirs() }

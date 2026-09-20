@@ -283,7 +283,7 @@ async function pull(opts = {}) {
 		state.hits = [];
 		saveSnapshot(state.doc);
 		state.status = pulledLabel(state.doc);
-		refreshQuotes();
+		await hydrateMedia();
 	} catch (err) {
 		state.status = err.message || String(err);
 	} finally {
@@ -305,7 +305,7 @@ async function pullAccount(opts = {}) {
 		state.dirty = false;
 		state.hits = [];
 		state.status = pulledLabel(state.doc);
-		refreshQuotes();
+		await hydrateMedia();
 	} catch (err) {
 		state.status = err.message || String(err);
 	} finally {
@@ -362,6 +362,7 @@ async function pushAccount(opts = {}) {
 		state.dirty = false;
 		saveSnapshot(state.doc);
 		state.status = `Synced ${new Date(state.doc.exportedAt).toLocaleString()}`;
+		await hydrateMedia();
 	} catch (err) {
 		state.status = err.message || String(err);
 	} finally {
@@ -1372,6 +1373,35 @@ async function searchOrAddStock(query) {
 		return;
 	}
 	setStatus('Yahoo search blocked in this browser. Type a ticker like AAPL.');
+}
+
+async function hydrateMedia() {
+	await Promise.all([refreshQuotes(), refreshPodcastFeeds()]);
+}
+
+async function refreshPodcastFeeds() {
+	const bag = podcastsOf(state.doc);
+	const shows = bag.shows || [];
+	if (!shows.length) return;
+	let episodes = bag.episodes || [];
+	let nextShows = shows;
+	for (const show of shows) {
+		try {
+			const xml = await fetchText(
+				state.api ? `/api/feed?url=${encodeURIComponent(show.feedUrl)}` : show.feedUrl,
+			);
+			const feed = parseRss(xml, show.feedUrl);
+			if (!feed) continue;
+			const merged = mergeFeed(nextShows, episodes, feed);
+			nextShows = merged.shows;
+			episodes = merged.episodes;
+		} catch {
+			/* keep subscription; RSS fills in on the next open */
+		}
+	}
+	if (nextShows === shows && episodes === bag.episodes) return;
+	state.doc = { ...state.doc, podcasts: { ...bag, shows: nextShows, episodes } };
+	saveSnapshot(state.doc);
 }
 
 async function refreshQuotes() {
