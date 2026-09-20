@@ -131,6 +131,7 @@ export function parseYahooChart(raw) {
 		week52Low: num(meta.fiftyTwoWeekLow),
 		points,
 		volumes: volNums,
+		...extendedQuote(meta),
 	};
 }
 
@@ -149,6 +150,200 @@ export function formatNumber(value) {
 		return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	}
 	return value.toFixed(2);
+}
+
+export function formatRatio(value, decimals = 2) {
+	if (value == null || Number.isNaN(value)) return '—';
+	return value.toFixed(decimals);
+}
+
+export function formatCompact(value, prefix = '') {
+	if (value == null || Number.isNaN(value)) return '—';
+	const abs = Math.abs(value);
+	if (abs >= 1_000_000_000_000) return `${prefix}${(value / 1_000_000_000_000).toFixed(1)}T`;
+	if (abs >= 1_000_000_000) return `${prefix}${(value / 1_000_000_000).toFixed(1)}B`;
+	if (abs >= 1_000_000) return `${prefix}${(value / 1_000_000).toFixed(1)}M`;
+	if (abs >= 1_000) return `${prefix}${(value / 1_000).toFixed(1)}K`;
+	return prefix + formatNumber(value);
+}
+
+export function formatMarketCap(value) {
+	return formatCompact(value, '$');
+}
+
+export function formatYield(ratio) {
+	if (ratio == null || Number.isNaN(ratio)) return '—';
+	const percent = Math.abs(ratio) <= 1 ? ratio * 100 : ratio;
+	return `${percent.toFixed(2)}%`;
+}
+
+export const YEAR_SEC = 365.25 * 86_400;
+export const WEEK_SEC = 7 * 86_400;
+export const MARKET_SYMBOL = 'SPY';
+
+export function cagr(start, end, years) {
+	if (!(start > 0) || !(end > 0) || !(years > 0)) return null;
+	return (end / start) ** (1 / years) - 1;
+}
+
+export function closeBefore(points, target, maxSkewSec = 21 * 86_400) {
+	let hit = null;
+	for (const point of points || []) {
+		if (point.time <= target && (!hit || point.time > hit.time)) hit = point;
+	}
+	if (!hit || target - hit.time > maxSkewSec) return null;
+	return hit;
+}
+
+export function performance(points, endPrice, nowSec) {
+	const list = points || [];
+	const now = nowSec || list[list.length - 1]?.time || 0;
+	if (list.length < 2 || !(endPrice > 0) || !(now > 0)) return { y1: null, y3: null, y5: null, y10: null };
+	const at = (years) => {
+		const target = now - years * YEAR_SEC;
+		const start = closeBefore(list, target);
+		if (!start) return null;
+		const actualYears = (now - start.time) / YEAR_SEC;
+		if (actualYears < years * 0.85) return null;
+		const rate = cagr(start.close, endPrice, actualYears);
+		return rate == null ? null : rate * 100;
+	};
+	return { y1: at(1), y3: at(3), y5: at(5), y10: at(10) };
+}
+
+export function weeklyReturns(points) {
+	const sorted = [...(points || [])].sort((a, b) => a.time - b.time);
+	const out = new Map();
+	for (let i = 1; i < sorted.length; i++) {
+		const prev = sorted[i - 1].close;
+		const cur = sorted[i].close;
+		if (prev > 0) out.set(Math.floor(sorted[i].time / WEEK_SEC), cur / prev - 1);
+	}
+	return out;
+}
+
+export function beta(stock, market, nowSec) {
+	const now = nowSec || stock?.[stock.length - 1]?.time || 0;
+	if ((stock || []).length < 30 || (market || []).length < 30 || !(now > 0)) return null;
+	const cutoff = now - 5 * YEAR_SEC;
+	const stockRet = weeklyReturns(stock.filter((p) => p.time >= cutoff));
+	const marketRet = weeklyReturns(market.filter((p) => p.time >= cutoff));
+	const keys = [...stockRet.keys()].filter((k) => marketRet.has(k)).sort((a, b) => a - b);
+	if (keys.length < 26) return null;
+	const xs = keys.map((k) => marketRet.get(k));
+	const ys = keys.map((k) => stockRet.get(k));
+	const xMean = xs.reduce((a, b) => a + b, 0) / xs.length;
+	const yMean = ys.reduce((a, b) => a + b, 0) / ys.length;
+	let cov = 0;
+	let varX = 0;
+	for (let i = 0; i < xs.length; i++) {
+		const dx = xs[i] - xMean;
+		cov += dx * (ys[i] - yMean);
+		varX += dx * dx;
+	}
+	if (varX === 0) return null;
+	return cov / varX;
+}
+
+export function avgVolume(volumes) {
+	if (!volumes?.length) return null;
+	return Math.round(volumes.reduce((a, b) => a + b, 0) / volumes.length);
+}
+
+export function formatExtended(quote) {
+	const label = String(quote?.extendedLabel || '').trim();
+	const extendedPrice = quote?.extendedPrice;
+	if (!label || extendedPrice == null) return '';
+	const price = formatPrice(extendedPrice, quote.currency);
+	const change = quote.extendedChange;
+	const percent = quote.extendedPercent;
+	if (change != null && percent != null) {
+		return `${label} ${price} ${formatChange(change)} (${formatPercent(percent)})`;
+	}
+	return `${label} ${price}`;
+}
+
+export function parseTimeseries(raw) {
+	let root;
+	try {
+		root = JSON.parse(raw);
+	} catch {
+		return {};
+	}
+	const result = root?.timeseries?.result;
+	if (!Array.isArray(result)) return {};
+	const values = {};
+	for (const obj of result) {
+		if (!obj || typeof obj !== 'object') continue;
+		const type =
+			obj.meta?.type?.[0] ||
+			Object.keys(obj).find((key) => key !== 'meta' && key !== 'timestamp');
+		if (!type) continue;
+		const n = latestNumber(obj);
+		if (n != null) values[type] = n;
+	}
+	return {
+		pe: values.trailingPeRatio ?? null,
+		marketCap: values.trailingMarketCap ?? null,
+		dividendYield: values.trailingDividendYield ?? null,
+		eps: values.trailingDilutedEPS ?? null,
+	};
+}
+
+export function quoteStats(quote) {
+	return [
+		{ leftLabel: 'Open', leftValue: formatNumber(quote?.open), rightLabel: 'High', rightValue: formatNumber(quote?.high) },
+		{ leftLabel: 'Low', leftValue: formatNumber(quote?.low), rightLabel: 'Vol', rightValue: formatVolume(quote?.volume) },
+		{ leftLabel: 'P/E', leftValue: formatRatio(quote?.pe), rightLabel: 'Mkt Cap', rightValue: formatMarketCap(quote?.marketCap) },
+		{ leftLabel: 'EPS', leftValue: formatRatio(quote?.eps), rightLabel: 'Yield', rightValue: formatYield(quote?.dividendYield) },
+		{ leftLabel: 'Beta', leftValue: formatRatio(quote?.beta), rightLabel: 'Avg Vol', rightValue: quote?.avgVolume != null ? formatVolume(quote.avgVolume) : '—' },
+		{ leftLabel: '52W H', leftValue: formatNumber(quote?.week52High), rightLabel: '52W L', rightValue: formatNumber(quote?.week52Low) },
+	];
+}
+
+export function cagrStats(cagrRow) {
+	const row = cagrRow || {};
+	return [
+		{ leftLabel: '1Y', leftValue: row.y1 != null ? formatPercent(row.y1) : '—', rightLabel: '3Y', rightValue: row.y3 != null ? formatPercent(row.y3) : '—' },
+		{ leftLabel: '5Y', leftValue: row.y5 != null ? formatPercent(row.y5) : '—', rightLabel: '10Y', rightValue: row.y10 != null ? formatPercent(row.y10) : '—' },
+	];
+}
+
+function latestNumber(obj) {
+	const key = Object.keys(obj).find((k) => k !== 'meta' && k !== 'timestamp');
+	if (!key || !Array.isArray(obj[key]) || !obj[key].length) return null;
+	const last = obj[key][obj[key].length - 1];
+	if (!last || typeof last !== 'object') return null;
+	return num(last.reportedValue?.raw) ?? num(last.dataValue) ?? num(last.raw);
+}
+
+function extendedQuote(meta) {
+	const nowSec = Math.floor(Date.now() / 1000);
+	const label = extendedSession(nowSec, meta?.hasPrePostMarketData === true, meta?.currentTradingPeriod);
+	const extendedPrice = label ? num(meta?.fulldayPrice) : null;
+	if (!label || extendedPrice == null) return {};
+	return {
+		extendedLabel: label,
+		extendedPrice,
+		extendedChange: num(meta?.fulldayChange),
+		extendedPercent: num(meta?.fulldayChangePercent),
+	};
+}
+
+function extendedSession(nowSec, hasPrePost, periods) {
+	if (!hasPrePost || !periods) return null;
+	const preStart = num(periods.pre?.start);
+	const preEnd = num(periods.pre?.end);
+	const regStart = num(periods.regular?.start);
+	const regEnd = num(periods.regular?.end);
+	const postStart = num(periods.post?.start);
+	const postEnd = num(periods.post?.end);
+	if (preStart != null && preEnd != null && nowSec >= preStart && nowSec <= preEnd) return 'Pre-Market';
+	if (postStart != null && postEnd != null && nowSec >= postStart && nowSec <= postEnd) return 'After Hours';
+	if (regStart != null && regEnd != null && nowSec >= regStart && nowSec <= regEnd) return null;
+	if (regEnd != null && nowSec > regEnd) return 'After Hours';
+	if (preStart != null && nowSec < preStart) return 'After Hours';
+	return null;
 }
 
 export function formatChange(change) {
@@ -181,14 +376,6 @@ export function formatChartTime(timeSec, rangeLabel) {
 		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
 	return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-export function quoteStats(quote) {
-	return [
-		{ leftLabel: 'Open', leftValue: formatNumber(quote?.open), rightLabel: 'High', rightValue: formatNumber(quote?.high) },
-		{ leftLabel: 'Low', leftValue: formatNumber(quote?.low), rightLabel: 'Vol', rightValue: formatVolume(quote?.volume) },
-		{ leftLabel: '52W H', leftValue: formatNumber(quote?.week52High), rightLabel: '52W L', rightValue: formatNumber(quote?.week52Low) },
-	];
 }
 
 export function formatPosition(positionMs, durationMs) {

@@ -12,14 +12,20 @@ import {
 	formatPosition,
 	formatPrice,
 	formatSpeed,
+	formatYield,
 	homeRows,
 	indexAt,
 	parseItunes,
 	parseOpml,
 	parseRss,
+	parseTimeseries,
 	parseYahooChart,
 	parseYahooSearch,
+	performance,
 	podcastsOf,
+	quoteStats,
+	cagr,
+	cagrStats,
 	timestamps,
 	watchlist,
 } from '../public/web/media.js';
@@ -168,6 +174,55 @@ test('yahoo search and chart parse', () => {
 	assert.equal(formatPosition(0, 62_000), '0:00 of 1:02');
 	assert.equal(timestamps('intro 1:02 later')[0].positionMs, 62_000);
 	assert.equal(formatSpeed(1.2), '1.2×');
+});
+
+test('stock detail stats match the phone', () => {
+	assert.equal(Number(cagr(100, 121, 2).toFixed(4)), 0.1);
+	const year = 365.25 * 86_400;
+	const now = 1_800_000_000;
+	const points = [
+		{ time: now - 10 * year, close: 46.65 },
+		{ time: now - 5 * year, close: 75.13 },
+		{ time: now - 3 * year, close: 90.96 },
+		{ time: now - year, close: 110 },
+		{ time: now, close: 121 },
+	];
+	const row = performance(points, 121, now);
+	assert.ok(Math.abs(row.y1 - 10) < 0.2);
+	assert.ok(Math.abs(row.y10 - 10) < 0.2);
+	const stats = quoteStats({
+		open: 100,
+		high: 110,
+		low: 90,
+		volume: 1_000_000,
+		pe: 36.61,
+		marketCap: 4.67e12,
+		eps: 8.74,
+		dividendYield: 0.0034,
+		beta: 1.09,
+		avgVolume: 53_800_000,
+		week52High: 260,
+		week52Low: 164,
+	});
+	assert.equal(stats[2].leftLabel, 'P/E');
+	assert.equal(stats[2].leftValue, '36.61');
+	assert.equal(stats[2].rightValue, '$4.7T');
+	assert.equal(stats[3].rightValue, '0.34%');
+	assert.equal(stats[4].leftLabel, 'Beta');
+	assert.equal(cagrStats(row)[0].leftLabel, '1Y');
+	const funds = parseTimeseries(
+		JSON.stringify({
+			timeseries: {
+				result: [
+					{ meta: { type: ['trailingPeRatio'] }, trailingPeRatio: [{ reportedValue: { raw: 36.61 } }] },
+					{ meta: { type: ['trailingMarketCap'] }, trailingMarketCap: [{ reportedValue: { raw: 4.67e12 } }] },
+				],
+			},
+		}),
+	);
+	assert.equal(funds.pe, 36.61);
+	assert.equal(funds.marketCap, 4.67e12);
+	assert.equal(formatYield(0.0034), '0.34%');
 });
 
 test('podcast home rows match phone sections', () => {

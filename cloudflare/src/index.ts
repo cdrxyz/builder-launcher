@@ -68,6 +68,9 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 				url.searchParams.get('interval') || '1d',
 			);
 		}
+		if (url.pathname === '/api/yahoo/timeseries' && request.method === 'GET') {
+			return yahooTimeseries(url.searchParams.get('symbol') || '');
+		}
 		if (url.pathname === '/api/podcasts/search' && request.method === 'GET') {
 			return itunesSearch(url.searchParams.get('q') || '');
 		}
@@ -177,6 +180,16 @@ async function yahooChart(symbol: string, rangeRaw: string, intervalRaw: string)
 	const range = ['1d', '5d', '1mo', '3mo', '1y', '5y', '10y'].includes(rangeRaw) ? rangeRaw : '1d';
 	const interval = ['5m', '15m', '1d', '1wk'].includes(intervalRaw) ? intervalRaw : '1d';
 	const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=${interval}&range=${range}&includePrePost=true`;
+	return proxyJson(target, 'query1.finance.yahoo.com');
+}
+
+async function yahooTimeseries(symbol: string): Promise<Response> {
+	const s = symbol.trim().toUpperCase().slice(0, 12);
+	if (!s) return jsonError('symbol is required');
+	const now = Math.floor(Date.now() / 1000);
+	const start = now - 400 * 86_400;
+	const types = 'trailingPeRatio,trailingMarketCap,trailingDividendYield,trailingDilutedEPS';
+	const target = `https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(s)}?symbol=${encodeURIComponent(s)}&type=${types}&period1=${start}&period2=${now}`;
 	return proxyJson(target, 'query1.finance.yahoo.com');
 }
 
