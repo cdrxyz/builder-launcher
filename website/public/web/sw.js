@@ -1,4 +1,4 @@
-const CACHE = 'builder-launcher-web-v19';
+const CACHE = 'builder-launcher-web-v20';
 const SHELL = [
 	'./',
 	'./index.html',
