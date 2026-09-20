@@ -24,6 +24,9 @@ import {
 } from './commands.js';
 import {
 	addTicker,
+	avgVolume,
+	beta,
+	cagrStats,
 	finished,
 	formatDuration,
 	formatPercent,
@@ -32,16 +35,20 @@ import {
 	formatSpeed,
 	formatChange,
 	formatChartTime,
+	formatExtended,
 	homeRows,
 	indexAt,
 	looksLikeFeedUrl,
 	looksLikeSymbol,
+	MARKET_SYMBOL,
 	mergeFeed,
 	parseItunes,
 	parseOpml,
 	parseRss,
+	parseTimeseries,
 	parseYahooChart,
 	parseYahooSearch,
+	performance,
 	podcastsOf,
 	progressMap,
 	quoteStats,
@@ -62,6 +69,7 @@ const ACCOUNT_KEY = 'builder-launcher-web-account';
 const DOCS = 'https://cdrxyz.github.io/builder-launcher/configure/web/';
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SEARCH = 'https://query1.finance.yahoo.com/v1/finance/search';
+const YAHOO_TIMESERIES = 'https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries';
 const ITUNES = 'https://itunes.apple.com/search';
 
 const audio = new Audio();
@@ -81,7 +89,9 @@ const state = {
 	stockSymbol: null,
 	stockRange: '1D',
 	stockChart: null,
+	stockDetails: null,
 	stockScrub: null,
+	marketPoints: null,
 	speed: loadSpeed(),
 	speedMenu: false,
 	status: '',
@@ -1557,11 +1567,13 @@ function openStock(symbol) {
 	state.stockSymbol = String(symbol || '').toUpperCase();
 	state.stockRange = '1D';
 	state.stockChart = null;
+	state.stockDetails = null;
 	state.stockScrub = null;
 	state.hits = [];
 	state.prompt = '$';
 	render();
 	loadStockChart();
+	loadStockDetails();
 }
 
 async function loadStockChart() {
@@ -1569,19 +1581,83 @@ async function loadStockChart() {
 	if (!symbol) return;
 	const range = STOCK_RANGES.find((row) => row.label === state.stockRange) || STOCK_RANGES[0];
 	try {
-		const url = state.api
-			? `/api/yahoo/chart?symbol=${encodeURIComponent(symbol)}&range=${range.range}&interval=${range.interval}`
-			: `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=${range.interval}&range=${range.range}&includePrePost=true`;
-		const chart = parseYahooChart(await fetchText(url));
+		const chart = await fetchYahooChart(symbol, range.range, range.interval);
 		if (state.stockSymbol !== symbol) return;
 		state.stockChart = chart;
-		if (chart) {
-			state.quotes = { ...state.quotes, [chart.symbol]: chart };
-		}
+		if (chart) state.quotes = { ...state.quotes, [chart.symbol]: chart };
 		if (state.tab === 'stock') render();
 	} catch (err) {
 		if (state.tab === 'stock') setStatus(err.message || 'Chart failed');
 	}
+}
+
+async function loadStockDetails() {
+	const symbol = state.stockSymbol;
+	if (!symbol) return;
+	try {
+		const [long, vol, funds, market] = await Promise.all([
+			fetchYahooChart(symbol, '10y', '1wk').catch(() => null),
+			fetchYahooChart(symbol, '3mo', '1d').catch(() => null),
+			fetchYahooTimeseries(symbol).catch(() => ({})),
+			state.marketPoints
+				? Promise.resolve({ points: state.marketPoints })
+				: fetchYahooChart(MARKET_SYMBOL, '10y', '1wk').catch(() => null),
+		]);
+		if (state.stockSymbol !== symbol) return;
+		if (market?.points?.length >= 30) state.marketPoints = market.points;
+		const extra = funds || {};
+		const quote = {
+			...(long || vol || {}),
+			pe: extra.pe,
+			marketCap: extra.marketCap,
+			dividendYield: extra.dividendYield,
+			eps: extra.eps,
+			beta: beta(long?.points || [], state.marketPoints || market?.points || []),
+			avgVolume: avgVolume(vol?.volumes || []),
+		};
+		state.stockDetails = {
+			quote,
+			cagr: performance(long?.points || [], quote.price),
+		};
+		if (state.tab === 'stock') render();
+	} catch {
+		/* keep chart-only stats */
+	}
+}
+
+async function fetchYahooChart(symbol, range, interval) {
+	const url = state.api
+		? `/api/yahoo/chart?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=${interval}`
+		: `${YAHOO_CHART}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=true`;
+	return parseYahooChart(await fetchText(url));
+}
+
+async function fetchYahooTimeseries(symbol) {
+	const now = Math.floor(Date.now() / 1000);
+	const start = now - 400 * 86_400;
+	const types = 'trailingPeRatio,trailingMarketCap,trailingDividendYield,trailingDilutedEPS';
+	const url = state.api
+		? `/api/yahoo/timeseries?symbol=${encodeURIComponent(symbol)}`
+		: `${YAHOO_TIMESERIES}/${encodeURIComponent(symbol)}?symbol=${encodeURIComponent(symbol)}&type=${types}&period1=${start}&period2=${now}`;
+	return parseTimeseries(await fetchText(url));
+}
+
+function stockQuote() {
+	const extra = state.stockDetails?.quote || {};
+	const day = state.stockChart || state.quotes[state.stockSymbol] || {};
+	return {
+		...day,
+		pe: extra.pe,
+		marketCap: extra.marketCap,
+		dividendYield: extra.dividendYield,
+		eps: extra.eps,
+		beta: extra.beta,
+		avgVolume: extra.avgVolume,
+		extendedLabel: day.extendedLabel || extra.extendedLabel,
+		extendedPrice: day.extendedPrice ?? extra.extendedPrice,
+		extendedChange: day.extendedChange ?? extra.extendedChange,
+		extendedPercent: day.extendedPercent ?? extra.extendedPercent,
+	};
 }
 
 function stockDetailScreen() {
@@ -1589,13 +1665,13 @@ function stockDetailScreen() {
 	wrap.className = 'stock-detail';
 	const list = watchlist(state.doc);
 	const item = list.find((row) => String(row.symbol).toUpperCase() === state.stockSymbol) || { symbol: state.stockSymbol, name: '' };
-	const live = state.stockChart || state.quotes[state.stockSymbol] || item;
+	const live = stockQuote();
 	const points = state.stockChart?.points || [];
 	const mark = state.stockScrub != null ? points[state.stockScrub] : null;
-	const price = mark?.close ?? live.price;
+	const price = mark?.close ?? live.price ?? item.price;
 	const base = scrubBaseline(points, state.stockRange, live.previousClose);
 	const change = mark && base ? mark.close - base : live.change;
-	const pct = mark && base ? ((mark.close - base) / base) * 100 : live.changePercent;
+	const pct = mark && base ? ((mark.close - base) / base) * 100 : live.changePercent ?? item.changePercent;
 	const up = (pct ?? 0) >= 0;
 	const symbol = document.createElement('h2');
 	symbol.textContent = live.symbol || state.stockSymbol;
@@ -1604,7 +1680,7 @@ function stockDetailScreen() {
 	name.textContent = live.name || item.name || '';
 	const priceEl = document.createElement('h2');
 	priceEl.id = 'stock-price';
-	priceEl.textContent = formatPrice(price, live.currency);
+	priceEl.textContent = formatPrice(price, live.currency || item.currency);
 	const changeEl = document.createElement('p');
 	changeEl.id = 'stock-change';
 	changeEl.className = `hint ${up ? 'up' : 'down'}`;
@@ -1615,6 +1691,13 @@ function stockDetailScreen() {
 	date.id = 'stock-date';
 	date.textContent = mark ? formatChartTime(mark.time, state.stockRange) : '';
 	wrap.append(date);
+	const extended = document.createElement('p');
+	extended.id = 'stock-extended';
+	const extLine = mark ? '' : formatExtended(live);
+	extended.className = `hint ${(live.extendedChange ?? 0) >= 0 ? 'up' : 'down'}`;
+	extended.textContent = extLine;
+	if (!extLine) extended.classList.add('hidden');
+	wrap.append(extended);
 	wrap.append(stockChartEl(points, up, state.stockScrub));
 	const ranges = document.createElement('div');
 	ranges.className = 'ranges';
@@ -1629,18 +1712,25 @@ function stockDetailScreen() {
 		ranges.append(btn);
 	}
 	wrap.append(ranges);
-	for (const row of quoteStats(live)) {
-		const line = document.createElement('div');
-		line.className = 'stat-row';
-		const left = document.createElement('div');
-		left.innerHTML = `<span class="hint">${row.leftLabel}</span><div>${row.leftValue}</div>`;
-		const right = document.createElement('div');
-		right.className = 'stat-right';
-		right.innerHTML = `<span class="hint">${row.rightLabel}</span><div>${row.rightValue}</div>`;
-		line.append(left, right);
-		wrap.append(line);
-	}
+	for (const row of quoteStats(live)) wrap.append(statRow(row));
+	const cagrHead = document.createElement('p');
+	cagrHead.className = 'hint cagr-label';
+	cagrHead.textContent = 'CAGR';
+	wrap.append(cagrHead);
+	for (const row of cagrStats(state.stockDetails?.cagr)) wrap.append(statRow(row));
 	return wrap;
+}
+
+function statRow(row) {
+	const line = document.createElement('div');
+	line.className = 'stat-row';
+	const left = document.createElement('div');
+	left.innerHTML = `<span class="hint">${row.leftLabel}</span><div>${row.leftValue}</div>`;
+	const right = document.createElement('div');
+	right.className = 'stat-right';
+	right.innerHTML = `<span class="hint">${row.rightLabel}</span><div>${row.rightValue}</div>`;
+	line.append(left, right);
+	return line;
 }
 
 function stockChartEl(points, up, selectedIndex) {
@@ -1685,7 +1775,7 @@ function stockChartEl(points, up, selectedIndex) {
 }
 
 function paintStockScrub(points) {
-	const live = state.stockChart || {};
+	const live = stockQuote();
 	const mark = state.stockScrub != null ? points[state.stockScrub] : null;
 	const price = mark?.close ?? live.price;
 	const base = scrubBaseline(points, state.stockRange, live.previousClose);
@@ -1701,6 +1791,12 @@ function paintStockScrub(points) {
 		changeEl.textContent = [formatChange(change), formatPercent(pct)].filter(Boolean).join('  ');
 	}
 	if (dateEl) dateEl.textContent = mark ? formatChartTime(mark.time, state.stockRange) : '';
+	const extEl = document.getElementById('stock-extended');
+	if (extEl) {
+		const line = mark ? '' : formatExtended(live);
+		extEl.textContent = line;
+		extEl.classList.toggle('hidden', !line);
+	}
 }
 
 function fileInput() {
