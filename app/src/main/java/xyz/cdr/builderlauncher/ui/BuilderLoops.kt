@@ -6,8 +6,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
@@ -18,6 +22,7 @@ import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.weather.WeatherRefresh
 import xyz.cdr.builderlauncher.weather.WeatherRepository
 
+@OptIn(FlowPreview::class)
 @Composable
 internal fun BuilderLoops(
     lifecycleOwner: LifecycleOwner,
@@ -42,9 +47,32 @@ internal fun BuilderLoops(
             }
         }
     }
-    LaunchedEffect(lifecycleOwner, settings.backupFrequency, settings.s3Endpoint, settings.s3Bucket) {
+    LaunchedEffect(
+        lifecycleOwner,
+        settings.backupFrequency,
+        settings.s3Endpoint,
+        settings.s3Bucket,
+        settings.accountToken,
+    ) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            withContext(Dispatchers.IO) { backup.maybeUpload() }
+            if (settings.backupFrequency == BackupFrequency.AUTO) {
+                launch {
+                    backup.localWrites()
+                        .debounce(BackupFrequency.WRITE_DEBOUNCE_MS)
+                        .collect {
+                            backup.markLocalChange()
+                            val applied = withContext(Dispatchers.IO) { backup.tickAuto() }
+                            if (applied) backup.hydrateMedia()
+                        }
+                }
+                while (true) {
+                    val applied = withContext(Dispatchers.IO) { backup.tickAuto() }
+                    if (applied) backup.hydrateMedia()
+                    delay(BackupFrequency.PULL_INTERVAL_MS)
+                }
+            } else {
+                withContext(Dispatchers.IO) { backup.maybeUpload() }
+            }
         }
     }
     LaunchedEffect(lifecycleOwner, page, watchSize) {

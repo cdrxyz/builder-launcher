@@ -3,6 +3,11 @@ package xyz.cdr.builderlauncher.backup
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.clock.ClockScheduler
@@ -20,6 +25,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 class BackupService(
     private val context: Context,
@@ -38,6 +44,12 @@ class BackupService(
         encodeDefaults = true
     },
 ) {
+    @Volatile private var applying = false
+    @Volatile private var dirty = false
+    @Volatile private var lastPullAtEpochMs = 0L
+    @Volatile private var lastStamp: String? = null
+    private val busy = AtomicBoolean(false)
+
     fun document(nowMs: Long = System.currentTimeMillis()): BackupDocument {
         val snap = clock.snapshot()
         val current = settings.settings.value
@@ -66,6 +78,7 @@ class BackupService(
         val blob = BackupCrypto.encrypt(plain, s.s3EncryptionKey)
         s3.put(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey, blob, nowMs)
         settings.markBackup(nowMs)
+        rememberSynced()
         return "Uploaded encrypted backup"
     }
 
@@ -107,6 +120,7 @@ class BackupService(
         account.putVault(s.accountToken, merged)
         apply(merged)
         settings.markBackup(nowMs)
+        rememberSynced()
         return "Synced to builder.cdr.xyz"
     }
 
@@ -116,25 +130,89 @@ class BackupService(
         val remoteDoc = remote.document ?: return "No cloud snapshot yet. Sync now to upload this phone."
         apply(remoteDoc)
         settings.markBackup(System.currentTimeMillis())
+        rememberSynced()
         return "Restored ${summary(remoteDoc)}"
     }
 
     fun apply(doc: BackupDocument) {
-        lists.replaceAll(doc.items)
-        chats.replaceAll(doc.chats)
-        pins.replaceAll(doc.pins)
-        stocks.replaceAll(doc.watchlist)
-        podcasts.importBackup(doc.podcasts)
-        clock.replaceFromBackup(
-            ClockSnapshot(
-                timer = TimerState(),
-                alarms = doc.alarms,
-                zones = doc.zones,
-                alert = null,
-            ),
+        applying = true
+        try {
+            lists.replaceAll(doc.items)
+            chats.replaceAll(doc.chats)
+            pins.replaceAll(doc.pins)
+            stocks.replaceAll(doc.watchlist)
+            podcasts.importBackup(doc.podcasts)
+            clock.replaceFromBackup(
+                ClockSnapshot(
+                    timer = TimerState(),
+                    alarms = doc.alarms,
+                    zones = doc.zones,
+                    alert = null,
+                ),
+            )
+            ClockScheduler.reconcile(context, clock)
+            settings.applyBackup(doc.settings)
+        } finally {
+            applying = false
+        }
+    }
+
+    fun localWrites(): Flow<Unit> = merge(
+        lists.items.map { },
+        chats.threads.map { },
+        pins.packages.map { },
+        stocks.watch.map { },
+        podcasts.shows.map { },
+        podcasts.progress.map { },
+        clock.state.map { it.alarms to it.zones }.distinctUntilChanged().map { },
+        settings.settings.map { },
+    ).drop(1)
+
+    fun markLocalChange() {
+        if (applying) return
+        val stamp = contentStamp()
+        if (stamp == lastStamp) return
+        dirty = true
+    }
+
+    fun tickAuto(nowMs: Long = System.currentTimeMillis()): Boolean {
+        val s = settings.settings.value
+        if (!BackupAuto.ready(s.accountToken, s3Ready(s))) return false
+        val action = BackupAuto.action(
+            frequency = s.backupFrequency,
+            dirty = dirty,
+            lastBackupAtEpochMs = s.lastBackupAtEpochMs,
+            lastPullAtEpochMs = lastPullAtEpochMs,
+            nowMs = nowMs,
+            ready = true,
         )
-        ClockScheduler.reconcile(context, clock)
-        settings.applyBackup(doc.settings)
+        if (action == BackupAuto.Action.NONE) return false
+        if (!busy.compareAndSet(false, true)) return false
+        return try {
+            when (action) {
+                BackupAuto.Action.PUSH -> {
+                    upload(nowMs)
+                    lastPullAtEpochMs = nowMs
+                    true
+                }
+                BackupAuto.Action.PULL -> {
+                    val applied = pullIfNewer(nowMs)
+                    lastPullAtEpochMs = nowMs
+                    val stillEmpty = settings.settings.value.lastBackupAtEpochMs <= 0L
+                    if (!applied && stillEmpty) {
+                        upload(nowMs)
+                        true
+                    } else {
+                        applied
+                    }
+                }
+                BackupAuto.Action.NONE -> false
+            }
+        } catch (_: Exception) {
+            false
+        } finally {
+            busy.set(false)
+        }
     }
 
     suspend fun hydrateMedia() {
@@ -159,8 +237,68 @@ class BackupService(
         )
     }
 
+    private fun pullIfNewer(nowMs: Long): Boolean {
+        val s = settings.settings.value
+        return if (s.accountToken.isNotBlank()) pullAccount(nowMs) else pullS3(nowMs)
+    }
+
+    private fun pullAccount(nowMs: Long): Boolean {
+        val s = settings.settings.value
+        val remoteDoc = account.getVault(s.accountToken).document ?: return false
+        val local = document(nowMs)
+        val localKey = stampOf(local)
+        val merged = BackupMerge.join(local, remoteDoc)
+        val mergedKey = stampOf(merged)
+        if (mergedKey == localKey) {
+            if (remoteDoc.exportedAt > s.lastBackupAtEpochMs) settings.markBackup(remoteDoc.exportedAt)
+            rememberSynced()
+            return false
+        }
+        val stamped = merged.copy(exportedAt = maxOf(nowMs, remoteDoc.exportedAt, local.exportedAt))
+        apply(stamped)
+        if (mergedKey != stampOf(remoteDoc)) {
+            account.putVault(s.accountToken, stamped)
+        }
+        settings.markBackup(stamped.exportedAt)
+        rememberSynced()
+        return true
+    }
+
+    private fun pullS3(nowMs: Long): Boolean {
+        val s = settings.settings.value
+        val blob = try {
+            s3.get(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey, nowMs)
+        } catch (e: IllegalStateException) {
+            if (e.message == "No backup in that bucket") return false
+            throw e
+        }
+        val remote = decode(BackupCrypto.decrypt(blob, s.s3EncryptionKey).decodeToString())
+        if (remote.exportedAt <= s.lastBackupAtEpochMs) {
+            rememberSynced()
+            return false
+        }
+        apply(remote)
+        settings.markBackup(remote.exportedAt)
+        rememberSynced()
+        return true
+    }
+
+    private fun contentStamp(): String = stampOf(document(0L))
+
+    private fun stampOf(document: BackupDocument): String =
+        encode(document.slimForAccount().copy(exportedAt = 0L))
+
+    private fun rememberSynced() {
+        lastStamp = contentStamp()
+        dirty = false
+    }
+
+    private fun s3Ready(s: BuilderSettings): Boolean =
+        S3Signer.ready(s.s3Endpoint, s.s3Bucket, s.s3AccessKey, s.s3SecretKey, s.s3EncryptionKey)
+
     fun maybeUpload(nowMs: Long = System.currentTimeMillis()): String? {
         val s = settings.settings.value
+        if (s.backupFrequency == BackupFrequency.AUTO) return null
         if (!s.backupFrequency.due(nowMs, s.lastBackupAtEpochMs)) return null
         if (s.accountToken.isNotBlank()) {
             return runCatching { upload(nowMs) }.getOrElse { it.message }
