@@ -671,6 +671,18 @@ test('mobile shell pins home to the top and follows the visual viewport', async 
 	assert.match(html, /interactive-widget=resizes-content/);
 });
 
+test('checking a task keeps list scroll instead of jumping to the top', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /listTab === state\.tab \? list\.scrollTop : 0/);
+	assert.match(js, /next\.scrollTop = restore/);
+	assert.match(js, /function noFocusScroll\(el\) \{/);
+	assert.match(js, /pointerdown', \(event\) => event\.preventDefault\(\)/);
+	assert.match(js, /noFocusScroll\(el\)/);
+	assert.match(js, /noFocusScroll\(body\)/);
+	assert.match(js, /tag === 'INPUT' \|\| tag === 'TEXTAREA'/);
+	assert.doesNotMatch(js, /addEventListener\('focusin', \(\) => \{\s*apply\(\);\s*window\.scrollTo\(0, 0\);/s);
+});
+
 test('settings and help do not open the slash list by themselves', async () => {
 	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
 	assert.match(js, /else if \(state\.menu === 'slash'\) dock\.append\(slashMenu\(\)\)/);
