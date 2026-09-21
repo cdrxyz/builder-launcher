@@ -426,6 +426,7 @@ internal fun TodoLine(
     compact: Boolean = false,
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
+    showCheck: Boolean = false,
     modifier: Modifier = Modifier,
     textModifier: Modifier = Modifier,
 ) {
@@ -433,6 +434,17 @@ internal fun TodoLine(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (showCheck) {
+            TaskCheckIcon(
+                checked = item.done,
+                modifier = Modifier
+                    .semantics {
+                        contentDescription = if (item.done) "reopen task" else "complete task"
+                    }
+                    .clickable { onToggle() }
+                    .padding(end = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
         Text(
             item.text,
             color = if (item.done) Dim else Paper,
@@ -444,14 +456,6 @@ internal fun TodoLine(
                 .then(if (item.done || onEdit == null) Modifier.clickable { onToggle() } else Modifier)
                 .padding(vertical = if (compact) 4.dp else 6.dp),
         )
-        if (onEdit != null) {
-            EditIcon(
-                Modifier
-                    .semantics { contentDescription = "edit task" }
-                    .clickable { onEdit() }
-                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-            )
-        }
         if (onDelete != null) {
             DeleteIcon(
                 Modifier

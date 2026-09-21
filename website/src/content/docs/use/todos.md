@@ -12,21 +12,21 @@ Prefix `-`. Example: `-buy milk`. From default `>` mode, typing with no app matc
 
 ![A long task wrapping in the home command bar](../../../assets/screenshots/home-todo-wrap.png)
 - Home shows **open** todos, up to the count in [settings](../configure/settings/) (default 3). `0` hides them on home.
-- Tap a line to complete it (strikethrough). Tap again to reopen, including on the full list under **done**.
+- Tap a line on home to complete it (strikethrough). On the tasks page, the checkbox completes or reopens; tap a done line to reopen it.
 - `… more tasks >` is always on home and opens the full list.
 
 ![Full tasks page with open and completed items](../../../assets/screenshots/todos.png)
 
-![Editing a task with a pencil and a check to save](../../../assets/screenshots/todos-edit.png)
+![Editing a task from the tasks page](../../../assets/screenshots/todos-edit.png)
 
 On the tasks page:
 
 - Title `tasks` is centered at the top. Copy stays top right.
 
 - Command bar starts with `-` so the next Enter saves another todo.
-- Pencil on an open task loads it into the bar. A check on the right of the bar saves the edit. Delete is only on completed tasks.
+- A checkbox on the left completes or reopens a task. Tap the text of an open task to load it into the bar. A check on the right of the bar saves the edit. Delete is only on completed tasks.
 - `<` or Back returns home in default command-bar mode (not task mode).
-- Long-press and drag an open row across the list to reorder. Other rows slide out of the way as you pass them. Order is saved on the device. Home preview stays tap-only.
+- Long-press and drag an open row across the list to reorder. Other rows slide out of the way as you pass them. The dropped row stays where you put it. Order is saved on the device. Home preview stays tap-only.
 - Copy icon writes open todos to the clipboard as:
 
   ```markdown

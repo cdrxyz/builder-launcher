@@ -410,12 +410,15 @@ fun TodosChrome(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    TaskCheckIcon(
+                        checked = false,
+                        modifier = Modifier.padding(end = 12.dp, top = 6.dp, bottom = 6.dp),
+                    )
                     Text(
                         text,
                         color = Paper,
                         modifier = Modifier.weight(1f).padding(vertical = 6.dp),
                     )
-                    EditIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
                 }
             }
             if (doneTodos.isNotEmpty()) {
@@ -430,6 +433,10 @@ fun TodosChrome(
                         Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        TaskCheckIcon(
+                            checked = true,
+                            modifier = Modifier.padding(end = 12.dp, top = 6.dp, bottom = 6.dp),
+                        )
                         Text(
                             text,
                             color = Dim,
@@ -2676,6 +2683,39 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
             end = Offset(inset, size.height - inset),
             strokeWidth = stroke.width,
         )
+    }
+}
+
+@Composable
+fun TaskCheckIcon(checked: Boolean, modifier: Modifier = Modifier) {
+    val color = if (checked) Dim else Paper
+    Canvas(modifier.size(18.dp)) {
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val inset = size.minDimension * 0.12f
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(inset, inset),
+            size = Size(size.width - inset * 2f, size.height - inset * 2f),
+            cornerRadius = CornerRadius(2.dp.toPx()),
+            style = stroke,
+        )
+        if (checked) {
+            val s = size.minDimension
+            drawLine(
+                color = color,
+                start = Offset(s * 0.28f, s * 0.52f),
+                end = Offset(s * 0.44f, s * 0.70f),
+                strokeWidth = stroke.width,
+                cap = StrokeCap.Round,
+            )
+            drawLine(
+                color = color,
+                start = Offset(s * 0.44f, s * 0.70f),
+                end = Offset(s * 0.74f, s * 0.32f),
+                strokeWidth = stroke.width,
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 
