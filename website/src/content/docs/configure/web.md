@@ -14,7 +14,7 @@ Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhon
 ## First load
 
 1. Open [builder.cdr.xyz](https://builder.cdr.xyz).
-2. Create an account or sign in. Sync runs on its own every 30 seconds while you are signed in.
+2. Create an account or sign in. The gear opens Settings. Auto-sync defaults to **on save** (push shortly after an edit). **30s** / **5 min** also pull in the background. **off** is manual: **sync now**, `/pull`, `/push`.
 3. On the phone: Settings → **… backup >**. Same email and password. **Create account** or **Sign in**, then **Sync now**.
 4. Safari: Share → Add to Home Screen. Chrome/desktop: Install app.
 
@@ -24,14 +24,14 @@ The Worker origin is `https://builder.cdr.xyz` (also `https://builder-launcher.c
 
 ## What it shows
 
-Home matches the phone: analog clock, headphones and weather on the left, rotating ticker on the right, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). Calendar is phone-only. The field stays empty. Tap the glyph for the prefix menu. Type, then Enter / Go, or tap the **check** on the right to save a task (send mark in other modes) if the keyboard does not submit. On a phone, home stays pinned at the top with empty space above the bar — opening the keyboard shrinks that space instead of scrolling the clock off-screen. On an iPhone Home Screen install, extra space sits below the bar so it stays above the home indicator. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `weather`, `settings`, `tasks`, `pull`, `push`).
+Home matches the phone: analog clock, headphones and weather on the left, rotating ticker on the right, up to 3 open tasks, `… more tasks >`, and a command bar at the bottom. A **gear** opens Settings (no pull/push in the header). The **glyph on the left** holds the prefix (`>`, `-`, `+`, `$`, `/`). Calendar is phone-only. The field stays empty. Tap the glyph for the prefix menu. Type, then Enter / Go, or tap the **check** on the right to save a task (send mark in other modes) if the keyboard does not submit. On a phone, home stays pinned at the top with empty space above the bar — opening the keyboard shrinks that space instead of scrolling the clock off-screen. On an iPhone Home Screen install, extra space sits below the bar so it stays above the home indicator. Type `/` for slash commands (`notes`, `stocks`, `podcasts`, `weather`, `settings`, `tasks`, `pull`, `push`).
 
-- **tasks** — full list. Command bar starts in `-`.
+- **tasks** — full list. Tap a task to complete or reopen it. Pencil edits into the command bar. Done rows have an **X** to delete. Command bar starts in `-`.
 - **notes** — listed by date edited. Command bar starts in `+`.
 - **stocks** — watchlist. Command bar starts in `$`. Tap a row for the chart (1D / 1W / 1M / 3M / 1Y / 5Y). Drag across the chart to read price and date. Stats match the phone: open, high, low, volume, P/E, market cap, EPS, yield, beta, average volume, 52-week, CAGR.
-- **podcasts** — recent, next episodes, subscriptions. Type a show name or RSS URL in `>` mode. Search uses Apple's catalog from this browser (it allows CORS). If that fails, the Worker searches fyyd.de. Subscribe fetches RSS through `/api/feed` because most feeds do not send CORS. Episode screen has a scrub bar, −15 / +15, and playback speed. Home shows headphones (tap for the list); play/pause while audio is loaded.
+- **podcasts** — recent, next episodes, subscriptions, and a **now playing** bar when an episode is loaded. Type a show name or RSS URL in `>` mode. Search uses Apple's catalog from this browser (it allows CORS). If that fails, the Worker searches fyyd.de. Subscribe fetches RSS through `/api/feed` because most feeds do not send CORS. Episode screen has a scrub bar, −15 / +15, and playback speed. Home shows headphones (tap for the list); play/pause while audio is loaded.
 - **weather** — city in Settings (synced with the phone snapshot). Home shows the condition icon over the temperature, like the ticker. Tap it, or type `weather` / `/weather`, for the full forecast: large temperature and glyph, feels / precip / wind, next 24 hours, seven days with a short note, then humidity, dew point, UV, pressure, visibility, cloud cover, sunrise / sunset, wind, gusts, and air quality. Open-Meteo (plus air quality) via the Worker if the browser cannot fetch it.
-- **settings** — Builder account first, weather location and units, **Include AI credentials**, S3 collapsed underneath. Sign-in and S3 save & pull ask before overwriting local data.
+- **settings** — Builder account first, **auto-sync** (off / on save / 30s / 5 min), weather location and units, **Include AI credentials**, S3 collapsed underneath. Sign-in and S3 save & pull ask before overwriting local data.
 
 Offline, the last snapshot stays on the device. The browser only keeps a slim copy (subscriptions, playback progress, tickers, todos, notes) — episode catalogs stay in memory after RSS hydrate so Safari does not hit localStorage quota.
 
