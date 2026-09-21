@@ -532,6 +532,27 @@ main.home-main {
 	text-decoration: line-through;
 }
 
+.row.task-leaving {
+	pointer-events: none;
+	animation: task-leave 0.28s ease forwards;
+}
+
+.row.task-enter {
+	animation: task-enter 0.28s ease;
+}
+
+@keyframes task-leave {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes task-enter {
+	from {
+		opacity: 0;
+	}
+}
+
 .row .meta,
 .hint,
 label span {

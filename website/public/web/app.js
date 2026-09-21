@@ -10,7 +10,10 @@ import {
 } from './account.js';
 import { emptyDoc, joinDocs, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
 import {
-	doneTodos,
+	TASK_COMPLETE_FADE_MS,
+	TASK_COMPLETE_HOLD_MS,
+	displayDoneTodos,
+	displayOpenTodos,
 	newId,
 	noteTitle,
 	notesByEdited,
@@ -22,7 +25,6 @@ import {
 	DEFAULT_PROMPT,
 	webPrefixes,
 	builtinPage,
-	homePreview,
 	isModePrompt,
 	pagePrompt,
 	slashMatches,
@@ -122,6 +124,10 @@ const audio = new Audio();
 let lastSavedAt = 0;
 let lastSavedPos = 0;
 let listTab = null;
+const pendingComplete = new Map();
+const leavingComplete = new Set();
+const enteringComplete = new Set();
+const completeTimers = new Map();
 
 const state = {
 	tab: 'home',
@@ -652,7 +658,9 @@ function homeScreen() {
 	if (!state.menu) {
 		const todos = document.createElement('div');
 		todos.className = 'home-todos';
-		for (const item of homePreview(items())) todos.append(todoRow(item, false, false));
+		for (const item of displayOpenTodos(items(), pendingComplete).slice(0, 3)) {
+			todos.append(todoRow(item, item.completedAt != null, false));
+		}
 		wrap.append(todos);
 		const more = button('… more tasks >', () => go('tasks'), 'more-link');
 		wrap.append(more);
@@ -996,25 +1004,29 @@ function runSlash(name) {
 }
 function tasksScreen() {
 	const wrap = document.createElement('div');
-	const open = openTodos(items());
-	const done = doneTodos(items());
+	const open = displayOpenTodos(items(), pendingComplete);
+	const done = displayDoneTodos(items(), pendingComplete);
 	if (!open.length && !done.length) wrap.append(empty('No tasks yet. Pull from S3 or type -buy milk.'));
-	for (const item of open) wrap.append(todoRow(item, false, true));
+	for (const item of open) wrap.append(todoRow(item, item.completedAt != null, true, { settled: false }));
 	if (done.length) {
 		wrap.append(section('done'));
-		for (const item of done) wrap.append(todoRow(item, true, true));
+		for (const item of done) wrap.append(todoRow(item, true, true, { settled: true }));
 	}
 	return wrap;
 }
 
-function todoRow(item, done, details) {
+function todoRow(item, done, details, opts = {}) {
 	const row = document.createElement('div');
 	row.className = `row${done ? ' done' : ''}`;
+	row.dataset.todoId = item.id;
+	if (leavingComplete.has(item.id)) row.classList.add('task-leaving');
+	if (enteringComplete.has(item.id)) row.classList.add('task-enter');
 	const body = document.createElement('button');
 	body.type = 'button';
 	body.className = 'body todo-text';
 	body.textContent = item.text;
 	noFocusScroll(body);
+	const settled = Boolean(opts.settled);
 	if (details) {
 		row.append(taskCheckButton(done, () => toggleTodo(item.id)));
 		if (done) {
@@ -1034,7 +1046,7 @@ function todoRow(item, done, details) {
 		body.addEventListener('click', () => toggleTodo(item.id));
 	}
 	row.append(body);
-	if (details && done) {
+	if (details && settled && done) {
 		row.append(iconButton('delete task', 'M5 5l8 8M13 5L5 13', () => removeItem(item.id)));
 	}
 	return row;
@@ -1962,12 +1974,61 @@ function updateTodoText(id, text) {
 	setItems(items().map((item) => (item.id === id ? { ...item, text, updatedAt: Date.now() } : item)));
 }
 
+function clearCompleteTimer(id) {
+	const timers = completeTimers.get(id);
+	if (!timers) return;
+	clearTimeout(timers.hold);
+	clearTimeout(timers.fade);
+	completeTimers.delete(id);
+}
+
+function beginCompleteAnim(id, index) {
+	pendingComplete.set(id, index);
+	leavingComplete.delete(id);
+	enteringComplete.delete(id);
+	clearCompleteTimer(id);
+	const timers = {};
+	timers.hold = setTimeout(() => {
+		leavingComplete.add(id);
+		const row = app.querySelector(`[data-todo-id="${id}"]`);
+		if (row) row.classList.add('task-leaving');
+		else render();
+		timers.fade = setTimeout(() => {
+			pendingComplete.delete(id);
+			leavingComplete.delete(id);
+			enteringComplete.add(id);
+			completeTimers.delete(id);
+			render();
+			setTimeout(() => enteringComplete.delete(id), TASK_COMPLETE_FADE_MS);
+		}, TASK_COMPLETE_FADE_MS);
+	}, TASK_COMPLETE_HOLD_MS);
+	completeTimers.set(id, timers);
+}
+
+function cancelCompleteAnim(id) {
+	clearCompleteTimer(id);
+	pendingComplete.delete(id);
+	leavingComplete.delete(id);
+	enteringComplete.delete(id);
+}
+
 function toggleTodo(id) {
+	const list = items();
+	const item = list.find((entry) => entry.id === id);
+	if (!item) return;
+	const markingDone = item.completedAt == null;
+	if (markingDone) {
+		const shown = displayOpenTodos(list, pendingComplete);
+		const index = shown.findIndex((entry) => entry.id === id);
+		beginCompleteAnim(id, index < 0 ? shown.length : index);
+	} else {
+		cancelCompleteAnim(id);
+	}
 	const now = Date.now();
 	setItems(
-		items().map((item) => {
-			if (item.id !== id) return item;
-			return { ...item, completedAt: item.completedAt == null ? now : null };
+		list.map((entry) => {
+			if (entry.id !== id) return entry;
+			return { ...entry, completedAt: markingDone ? now : null };
 		}),
 	);
 }

@@ -14,6 +14,8 @@ object HomeTodos {
     const val TITLE = "tasks"
     const val COMPLETED = "completed"
     const val DAY_MS = 86_400_000L
+    const val COMPLETE_HOLD_MS = 1_000L
+    const val COMPLETE_FADE_MS = 280L
     const val HOME_SETTING = "Home tasks"
     const val HOME_SETTING_BLURB =
         "Open tasks on home. 0 hides them. … more tasks > still opens the full list."
@@ -95,8 +97,35 @@ object HomeTodos {
         }
     }
 
-    fun preview(todos: List<LocalItem>, limit: Int = PREVIEW): List<LocalItem> =
-        open(todos).take(clampPreview(limit))
+    fun displayOpen(
+        open: List<LocalItem>,
+        completed: List<LocalItem>,
+        pendingIndexById: Map<String, Int>,
+    ): List<LocalItem> {
+        if (pendingIndexById.isEmpty()) return open
+        val shown = open.toMutableList()
+        completed
+            .filter { it.id in pendingIndexById }
+            .sortedBy { pendingIndexById.getValue(it.id) }
+            .forEach { item ->
+                val at = pendingIndexById.getValue(item.id).coerceIn(0, shown.size)
+                shown.add(at, item)
+            }
+        return shown
+    }
+
+    fun displayCompleted(
+        completed: List<LocalItem>,
+        pendingIds: Set<String>,
+    ): List<LocalItem> =
+        if (pendingIds.isEmpty()) completed else completed.filterNot { it.id in pendingIds }
+
+    fun preview(
+        todos: List<LocalItem>,
+        limit: Int = PREVIEW,
+        pendingIndexById: Map<String, Int> = emptyMap(),
+    ): List<LocalItem> =
+        displayOpen(open(todos), completed(todos), pendingIndexById).take(clampPreview(limit))
 
     fun moveOpen(items: List<LocalItem>, from: Int, to: Int): List<LocalItem> {
         val current = open(of(items))

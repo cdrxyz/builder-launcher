@@ -17,6 +17,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -403,10 +405,16 @@ internal fun TodoPreview(
     open: List<LocalItem>,
     onToggle: (String) -> Unit,
     onMore: () -> Unit,
+    leavingIds: Set<String> = emptySet(),
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         open.forEach { item ->
-            TodoLine(item, onToggle = { onToggle(item.id) }, compact = true)
+            TodoLine(
+                item,
+                onToggle = { onToggle(item.id) },
+                compact = true,
+                leaving = item.id in leavingIds,
+            )
         }
         CaretLink(
             HomeTodos.MORE_TASKS,
@@ -427,11 +435,26 @@ internal fun TodoLine(
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     showCheck: Boolean = false,
+    leaving: Boolean = false,
+    entering: Boolean = false,
     modifier: Modifier = Modifier,
     textModifier: Modifier = Modifier,
 ) {
+    val alpha = remember(item.id) { Animatable(if (entering) 0f else 1f) }
+    LaunchedEffect(item.id, leaving, entering) {
+        when {
+            leaving -> alpha.animateTo(0f, tween(HomeTodos.COMPLETE_FADE_MS.toInt()))
+            entering -> {
+                alpha.snapTo(0f)
+                alpha.animateTo(1f, tween(HomeTodos.COMPLETE_FADE_MS.toInt()))
+            }
+            else -> alpha.snapTo(1f)
+        }
+    }
     Row(
-        modifier.fillMaxWidth(),
+        modifier
+            .fillMaxWidth()
+            .graphicsLayer { this.alpha = alpha.value },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showCheck) {
