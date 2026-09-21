@@ -648,10 +648,13 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(css, /\.now-playing \{/);
 	assert.match(css, /\.ghost\.gear/);
 	assert.doesNotMatch(js, /M9 1\.5v2\.1/);
-	assert.match(
-		js,
-		/if \(state\.tab === 'home'\) \{[\s\S]*?el\.append\(headerSlot\(\)\);[\s\S]*?el\.append\(title\(''\)\);[\s\S]*?el\.append\(gearButton\(\)\);/,
-	);
+	assert.match(js, /if \(state\.tab === 'home'\) app\.append\(main\(\), commandDock\(\)\)/);
+	assert.doesNotMatch(js, /el\.append\(title\(''\)\);/);
+	assert.match(js, /cluster\.append\(analogClock\(\), statusLine\('clock-status'\)\)/);
+	assert.match(js, /right\.append\(gearButton\(\)\)/);
+	assert.match(css, /\.clock-status \{/);
+	assert.match(css, /\.podcast-mark svg \{[^}]*width:\s*18px/s);
+	assert.match(css, /main\.home-main \{/);
 	assert.match(js, /innerHTML = '<svg[^>]*><path d="M7\.2 1\.6/);
 });
 

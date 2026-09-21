@@ -507,7 +507,8 @@ function render() {
 	const focus = document.activeElement?.classList?.contains('command-input');
 	const draft = state.draft;
 	app.replaceChildren();
-	app.append(header(), statusLine(), main(), commandDock());
+	if (state.tab === 'home') app.append(main(), commandDock());
+	else app.append(header(), statusLine(), main(), commandDock());
 	if (focus) {
 		const input = app.querySelector('.command-input');
 		if (input) {
@@ -520,12 +521,6 @@ function render() {
 function header() {
 	const el = document.createElement('header');
 	el.className = 'app-bar';
-	if (state.tab === 'home') {
-		el.append(headerSlot());
-		el.append(title(''));
-		el.append(gearButton());
-		return el;
-	}
 	if (state.tab === 'note') {
 		el.append(button('<', () => go('notes'), 'ghost'));
 		el.append(title('note'));
@@ -579,15 +574,16 @@ function title(text) {
 	return h;
 }
 
-function statusLine() {
+function statusLine(className = 'status') {
 	const p = document.createElement('p');
-	p.className = 'status';
+	p.className = className;
 	p.textContent = state.status;
 	return p;
 }
 
 function main() {
 	const el = document.createElement('main');
+	if (state.tab === 'home') el.classList.add('home-main');
 	if (state.tab === 'settings') el.append(settingsScreen());
 	else if (state.tab === 'notes') el.append(notesScreen());
 	else if (state.tab === 'note') el.append(noteScreen());
@@ -628,12 +624,15 @@ function homeScreen() {
 	const left = document.createElement('div');
 	left.className = 'home-side';
 	left.append(podcastMark(), weatherMark());
-	const clock = analogClock();
+	const cluster = document.createElement('div');
+	cluster.className = 'home-clock';
+	cluster.append(analogClock(), statusLine('clock-status'));
 	const right = document.createElement('div');
 	right.className = 'home-side right';
 	const ticker = tickerMark();
 	if (ticker) right.append(ticker);
-	hero.append(left, clock, right);
+	right.append(gearButton());
+	hero.append(left, cluster, right);
 	wrap.append(hero);
 	if (!state.menu) {
 		const todos = document.createElement('div');
