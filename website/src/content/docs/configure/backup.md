@@ -24,7 +24,7 @@ Use this only if you want your own bucket. Encrypted snapshot at `builder-launch
 | Access key / Secret key | IAM or R2 API token. Stored in encrypted prefs on the phone. |
 | Encryption key | Passphrase. The JSON is AES-GCM encrypted on the phone before upload. Lose it and the blob is unreadable. |
 | Include AI credentials | Off by default. When on, the current provider API key is written into S3 backups, account snapshots, and the JSON share. OAuth tokens never go in. |
-| Frequency | `off`, `daily`, or `weekly`. Daily/weekly run when you open the launcher if a backup is due. Account wins if you are signed in. |
+| Frequency | `auto` (default), `off`, `daily`, or `weekly`. Auto uploads a few seconds after a local change (task, stock, note, and so on) and pulls from the account or S3 every 5 minutes while the launcher is open, and when you open it. Daily/weekly still run only when you open the launcher if a backup is due. Account wins if you are signed in. |
 
 Changing endpoint, bucket, access key, or secret key runs an S3 access test. `S3 access good` means the credentials can reach the bucket. A missing backup object is still a pass. If a backup is present, the test also tries your encryption key and reports `backup decrypts` or `Wrong encryption key`.
 

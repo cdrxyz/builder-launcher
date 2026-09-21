@@ -111,7 +111,7 @@ Nothing is sent anywhere until you submit a question. No analytics.
 
 ## Backup
 
-Settings → **… backup >**. Preferred: a builder.cdr.xyz account (email + password) for two-way sync with the [web app](https://builder.cdr.xyz). Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key. Frequency `off` / `daily` / `weekly`. Encrypted on the phone before S3 upload. Restore/sync merges or replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Include AI credentials** is off by default. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program).
+Settings → **… backup >**. Preferred: a builder.cdr.xyz account (email + password) for two-way sync with the [web app](https://builder.cdr.xyz). Optional S3-compatible snapshot (R2, AWS, B2, MinIO): endpoint, bucket, access key, secret key, encryption key. Frequency `auto` (default) / `off` / `daily` / `weekly`. Auto uploads a few seconds after a local change and pulls every 5 minutes while the launcher is open. Encrypted on the phone before S3 upload. Restore/sync merges or replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. **Include AI credentials** is off by default. **Share unencrypted JSON** uses the Android share sheet (email, Signal, another program).
 
 ## Keyboard phones
 

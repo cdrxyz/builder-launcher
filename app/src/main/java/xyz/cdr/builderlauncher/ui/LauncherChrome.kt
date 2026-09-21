@@ -1717,7 +1717,7 @@ fun BackupChrome(
     endpoint: String = "https://ACCOUNT.r2.cloudflarestorage.com",
     bucket: String = "builder-launcher",
     accessKey: String = "••••",
-    frequency: BackupFrequency = BackupFrequency.DAILY,
+    frequency: BackupFrequency = BackupFrequency.AUTO,
     lastBackup: String = "never",
     includeAi: Boolean = false,
     accessLine: String = "S3 access good — no backup yet",
@@ -1769,6 +1769,11 @@ fun BackupChrome(
                 )
             }
         }
+        Text(
+            frequency.hint,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Text("Backup now", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Text("Restore from S3", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Text("Share unencrypted JSON", color = Paper, modifier = Modifier.padding(vertical = 8.dp))

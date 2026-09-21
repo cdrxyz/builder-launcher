@@ -939,6 +939,11 @@ internal fun BackupSettingsPage(
             }
         }
         Text(
+            settings.backupFrequency.hint,
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
             if (settings.accountToken.isNotBlank()) "Sync now" else "Backup now",
             color = if (backupBusy) Dim else Paper,
             modifier = Modifier

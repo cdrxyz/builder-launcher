@@ -318,14 +318,15 @@ function armAutoSync() {
 		syncTimer = 0;
 	}
 	const spec = AUTOSYNC.find((item) => item.id === state.autoSync);
-	if (!spec?.ms) return;
-	syncTimer = setInterval(() => tickAutoSync(), spec.ms);
+	const ms = spec?.ms || (state.autoSync === 'save' ? 5 * 60_000 : 0);
+	if (!ms) return;
+	syncTimer = setInterval(() => tickAutoSync(), ms);
 }
 
 function tickAutoSync() {
 	if (!hasSync()) return;
 	if (state.dirty) push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
-	else if (signedIn()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
+	else if (hasSync()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
 }
 
 function maybeSyncSave() {
@@ -1356,7 +1357,7 @@ function autoSyncCard() {
 	hint.textContent = state.autoSync === 'off'
 		? 'Off. Use sync now in the account card, or /pull and /push.'
 		: state.autoSync === 'save'
-			? 'Pushes a few hundred milliseconds after you edit. Pull still happens when you open the app or tap sync now.'
+			? 'Pushes a few hundred milliseconds after you edit. Pulls when you open the app, every 5 minutes while it is open, or when you tap sync now.'
 			: `Pushes when dirty, otherwise pulls, every ${state.autoSync === '5m' ? '5 minutes' : '30 seconds'}.`;
 	wrap.append(heading, actions, hint);
 	return wrap;

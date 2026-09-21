@@ -40,6 +40,19 @@ class BackupFrequencyTest {
     }
 
     @Test
+    fun autoIsNotAScheduledDump() {
+        assertFalse(BackupFrequency.AUTO.due(1_000, 0))
+        assertFalse(BackupFrequency.AUTO.due(1_000, 10))
+    }
+
+    @Test
+    fun parseFallsBackToAuto() {
+        assertEquals(BackupFrequency.AUTO, BackupFrequency.parse(null))
+        assertEquals(BackupFrequency.AUTO, BackupFrequency.parse("nope"))
+        assertEquals(BackupFrequency.OFF, BackupFrequency.parse("off"))
+    }
+
+    @Test
     fun dailyDueWhenNeverBackedUp() {
         assertTrue(BackupFrequency.DAILY.due(nowMs = 10, lastBackupAtEpochMs = 0))
     }
@@ -56,6 +69,91 @@ class BackupFrequencyTest {
         val last = 1_000L
         assertFalse(BackupFrequency.WEEKLY.due(last + 6L * 24 * 60 * 60 * 1000, last))
         assertTrue(BackupFrequency.WEEKLY.due(last + 7L * 24 * 60 * 60 * 1000, last))
+    }
+}
+
+class BackupAutoTest {
+    @Test
+    fun idleWhenNotReadyOrNotAuto() {
+        assertEquals(
+            BackupAuto.Action.NONE,
+            BackupAuto.action(
+                BackupFrequency.AUTO,
+                dirty = true,
+                lastBackupAtEpochMs = 0,
+                lastPullAtEpochMs = 0,
+                nowMs = 10,
+                ready = false,
+            ),
+        )
+        assertEquals(
+            BackupAuto.Action.NONE,
+            BackupAuto.action(
+                BackupFrequency.DAILY,
+                dirty = true,
+                lastBackupAtEpochMs = 0,
+                lastPullAtEpochMs = 0,
+                nowMs = 10,
+                ready = true,
+            ),
+        )
+    }
+
+    @Test
+    fun writePushesBeforePull() {
+        assertEquals(
+            BackupAuto.Action.PUSH,
+            BackupAuto.action(
+                BackupFrequency.AUTO,
+                dirty = true,
+                lastBackupAtEpochMs = 5,
+                lastPullAtEpochMs = 0,
+                nowMs = 10,
+                ready = true,
+            ),
+        )
+    }
+
+    @Test
+    fun pullWhenIntervalElapsed() {
+        val last = 1_000L
+        assertEquals(
+            BackupAuto.Action.NONE,
+            BackupAuto.action(
+                BackupFrequency.AUTO,
+                dirty = false,
+                lastBackupAtEpochMs = last,
+                lastPullAtEpochMs = last,
+                nowMs = last + 60_000,
+                ready = true,
+            ),
+        )
+        assertEquals(
+            BackupAuto.Action.PULL,
+            BackupAuto.action(
+                BackupFrequency.AUTO,
+                dirty = false,
+                lastBackupAtEpochMs = last,
+                lastPullAtEpochMs = last,
+                nowMs = last + BackupFrequency.PULL_INTERVAL_MS,
+                ready = true,
+            ),
+        )
+    }
+
+    @Test
+    fun firstOpenPulls() {
+        assertEquals(
+            BackupAuto.Action.PULL,
+            BackupAuto.action(
+                BackupFrequency.AUTO,
+                dirty = false,
+                lastBackupAtEpochMs = 0,
+                lastPullAtEpochMs = 0,
+                nowMs = 10,
+                ready = true,
+            ),
+        )
     }
 }
 
