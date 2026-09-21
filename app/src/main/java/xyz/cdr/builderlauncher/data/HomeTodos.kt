@@ -31,7 +31,7 @@ object HomeTodos {
     fun completed(todos: List<LocalItem>): List<LocalItem> =
         todos.filter { it.done }.sortedByDescending { it.completedAt ?: 0L }
 
-    /** Tasks page: pencil on open rows only. */
+    /** Tasks page: tap open-row text to edit. */
     fun showEdit(done: Boolean): Boolean = !done
 
     /** Tasks page: delete on completed rows only. */

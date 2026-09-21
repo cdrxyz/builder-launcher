@@ -638,7 +638,7 @@ function homeScreen() {
 	if (!state.menu) {
 		const todos = document.createElement('div');
 		todos.className = 'home-todos';
-		for (const item of homePreview(items())) todos.append(todoRow(item, false));
+		for (const item of homePreview(items())) todos.append(todoRow(item, false, false));
 		wrap.append(todos);
 		const more = button('… more tasks >', () => go('tasks'), 'more-link');
 		wrap.append(more);
@@ -985,28 +985,27 @@ function tasksScreen() {
 	const open = openTodos(items());
 	const done = doneTodos(items());
 	if (!open.length && !done.length) wrap.append(empty('No tasks yet. Pull from S3 or type -buy milk.'));
-	for (const item of open) wrap.append(todoRow(item, false));
+	for (const item of open) wrap.append(todoRow(item, false, true));
 	if (done.length) {
 		wrap.append(section('done'));
-		for (const item of done) wrap.append(todoRow(item, true));
+		for (const item of done) wrap.append(todoRow(item, true, true));
 	}
 	return wrap;
 }
 
-function todoRow(item, done) {
+function todoRow(item, done, details) {
 	const row = document.createElement('div');
 	row.className = `row${done ? ' done' : ''}`;
 	const body = document.createElement('button');
 	body.type = 'button';
 	body.className = 'body todo-text';
 	body.textContent = item.text;
-	body.addEventListener('click', () => toggleTodo(item.id));
-	row.append(body);
-	if (done) {
-		row.append(iconButton('delete task', 'M5 5l8 8M13 5L5 13', () => removeItem(item.id)));
-	} else {
-		row.append(
-			iconButton('edit task', 'M12.2 2.8l3 3L6.2 14.8H3.2v-3L12.2 2.8z', () => {
+	if (details) {
+		row.append(taskCheckButton(done, () => toggleTodo(item.id)));
+		if (done) {
+			body.addEventListener('click', () => toggleTodo(item.id));
+		} else {
+			body.addEventListener('click', () => {
 				state.editTodoId = item.id;
 				state.tab = 'tasks';
 				state.prompt = '-';
@@ -1014,10 +1013,32 @@ function todoRow(item, done) {
 				state.menu = null;
 				render();
 				app.querySelector('.command-input')?.focus({ preventScroll: true });
-			}),
-		);
+			});
+		}
+	} else {
+		body.addEventListener('click', () => toggleTodo(item.id));
+	}
+	row.append(body);
+	if (details && done) {
+		row.append(iconButton('delete task', 'M5 5l8 8M13 5L5 13', () => removeItem(item.id)));
 	}
 	return row;
+}
+
+function taskCheckButton(done, onClick) {
+	const el = document.createElement('button');
+	el.type = 'button';
+	el.className = 'ghost row-icon task-check';
+	el.setAttribute('aria-label', done ? 'reopen task' : 'complete task');
+	const mark = done
+		? '<path d="M6 9.2l2 2.2 4.2-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+		: '';
+	el.innerHTML = `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M4 4h10v10H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>${mark}</svg>`;
+	el.addEventListener('click', (event) => {
+		event.stopPropagation();
+		onClick();
+	});
+	return el;
 }
 
 function notesScreen() {

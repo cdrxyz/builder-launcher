@@ -635,8 +635,11 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(js, /function nowPlayingBar\(/);
 	assert.match(js, /label\.textContent = 'now playing'/);
 	assert.match(js, /className = 'body todo-text'/);
-	assert.match(js, /iconButton\('edit task'/);
+	assert.match(js, /function taskCheckButton\(/);
+	assert.match(js, /aria-label', done \? 'reopen task' : 'complete task'/);
+	assert.doesNotMatch(js, /iconButton\('edit task'/);
 	assert.match(js, /iconButton\('delete task'/);
+	assert.match(css, /\.row \.task-check \{/);
 	assert.match(js, /function updateTodoText\(/);
 	assert.doesNotMatch(js, /mark\.textContent = done \? '×' : '·'/);
 	assert.match(css, /\.now-playing \{/);

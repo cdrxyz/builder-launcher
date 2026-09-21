@@ -391,6 +391,16 @@ main {
 	padding: 0;
 }
 
+.row .task-check {
+	color: inherit;
+	flex: none;
+	margin-top: -0.15rem;
+}
+
+.row.done .task-check {
+	color: var(--muted);
+}
+
 .now-playing {
 	display: flex;
 	align-items: center;

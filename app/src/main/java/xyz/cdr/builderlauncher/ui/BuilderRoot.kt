@@ -1902,14 +1902,17 @@ fun BuilderRoot(
                                 editingTodoId = item.id
                                 applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
                             }.takeIf { HomeTodos.showEdit(item.done) },
+                            showCheck = true,
                             modifier = Modifier
                                 .zIndex(if (lifting) 1f else 0f)
                                 .graphicsLayer { translationY = shift }
-                                .onSizeChanged { rowHeight = it.height.toFloat() }
-                                .then(if (dragFrom == null) Modifier.animateItem() else Modifier),
+                                .onSizeChanged { rowHeight = it.height.toFloat() },
                             textModifier = Modifier.pointerInput(item.id) {
                                 detectTapOrLongDrag(
-                                    onTap = { lists.toggleComplete(item.id) },
+                                    onTap = {
+                                        editingTodoId = item.id
+                                        applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
+                                    },
                                     onDragStart = {
                                         val i = ListReorder.liveIndex(liveOpen.value) { it.id == item.id }
                                         if (i < 0) return@detectTapOrLongDrag
@@ -1960,6 +1963,7 @@ fun BuilderRoot(
                                 editingTodoId = item.id
                                 applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
                             }.takeIf { HomeTodos.showEdit(item.done) },
+                            showCheck = true,
                         )
                     }
                 }
