@@ -247,12 +247,8 @@ internal fun PodcastSearchArt(url: String) {
     }
 }
 
-internal fun episodeDownloadPercent(episodeId: String, transfer: DownloadProgress): String {
-    if (transfer.episodeId != episodeId) return ""
-    val known = transfer.totalBytes > 0L
-    val percent = Podcasts.downloadPercent(transfer.receivedBytes, transfer.totalBytes)
-    return if (known) "$percent%" else "…"
-}
+internal fun episodeDownloadPercent(episodeId: String, transfers: Map<String, DownloadProgress>): String =
+    Podcasts.downloadProgressLabel(episodeId, transfers)
 
 @Composable
 internal fun PodcastEpisodeRowActions(

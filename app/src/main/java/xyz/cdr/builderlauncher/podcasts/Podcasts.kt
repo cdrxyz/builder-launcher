@@ -320,6 +320,36 @@ object Podcasts {
         else -> "download"
     }
 
+    fun canQueueDownload(
+        episodeId: String,
+        enclosureUrl: String,
+        downloaded: Set<String>,
+        queued: Set<String>,
+    ): Boolean {
+        if (episodeId.isBlank() || enclosureUrl.isBlank()) return false
+        if (episodeId in downloaded || episodeId in queued) return false
+        return true
+    }
+
+    fun enqueueDownload(
+        queued: List<String>,
+        episodeId: String,
+        enclosureUrl: String,
+        downloaded: Set<String>,
+    ): List<String> {
+        if (!canQueueDownload(episodeId, enclosureUrl, downloaded, queued.toSet())) return queued
+        return queued + episodeId
+    }
+
+    fun downloadProgressLabel(
+        episodeId: String,
+        transfers: Map<String, DownloadProgress>,
+    ): String {
+        val transfer = transfers[episodeId] ?: return ""
+        if (transfer.totalBytes > 0L) return "${downloadPercent(transfer.receivedBytes, transfer.totalBytes)}%"
+        return "0%"
+    }
+
     fun playedDownloadsToDelete(
         downloads: Set<String>,
         progress: Map<String, EpisodeProgress>,
