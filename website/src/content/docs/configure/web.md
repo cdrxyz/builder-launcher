@@ -7,14 +7,14 @@ Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhon
 
 ![Web home: clock, open tasks, command bar](../../../assets/screenshots/web.png)
 
-**Preferred:** create a builder.cdr.xyz account (email + password). Sign-in asks before it **overwrites** local data with the account snapshot. After that, sync merges. **Include AI credentials** (off by default) puts the phone API key in the snapshot for true `?` sync.
+**Preferred:** create a builder.cdr.xyz account (email + password). Sign-in asks before it **overwrites** local data with the account snapshot. After that, sync **merges**: different tasks/notes keep both sides; the same item is last-write-wins on `updatedAt` / `completedAt` / `createdAt` (not a field-level CRDT). Deletes union. **Include AI credentials** (off by default) puts the phone API key in the snapshot for true `?` sync.
 
 **Secondary:** the same five S3 fields as the phone. Credentials stay in this browser. They are posted only to the Builder Launcher Worker, which talks to your bucket (SigV4) at `builder-launcher/backup.enc`. Decrypt still happens in the browser. Last S3 upload wins.
 
 ## First load
 
 1. Open [builder.cdr.xyz](https://builder.cdr.xyz).
-2. Create an account or sign in. The gear at the top right opens Settings. Auto-sync defaults to **on save** (push shortly after an edit). **30s** / **5 min** also pull in the background. **off** is manual: **sync now**, `/pull`, `/push`. **pull** / **Sync now** returns as soon as the account snapshot is in. Podcast RSS, quotes, and weather fill in after that (a hung feed cannot freeze the timestamp).
+2. Create an account or sign in. The gear at the top right opens Settings (command bar stays in `>` — the slash list only opens if you type `/` or pick slash). Auto-sync defaults to **on save** (push shortly after an edit). **30s** / **5 min** also pull in the background. **off** is manual: **sync now**, `/pull`, `/push`. **pull** / **Sync now** returns as soon as the account snapshot is in — success does not wait on podcast RSS, quotes, or weather. Those fill in afterward (a hung feed cannot freeze the timestamp). Auth and vault calls time out after 20s instead of spinning forever.
 3. On the phone: Settings → **… backup >**. Same email and password. **Create account** or **Sign in**, then **Sync now**.
 4. Safari: Share → Add to Home Screen. Chrome/desktop: Install app.
 

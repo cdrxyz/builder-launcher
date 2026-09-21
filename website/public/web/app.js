@@ -194,7 +194,7 @@ async function boot() {
 	}
 	if (!hasSync() && !state.doc) {
 		state.tab = 'settings';
-		state.prompt = '/';
+		state.prompt = DEFAULT_PROMPT;
 	}
 	setInterval(() => {
 		state.tickerAt += 1;
@@ -756,7 +756,7 @@ function commandDock() {
 	const dock = document.createElement('div');
 	dock.className = 'command-dock';
 	if (state.menu === 'prefix') dock.append(prefixMenu());
-	else if (state.prompt === '/' || state.menu === 'slash') dock.append(slashMenu());
+	else if (state.menu === 'slash') dock.append(slashMenu());
 	dock.append(commandBar());
 	return dock;
 }
@@ -1676,7 +1676,7 @@ async function submitAccount(form, mode) {
 		state.account = { email: res.email, token: res.token || '' };
 		saveAccount(state.account);
 		state.status = `Signed in as ${res.email}`;
-		await pull({ overwrite: mode === 'login', quiet: true });
+		await pull({ overwrite: mode === 'login' });
 	} catch (err) {
 		state.status = err.message || String(err);
 		state.busy = false;

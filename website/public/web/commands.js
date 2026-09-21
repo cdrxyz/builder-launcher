@@ -86,7 +86,5 @@ export function pagePrompt(tab) {
 	if (tab === 'notes' || tab === 'note') return '+';
 	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';
-	if (tab === 'settings' || tab === 'help') return '/';
-	if (tab === 'weather') return '>';
 	return DEFAULT_PROMPT;
 }
