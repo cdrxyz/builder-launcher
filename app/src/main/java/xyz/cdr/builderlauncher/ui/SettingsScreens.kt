@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@file:OptIn(
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+    androidx.compose.ui.ExperimentalComposeUiApi::class,
+)
 
 package xyz.cdr.builderlauncher.ui
 
@@ -72,8 +75,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.autofill.AutofillNode
+import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.SolidColor
@@ -82,7 +88,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalAutofill
+import androidx.compose.ui.platform.LocalAutofillTree
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -91,6 +101,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -121,6 +133,7 @@ import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.backup.BackupFrequency
+import xyz.cdr.builderlauncher.backup.AccountAutofill
 import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.backup.S3Access
 import xyz.cdr.builderlauncher.backup.S3Signer
@@ -779,8 +792,24 @@ internal fun BackupSettingsPage(
                     .padding(vertical = 8.dp),
             )
         } else {
-            LabeledField("Email", accountEmail, "you@example.com") { accountEmail = it }
-            LabeledField("Password", accountPassword, "8+ characters") { accountPassword = it }
+            val emailFocus = remember { FocusRequester() }
+            LaunchedEffect(Unit) { emailFocus.requestFocus() }
+            LabeledField(
+                "Email",
+                accountEmail,
+                "you@example.com",
+                keyboardType = KeyboardType.Email,
+                autofillTypes = AccountAutofill.emailTypes,
+                focusRequester = emailFocus,
+            ) { accountEmail = it }
+            LabeledField(
+                "Password",
+                accountPassword,
+                "8+ characters",
+                keyboardType = KeyboardType.Password,
+                password = true,
+                autofillTypes = AccountAutofill.passwordTypes,
+            ) { accountPassword = it }
             Text(
                 "Create account",
                 color = if (backupBusy) Dim else Paper,
@@ -791,7 +820,16 @@ internal fun BackupSettingsPage(
                             scope.launch {
                                 backupMsg = runCatching {
                                     withContext(Dispatchers.IO) { backup.signup(accountEmail, accountPassword) }
-                                }.getOrElse { it.message ?: "Create failed" }
+                                }.fold(
+                                    onSuccess = {
+                                        AccountAutofill.commit(ctx)
+                                        it
+                                    },
+                                    onFailure = {
+                                        AccountAutofill.cancel(ctx)
+                                        it.message ?: "Create failed"
+                                    },
+                                )
                                 accountPassword = ""
                                 backupBusy = false
                             }
@@ -812,7 +850,16 @@ internal fun BackupSettingsPage(
                                         val signed = backup.login(accountEmail, accountPassword)
                                         signed + ". " + backup.restore()
                                     }
-                                }.getOrElse { it.message ?: "Sign in failed" }
+                                }.fold(
+                                    onSuccess = {
+                                        AccountAutofill.commit(ctx)
+                                        it
+                                    },
+                                    onFailure = {
+                                        AccountAutofill.cancel(ctx)
+                                        it.message ?: "Sign in failed"
+                                    },
+                                )
                                 accountPassword = ""
                                 backupBusy = false
                             }
@@ -1254,7 +1301,16 @@ internal fun OauthBlock(
 }
 
 @Composable
-internal fun LabeledField(label: String, value: String, placeholder: String, onChange: (String) -> Unit) {
+internal fun LabeledField(
+    label: String,
+    value: String,
+    placeholder: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    password: Boolean = false,
+    autofillTypes: List<AutofillType> = emptyList(),
+    focusRequester: FocusRequester? = null,
+    onChange: (String) -> Unit,
+) {
     Text(label, color = Dim, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 10.dp))
     BasicTextField(
         value = value,
@@ -1262,16 +1318,45 @@ internal fun LabeledField(label: String, value: String, placeholder: String, onC
         singleLine = true,
         cursorBrush = SolidColor(Accent),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.None,
+            autoCorrectEnabled = false,
+            keyboardType = keyboardType,
+        ),
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         decorationBox = { inner ->
             if (value.isEmpty()) Text(placeholder, color = Dim, style = MaterialTheme.typography.bodyMedium)
             inner()
         },
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .accountAutofill(autofillTypes, onChange)
             .inputChrome()
             .padding(vertical = 6.dp),
     )
     FieldRule()
+}
+
+@Composable
+private fun Modifier.accountAutofill(
+    types: List<AutofillType>,
+    onFill: (String) -> Unit,
+): Modifier {
+    if (types.isEmpty()) return this
+    val autofill = LocalAutofill.current
+    val latestFill by rememberUpdatedState(onFill)
+    val node = remember(types) {
+        AutofillNode(autofillTypes = types, onFill = { latestFill(it) })
+    }
+    val tree = LocalAutofillTree.current
+    SideEffect { tree += node }
+    return this
+        .onGloballyPositioned { node.boundingBox = it.boundsInWindow() }
+        .onFocusChanged { focus ->
+            if (focus.isFocused) autofill?.requestAutofillForNode(node)
+            else autofill?.cancelAutofillForNode(node)
+        }
 }
 
 @Composable

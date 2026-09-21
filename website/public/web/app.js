@@ -1,6 +1,13 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
-import { apiJson, confirmOverwriteLocal } from './account.js';
+import {
+	apiJson,
+	applyPasswordManagerAttrs,
+	confirmOverwriteLocal,
+	fillAccountForm,
+	requestAccountCredential,
+	storeAccountCredential,
+} from './account.js';
 import { emptyDoc, joinDocs, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
 import {
 	doneTodos,
@@ -148,6 +155,7 @@ const state = {
 	pausedAt: 0,
 	creds: loadCreds(),
 	account: loadAccount(),
+	accountCredPrompted: false,
 	includeAi: loadIncludeAi(),
 	revision: 0,
 	doc: loadSnapshot(),
@@ -1271,6 +1279,10 @@ function settingsScreen() {
 function accountCard() {
 	const form = document.createElement('form');
 	form.className = 'settings';
+	form.id = 'builder-account-form';
+	form.method = 'post';
+	form.action = '/api/auth/login';
+	form.autocomplete = 'on';
 	const heading = document.createElement('p');
 	heading.className = 'hint';
 	heading.textContent = signedIn() ? `Signed in as ${state.account.email}` : 'Builder account (recommended)';
@@ -1280,6 +1292,7 @@ function accountCard() {
 			field('Email', 'email', state.account.email, 'you@example.com', 'email'),
 			field('Password', 'password', '', '8+ characters', 'password'),
 		);
+		promptAccountPassword(form);
 	}
 	const actions = document.createElement('div');
 	actions.className = 'actions';
@@ -1292,18 +1305,34 @@ function accountCard() {
 		const create = document.createElement('button');
 		create.className = 'primary';
 		create.type = 'submit';
+		create.name = 'intent';
+		create.value = 'signup';
 		create.textContent = 'create account';
+		const signIn = document.createElement('button');
+		signIn.className = 'ghost';
+		signIn.type = 'submit';
+		signIn.name = 'intent';
+		signIn.value = 'login';
+		signIn.textContent = 'sign in';
 		form.addEventListener('submit', (event) => {
 			event.preventDefault();
-			submitAccount(form, 'signup');
+			const intent = event.submitter?.value === 'signup' ? 'signup' : 'login';
+			const passwordInput = form.querySelector('[name="password"]');
+			if (passwordInput) applyPasswordManagerAttrs(passwordInput, 'password', 'password', intent);
+			submitAccount(form, intent);
 		});
-		actions.append(
-			create,
-			button('sign in', () => submitAccount(form, 'login'), 'ghost'),
-		);
+		actions.append(create, signIn);
 	}
 	form.append(actions);
 	return form;
+}
+
+function promptAccountPassword(form) {
+	if (state.accountCredPrompted) return;
+	state.accountCredPrompted = true;
+	requestAccountCredential().then((cred) => {
+		fillAccountForm(document.getElementById('builder-account-form') || form, cred);
+	});
 }
 
 function autoSyncCard() {
@@ -1685,6 +1714,7 @@ async function submitAccount(form, mode) {
 	try {
 		const path = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
 		const res = await apiJson(path, { method: 'POST', body: { email, password } });
+		await storeAccountCredential(email, password);
 		state.account = { email: res.email, token: res.token || '' };
 		saveAccount(state.account);
 		state.status = `Signed in as ${res.email}`;
@@ -1807,9 +1837,7 @@ function field(labelText, name, value, placeholder, type = 'text') {
 	input.type = type;
 	input.value = value || '';
 	input.placeholder = placeholder || '';
-	input.autocomplete = 'off';
-	if (type === 'email') input.autocomplete = 'username';
-	if (name === 'password') input.autocomplete = 'current-password';
+	applyPasswordManagerAttrs(input, name, type);
 	input.autocapitalize = 'off';
 	input.spellcheck = false;
 	label.append(span, input);

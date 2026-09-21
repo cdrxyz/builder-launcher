@@ -9,7 +9,7 @@
 		"build": "astro build",
 		"preview": "astro preview",
 		"astro": "astro",
-		"test": "node --test scripts/web-app-test.mjs"
+		"test": "node --test scripts/web-app-test.mjs scripts/account-password-test.mjs"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.42.0",
