@@ -30,6 +30,7 @@ Each row is ticker, company, last price, and today's percent (green up, red down
 | --- | --- |
 | `$` or `stocks` | Open the list |
 | `$AAPL` | Search that symbol and add when you pick it |
+| `AAPL` / `OBE.TO` | Same, from default `>` mode when no app matches (ALL-CAPS, or a `.` / `-` class or exchange) |
 | `$ apple` | Search by name |
 | `stock` / `/stocks` | Same as `stocks` |
 

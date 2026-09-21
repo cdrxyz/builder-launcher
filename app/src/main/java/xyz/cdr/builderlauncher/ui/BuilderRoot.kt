@@ -968,6 +968,10 @@ fun BuilderRoot(
             if (page == Page.Home) {
                 val fallback = AppTaskFallback.step(next, choices.size, appMiss)
                 appMiss = fallback.state
+                if (fallback.suppressApps) {
+                    appQuery = false
+                    choices = emptyList()
+                }
                 if (fallback.switched) {
                     applyMode(fallback.mode)
                     return

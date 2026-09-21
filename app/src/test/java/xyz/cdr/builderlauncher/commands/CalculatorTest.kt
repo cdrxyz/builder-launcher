@@ -1,7 +1,9 @@
 package xyz.cdr.builderlauncher.commands
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CalculatorTest {
@@ -41,6 +43,18 @@ class CalculatorTest {
     fun enterKeepsTheResultInTheBar() {
         assertEquals("4", Calculator.commit("2+2"))
         assertNull(Calculator.commit("Signal"))
+    }
+
+    @Test
+    fun looksLikeMathBeforeAResultExists() {
+        assertTrue(Calculator.looksLike("2+"))
+        assertTrue(Calculator.looksLike("2+2"))
+        assertTrue(Calculator.looksLike("sqrt(9)"))
+        assertFalse(Calculator.looksLike("42"))
+        assertFalse(Calculator.looksLike("Signal"))
+        assertFalse(Calculator.looksLike("buy milk"))
+        assertFalse(Calculator.looksLike("pre-tax"))
+        assertTrue(Calculator.looksLike("2-2"))
     }
 
     @Test
