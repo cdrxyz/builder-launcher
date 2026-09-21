@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { decrypt, encodeUtf8, encrypt, MAGIC } from '../public/web/crypto.js';
-import { doneTodos, noteTitle, notesByEdited, openTodos, seedNote } from '../public/web/items.js';
+import { displayDoneTodos, displayOpenTodos, doneTodos, noteTitle, notesByEdited, openTodos, seedNote, TASK_COMPLETE_FADE_MS, TASK_COMPLETE_HOLD_MS } from '../public/web/items.js';
 import { renderMarkdown } from '../public/web/markdown.js';
 import { credentialsReady, objectUrl, regionFor, sign } from '../public/web/s3.js';
 import {
@@ -610,7 +610,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v24/);
+	assert.match(sw, /builder-launcher-web-v25/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -681,6 +681,28 @@ test('checking a task keeps list scroll instead of jumping to the top', async ()
 	assert.match(js, /noFocusScroll\(body\)/);
 	assert.match(js, /tag === 'INPUT' \|\| tag === 'TEXTAREA'/);
 	assert.doesNotMatch(js, /addEventListener\('focusin', \(\) => \{\s*apply\(\);\s*window\.scrollTo\(0, 0\);/s);
+});
+
+test('completing a task holds strikethrough then fades into done', async () => {
+	const items = [
+		{ id: 'a', kind: 'todo', text: 'a', completedAt: null },
+		{ id: 'b', kind: 'todo', text: 'b', completedAt: 2 },
+		{ id: 'c', kind: 'todo', text: 'c', completedAt: null },
+		{ id: 'd', kind: 'todo', text: 'd', completedAt: 3 },
+	];
+	const pending = new Map([['b', 1]]);
+	assert.deepEqual(displayOpenTodos(items, pending).map((row) => row.text), ['a', 'b', 'c']);
+	assert.deepEqual(displayDoneTodos(items, pending).map((row) => row.text), ['d']);
+	assert.equal(TASK_COMPLETE_HOLD_MS, 1000);
+	assert.equal(TASK_COMPLETE_FADE_MS, 280);
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const css = await readFile(new URL('../public/web/app.css', import.meta.url), 'utf8');
+	assert.match(js, /function beginCompleteAnim\(/);
+	assert.match(js, /row\.classList\.add\('task-leaving'\)/);
+	assert.match(js, /enteringComplete\.add\(id\)/);
+	assert.match(css, /\.row\.task-leaving \{/);
+	assert.match(css, /@keyframes task-leave/);
+	assert.match(css, /@keyframes task-enter/);
 });
 
 test('settings and help do not open the slash list by themselves', async () => {

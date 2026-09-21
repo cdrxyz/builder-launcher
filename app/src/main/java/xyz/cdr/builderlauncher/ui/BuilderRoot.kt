@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -307,8 +308,48 @@ fun BuilderRoot(
     var usageToday by remember { mutableStateOf(UsageToday(granted = false)) }
     var editingTodoId by remember { mutableStateOf<String?>(null) }
     var wipeBarOnHome by remember { mutableStateOf(false) }
+    val pendingComplete = remember { mutableStateMapOf<String, Int>() }
+    val leavingComplete = remember { mutableStateMapOf<String, Boolean>() }
+    val enteringComplete = remember { mutableStateMapOf<String, Boolean>() }
+    val completeJobs = remember { mutableMapOf<String, Job>() }
     val pinPkgs by pins.packages.collectAsState()
     val scope = rememberCoroutineScope()
+    fun cancelTodoCompleteAnim(id: String) {
+        completeJobs.remove(id)?.cancel()
+        pendingComplete.remove(id)
+        leavingComplete.remove(id)
+        enteringComplete.remove(id)
+    }
+    fun beginTodoCompleteAnim(id: String, index: Int) {
+        pendingComplete[id] = index
+        leavingComplete.remove(id)
+        enteringComplete.remove(id)
+        completeJobs.remove(id)?.cancel()
+        completeJobs[id] = scope.launch {
+            delay(HomeTodos.COMPLETE_HOLD_MS)
+            leavingComplete[id] = true
+            delay(HomeTodos.COMPLETE_FADE_MS)
+            pendingComplete.remove(id)
+            leavingComplete.remove(id)
+            enteringComplete[id] = true
+            delay(HomeTodos.COMPLETE_FADE_MS)
+            enteringComplete.remove(id)
+            completeJobs.remove(id)
+        }
+    }
+    fun toggleTodoAnimated(id: String) {
+        val wasDone = local.firstOrNull { it.id == id }?.done == true
+        if (!wasDone) {
+            val todos = HomeTodos.of(local)
+            val shown = HomeTodos.displayOpen(HomeTodos.open(todos), HomeTodos.completed(todos), pendingComplete)
+            val index = shown.indexOfFirst { it.id == id }.coerceAtLeast(0)
+            lists.toggleComplete(id)
+            beginTodoCompleteAnim(id, index)
+        } else {
+            lists.toggleComplete(id)
+            cancelTodoCompleteAnim(id)
+        }
+    }
     val ctx = LocalContext.current
     val usageStore = remember { UsageStore(ctx) }
     val usageReader = remember { UsageReader(ctx) }
@@ -1270,7 +1311,7 @@ fun BuilderRoot(
                 Column(Modifier.fillMaxSize().clipToBounds().background(Ink)) {
                     when (HomeStrip.pageAt(index)) {
                         Page.Home -> {
-                val previewTodos = HomeTodos.preview(HomeTodos.of(local), settings.homeTodoCount)
+                val previewTodos = HomeTodos.preview(HomeTodos.of(local), settings.homeTodoCount, pendingComplete)
                 val ticker = HomeTicker.line(watch, quotes, tickerIndex)
                 ClockHeader(
                     weather = forecast?.line(settings.weatherUnits),
@@ -1317,7 +1358,8 @@ fun BuilderRoot(
                 Spacer(Modifier.height(8.dp))
                 TodoPreview(
                     open = previewTodos,
-                    onToggle = { lists.toggleComplete(it) },
+                    onToggle = { toggleTodoAnimated(it) },
+                    leavingIds = leavingComplete.keys,
                     onMore = {
                         taskMode()
                         page = Page.Todos
@@ -1877,8 +1919,12 @@ fun BuilderRoot(
             when (page) {
             Page.Todos -> {
                 val todos = HomeTodos.of(local)
-                val openTodos = HomeTodos.open(todos)
-                val doneTodos = HomeTodos.completed(todos)
+                val openTodos = HomeTodos.displayOpen(
+                    HomeTodos.open(todos),
+                    HomeTodos.completed(todos),
+                    pendingComplete,
+                )
+                val doneTodos = HomeTodos.displayCompleted(HomeTodos.completed(todos), pendingComplete.keys)
                 ScreenHeader(
                     title = HomeTodos.TITLE,
                     leading = {
@@ -1917,13 +1963,14 @@ fun BuilderRoot(
                         }
                         TodoLine(
                             item,
-                            onToggle = { lists.toggleComplete(item.id) },
-                            onDelete = { lists.remove(item.id) }.takeIf { HomeTodos.showDelete(item.done) },
+                            onToggle = { toggleTodoAnimated(item.id) },
+                            onDelete = { lists.remove(item.id) }.takeIf { HomeTodos.showDelete(item.done) && item.id !in pendingComplete },
                             onEdit = {
                                 editingTodoId = item.id
                                 applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
                             }.takeIf { HomeTodos.showEdit(item.done) },
                             showCheck = true,
+                            leaving = item.id in leavingComplete,
                             modifier = Modifier
                                 .zIndex(if (lifting) 1f else 0f)
                                 .graphicsLayer { translationY = shift }
@@ -1978,13 +2025,14 @@ fun BuilderRoot(
                     items(doneTodos, key = { "d" + it.id }) { item ->
                         TodoLine(
                             item,
-                            onToggle = { lists.toggleComplete(item.id) },
+                            onToggle = { toggleTodoAnimated(item.id) },
                             onDelete = { lists.remove(item.id) }.takeIf { HomeTodos.showDelete(item.done) },
                             onEdit = {
                                 editingTodoId = item.id
                                 applyMode(PrefixCommands.Mode(prompt = '-', input = item.text))
                             }.takeIf { HomeTodos.showEdit(item.done) },
                             showCheck = true,
+                            entering = item.id in enteringComplete,
                         )
                     }
                 }

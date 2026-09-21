@@ -86,6 +86,28 @@ class HomeTodosTest {
     }
 
     @Test
+    fun displayOpenKeepsPendingCompletedInPlace() {
+        val open = listOf(todo("a"), todo("c"))
+        val completed = listOf(todo("b", completedAt = 2), todo("d", completedAt = 3))
+        val pending = mapOf("b" to 1)
+        assertEquals(
+            listOf("a", "b", "c"),
+            HomeTodos.displayOpen(open, completed, pending).map { it.text },
+        )
+        assertEquals(listOf("d"), HomeTodos.displayCompleted(completed, pending.keys).map { it.text })
+        assertEquals(
+            listOf("a", "b", "c"),
+            HomeTodos.preview(open + completed, 3, pending).map { it.text },
+        )
+    }
+
+    @Test
+    fun completeAnimDurationsHoldThenFade() {
+        assertEquals(1_000L, HomeTodos.COMPLETE_HOLD_MS)
+        assertEquals(280L, HomeTodos.COMPLETE_FADE_MS)
+    }
+
+    @Test
     fun todosScreenOpensInTaskMode() {
         assertEquals("-", HomeTodos.enterDraft())
         assertEquals("-", HomeTodos.keepDraft(""))
