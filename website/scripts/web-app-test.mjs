@@ -607,7 +607,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v22/);
+	assert.match(sw, /builder-launcher-web-v23/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -641,6 +641,12 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.doesNotMatch(js, /mark\.textContent = done \? '×' : '·'/);
 	assert.match(css, /\.now-playing \{/);
 	assert.match(css, /\.ghost\.gear/);
+	assert.doesNotMatch(js, /M9 1\.5v2\.1/);
+	assert.match(
+		js,
+		/if \(state\.tab === 'home'\) \{[\s\S]*?el\.append\(headerSlot\(\)\);[\s\S]*?el\.append\(title\(''\)\);[\s\S]*?el\.append\(gearButton\(\)\);/,
+	);
+	assert.match(js, /innerHTML = '<svg[^>]*><path d="M7\.2 1\.6/);
 });
 
 test('mobile shell pins home to the top and follows the visual viewport', async () => {
