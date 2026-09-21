@@ -288,6 +288,9 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.deepEqual(typeMode('-', 'milk'), { prompt: '-', input: 'milk' });
 	assert.equal(pagePrompt('home'), '>');
 	assert.equal(pagePrompt('tasks'), '-');
+	assert.equal(pagePrompt('settings'), '>');
+	assert.equal(pagePrompt('help'), '>');
+	assert.equal(pagePrompt('weather'), '>');
 	assert.equal(slashResolve('set').name, 'settings');
 	assert.deepEqual(
 		slashMatches('').map((row) => row.name),
@@ -607,7 +610,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v23/);
+	assert.match(sw, /builder-launcher-web-v24/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -663,4 +666,42 @@ test('mobile shell pins home to the top and follows the visual viewport', async 
 	assert.match(css, /#app \{[^}]*height:\s*var\(--vv-height/s);
 	assert.match(css, /html,\s*body \{[^}]*overflow:\s*hidden/s);
 	assert.match(html, /interactive-widget=resizes-content/);
+});
+
+test('settings and help do not open the slash list by themselves', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /else if \(state\.menu === 'slash'\) dock\.append\(slashMenu\(\)\)/);
+	assert.doesNotMatch(js, /state\.prompt === '\/' \|\| state\.menu === 'slash'/);
+	assert.match(js, /state\.prompt = DEFAULT_PROMPT/);
+	assert.doesNotMatch(js, /state\.tab = 'settings';\s*state\.prompt = '\/'/s);
+	assert.match(js, /await pull\(\{ overwrite: mode === 'login' \}\)/);
+	assert.doesNotMatch(js, /overwrite: mode === 'login', quiet: true/);
+});
+
+test('account API calls abort after 20s', async () => {
+	const { API_TIMEOUT_MS, isAbortError } = await import('../public/web/account.js');
+	const js = await readFile(new URL('../public/web/account.js', import.meta.url), 'utf8');
+	assert.equal(API_TIMEOUT_MS, 20_000);
+	assert.equal(isAbortError({ name: 'TimeoutError' }), true);
+	assert.equal(isAbortError({ name: 'AbortError' }), true);
+	assert.equal(isAbortError({ name: 'TypeError' }), false);
+	assert.match(js, /AbortSignal\.timeout\(API_TIMEOUT_MS\)/);
+	assert.match(js, /Request timed out\. Try again\./);
+});
+
+test('mergeDocs keeps different tasks from both sides', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const merged = mergeDocs(
+		{ exportedAt: 20, items: [{ id: 'phone', text: 'from phone', updatedAt: 20 }] },
+		{ exportedAt: 10, items: [{ id: 'web', text: 'from web', updatedAt: 10 }] },
+	);
+	assert.equal(merged.items.length, 2);
+	assert.equal(merged.items.find((i) => i.id === 'phone').text, 'from phone');
+	assert.equal(merged.items.find((i) => i.id === 'web').text, 'from web');
+	const clash = mergeDocs(
+		{ exportedAt: 1, items: [{ id: 'same', text: 'older edit', updatedAt: 5 }] },
+		{ exportedAt: 2, items: [{ id: 'same', text: 'newer edit', updatedAt: 9 }] },
+	);
+	assert.equal(clash.items.length, 1);
+	assert.equal(clash.items[0].text, 'newer edit');
 });
