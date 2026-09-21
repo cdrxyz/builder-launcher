@@ -7,7 +7,7 @@ Open **[builder.cdr.xyz](https://builder.cdr.xyz)**. Add to Home Screen on iPhon
 
 ![Web home: clock, open tasks, command bar](../../../assets/screenshots/web.png)
 
-**Preferred:** create a builder.cdr.xyz account (email + password). Sign-in asks before it **overwrites** local data with the account snapshot. After that, sync **merges**: different tasks/notes keep both sides; the same item is last-write-wins on `updatedAt` / `completedAt` / `createdAt` (not a field-level CRDT). Deletes union. **Include AI credentials** (off by default) puts the phone API key in the snapshot for true `?` sync.
+**Preferred:** create a builder.cdr.xyz account (email + password). Settings login fields ask the browser password manager, and a successful sign-in can save the login. Sign-in asks before it **overwrites** local data with the account snapshot. After that, sync **merges**: different tasks/notes keep both sides; the same item is last-write-wins on `updatedAt` / `completedAt` / `createdAt` (not a field-level CRDT). Deletes union. **Include AI credentials** (off by default) puts the phone API key in the snapshot for true `?` sync.
 
 **Secondary:** the same five S3 fields as the phone. Credentials stay in this browser. They are posted only to the Builder Launcher Worker, which talks to your bucket (SigV4) at `builder-launcher/backup.enc`. Decrypt still happens in the browser. Last S3 upload wins.
 
