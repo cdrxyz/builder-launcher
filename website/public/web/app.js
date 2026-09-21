@@ -521,9 +521,9 @@ function header() {
 	const el = document.createElement('header');
 	el.className = 'app-bar';
 	if (state.tab === 'home') {
-		el.append(gearButton());
-		el.append(title(''));
 		el.append(headerSlot());
+		el.append(title(''));
+		el.append(gearButton());
 		return el;
 	}
 	if (state.tab === 'note') {
@@ -567,7 +567,7 @@ function gearButton() {
 	el.type = 'button';
 	el.className = 'ghost gear';
 	el.setAttribute('aria-label', 'settings');
-	el.innerHTML = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><circle cx="9" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 1.5v2.1M9 14.4v2.1M1.5 9h2.1M14.4 9h2.1M3.4 3.4l1.5 1.5M13.1 13.1l1.5 1.5M3.4 14.6l1.5-1.5M13.1 4.9l1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+	el.innerHTML = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M7.2 1.6h3.6l.55 2.05 1.85-.5 1.8 1.8-.5 1.85 2.05.55v3.6l-2.05.55.5 1.85-1.8 1.8-1.85-.5-.55 2.05H7.2l-.55-2.05-1.85.5-1.8-1.8.5-1.85L1.6 10.8V7.2l2.05-.55-.5-1.85 1.8-1.8 1.85.5.55-2.05z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="9" r="2.15" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 	el.addEventListener('click', () => go('settings'));
 	return el;
 }
