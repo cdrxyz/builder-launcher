@@ -35,6 +35,8 @@ object Calculator {
         return formatted.takeIf { it != raw.trim() }
     }
 
+    fun looksLike(raw: String): Boolean = looksLikeMath(raw)
+
     fun commit(raw: String): String? = preview(raw)
 
     private val FUNCS: Map<String, (List<Double>) -> Double?> = mapOf(
@@ -86,6 +88,12 @@ object Calculator {
         if (s.first() == '+' && s.drop(1).any { it.isLetter() }) return false
         if (Regex("""[?!:;@#$&={}\[\]\\|<>"'`]""").containsMatchIn(s)) return false
         if (Regex("[A-Za-z]{4,}").containsMatchIn(s) && !NAMED.containsMatchIn(s)) return false
+        if (Regex("[A-Za-z]-[A-Za-z]").containsMatchIn(s) &&
+            !Regex("""[+*/^×÷∙⋅()]""").containsMatchIn(s) &&
+            !NAMED.containsMatchIn(s)
+        ) {
+            return false
+        }
         return Regex("""[+\-*/^×÷∙⋅()]""").containsMatchIn(s) || NAMED.containsMatchIn(s)
     }
 

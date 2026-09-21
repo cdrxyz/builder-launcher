@@ -17,7 +17,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >`. Search, subscribe, stream, download. [Podcasts](podcasts/) |
 | `?` | `?` then write, Enter | Write on home (bar stays at the bottom, one line until it wraps). Submit opens [chat](ai/) with the same bar at the bottom. Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; long-press the mark to switch providers; history lists past chats with a date and delete |
 | `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). The list scrolls; on home it hides todos and pins. Also in the [command menu](command-bar/) |
-| (none) | `Termux` | Search and launch apps. Tap a match to open it. No matches: three more characters switch to `-` task mode |
+| (none) | `Termux` | Search and launch apps. Tap a match to open it. Math stays calculator. `AAPL` / `OBE.TO` switch to `$`. Else three more unmatched characters switch to `-` task mode |
 | | `pin Termux` / `unpin Termux` | Filter by the name after `pin` or `unpin`; tap a match to pin or unpin. Names on home; icons if settings says so |
 | | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `settings` / `help` | Built-ins. Screen time is `/usage` |
 | | `timer` | Open the clock app's timer if no app named timer matches |

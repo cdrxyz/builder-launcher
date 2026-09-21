@@ -34,6 +34,26 @@ class StocksTest {
     }
 
     @Test
+    fun looksLikeTickerMatchesSymbolsNotProse() {
+        assertTrue(Stocks.looksLikeTicker("AAPL"))
+        assertTrue(Stocks.looksLikeTicker("MSFT"))
+        assertTrue(Stocks.looksLikeTicker("OBE.TO"))
+        assertTrue(Stocks.looksLikeTicker("obe.to"))
+        assertTrue(Stocks.looksLikeTicker("BRK.B"))
+        assertTrue(Stocks.looksLikeTicker("BRK-B"))
+        assertTrue(Stocks.looksLikeTicker("BTC-USD"))
+        assertTrue(Stocks.looksLikeTicker("7203.T"))
+        assertFalse(Stocks.looksLikeTicker("A"))
+        assertFalse(Stocks.looksLikeTicker("buy"))
+        assertFalse(Stocks.looksLikeTicker("aapl"))
+        assertFalse(Stocks.looksLikeTicker("pre-tax"))
+        assertFalse(Stocks.looksLikeTicker("btc-usd"))
+        assertFalse(Stocks.looksLikeTicker("buy milk"))
+        assertFalse(Stocks.looksLikeTicker("2+2"))
+        assertFalse(Stocks.looksLikeTicker(""))
+    }
+
+    @Test
     fun queryStripsDollarPrefix() {
         assertEquals("AAPL", Stocks.queryFromInput("\$AAPL"))
         assertEquals("apple", Stocks.queryFromInput("\$ apple"))

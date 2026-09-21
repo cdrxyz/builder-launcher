@@ -27,6 +27,12 @@ object Stocks {
         return COMMAND.startsWith(q) || "stock".startsWith(q)
     }
 
+    fun looksLikeTicker(query: String): Boolean {
+        val q = query.trim()
+        if (q.isEmpty() || ' ' in q) return false
+        return US_TICKER.matches(q) || DOT_TICKER.matches(q) || HYPHEN_TICKER.matches(q)
+    }
+
     fun queryFromInput(value: String): String {
         val t = value.trim()
         return if (t.startsWith(PREFIX)) t.drop(1).trim() else t
@@ -258,6 +264,9 @@ object Stocks {
 
     private const val YEAR_SEC = 365.25 * 86_400.0
     private const val WEEK_SEC = 7L * 86_400L
+    private val US_TICKER = Regex("^[A-Z]{2,5}$")
+    private val DOT_TICKER = Regex("^[A-Za-z0-9]{1,5}\\.[A-Za-z]{1,3}$", RegexOption.IGNORE_CASE)
+    private val HYPHEN_TICKER = Regex("^[A-Z0-9]{1,5}-[A-Z]{1,3}$")
 }
 
 data class StockStatLine(

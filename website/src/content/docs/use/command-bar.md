@@ -9,7 +9,7 @@ The prompt is always at the bottom. On a slab phone the software keyboard stays 
 
 - Type, then **Enter** / Go.
 - **D-pad right** opens the [hub](hub/). **D-pad left** opens [podcasts](podcasts/).
-- Tap the prompt glyph (`>`) to open the prefix menu. The glyph is a large tap target so it does not steal taps into the field. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Typing in default `>` mode to filter apps also hides todos so more matches fit. Both lists scroll when they do not fit. If no app matches, three more characters switch the bar to `-` task mode with the same text.
+- Tap the prompt glyph (`>`) to open the prefix menu. The glyph is a large tap target so it does not steal taps into the field. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Typing in default `>` mode to filter apps also hides todos so more matches fit. Both lists scroll when they do not fit. Math-shaped input (`2+2`, `12*`, `sqrt(9)`) stays calculator on home. ALL-CAPS tickers (`AAPL`) and symbols with an exchange or class (`OBE.TO`, `BRK.B`, `BTC-USD`) switch to `$` when no app matches. Otherwise, three more unmatched characters switch the bar to `-` task mode with the same text.
 
 The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
 

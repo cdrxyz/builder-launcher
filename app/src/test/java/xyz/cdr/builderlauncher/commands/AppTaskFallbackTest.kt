@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import xyz.cdr.builderlauncher.stocks.Stocks
 
 class AppTaskFallbackTest {
     private fun step(
@@ -69,6 +70,62 @@ class AppTaskFallbackTest {
     @Test
     fun calculatorExpressionsStayInDefaultMode() {
         val result = step("2+2", matches = 0)
+        assertFalse(result.switched)
+        assertEquals('>', result.mode.prompt)
+        assertTrue(result.suppressApps)
+    }
+
+    @Test
+    fun incompleteMathStaysCalculatorInsteadOfTask() {
+        val result = step("12*", matches = 0)
+        assertFalse(result.switched)
+        assertEquals('>', result.mode.prompt)
+        assertTrue(result.suppressApps)
+        assertTrue(Calculator.looksLike("2+"))
+        assertTrue(Calculator.looksLike("sqrt("))
+        assertTrue(Calculator.looksLike("2-2"))
+        assertFalse(Calculator.looksLike("buy"))
+        assertFalse(Calculator.looksLike("42"))
+        val minus = step("2-2", matches = 0)
+        assertFalse(minus.switched)
+        assertTrue(minus.suppressApps)
+    }
+
+    @Test
+    fun allCapsTickerSwitchesToStockMode() {
+        val result = step("AAPL", matches = 0)
+        assertTrue(result.switched)
+        assertEquals('$', result.mode.prompt)
+        assertEquals("AAPL", result.mode.input)
+        assertEquals("\$AAPL", result.mode.line)
+    }
+
+    @Test
+    fun exchangeAndPairTickersSwitchToStockMode() {
+        val tsx = step("OBE.TO", matches = 0)
+        assertEquals('$', tsx.mode.prompt)
+        val klass = step("BRK.B", matches = 0)
+        assertEquals('$', klass.mode.prompt)
+        val crypto = step("BTC-USD", matches = 0)
+        assertEquals('$', crypto.mode.prompt)
+        val jp = step("7203.T", matches = 0)
+        assertEquals('$', jp.mode.prompt)
+        val prose = step("pre-tax", matches = 0)
+        assertEquals('-', prose.mode.prompt)
+    }
+
+    @Test
+    fun lowercaseWordsAreNotTickers() {
+        assertFalse(Stocks.looksLikeTicker("buy"))
+        assertFalse(Stocks.looksLikeTicker("aapl"))
+        assertFalse(Stocks.looksLikeTicker("milk"))
+        val result = step("buy", matches = 0)
+        assertEquals('-', result.mode.prompt)
+    }
+
+    @Test
+    fun matchingAppsWinOverTickerShape() {
+        val result = step("MS", matches = 2)
         assertFalse(result.switched)
         assertEquals('>', result.mode.prompt)
     }

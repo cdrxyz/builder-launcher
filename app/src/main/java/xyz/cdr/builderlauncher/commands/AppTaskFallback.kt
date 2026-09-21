@@ -5,7 +5,7 @@ import xyz.cdr.builderlauncher.data.Notes
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.stocks.Stocks
 
-/** When default-mode app search misses, more typing becomes a todo. */
+/** When default-mode typing is not an app, pick calculator, stocks, or a todo. */
 object AppTaskFallback {
     const val EXTRA_CHARS = 3
 
@@ -15,11 +15,12 @@ object AppTaskFallback {
         val mode: PrefixCommands.Mode,
         val state: State,
         val switched: Boolean,
+        val suppressApps: Boolean = false,
     )
 
     fun reserved(query: String): Boolean {
         if (query.isBlank()) return true
-        if (Calculator.preview(query) != null) return true
+        if (Calculator.looksLike(query)) return true
         if (query.last().isWhitespace()) return false
         if (SlashCommands.matches(query).isNotEmpty()) return true
         if (Notes.matchesQuery(query)) return true
@@ -39,6 +40,12 @@ object AppTaskFallback {
         val query = mode.input
         if (query.isBlank()) {
             return Result(mode, State(), false)
+        }
+        if (matchCount == 0 && Stocks.looksLikeTicker(query)) {
+            return Result(PrefixCommands.pick(mode, '$'), State(), true)
+        }
+        if (Calculator.looksLike(query)) {
+            return Result(mode, State(lastMatchLength = query.length), false, suppressApps = true)
         }
         if (reserved(query) || matchCount > 0) {
             return Result(mode, State(lastMatchLength = query.length), false)
