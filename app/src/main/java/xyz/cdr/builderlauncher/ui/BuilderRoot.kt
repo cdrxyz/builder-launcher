@@ -140,6 +140,7 @@ import xyz.cdr.builderlauncher.clock.ClockTab
 import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.commands.AppPick
 import xyz.cdr.builderlauncher.commands.AppPickQuery
+import xyz.cdr.builderlauncher.commands.AppTaskFallback
 import xyz.cdr.builderlauncher.commands.Calculator
 import xyz.cdr.builderlauncher.commands.Command
 import xyz.cdr.builderlauncher.commands.CommandExecutor
@@ -275,6 +276,7 @@ fun BuilderRoot(
     var streamDraft by remember { mutableStateOf("") }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var appQuery by remember { mutableStateOf(false) }
+    var appMiss by remember { mutableStateOf(AppTaskFallback.State()) }
     var appsEpoch by remember { mutableIntStateOf(0) }
     var people by remember { mutableStateOf<List<PhoneContact>>(emptyList()) }
     var contactAction by remember { mutableStateOf<ContactAction?>(null) }
@@ -912,6 +914,7 @@ fun BuilderRoot(
             choices = emptyList()
             people = emptyList()
             appQuery = false
+            appMiss = AppTaskFallback.State()
             return
         }
         if (page == Page.Clock || page == Page.Weather || page == Page.Usage ||
@@ -920,6 +923,7 @@ fun BuilderRoot(
             choices = emptyList()
             people = emptyList()
             appQuery = false
+            appMiss = AppTaskFallback.State()
             if (page == Page.Clock && clockTab == ClockTab.Zones) {
                 val q = line.trim()
                 if (q.length >= 2 && (line.isEmpty() || !PrefixCommands.isModePrompt(line.first()))) {
@@ -937,6 +941,7 @@ fun BuilderRoot(
             people = emptyList()
             appQuery = false
             pick = AppPick.Launch
+            appMiss = AppTaskFallback.State()
             return
         }
         val first = line.first()
@@ -947,17 +952,29 @@ fun BuilderRoot(
             choices = emptyList()
             appQuery = false
             pick = AppPick.Launch
+            appMiss = AppTaskFallback.State()
         } else if (PrefixCommands.isModePrompt(first)) {
             people = emptyList()
             choices = emptyList()
             appQuery = false
             pick = AppPick.Launch
+            appMiss = AppTaskFallback.State()
         } else {
             people = emptyList()
             val parsed = AppPickQuery.parse(line)
             pick = parsed.pick
             choices = parsed.filter(apps.all(), pins.packages().toSet())
             appQuery = true
+            if (page == Page.Home) {
+                val fallback = AppTaskFallback.step(next, choices.size, appMiss)
+                appMiss = fallback.state
+                if (fallback.switched) {
+                    applyMode(fallback.mode)
+                    return
+                }
+            } else {
+                appMiss = AppTaskFallback.State()
+            }
         }
     }
 
