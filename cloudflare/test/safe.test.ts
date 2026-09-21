@@ -29,3 +29,9 @@ test('open-meteo host allowlist', () => {
 	assert.equal(isOpenMeteoHost('air-quality-api.open-meteo.com'), true);
 	assert.equal(isOpenMeteoHost('evil.example'), false);
 });
+
+test('upstream fetch timeout is short enough that a hung RSS host cannot stall pull', async () => {
+	const { UPSTREAM_TIMEOUT_MS } = await import('../src/safe.ts');
+	assert.equal(UPSTREAM_TIMEOUT_MS, 12_000);
+	assert.ok(UPSTREAM_TIMEOUT_MS < 30_000);
+});

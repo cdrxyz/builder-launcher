@@ -413,6 +413,33 @@ test('writeSnapshot stores a slim copy and recovers from Safari quota', async ()
 	assert.equal(saved.podcasts.progress[0].episodeId, 'ep-1');
 });
 
+test('slim account snapshots need RSS hydrate for every subscribed show', async () => {
+	const { slimDoc } = await import('../public/web/merge.js');
+	const { showsNeedingFeed, podcastsOf } = await import('../public/web/media.js');
+	const fat = {
+		podcasts: {
+			shows: [
+				{ feedUrl: 'https://feeds.example/a', title: 'A' },
+				{ feedUrl: 'https://feeds.example/b', title: 'B' },
+			],
+			episodes: [
+				{ id: 'ep-a', showId: 'https://feeds.example/a', title: 'Ep A' },
+				{ id: 'ep-b', showId: 'https://feeds.example/b', title: 'Ep B' },
+			],
+			progress: [],
+		},
+	};
+	assert.deepEqual(
+		showsNeedingFeed(podcastsOf(fat)).map((show) => show.feedUrl),
+		[],
+	);
+	const slim = slimDoc(fat);
+	assert.deepEqual(
+		showsNeedingFeed(podcastsOf(slim)).map((show) => show.feedUrl),
+		['https://feeds.example/a', 'https://feeds.example/b'],
+	);
+});
+
 test('mergeDocs keeps local show notes when the cloud copy omitted them', async () => {
 	const { mergeDocs } = await import('../public/web/merge.js');
 	const html = '<p>show notes</p>';
@@ -580,7 +607,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v21/);
+	assert.match(sw, /builder-launcher-web-v22/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
