@@ -11,7 +11,7 @@ Type an app name (no prefix). Home hides the todo preview and shows a short, non
 
 - Tap a match to launch it. Pinning only happens if the line starts with `pin` or `unpin`.
 - Several matches: pick from the list.
-- No matches: "No app matches".
+- No matches: keep typing. After three more characters the bar switches to `-` task mode with the same text so Enter saves a todo. Enter on a miss before that still says "No app matches".
 - `pin Termux` filters by the rest of the line; tap a match to pin. Same for `unpin`.
 - **Hold** an app row in search or on all apps to pin or unpin.
 
