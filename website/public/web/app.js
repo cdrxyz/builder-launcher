@@ -114,6 +114,7 @@ const ITUNES = 'https://itunes.apple.com/search';
 const audio = new Audio();
 let lastSavedAt = 0;
 let lastSavedPos = 0;
+let listTab = null;
 
 const state = {
 	tab: 'home',
@@ -221,9 +222,10 @@ function pinVisualViewport() {
 	apply();
 	window.visualViewport?.addEventListener('resize', apply);
 	window.visualViewport?.addEventListener('scroll', apply);
-	window.addEventListener('focusin', () => {
+	window.addEventListener('focusin', (event) => {
 		apply();
-		window.scrollTo(0, 0);
+		const tag = event.target?.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA') window.scrollTo(0, 0);
 	});
 }
 
@@ -506,9 +508,14 @@ function pulledLabel(doc) {
 function render() {
 	const focus = document.activeElement?.classList?.contains('command-input');
 	const draft = state.draft;
+	const list = app.querySelector('main');
+	const restore = list && listTab === state.tab ? list.scrollTop : 0;
 	app.replaceChildren();
 	if (state.tab === 'home') app.append(main(), commandDock());
 	else app.append(header(), statusLine(), main(), commandDock());
+	const next = app.querySelector('main');
+	if (next) next.scrollTop = restore;
+	listTab = state.tab;
 	if (focus) {
 		const input = app.querySelector('.command-input');
 		if (input) {
@@ -999,6 +1006,7 @@ function todoRow(item, done, details) {
 	body.type = 'button';
 	body.className = 'body todo-text';
 	body.textContent = item.text;
+	noFocusScroll(body);
 	if (details) {
 		row.append(taskCheckButton(done, () => toggleTodo(item.id)));
 		if (done) {
@@ -1033,11 +1041,16 @@ function taskCheckButton(done, onClick) {
 		? '<path d="M6 9.2l2 2.2 4.2-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
 		: '';
 	el.innerHTML = `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M4 4h10v10H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>${mark}</svg>`;
+	noFocusScroll(el);
 	el.addEventListener('click', (event) => {
 		event.stopPropagation();
 		onClick();
 	});
 	return el;
+}
+
+function noFocusScroll(el) {
+	el.addEventListener('pointerdown', (event) => event.preventDefault());
 }
 
 function notesScreen() {
