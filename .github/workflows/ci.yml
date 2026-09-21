@@ -57,6 +57,21 @@ jobs:
           echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS}" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
 
+      # Plugin Portal 404s on Paparazzi 1.3.5 even though Maven Central has it.
+      # Resolve plugins first, with retries, so a portal blip does not fail tests.
+      - name: Resolve Gradle plugins
+        run: |
+          set -euo pipefail
+          n=1
+          until gradle help --no-daemon --stacktrace; do
+            if [ "$n" -ge 3 ]; then
+              exit 1
+            fi
+            echo "Gradle plugin resolve failed (attempt $n). Retrying."
+            n=$((n + 1))
+            sleep $((n * 15))
+          done
+
       - name: Test and assemble
         run: gradle :app:testDebugUnitTest :app:verifyPaparazziDebug :app:assembleRelease --no-daemon --stacktrace
 
