@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { decrypt, encodeUtf8, encrypt, MAGIC } from '../public/web/crypto.js';
-import { displayDoneTodos, displayOpenTodos, doneTodos, noteTitle, notesByEdited, openTodos, seedNote, TASK_COMPLETE_FADE_MS, TASK_COMPLETE_HOLD_MS } from '../public/web/items.js';
+import { alignOpenOrder, displayDoneTodos, displayOpenTodos, doneTodos, moveOpenItems, noteTitle, notesByEdited, openTodos, seedNote, taskRank, TASK_COMPLETE_FADE_MS, TASK_COMPLETE_HOLD_MS } from '../public/web/items.js';
 import { renderMarkdown } from '../public/web/markdown.js';
 import { credentialsReady, objectUrl, regionFor, sign } from '../public/web/s3.js';
 import {
@@ -610,7 +610,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v25/);
+	assert.match(sw, /builder-launcher-web-v26/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -642,6 +642,9 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(js, /aria-label', done \? 'reopen task' : 'complete task'/);
 	assert.doesNotMatch(js, /iconButton\('edit task'/);
 	assert.match(js, /iconButton\('delete task'/);
+	assert.match(js, /iconButton\('move task up'/);
+	assert.match(js, /function attachTaskDrag\(/);
+	assert.match(css, /\.task-move \{/);
 	assert.match(css, /\.row \.task-check \{/);
 	assert.match(js, /function updateTodoText\(/);
 	assert.doesNotMatch(js, /mark\.textContent = done \? '×' : '·'/);
@@ -741,4 +744,65 @@ test('mergeDocs keeps different tasks from both sides', async () => {
 	);
 	assert.equal(clash.items.length, 1);
 	assert.equal(clash.items[0].text, 'newer edit');
+	assert.deepEqual(
+		mergeDocs(
+			{
+				exportedAt: 20,
+				items: [
+					{ id: 'a', kind: 'todo', text: 'alpha', createdAt: 100, order: 599, orderedAt: 600 },
+					{ id: 'b', kind: 'todo', text: 'beta', createdAt: 200, order: 598, orderedAt: 600 },
+				],
+			},
+			{
+				exportedAt: 10,
+				items: [
+					{ id: 'a', kind: 'todo', text: 'alpha edited', createdAt: 100, updatedAt: 700 },
+					{ id: 'b', kind: 'todo', text: 'beta', createdAt: 200 },
+					{ id: 'c', kind: 'todo', text: 'from web', createdAt: 400 },
+				],
+			},
+		).items.map((item) => item.text),
+		['from web', 'alpha edited', 'beta'],
+	);
+});
+
+test('open todos sort newest first unless manually moved lower', () => {
+	const appended = [
+		{ id: 'old', kind: 'todo', text: 'older', createdAt: 10 },
+		{ id: 'new', kind: 'todo', text: 'newer', createdAt: 40 },
+	];
+	assert.deepEqual(openTodos(appended).map((item) => item.text), ['newer', 'older']);
+	const moved = moveOpenItems(
+		[
+			{ id: 'top', kind: 'todo', text: 'top', createdAt: 30 },
+			{ id: 'mid', kind: 'todo', text: 'mid', createdAt: 20 },
+			{ id: 'low', kind: 'todo', text: 'low', createdAt: 10 },
+		],
+		0,
+		2,
+		100,
+	);
+	assert.deepEqual(openTodos(moved).map((item) => item.text), ['mid', 'low', 'top']);
+	assert.ok(moved.filter((item) => !item.completedAt).every((item) => item.orderedAt === 100 && item.order < 100));
+	const added = [...moved, { id: 'fresh', kind: 'todo', text: 'fresh', createdAt: 100 }];
+	assert.deepEqual(openTodos(added).map((item) => item.text), ['fresh', 'mid', 'low', 'top']);
+	assert.equal(taskRank({ createdAt: 5, order: 9 }), 9);
+	assert.deepEqual(
+		alignOpenOrder(
+			[
+				{ id: 'a', kind: 'todo', createdAt: 10, order: 50, orderedAt: 60 },
+				{ id: 'b', kind: 'todo', createdAt: 5, order: 49, orderedAt: 60 },
+			],
+			[
+				{ id: 'a', kind: 'todo', createdAt: 10 },
+				{ id: 'web', kind: 'todo', text: 'web', createdAt: 20 },
+			],
+			[
+				{ id: 'a', kind: 'todo', createdAt: 10, order: 50, orderedAt: 60 },
+				{ id: 'b', kind: 'todo', createdAt: 5, order: 49, orderedAt: 60 },
+				{ id: 'web', kind: 'todo', text: 'web', createdAt: 20 },
+			],
+		).map((item) => item.id),
+		['web', 'a', 'b'],
+	);
 });

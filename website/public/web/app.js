@@ -19,6 +19,7 @@ import {
 	notesByEdited,
 	openTodos,
 	seedNote,
+	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
 import {
@@ -1007,8 +1008,17 @@ function tasksScreen() {
 	const wrap = document.createElement('div');
 	const open = displayOpenTodos(items(), pendingComplete);
 	const done = displayDoneTodos(items(), pendingComplete);
+	const movable = open.filter((item) => item.completedAt == null);
 	if (!open.length && !done.length) wrap.append(empty('No tasks yet. Pull from S3 or type -buy milk.'));
-	for (const item of open) wrap.append(todoRow(item, item.completedAt != null, true, { settled: false }));
+	for (const item of open) {
+		const row = todoRow(item, item.completedAt != null, true, { settled: false });
+		if (item.completedAt == null && movable.length > 1) {
+			const index = movable.findIndex((rowItem) => rowItem.id === item.id);
+			row.append(taskMoveButtons(item.id, index, movable.length));
+			attachTaskDrag(row, item.id);
+		}
+		wrap.append(row);
+	}
 	if (done.length) {
 		wrap.append(section('done'));
 		for (const item of done) wrap.append(todoRow(item, true, true, { settled: true }));
@@ -1033,7 +1043,13 @@ function todoRow(item, done, details, opts = {}) {
 		if (done) {
 			body.addEventListener('click', () => toggleTodo(item.id));
 		} else {
-			body.addEventListener('click', () => {
+			body.addEventListener('click', (event) => {
+				if (suppressTodoEdit) {
+					suppressTodoEdit = false;
+					event.preventDefault();
+					event.stopPropagation();
+					return;
+				}
 				state.editTodoId = item.id;
 				state.tab = 'tasks';
 				state.prompt = '-';
@@ -1051,6 +1067,97 @@ function todoRow(item, done, details, opts = {}) {
 		row.append(iconButton('delete task', 'M5 5l8 8M13 5L5 13', () => removeItem(item.id)));
 	}
 	return row;
+}
+
+let suppressTodoEdit = false;
+
+function moveTodo(id, delta) {
+	const open = openTodos(items());
+	const from = open.findIndex((item) => item.id === id);
+	if (from < 0) return;
+	const to = from + delta;
+	if (to < 0 || to >= open.length) return;
+	setItems(moveOpenItems(items(), from, to));
+}
+
+function taskMoveButtons(id, index, count) {
+	const box = document.createElement('div');
+	box.className = 'task-move';
+	box.append(
+		iconButton('move task up', 'M5 11.5L9 6.5l4 5', () => moveTodo(id, -1), index === 0),
+		iconButton('move task down', 'M5 6.5L9 11.5l4-5', () => moveTodo(id, 1), index === count - 1),
+	);
+	return box;
+}
+
+function attachTaskDrag(row, id) {
+	let timer = 0;
+	let pointerId = null;
+	let startY = 0;
+	let startX = 0;
+	let dragging = false;
+	let origin = 0;
+	let lastTo = 0;
+	let rowH = 0;
+	const clear = () => window.clearTimeout(timer);
+	row.addEventListener('pointerdown', (event) => {
+		if (event.button != null && event.button !== 0) return;
+		if (event.target.closest('.task-check, .task-move')) return;
+		pointerId = event.pointerId;
+		startY = event.clientY;
+		startX = event.clientX;
+		origin = openTodos(items()).findIndex((item) => item.id === id);
+		lastTo = origin;
+		dragging = false;
+		clear();
+		timer = window.setTimeout(() => {
+			if (origin < 0) return;
+			dragging = true;
+			suppressTodoEdit = true;
+			row.classList.add('task-dragging');
+			row.setPointerCapture(pointerId);
+			const box = row.getBoundingClientRect();
+			rowH = box.height + 6;
+			const scroller = row.closest('main');
+			if (scroller) scroller.style.overflow = 'hidden';
+		}, 320);
+	});
+	row.addEventListener(
+		'pointermove',
+		(event) => {
+			if (event.pointerId !== pointerId) return;
+			const dy = event.clientY - startY;
+			const dx = event.clientX - startX;
+			if (!dragging) {
+				if (Math.hypot(dx, dy) > 8) clear();
+				return;
+			}
+			event.preventDefault();
+			row.style.transform = `translateY(${dy}px)`;
+			const count = openTodos(items()).length;
+			const shift = rowH > 1 ? Math.round(dy / rowH) : 0;
+			lastTo = Math.max(0, Math.min(count - 1, origin + shift));
+		},
+		{ passive: false },
+	);
+	const finish = (event) => {
+		if (event.pointerId !== pointerId) return;
+		clear();
+		pointerId = null;
+		const scroller = row.closest('main');
+		if (scroller) scroller.style.overflow = '';
+		if (!dragging) return;
+		dragging = false;
+		row.classList.remove('task-dragging');
+		row.style.transform = '';
+		suppressTodoEdit = true;
+		window.setTimeout(() => {
+			suppressTodoEdit = false;
+		}, 0);
+		if (lastTo !== origin) moveTodo(id, lastTo - origin);
+	};
+	row.addEventListener('pointerup', finish);
+	row.addEventListener('pointercancel', finish);
 }
 
 function taskCheckButton(done, onClick) {
@@ -1866,12 +1973,16 @@ function button(label, onClick, className) {
 	return el;
 }
 
-function iconButton(label, path, onClick) {
+function iconButton(label, path, onClick, disabled = false) {
 	const el = document.createElement('button');
 	el.type = 'button';
 	el.className = 'ghost row-icon';
 	el.setAttribute('aria-label', label);
 	el.innerHTML = `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+	if (disabled) {
+		el.disabled = true;
+		return el;
+	}
 	el.addEventListener('click', (event) => {
 		event.stopPropagation();
 		onClick();

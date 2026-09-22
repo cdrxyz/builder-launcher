@@ -428,12 +428,37 @@ main.home-main {
 	text-align: left;
 	cursor: pointer;
 	padding: 0;
+	flex: 1;
+	min-width: 0;
 }
 
 .row .task-check {
 	color: inherit;
 	flex: none;
 	margin-top: -0.15rem;
+}
+
+.task-move {
+	display: flex;
+	flex: none;
+	margin-left: auto;
+	margin-top: -0.15rem;
+}
+
+.task-move .row-icon {
+	color: var(--muted);
+	min-width: 1.7rem;
+}
+
+.task-move .row-icon:disabled {
+	opacity: 0.3;
+}
+
+.row.task-dragging {
+	position: relative;
+	z-index: 2;
+	background: var(--bg);
+	touch-action: none;
 }
 
 .row.done .task-check {

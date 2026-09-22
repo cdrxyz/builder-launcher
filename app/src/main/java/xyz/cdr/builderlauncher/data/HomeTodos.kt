@@ -27,8 +27,11 @@ object HomeTodos {
     fun of(items: List<LocalItem>): List<LocalItem> =
         items.filter { it.kind.equals("todo", ignoreCase = true) }
 
+    /** Higher is closer to the top. Unset order falls back to createdAt, so a new task sorts above a placed one. */
+    fun rank(item: LocalItem): Long = if (item.order != 0L) item.order else item.createdAt
+
     fun open(todos: List<LocalItem>): List<LocalItem> =
-        todos.filter { !it.done }
+        todos.filter { !it.done }.sortedByDescending { rank(it) }
 
     fun completed(todos: List<LocalItem>): List<LocalItem> =
         todos.filter { it.done }.sortedByDescending { it.completedAt ?: 0L }
@@ -127,15 +130,69 @@ object HomeTodos {
     ): List<LocalItem> =
         displayOpen(open(todos), completed(todos), pendingIndexById).take(clampPreview(limit))
 
-    fun moveOpen(items: List<LocalItem>, from: Int, to: Int): List<LocalItem> {
+    fun moveOpen(items: List<LocalItem>, from: Int, to: Int, now: Long = System.currentTimeMillis()): List<LocalItem> {
         val current = open(of(items))
         val moved = ListReorder.move(current, from, to)
         if (moved === current) return items
+        val ranked = stampOrder(moved, now)
         var i = 0
         return items.map { item ->
-            if (item.kind.equals("todo", ignoreCase = true) && !item.done) moved[i++] else item
+            if (isOpenTodo(item)) ranked[i++] else item
         }
     }
+
+    /**
+     * Keep a pre-rank manual layout. Skipped when the list is already newest-first,
+     * so a fresh add still sorts by createdAt and lands above this block after sync.
+     */
+    fun migrateOpenOrder(items: List<LocalItem>, now: Long = System.currentTimeMillis()): List<LocalItem> {
+        val open = items.filter { isOpenTodo(it) }
+        if (open.any { it.order != 0L } || open.size < 2) return items
+        if (open.map { it.id } == open.sortedByDescending { rank(it) }.map { it.id }) return items
+        val byId = stampOrder(open, now, orderedAt = 0L).associateBy { it.id }
+        return items.map { item -> byId[item.id] ?: item }
+    }
+
+    /**
+     * Tasks the other side has not placed yet stay at the top, newest first,
+     * unless that side already dragged them lower.
+     */
+    fun alignOpenOrder(left: List<LocalItem>, right: List<LocalItem>, merged: List<LocalItem>): List<LocalItem> {
+        val lifted = liftUnseen(left, right, merged)
+        val open = lifted.filter { isOpenTodo(it) }.sortedByDescending { rank(it) }
+        val rest = lifted.filterNot { isOpenTodo(it) }
+        return open + rest
+    }
+
+    private fun liftUnseen(left: List<LocalItem>, right: List<LocalItem>, merged: List<LocalItem>): List<LocalItem> {
+        val leftIds = left.map { it.id }.toSet()
+        val rightIds = right.map { it.id }.toSet()
+        val open = merged.filter { isOpenTodo(it) }
+        val shared = open.filter { it.id in leftIds && it.id in rightIds }
+        val unseen = open.filter { (it.id in leftIds) != (it.id in rightIds) }
+        if (shared.isEmpty() || unseen.isEmpty()) return merged
+        val maxShared = shared.maxOf { rank(it) }
+        val need = unseen
+            .filter { it.orderedAt == 0L && rank(it) <= maxShared }
+            .sortedBy { it.createdAt }
+        if (need.isEmpty()) return merged
+        val updates = need.mapIndexed { index, item -> item.id to (maxShared + 1 + index) }.toMap()
+        return merged.map { item ->
+            val order = updates[item.id] ?: return@map item
+            item.copy(order = order)
+        }
+    }
+
+    fun stampOrder(sequence: List<LocalItem>, now: Long, orderedAt: Long = now): List<LocalItem> {
+        if (sequence.isEmpty()) return sequence
+        val top = if (now > sequence.size) now - 1 else sequence.size.toLong()
+        return sequence.mapIndexed { index, item ->
+            item.copy(order = top - index, orderedAt = orderedAt)
+        }
+    }
+
+    private fun isOpenTodo(item: LocalItem): Boolean =
+        item.kind.equals("todo", ignoreCase = true) && !item.done
 
     fun enterDraft(): String = TASK_PREFIX
 

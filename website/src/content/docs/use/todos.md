@@ -26,7 +26,7 @@ On the tasks page:
 - Command bar starts with `-` so the next Enter saves another todo.
 - A checkbox on the left completes or reopens a task. Checking strikes through the line, waits a second, then fades it into the top of the completed list. Tap the text of an open task to load it into the bar. A check on the right of the bar saves the edit. Delete is only on completed tasks.
 - `<` or Back returns home in default command-bar mode (not task mode).
-- Long-press and drag an open row across the list to reorder. Other rows slide out of the way as you pass them. The dropped row stays where you put it. Order is saved on the device. Home preview stays tap-only.
+- Long-press and drag an open row across the list to reorder. On the web app, up and down arrows do the same, and a long-press drag works there too. A new task lands at the top on both the phone and the web, including after sync, until you move that task lower. The position syncs with the account. Home preview stays tap-only.
 - Copy icon writes open todos to the clipboard as:
 
   ```markdown
