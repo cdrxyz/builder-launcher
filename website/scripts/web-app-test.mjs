@@ -432,15 +432,78 @@ test('slim account snapshots need RSS hydrate for every subscribed show', async 
 			progress: [],
 		},
 	};
-	assert.deepEqual(
-		showsNeedingFeed(podcastsOf(fat)).map((show) => show.feedUrl),
-		[],
-	);
 	const slim = slimDoc(fat);
 	assert.deepEqual(
 		showsNeedingFeed(podcastsOf(slim)).map((show) => show.feedUrl),
 		['https://feeds.example/a', 'https://feeds.example/b'],
 	);
+});
+
+test('shows with cached episodes stay stale after the refresh window', async () => {
+	const { showsNeedingFeed, podcastsOf, FEED_STALE_MS } = await import('../public/web/media.js');
+	const now = Date.now();
+	const doc = {
+		podcasts: {
+			shows: [
+				{ feedUrl: 'https://feeds.example/fresh', title: 'F', lastCheckedAt: now - 60_000 },
+				{ feedUrl: 'https://feeds.example/stale', title: 'S', lastCheckedAt: now - FEED_STALE_MS - 1 },
+				{ feedUrl: 'https://feeds.example/never', title: 'N' },
+			],
+			episodes: [
+				{ id: 'ep-f', showId: 'https://feeds.example/fresh', title: 'Ep F' },
+				{ id: 'ep-s', showId: 'https://feeds.example/stale', title: 'Ep S' },
+			],
+			progress: [],
+		},
+	};
+	assert.deepEqual(
+		showsNeedingFeed(podcastsOf(doc), now).map((show) => show.feedUrl),
+		['https://feeds.example/stale', 'https://feeds.example/never'],
+	);
+	// exportedAt is not a feed check. A just-exported snapshot still refreshes
+	// a show that has episodes but has never been checked.
+	const bag = podcastsOf({ ...doc, exportedAt: now });
+	delete bag.shows[0].lastCheckedAt;
+	assert.equal(bag.exportedAt, undefined);
+	assert.deepEqual(
+		showsNeedingFeed(bag, now).map((show) => show.feedUrl),
+		['https://feeds.example/fresh', 'https://feeds.example/stale', 'https://feeds.example/never'],
+	);
+});
+
+test('a failed feed does not discard shows that parsed', async () => {
+	const { applyCheckedFeeds } = await import('../public/web/media.js');
+	const shows = [
+		{ feedUrl: 'https://feeds.example/ok', title: 'Ok', lastCheckedAt: 1 },
+		{ feedUrl: 'https://feeds.example/bad', title: 'Bad', lastCheckedAt: 1 },
+	];
+	const episodes = [
+		{ id: 'old-ok', showId: 'https://feeds.example/ok', title: 'Old' },
+		{ id: 'old-bad', showId: 'https://feeds.example/bad', title: 'Keep' },
+	];
+	const applied = applyCheckedFeeds(shows, episodes, [
+		{
+			feedUrl: 'https://feeds.example/ok',
+			feed: {
+				show: { feedUrl: 'https://feeds.example/ok', title: 'Ok' },
+				episodes: [{ id: 'new-ok', showId: 'https://feeds.example/ok', title: 'New' }],
+			},
+		},
+		{ feedUrl: 'https://feeds.example/bad', feed: null },
+	], 50);
+	assert.deepEqual(applied.failed, ['https://feeds.example/bad']);
+	assert.equal(applied.shows[0].lastCheckedAt, 50);
+	assert.equal(applied.shows[1].lastCheckedAt, 1);
+	assert.equal(applied.shows[1], shows[1]);
+	assert.deepEqual(applied.episodes.map((episode) => episode.id), ['old-bad', 'new-ok']);
+});
+
+test('opening a show refreshes through go and paints the show screen', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /state\.showId = show\.feedUrl;\s*go\('show'\)/);
+	assert.match(js, /state\.tab === 'pods' \|\| state\.tab === 'show'/);
+	assert.match(js, /Could not refresh this feed/);
+	assert.doesNotMatch(js, /Pull to refresh the feeds/);
 });
 
 test('mergeDocs keeps local show notes when the cloud copy omitted them', async () => {

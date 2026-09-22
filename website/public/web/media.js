@@ -424,11 +424,24 @@ export function podcastsOf(doc) {
 	};
 }
 
-/** Account snapshots omit episode catalogs. Those shows need RSS after pull. */
-export function showsNeedingFeed(bag) {
+/** How long an in-memory episode list may be shown before the web app rechecks the feed. */
+export const FEED_STALE_MS = 30 * 60_000;
+
+/**
+ * Empty shows always hydrate. Shows that already have episodes re-check when
+ * lastCheckedAt is missing or older than FEED_STALE_MS. A snapshot export is
+ * not a feed check — podcastsOf() does not carry exportedAt, and a pull must
+ * not look like a successful RSS fetch.
+ */
+export function showsNeedingFeed(bag, now = Date.now(), staleMs = FEED_STALE_MS) {
 	const shows = bag?.shows || [];
 	const have = new Set((bag?.episodes || []).map((ep) => String(ep.showId || '').toLowerCase()));
-	return shows.filter((show) => !have.has(String(show.feedUrl || '').toLowerCase()));
+	return shows.filter((show) => {
+		const feedUrl = String(show.feedUrl || '').toLowerCase();
+		if (!have.has(feedUrl)) return true;
+		const last = Number(show.lastCheckedAt) || 0;
+		return !last || now - last >= staleMs;
+	});
 }
 
 export function progressMap(progress) {
@@ -616,6 +629,26 @@ export function mergeFeed(existingShows, existingEpisodes, feed) {
 	else shows.push(mergedShow);
 	const kept = (existingEpisodes || []).filter((episode) => episode.showId !== feed.show.feedUrl);
 	return { shows, episodes: [...kept, ...feed.episodes] };
+}
+
+/** Merge feeds that parsed. A null feed leaves that show unchanged and lists it in failed. */
+export function applyCheckedFeeds(shows, episodes, parsed, checkedAt) {
+	let nextShows = shows || [];
+	let nextEpisodes = episodes || [];
+	const failed = [];
+	for (const row of parsed || []) {
+		if (!row?.feed) {
+			if (row?.feedUrl) failed.push(row.feedUrl);
+			continue;
+		}
+		const merged = mergeFeed(nextShows, nextEpisodes, row.feed);
+		nextShows = merged.shows;
+		nextEpisodes = merged.episodes;
+		const feedUrl = row.feed.show?.feedUrl;
+		const index = nextShows.findIndex((show) => show.feedUrl === feedUrl);
+		if (index >= 0) nextShows[index] = { ...nextShows[index], lastCheckedAt: checkedAt };
+	}
+	return { shows: nextShows, episodes: nextEpisodes, failed };
 }
 
 export function unsubscribe(shows, episodes, progress, feedUrl) {
