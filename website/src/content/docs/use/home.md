@@ -34,6 +34,6 @@ Back is not Home. From tasks, hub, notes, and the rest it returns to this home s
 
 ![Full todos list with more-tasks command bar in dash mode](../../../assets/screenshots/todos.png)
 
-On the tasks list the command bar starts in `-` task mode. Long-press and drag an open row to reorder (saved on the device; home preview stays tap-only). Pencil on an open task loads it into the bar to edit. Delete is only on completed tasks. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet).
+On the tasks list the command bar starts in `-` task mode. Long-press and drag an open row to reorder. On the web app, up and down arrows do the same. A new task lands at the top on both, including after sync, until you move it lower. That position syncs with the account. Home preview stays tap-only. Pencil on an open task loads it into the bar to edit. Delete is only on completed tasks. The copy icon copies open todos to the clipboard as a markdown checklist dated `YYYY-MM-DD` (no share sheet).
 
 See [Todos](todos/) for the `-` command.

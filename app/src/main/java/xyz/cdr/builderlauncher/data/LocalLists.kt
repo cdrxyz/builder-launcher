@@ -17,6 +17,10 @@ data class LocalItem(
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
     val updatedAt: Long = 0,
+    /** Manual rank. 0 means unset, so display uses createdAt. Higher is closer to the top. */
+    val order: Long = 0,
+    /** When order was last set by a drag or arrow. 0 means never manually placed. */
+    val orderedAt: Long = 0,
 ) {
     val done: Boolean get() = completedAt != null
     val editedAt: Long get() = if (updatedAt > 0L) updatedAt else createdAt
@@ -78,8 +82,13 @@ class LocalLists(context: Context) {
 
     private fun load(): List<LocalItem> {
         if (!file.exists()) return emptyList()
-        return runCatching {
+        val raw = runCatching {
             json.decodeFromString<List<LocalItem>>(file.readText())
         }.getOrDefault(emptyList())
+        val next = HomeTodos.migrateOpenOrder(raw)
+        if (next != raw) {
+            runCatching { file.writeText(json.encodeToString(next)) }
+        }
+        return next
     }
 }

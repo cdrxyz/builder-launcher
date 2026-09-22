@@ -1,3 +1,5 @@
+import { alignOpenOrder } from './items.js';
+
 function stamp(item) {
 	if (!item || typeof item !== 'object') return 0;
 	return Math.max(item.updatedAt || 0, item.completedAt || 0, item.createdAt || 0, item.lastPlayedAt || 0);
@@ -10,6 +12,35 @@ function byId(list) {
 		map.set(String(item.id), item);
 	}
 	return map;
+}
+
+function pickOrder(x, y, content) {
+	const ax = x.orderedAt || 0;
+	const ay = y.orderedAt || 0;
+	if (ax !== ay) return ax > ay ? x : y;
+	const ox = x.order || 0;
+	const oy = y.order || 0;
+	if (ox !== 0 && oy === 0) return x;
+	if (oy !== 0 && ox === 0) return y;
+	return content;
+}
+
+function mergeItem(x, y) {
+	if (!x) return y;
+	if (!y) return x;
+	const content = stamp(x) >= stamp(y) ? x : y;
+	const orderSource = pickOrder(x, y, content);
+	if (orderSource === content) return content;
+	return { ...content, order: orderSource.order || 0, orderedAt: orderSource.orderedAt || 0 };
+}
+
+function mergeItemList(a, b) {
+	const left = byId(a);
+	const right = byId(b);
+	const ids = new Set([...left.keys(), ...right.keys()]);
+	const out = [];
+	for (const id of ids) out.push(mergeItem(left.get(id), right.get(id)));
+	return out;
 }
 
 function mergeById(a, b) {
@@ -170,7 +201,8 @@ export function mergeDocs(a, b) {
 	const older = preferA ? b : a;
 	const deletedIds = unique([...(a.deletedIds || []), ...(b.deletedIds || [])]);
 	const deleted = new Set(deletedIds.map(String));
-	const items = mergeById(a.items, b.items).filter((item) => !deleted.has(String(item.id)));
+	const mergedItems = mergeItemList(a.items, b.items).filter((item) => !deleted.has(String(item.id)));
+	const items = alignOpenOrder(a.items, b.items, mergedItems);
 	return {
 		...older,
 		...newer,

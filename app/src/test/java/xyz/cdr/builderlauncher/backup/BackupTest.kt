@@ -485,6 +485,35 @@ class BackupMergeTest {
     }
 
     @Test
+    fun mergePutsUnseenTasksOnTopAndKeepsANewerTextEdit() {
+        val phone = BackupDocument(
+            exportedAt = 20,
+            items = listOf(
+                LocalItem("a", "todo", "alpha", createdAt = 100, order = 599, orderedAt = 600),
+                LocalItem("b", "todo", "beta", createdAt = 200, order = 598, orderedAt = 600),
+                LocalItem("note", "note", "keep", createdAt = 5),
+            ),
+        )
+        val web = BackupDocument(
+            exportedAt = 10,
+            items = listOf(
+                LocalItem("a", "todo", "alpha edited", createdAt = 100, updatedAt = 700),
+                LocalItem("b", "todo", "beta", createdAt = 200),
+                LocalItem("c", "todo", "from web", createdAt = 400),
+                LocalItem("note", "note", "keep", createdAt = 5),
+            ),
+        )
+        val merged = BackupMerge.merge(phone, web)
+        assertEquals(
+            listOf("from web", "alpha edited", "beta", "keep"),
+            merged.items.map { it.text },
+        )
+        assertEquals(700L, merged.items.first { it.id == "a" }.updatedAt)
+        assertEquals(599L, merged.items.first { it.id == "a" }.order)
+        assertEquals(600L, merged.items.first { it.id == "a" }.orderedAt)
+    }
+
+    @Test
     fun mergeKeepsLocalShowNotesWhenCloudOmitsThem() {
         val html = "<p>show notes</p>"
         val local = BackupDocument(

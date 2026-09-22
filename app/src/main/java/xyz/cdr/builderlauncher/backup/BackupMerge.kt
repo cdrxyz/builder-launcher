@@ -3,6 +3,7 @@ package xyz.cdr.builderlauncher.backup
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.data.ChatThread
+import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
@@ -23,7 +24,11 @@ object BackupMerge {
         return BackupDocument(
             version = maxOf(a.version, b.version),
             exportedAt = maxOf(a.exportedAt, b.exportedAt),
-            items = mergeItems(a.items, b.items).filterNot { it.id in drop },
+            items = HomeTodos.alignOpenOrder(
+                a.items,
+                b.items,
+                mergeItems(a.items, b.items).filterNot { it.id in drop },
+            ),
             deletedIds = deleted,
             chats = mergeChats(a.chats, b.chats),
             pins = (a.pins + b.pins).distinct(),
@@ -42,9 +47,21 @@ object BackupMerge {
         val map = LinkedHashMap<String, LocalItem>()
         (a + b).forEach { item ->
             val prev = map[item.id]
-            map[item.id] = if (prev == null || stamp(item) >= stamp(prev)) item else prev
+            map[item.id] = if (prev == null) item else mergeItem(prev, item)
         }
         return map.values.toList()
+    }
+
+    private fun mergeItem(prev: LocalItem, next: LocalItem): LocalItem {
+        val content = if (stamp(next) >= stamp(prev)) next else prev
+        val orderSource = when {
+            next.orderedAt != prev.orderedAt -> if (next.orderedAt > prev.orderedAt) next else prev
+            next.order != 0L && prev.order == 0L -> next
+            prev.order != 0L && next.order == 0L -> prev
+            else -> content
+        }
+        return if (orderSource === content) content
+        else content.copy(order = orderSource.order, orderedAt = orderSource.orderedAt)
     }
 
     private fun mergeChats(a: List<ChatThread>, b: List<ChatThread>): List<ChatThread> {

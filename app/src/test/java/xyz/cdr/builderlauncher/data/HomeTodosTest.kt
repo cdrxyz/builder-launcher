@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeTodosTest {
-    private fun todo(text: String, id: String = text, completedAt: Long? = null) =
-        LocalItem(id = id, kind = "todo", text = text, createdAt = 0, completedAt = completedAt)
+    private fun todo(text: String, id: String = text, completedAt: Long? = null, createdAt: Long = 0) =
+        LocalItem(id = id, kind = "todo", text = text, createdAt = createdAt, completedAt = completedAt)
 
     @Test
     fun moreTasksCopyMatchesNotesLink() {
@@ -69,6 +69,43 @@ class HomeTodosTest {
         assertEquals(items, HomeTodos.moveOpen(items, -1, 0))
         assertEquals(listOf("one", "two", "three"), HomeTodos.preview(HomeTodos.of(items)).map { it.text })
         assertEquals(listOf("two", "three", "one"), HomeTodos.preview(HomeTodos.of(moved)).map { it.text })
+    }
+
+    @Test
+    fun newestCreatedAtSortsAboveAnAppendedTask() {
+        val items = listOf(
+            todo("older", createdAt = 10),
+            todo("newer", createdAt = 40),
+        )
+        assertEquals(listOf("newer", "older"), HomeTodos.open(items).map { it.text })
+    }
+
+    @Test
+    fun moveStampsOrderBelowNowSoALaterAddSortsToTheTop() {
+        val items = listOf(
+            todo("top", createdAt = 30),
+            todo("mid", createdAt = 20),
+            todo("low", createdAt = 10),
+        )
+        val moved = HomeTodos.moveOpen(items, 0, 2, now = 100)
+        assertEquals(listOf("mid", "low", "top"), HomeTodos.open(moved).map { it.text })
+        assertTrue(moved.filter { !it.done }.all { it.orderedAt == 100L && it.order < 100L })
+        val added = moved + todo("fresh", createdAt = 100)
+        assertEquals(listOf("fresh", "mid", "low", "top"), HomeTodos.open(added).map { it.text })
+    }
+
+    @Test
+    fun migrateKeepsAManualLayoutAndLeavesNewestFirstAlone() {
+        val manual = listOf(
+            todo("mid", createdAt = 20),
+            todo("old", createdAt = 10),
+            todo("new", createdAt = 40),
+        )
+        val migrated = HomeTodos.migrateOpenOrder(manual, now = 80)
+        assertEquals(listOf("mid", "old", "new"), HomeTodos.open(migrated).map { it.text })
+        assertTrue(migrated.filter { !it.done }.all { it.order != 0L && it.orderedAt == 0L })
+        val newestFirst = listOf(todo("new", createdAt = 40), todo("old", createdAt = 10))
+        assertEquals(newestFirst, HomeTodos.migrateOpenOrder(newestFirst, now = 80))
     }
 
     @Test
