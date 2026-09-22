@@ -35,6 +35,7 @@ class CommandExecutor(
             Command.OpenClock -> ExecResult.NavigateClock
             Command.OpenWeather -> ExecResult.NavigateWeather
             Command.OpenUsage -> ExecResult.NavigateUsage
+            Command.OpenChat -> ExecResult.NavigateChat
             is Command.Stock -> ExecResult.AddStock(command.query)
             is Command.Message -> contactAction(command.target, command.body, ContactAction.Message)
             is Command.Call -> contactAction(command.target, "", ContactAction.Call)
@@ -185,6 +186,7 @@ sealed class ExecResult {
     data object NavigateClock : ExecResult()
     data object NavigateWeather : ExecResult()
     data object NavigateUsage : ExecResult()
+    data object NavigateChat : ExecResult()
     data class AddStock(val query: String) : ExecResult()
     data class Ask(val question: String) : ExecResult()
     data class AppChoices(val query: String, val apps: List<LaunchableApp>, val pick: AppPick = AppPick.Launch) : ExecResult()

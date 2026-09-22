@@ -55,6 +55,13 @@ class CommandParserTest {
     }
 
     @Test
+    fun slashAiOpensChatWithoutAQuestion() {
+        assertEquals(Command.OpenChat, CommandParser.parse("/ai"))
+        assertEquals(Command.OpenChat, CommandParser.parse("ai"))
+        assertEquals(Command.Ask("weather tomorrow"), CommandParser.parse("?weather tomorrow"))
+    }
+
+    @Test
     fun launch() {
         assertEquals(Command.LaunchApp("Signal"), CommandParser.parse("Signal"))
     }

@@ -3,7 +3,9 @@ title: Ask AI
 description: Full-screen LLM chat with ? after you configure a provider.
 ---
 
-Prefix `?`. Pick it from the command menu, or type `?` then a question.
+Prefix `?`. Pick it from the command menu, or type `?` then a question. That stays on the current screen until you submit.
+
+`/ai` from the slash menu opens this screen immediately, with no question, so you can switch providers or open history.
 
 Nothing is sent anywhere until you submit a question. There is no analytics.
 
