@@ -286,7 +286,16 @@ fun BuilderRoot(
     var pick by remember { mutableStateOf(AppPick.Launch) }
     var noteId by remember { mutableStateOf<String?>(null) }
     var noteDraft by remember { mutableStateOf("") }
+    var noteStored by remember { mutableStateOf<String?>(null) }
     var noteFromList by remember { mutableStateOf(false) }
+
+    fun persistOpenNote() {
+        val write = Notes.leave(noteId, noteDraft) ?: return
+        if (write.text == noteStored && noteId != null) return
+        val id = write.id
+        if (id == null) noteId = lists.add("note", write.text) else lists.update(id, write.text)
+        noteStored = write.text
+    }
     var replyKey by remember { mutableStateOf<String?>(null) }
     var replyText by remember { mutableStateOf("") }
     var stockSymbol by remember { mutableStateOf<String?>(null) }
@@ -356,6 +365,7 @@ fun BuilderRoot(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && page == Page.NoteEditor) persistOpenNote()
             if (event == Lifecycle.Event.ON_RESUME) appsEpoch++
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -365,6 +375,12 @@ fun BuilderRoot(
     DisposableEffect(page) {
         if (page != Page.Settings) ClockSoundPlayer.stopPreview()
         onDispose { ClockSoundPlayer.stopPreview() }
+    }
+    DisposableEffect(page) {
+        val editing = page == Page.NoteEditor
+        onDispose {
+            if (editing) persistOpenNote()
+        }
     }
     LaunchedEffect(page) {
         lastPage = page
@@ -513,6 +529,7 @@ fun BuilderRoot(
     fun openNoteEditor(id: String?, draft: String, fromList: Boolean) {
         noteId = id
         noteDraft = if (id == null) Notes.headingDraft(draft) else draft
+        noteStored = if (id == null) null else Notes.leave(id, noteDraft)?.text
         noteFromList = fromList
         prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
@@ -869,13 +886,10 @@ fun BuilderRoot(
     }
 
     fun saveAndCloseNote() {
-        val text = noteDraft.trim()
-        if (text.isNotEmpty()) {
-            val id = noteId
-            if (id == null) lists.add("note", text) else lists.update(id, text)
-        }
+        persistOpenNote()
         noteId = null
         noteDraft = ""
+        noteStored = null
         page = if (noteFromList) Page.Notes else Page.Home
         noteFromList = false
     }
@@ -1261,6 +1275,7 @@ fun BuilderRoot(
     )
     LaunchedEffect(homePressCount) {
         if (homePressCount > 0) {
+            if (page == Page.NoteEditor) persistOpenNote()
             openHomeDefault()
             pagerState.scrollToPage(HomeStrip.HOME)
         }

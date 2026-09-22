@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
@@ -54,6 +55,22 @@ class NotesTest {
         assertEquals("# ship it\n\nbody", Notes.headingDraft("ship it\n\nbody"))
         assertEquals("# Title", Notes.headingDraft("# Title"))
         assertEquals("## already", Notes.headingDraft("## already"))
+    }
+
+    @Test
+    fun leavingEditorStoresTheSameDraftAsBack() {
+        val draft = "  # ship it\n\nbody  "
+        val saved = Notes.leave(id = null, draft = draft)
+        assertEquals("# ship it\n\nbody", saved?.text)
+        assertNull(saved?.id)
+        assertEquals(saved, Notes.leave(id = "n1", draft = draft)?.copy(id = null))
+        assertEquals("n1", Notes.leave(id = "n1", draft = draft)?.id)
+    }
+
+    @Test
+    fun blankEditorIsNotStoredOnLeave() {
+        assertNull(Notes.leave(id = null, draft = "  \n"))
+        assertNull(Notes.leave(id = "n1", draft = ""))
     }
 
     @Test

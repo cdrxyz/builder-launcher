@@ -48,4 +48,13 @@ object Notes {
         fmt.timeZone = zone
         return fmt.format(Date(millis))
     }
+
+    /** Text to write when the editor is left. Same draft the back control stores. Null if blank. */
+    fun leave(id: String?, draft: String): NoteLeave? {
+        val text = draft.trim()
+        if (text.isEmpty()) return null
+        return NoteLeave(id, text)
+    }
 }
+
+data class NoteLeave(val id: String?, val text: String)
