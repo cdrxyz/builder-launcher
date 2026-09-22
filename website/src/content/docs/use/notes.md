@@ -15,7 +15,8 @@ App search that looks like "Notes" also shows `… all notes >` so you do not op
 
 - First line is seeded with `# ` if it is not already a heading.
 - Markdown in the body (`#`, lists, etc.).
-- `<` saves and goes home.
+- `<` saves and goes home, or back to the list if you opened the note from there.
+- Swipe up to Home, or the Home button, saves the open note and returns to the home screen. Leaving the app does the same.
 - Copy icon (top right) copies the note.
 
 ![Full-screen markdown note editor](../../../assets/screenshots/note-editor.png)

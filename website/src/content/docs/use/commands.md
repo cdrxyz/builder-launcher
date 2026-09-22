@@ -11,7 +11,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `#` | `#lauren` | Dial |
 | `*` | `*dentist mar 24 9a` | Create a calendar event |
 | `-` | `-buy milk` | Save a todo on home and the tasks list |
-| `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` saves and goes home |
+| `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` or Home saves |
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >`. Search, subscribe, stream, download. [Podcasts](podcasts/) |

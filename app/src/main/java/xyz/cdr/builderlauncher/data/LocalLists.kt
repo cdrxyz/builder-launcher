@@ -28,15 +28,17 @@ class LocalLists(context: Context) {
     private val _items = MutableStateFlow(load())
     val items: StateFlow<List<LocalItem>> = _items.asStateFlow()
 
-    fun add(kind: String, text: String) {
+    fun add(kind: String, text: String): String {
+        val id = System.currentTimeMillis().toString(36)
         val next = listOf(
             LocalItem(
-                id = System.currentTimeMillis().toString(36),
+                id = id,
                 kind = kind,
                 text = text,
             ),
         ) + _items.value
         persist(next)
+        return id
     }
 
     fun remove(id: String) {
