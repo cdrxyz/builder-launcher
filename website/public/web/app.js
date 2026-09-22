@@ -47,6 +47,7 @@ import {
 	formatChartTime,
 	formatExtended,
 	homeRows,
+	applyCheckedFeeds,
 	homePodcastMark,
 	HOME_MARK_IDLE_MS,
 	indexAt,
@@ -63,6 +64,7 @@ import {
 	performance,
 	FETCH_TIMEOUT_MS,
 	FEED_HYDRATE_LIMIT,
+	FEED_STALE_MS,
 	podcastsOf,
 	progressMap,
 	showsNeedingFeed,
@@ -126,6 +128,8 @@ let lastSavedAt = 0;
 let lastSavedPos = 0;
 let listTab = null;
 let feedInFlight = false;
+let feedQueued = false;
+const feedFailed = new Set();
 const pendingComplete = new Map();
 const leavingComplete = new Set();
 const enteringComplete = new Set();
@@ -1306,7 +1310,14 @@ function showScreen() {
 	const list = bag.episodes
 		.filter((item) => item.showId === show.feedUrl)
 		.sort((a, b) => (newest ? (b.pubDate || 0) - (a.pubDate || 0) : (a.pubDate || 0) - (b.pubDate || 0)));
-	if (!list.length) wrap.append(empty('No episodes yet. Pull to refresh the feeds, or reopen this show after 30 minutes.'));
+	if (!list.length) {
+		const failed = feedFailed.has(String(show.feedUrl || '').toLowerCase());
+		wrap.append(empty(
+			!feedInFlight && failed
+				? 'Could not refresh this feed. Leave and reopen the show to retry.'
+				: 'No episodes yet.',
+		));
+	}
 	for (const episode of list) wrap.append(episodeRow(episode, show, byId.get(episode.id)));
 	return wrap;
 }
@@ -1867,9 +1878,8 @@ function showRow(show) {
 		title: show.title,
 		subtitle: show.author || '',
 		onClick: () => {
-			state.tab = 'show';
 			state.showId = show.feedUrl;
-			render();
+			go('show');
 		},
 		onContextMenu: () => {
 			const bag = podcastsOf(state.doc);
@@ -2202,12 +2212,12 @@ async function hydrateMedia() {
 }
 
 function feedSource(feedUrl) {
-	// RSS never sends CORS headers, so a direct browser fetch only works on
-	// origins that turn CORS off (local dev). Everywhere else — including
-	// production — feeds go through the Worker, which follows redirects and
-	// streams the result same-origin.
-	if (isLocalOrigin()) return feedUrl;
-	return `/api/feed?url=${encodeURIComponent(feedUrl)}`;
+	// Most feeds omit Access-Control-Allow-Origin, so a direct browser fetch
+	// fails even from localhost. Use the Worker when it is up, and always on
+	// a deployed origin. Direct fetch is only the fallback for a local static
+	// preview with no Worker.
+	if (state.api || !isLocalOrigin()) return `/api/feed?url=${encodeURIComponent(feedUrl)}`;
+	return feedUrl;
 }
 
 function isLocalOrigin() {
@@ -2216,23 +2226,32 @@ function isLocalOrigin() {
 }
 
 async function refreshPodcastFeeds(opts = {}) {
-	if (feedInFlight) return;
-	const bag = podcastsOf(state.doc);
-	const stale = showsNeedingFeed(bag);
-	if (!stale.length) return;
+	// A navigation during a pass must not be dropped. The running pass paints
+	// the screen the user is on when it finishes, then runs one more pass if
+	// another refresh was requested while it was in flight.
+	if (feedInFlight) {
+		feedQueued = true;
+		return;
+	}
 	feedInFlight = true;
 	try {
-		await runFeedPass(stale, bag, opts);
+		let pass = 0;
+		do {
+			feedQueued = false;
+			const bag = podcastsOf(state.doc);
+			const stale = showsNeedingFeed(bag, Date.now(), FEED_STALE_MS);
+			if (!stale.length) break;
+			await runFeedPass(stale, bag, opts);
+			pass += 1;
+		} while (feedQueued && pass < 3);
 	} finally {
 		feedInFlight = false;
+		if (state.tab === 'pods' || state.tab === 'show') render();
 	}
 }
 
 async function runFeedPass(stale, bag, opts) {
-	let episodes = bag.episodes || [];
-	let nextShows = bag.shows || [];
 	const feeds = new Array(stale.length);
-	const failed = [];
 	let cursor = 0;
 	const worker = async () => {
 		while (cursor < stale.length) {
@@ -2243,46 +2262,33 @@ async function runFeedPass(stale, bag, opts) {
 				const xml = await fetchText(feedSource(show.feedUrl));
 				feeds[index] = parseRss(xml, show.feedUrl);
 			} catch {
-				failed.push(show);
 				feeds[index] = null;
 			}
 		}
 	};
 	await Promise.all(Array.from({ length: Math.min(FEED_HYDRATE_LIMIT, stale.length) }, worker));
-	// A batch with any failure is aborted and the whole pass retries once
-	// after a pause (the phone does the same), so a transient hiccup does not
-	// freeze the catalog for the rest of the staleness window.
-	const aborted = failed.length > 0;
-	if (!aborted) {
-		for (const feed of feeds) {
-			if (!feed) continue;
-			const merged = mergeFeed(nextShows, episodes, feed);
-			nextShows = merged.shows;
-			episodes = merged.episodes;
-		}
-	}
 	const checkedAt = Date.now();
-	if (aborted && !opts.retry) {
-		setTimeout(() => refreshPodcastFeeds({ retry: true }).catch(() => {}), 60_000);
+	const parsed = stale.map((show, index) => ({ feedUrl: show.feedUrl, feed: feeds[index] || null }));
+	for (const row of parsed) {
+		const key = String(row.feedUrl || '').toLowerCase();
+		if (!key) continue;
+		if (row.feed) feedFailed.delete(key);
+		else feedFailed.add(key);
 	}
-	if (aborted && opts.retry) {
-		// The retry pass failed too; mark shows checked so the next view or
-		// pull (not every keystroke) retries them instead of hammering a dead
-		// feed host.
-		for (const show of failed) {
-			const index = nextShows.findIndex((row) => row.feedUrl === show.feedUrl);
-			if (index >= 0) nextShows[index] = { ...nextShows[index], lastCheckedAt: checkedAt };
-		}
-	}
-	const changed = nextShows.length !== (bag.shows || []).length || nextShows.some((show, i) => show !== (bag.shows || [])[i]) || episodes !== bag.episodes;
+	const applied = applyCheckedFeeds(bag.shows, bag.episodes, parsed, checkedAt);
+	const prev = bag.shows || [];
+	const changed = applied.episodes !== bag.episodes
+		|| applied.shows.length !== prev.length
+		|| applied.shows.some((show, i) => show !== prev[i]);
 	if (changed) {
-		nextShows = nextShows.map((show, i) =>
-			(bag.shows || [])[i] === show ? show : { ...show, lastCheckedAt: checkedAt },
-		);
-		state.doc = { ...state.doc, podcasts: { ...bag, shows: nextShows, episodes } };
+		state.doc = { ...state.doc, podcasts: { ...bag, shows: applied.shows, episodes: applied.episodes } };
 		saveSnapshot(state.doc);
 	}
-	if (opts.rerender && state.tab === 'pods') render();
+	// One delayed retry for shows that failed. Successes are already saved, so
+	// a dead host does not hide the rest of the catalog or schedule another wave.
+	if (applied.failed.length && !opts.retry) {
+		setTimeout(() => refreshPodcastFeeds({ retry: true }).catch(() => {}), 60_000);
+	}
 }
 
 async function refreshQuotes() {

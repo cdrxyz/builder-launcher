@@ -424,15 +424,14 @@ export function podcastsOf(doc) {
 	};
 }
 
-/** How fresh a subscribed show's episode list must stay (matches the phone feed cache). */
+/** How long an in-memory episode list may be shown before the web app rechecks the feed. */
 export const FEED_STALE_MS = 30 * 60_000;
 
 /**
- * Account snapshots omit episode catalogs, and the browser only keeps a slim
- * copy — so a show with any cached episodes is still stale once FEED_STALE_MS
- * passes. Empty shows always hydrate; non-empty shows re-check when their
- * lastCheckedAt (or the snapshot export time) is older than the window.
- * Unknown ages count as stale so the first check after sync or reload refreshes.
+ * Empty shows always hydrate. Shows that already have episodes re-check when
+ * lastCheckedAt is missing or older than FEED_STALE_MS. A snapshot export is
+ * not a feed check — podcastsOf() does not carry exportedAt, and a pull must
+ * not look like a successful RSS fetch.
  */
 export function showsNeedingFeed(bag, now = Date.now(), staleMs = FEED_STALE_MS) {
 	const shows = bag?.shows || [];
@@ -440,7 +439,7 @@ export function showsNeedingFeed(bag, now = Date.now(), staleMs = FEED_STALE_MS)
 	return shows.filter((show) => {
 		const feedUrl = String(show.feedUrl || '').toLowerCase();
 		if (!have.has(feedUrl)) return true;
-		const last = Number(show.lastCheckedAt) || Number(bag?.exportedAt) || 0;
+		const last = Number(show.lastCheckedAt) || 0;
 		return !last || now - last >= staleMs;
 	});
 }
@@ -630,6 +629,26 @@ export function mergeFeed(existingShows, existingEpisodes, feed) {
 	else shows.push(mergedShow);
 	const kept = (existingEpisodes || []).filter((episode) => episode.showId !== feed.show.feedUrl);
 	return { shows, episodes: [...kept, ...feed.episodes] };
+}
+
+/** Merge feeds that parsed. A null feed leaves that show unchanged and lists it in failed. */
+export function applyCheckedFeeds(shows, episodes, parsed, checkedAt) {
+	let nextShows = shows || [];
+	let nextEpisodes = episodes || [];
+	const failed = [];
+	for (const row of parsed || []) {
+		if (!row?.feed) {
+			if (row?.feedUrl) failed.push(row.feedUrl);
+			continue;
+		}
+		const merged = mergeFeed(nextShows, nextEpisodes, row.feed);
+		nextShows = merged.shows;
+		nextEpisodes = merged.episodes;
+		const feedUrl = row.feed.show?.feedUrl;
+		const index = nextShows.findIndex((show) => show.feedUrl === feedUrl);
+		if (index >= 0) nextShows[index] = { ...nextShows[index], lastCheckedAt: checkedAt };
+	}
+	return { shows: nextShows, episodes: nextEpisodes, failed };
 }
 
 export function unsubscribe(shows, episodes, progress, feedUrl) {

@@ -460,14 +460,50 @@ test('shows with cached episodes stay stale after the refresh window', async () 
 		showsNeedingFeed(podcastsOf(doc), now).map((show) => show.feedUrl),
 		['https://feeds.example/stale', 'https://feeds.example/never'],
 	);
-	// A snapshot exported inside the window is not treated as a fresh check.
-	const bag = podcastsOf(doc);
-	bag.exportedAt = now - FEED_STALE_MS - 1;
+	// exportedAt is not a feed check. A just-exported snapshot still refreshes
+	// a show that has episodes but has never been checked.
+	const bag = podcastsOf({ ...doc, exportedAt: now });
 	delete bag.shows[0].lastCheckedAt;
+	assert.equal(bag.exportedAt, undefined);
 	assert.deepEqual(
 		showsNeedingFeed(bag, now).map((show) => show.feedUrl),
 		['https://feeds.example/fresh', 'https://feeds.example/stale', 'https://feeds.example/never'],
 	);
+});
+
+test('a failed feed does not discard shows that parsed', async () => {
+	const { applyCheckedFeeds } = await import('../public/web/media.js');
+	const shows = [
+		{ feedUrl: 'https://feeds.example/ok', title: 'Ok', lastCheckedAt: 1 },
+		{ feedUrl: 'https://feeds.example/bad', title: 'Bad', lastCheckedAt: 1 },
+	];
+	const episodes = [
+		{ id: 'old-ok', showId: 'https://feeds.example/ok', title: 'Old' },
+		{ id: 'old-bad', showId: 'https://feeds.example/bad', title: 'Keep' },
+	];
+	const applied = applyCheckedFeeds(shows, episodes, [
+		{
+			feedUrl: 'https://feeds.example/ok',
+			feed: {
+				show: { feedUrl: 'https://feeds.example/ok', title: 'Ok' },
+				episodes: [{ id: 'new-ok', showId: 'https://feeds.example/ok', title: 'New' }],
+			},
+		},
+		{ feedUrl: 'https://feeds.example/bad', feed: null },
+	], 50);
+	assert.deepEqual(applied.failed, ['https://feeds.example/bad']);
+	assert.equal(applied.shows[0].lastCheckedAt, 50);
+	assert.equal(applied.shows[1].lastCheckedAt, 1);
+	assert.equal(applied.shows[1], shows[1]);
+	assert.deepEqual(applied.episodes.map((episode) => episode.id), ['old-bad', 'new-ok']);
+});
+
+test('opening a show refreshes through go and paints the show screen', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /state\.showId = show\.feedUrl;\s*go\('show'\)/);
+	assert.match(js, /state\.tab === 'pods' \|\| state\.tab === 'show'/);
+	assert.match(js, /Could not refresh this feed/);
+	assert.doesNotMatch(js, /Pull to refresh the feeds/);
 });
 
 test('mergeDocs keeps local show notes when the cloud copy omitted them', async () => {
