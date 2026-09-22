@@ -125,6 +125,7 @@ const audio = new Audio();
 let lastSavedAt = 0;
 let lastSavedPos = 0;
 let listTab = null;
+let feedInFlight = false;
 const pendingComplete = new Map();
 const leavingComplete = new Set();
 const enteringComplete = new Set();
@@ -623,6 +624,7 @@ function main() {
 }
 
 function go(tab, prompt) {
+	const changingPage = tab !== state.tab;
 	state.tab = tab;
 	state.hits = [];
 	state.menu = null;
@@ -635,6 +637,9 @@ function go(tab, prompt) {
 	if (tab !== 'stock') {
 		state.stockSymbol = tab === 'stocks' ? state.stockSymbol : null;
 		state.stockScrub = null;
+	}
+	if (changingPage && (tab === 'pods' || tab === 'show')) {
+		refreshPodcastFeeds({ rerender: true }).catch(() => {});
 	}
 	render();
 }
@@ -1301,7 +1306,7 @@ function showScreen() {
 	const list = bag.episodes
 		.filter((item) => item.showId === show.feedUrl)
 		.sort((a, b) => (newest ? (b.pubDate || 0) - (a.pubDate || 0) : (a.pubDate || 0) - (b.pubDate || 0)));
-	if (!list.length) wrap.append(empty('No episodes in the snapshot. RSS refresh needs CORS on the feed.'));
+	if (!list.length) wrap.append(empty('No episodes yet. Pull to refresh the feeds, or reopen this show after 30 minutes.'));
 	for (const episode of list) wrap.append(episodeRow(episode, show, byId.get(episode.id)));
 	return wrap;
 }
@@ -2196,39 +2201,88 @@ async function hydrateMedia() {
 	await Promise.all([refreshQuotes(), refreshPodcastFeeds(), refreshWeather()]);
 }
 
-async function refreshPodcastFeeds() {
+function feedSource(feedUrl) {
+	// RSS never sends CORS headers, so a direct browser fetch only works on
+	// origins that turn CORS off (local dev). Everywhere else — including
+	// production — feeds go through the Worker, which follows redirects and
+	// streams the result same-origin.
+	if (isLocalOrigin()) return feedUrl;
+	return `/api/feed?url=${encodeURIComponent(feedUrl)}`;
+}
+
+function isLocalOrigin() {
+	const host = location.hostname;
+	return host === 'localhost' || host === '127.0.0.1' || host === '::1' || /\.local$/.test(host);
+}
+
+async function refreshPodcastFeeds(opts = {}) {
+	if (feedInFlight) return;
 	const bag = podcastsOf(state.doc);
-	const missing = showsNeedingFeed(bag);
-	if (!missing.length) return;
+	const stale = showsNeedingFeed(bag);
+	if (!stale.length) return;
+	feedInFlight = true;
+	try {
+		await runFeedPass(stale, bag, opts);
+	} finally {
+		feedInFlight = false;
+	}
+}
+
+async function runFeedPass(stale, bag, opts) {
 	let episodes = bag.episodes || [];
 	let nextShows = bag.shows || [];
-	const feeds = new Array(missing.length);
+	const feeds = new Array(stale.length);
+	const failed = [];
 	let cursor = 0;
 	const worker = async () => {
-		while (cursor < missing.length) {
+		while (cursor < stale.length) {
 			const index = cursor;
 			cursor += 1;
-			const show = missing[index];
+			const show = stale[index];
 			try {
-				const xml = await fetchText(
-					state.api ? `/api/feed?url=${encodeURIComponent(show.feedUrl)}` : show.feedUrl,
-				);
+				const xml = await fetchText(feedSource(show.feedUrl));
 				feeds[index] = parseRss(xml, show.feedUrl);
 			} catch {
+				failed.push(show);
 				feeds[index] = null;
 			}
 		}
 	};
-	await Promise.all(Array.from({ length: Math.min(FEED_HYDRATE_LIMIT, missing.length) }, worker));
-	for (const feed of feeds) {
-		if (!feed) continue;
-		const merged = mergeFeed(nextShows, episodes, feed);
-		nextShows = merged.shows;
-		episodes = merged.episodes;
+	await Promise.all(Array.from({ length: Math.min(FEED_HYDRATE_LIMIT, stale.length) }, worker));
+	// A batch with any failure is aborted and the whole pass retries once
+	// after a pause (the phone does the same), so a transient hiccup does not
+	// freeze the catalog for the rest of the staleness window.
+	const aborted = failed.length > 0;
+	if (!aborted) {
+		for (const feed of feeds) {
+			if (!feed) continue;
+			const merged = mergeFeed(nextShows, episodes, feed);
+			nextShows = merged.shows;
+			episodes = merged.episodes;
+		}
 	}
-	if (nextShows === bag.shows && episodes === bag.episodes) return;
-	state.doc = { ...state.doc, podcasts: { ...bag, shows: nextShows, episodes } };
-	saveSnapshot(state.doc);
+	const checkedAt = Date.now();
+	if (aborted && !opts.retry) {
+		setTimeout(() => refreshPodcastFeeds({ retry: true }).catch(() => {}), 60_000);
+	}
+	if (aborted && opts.retry) {
+		// The retry pass failed too; mark shows checked so the next view or
+		// pull (not every keystroke) retries them instead of hammering a dead
+		// feed host.
+		for (const show of failed) {
+			const index = nextShows.findIndex((row) => row.feedUrl === show.feedUrl);
+			if (index >= 0) nextShows[index] = { ...nextShows[index], lastCheckedAt: checkedAt };
+		}
+	}
+	const changed = nextShows.length !== (bag.shows || []).length || nextShows.some((show, i) => show !== (bag.shows || [])[i]) || episodes !== bag.episodes;
+	if (changed) {
+		nextShows = nextShows.map((show, i) =>
+			(bag.shows || [])[i] === show ? show : { ...show, lastCheckedAt: checkedAt },
+		);
+		state.doc = { ...state.doc, podcasts: { ...bag, shows: nextShows, episodes } };
+		saveSnapshot(state.doc);
+	}
+	if (opts.rerender && state.tab === 'pods') render();
 }
 
 async function refreshQuotes() {
@@ -2295,9 +2349,7 @@ async function subscribeHit(hit, rerender = true) {
 	const bag = podcastsOf(state.doc);
 	let feed;
 	try {
-		const xml = await fetchText(
-			state.api ? `/api/feed?url=${encodeURIComponent(hit.feedUrl)}` : hit.feedUrl,
-		);
+		const xml = await fetchText(feedSource(hit.feedUrl));
 		feed = parseRss(xml, hit.feedUrl);
 	} catch {
 		feed = null;

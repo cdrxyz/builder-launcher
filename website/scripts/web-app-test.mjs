@@ -432,14 +432,41 @@ test('slim account snapshots need RSS hydrate for every subscribed show', async 
 			progress: [],
 		},
 	};
-	assert.deepEqual(
-		showsNeedingFeed(podcastsOf(fat)).map((show) => show.feedUrl),
-		[],
-	);
 	const slim = slimDoc(fat);
 	assert.deepEqual(
 		showsNeedingFeed(podcastsOf(slim)).map((show) => show.feedUrl),
 		['https://feeds.example/a', 'https://feeds.example/b'],
+	);
+});
+
+test('shows with cached episodes stay stale after the refresh window', async () => {
+	const { showsNeedingFeed, podcastsOf, FEED_STALE_MS } = await import('../public/web/media.js');
+	const now = Date.now();
+	const doc = {
+		podcasts: {
+			shows: [
+				{ feedUrl: 'https://feeds.example/fresh', title: 'F', lastCheckedAt: now - 60_000 },
+				{ feedUrl: 'https://feeds.example/stale', title: 'S', lastCheckedAt: now - FEED_STALE_MS - 1 },
+				{ feedUrl: 'https://feeds.example/never', title: 'N' },
+			],
+			episodes: [
+				{ id: 'ep-f', showId: 'https://feeds.example/fresh', title: 'Ep F' },
+				{ id: 'ep-s', showId: 'https://feeds.example/stale', title: 'Ep S' },
+			],
+			progress: [],
+		},
+	};
+	assert.deepEqual(
+		showsNeedingFeed(podcastsOf(doc), now).map((show) => show.feedUrl),
+		['https://feeds.example/stale', 'https://feeds.example/never'],
+	);
+	// A snapshot exported inside the window is not treated as a fresh check.
+	const bag = podcastsOf(doc);
+	bag.exportedAt = now - FEED_STALE_MS - 1;
+	delete bag.shows[0].lastCheckedAt;
+	assert.deepEqual(
+		showsNeedingFeed(bag, now).map((show) => show.feedUrl),
+		['https://feeds.example/fresh', 'https://feeds.example/stale', 'https://feeds.example/never'],
 	);
 });
 

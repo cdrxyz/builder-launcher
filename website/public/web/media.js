@@ -424,11 +424,25 @@ export function podcastsOf(doc) {
 	};
 }
 
-/** Account snapshots omit episode catalogs. Those shows need RSS after pull. */
-export function showsNeedingFeed(bag) {
+/** How fresh a subscribed show's episode list must stay (matches the phone feed cache). */
+export const FEED_STALE_MS = 30 * 60_000;
+
+/**
+ * Account snapshots omit episode catalogs, and the browser only keeps a slim
+ * copy — so a show with any cached episodes is still stale once FEED_STALE_MS
+ * passes. Empty shows always hydrate; non-empty shows re-check when their
+ * lastCheckedAt (or the snapshot export time) is older than the window.
+ * Unknown ages count as stale so the first check after sync or reload refreshes.
+ */
+export function showsNeedingFeed(bag, now = Date.now(), staleMs = FEED_STALE_MS) {
 	const shows = bag?.shows || [];
 	const have = new Set((bag?.episodes || []).map((ep) => String(ep.showId || '').toLowerCase()));
-	return shows.filter((show) => !have.has(String(show.feedUrl || '').toLowerCase()));
+	return shows.filter((show) => {
+		const feedUrl = String(show.feedUrl || '').toLowerCase();
+		if (!have.has(feedUrl)) return true;
+		const last = Number(show.lastCheckedAt) || Number(bag?.exportedAt) || 0;
+		return !last || now - last >= staleMs;
+	});
 }
 
 export function progressMap(progress) {
