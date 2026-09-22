@@ -81,10 +81,10 @@ Type on the home screen, then Enter.
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >` |
 | `?` | `?` then write, Enter | Write on home (bar stays at the bottom, one line until it wraps). Submit opens full-screen AI chat with the same bar at the bottom. Markdown answers (tables, lists, code). `<` home; tap the provider mark to open Grok/ChatGPT/Claude/Hermes with the prompt; long-press it to switch providers; history icon lists past chats with a date and delete |
-| `/` | `/` then pick `settings` | Slash commands listed above the bar (apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather) |
+| `/` | `/` then pick `settings` | Slash commands listed above the bar (ai, apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather) |
 | (none) | `Termux` | Search and launch apps. Tap a match to open it |
 | | `pin Termux` / `unpin Termux` | Filter by the name after `pin` or `unpin`; tap a match to pin or unpin. Names on home; icons if settings says so. Pin time (off by default) shows `30m (17%)` beside names, or `30m` then `17%` under icons |
-| | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `settings` / `help` | Built-ins. Screen time is `/usage` |
+| | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `settings` / `help` / `ai` | Built-ins. Screen time is `/usage` |
 
 Swipe up to Home (or the Home button) while already in the launcher returns to this home screen. Home from another app restores the last launcher page (tasks, hub, notes, and so on). Back from an inner page returns home; Back on home resets the command bar to normal `>` mode.
 

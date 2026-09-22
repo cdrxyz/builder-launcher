@@ -6,6 +6,7 @@ object SlashCommands {
     const val PROMPT = '/'
 
     val all: List<SlashCommand> = listOf(
+        SlashCommand("ai", "chat", Command.OpenChat),
         SlashCommand("apps", "all apps", Command.OpenApps),
         SlashCommand("clock", "timer alarm zones", Command.OpenClock),
         SlashCommand("help", "commands", Command.Help),

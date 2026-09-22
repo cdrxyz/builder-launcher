@@ -839,6 +839,7 @@ internal fun HelpBlock() {
         "stocks          all stocks",
         "podcasts        all podcasts",
         "?               ask AI",
+        "/ai             open chat",
         "/               slash commands",
         "pin Termux      pin an app",
         "unpin Termux    unpin",

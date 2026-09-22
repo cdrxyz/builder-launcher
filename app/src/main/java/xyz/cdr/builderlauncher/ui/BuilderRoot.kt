@@ -149,6 +149,7 @@ import xyz.cdr.builderlauncher.commands.CommandParser
 import xyz.cdr.builderlauncher.commands.ContactAction
 import xyz.cdr.builderlauncher.commands.ExecResult
 import xyz.cdr.builderlauncher.commands.PrefixCommands
+import xyz.cdr.builderlauncher.commands.PromptRouting
 import xyz.cdr.builderlauncher.commands.SlashCommand
 import xyz.cdr.builderlauncher.commands.SlashCommands
 import xyz.cdr.builderlauncher.contacts.PhoneContact
@@ -474,8 +475,8 @@ fun BuilderRoot(
         tickerIndex = tickerIndex,
         onTickerIndex = { tickerIndex = it },
     )
-    LaunchedEffect(page, input) {
-        if (page != Page.Stocks) {
+    LaunchedEffect(page, input, prompt) {
+        if (page != Page.Stocks || !PromptRouting.screenOwns('$', prompt)) {
             stockHits = emptyList()
             return@LaunchedEffect
         }
@@ -507,8 +508,8 @@ fun BuilderRoot(
         }
         stockDetails = stocks.details(symbol)
     }
-    LaunchedEffect(page, input) {
-        if (page != Page.Podcasts) {
+    LaunchedEffect(page, input, prompt) {
+        if (page != Page.Podcasts || !PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt)) {
             if (page != Page.PodcastShow && page != Page.PodcastEpisode && page != Page.PodcastSettings) {
                 podcastHits = emptyList()
             }
@@ -1105,7 +1106,7 @@ fun BuilderRoot(
     }
 
     fun runCommand(line: String = mode().line) {
-        if (page == Page.Todos) {
+        if (PromptRouting.screenOwns('-', prompt) && page == Page.Todos) {
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed == HomeTodos.TASK_PREFIX) {
                 taskMode()
@@ -1120,7 +1121,8 @@ fun BuilderRoot(
                 return
             }
         }
-        if (page == Page.Stocks) {
+        val editingOffTask = page == Page.Todos && editingTodoId != null && !PromptRouting.screenOwns('-', prompt)
+        if (PromptRouting.screenOwns('$', prompt) && page == Page.Stocks) {
             val q = Stocks.queryFromInput(line)
             if (q.isEmpty()) {
                 prompt = '$'
@@ -1134,7 +1136,7 @@ fun BuilderRoot(
             addTicker(q)
             return
         }
-        if (page == Page.Podcasts) {
+        if (PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && page == Page.Podcasts) {
             val q = line.trim()
             if (q.isEmpty()) {
                 input = ""
@@ -1169,7 +1171,7 @@ fun BuilderRoot(
             }
             return
         }
-        if (page == Page.Chat) {
+        if (PromptRouting.screenOwns('?', prompt) && page == Page.Chat) {
             val q = Chats.questionFromInput(line)
             if (q.isEmpty()) {
                 prompt = '?'
@@ -1179,7 +1181,7 @@ fun BuilderRoot(
             sendAsk(q)
             return
         }
-        if (page == Page.Clock && handleClockInput(line)) {
+        if (PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && page == Page.Clock && handleClockInput(line)) {
             return
         }
         val draft = smsDraft
@@ -1190,11 +1192,13 @@ fun BuilderRoot(
             smsDraft = null
             clearBar()
             people = emptyList()
+            if (editingOffTask) editingTodoId = null
             return
         }
         if (prompt == PrefixCommands.DEFAULT_PROMPT) {
             Calculator.commit(line)?.let { result ->
                 applyMode(PrefixCommands.Mode(input = result))
+                if (editingOffTask) editingTodoId = null
                 return
             }
         }
@@ -1221,6 +1225,7 @@ fun BuilderRoot(
             ExecResult.NavigateClock -> openClock()
             ExecResult.NavigateWeather -> openWeather()
             ExecResult.NavigateUsage -> openUsage()
+            ExecResult.NavigateChat -> openAsk("")
             is ExecResult.AddStock -> {
                 openStocksList()
                 addTicker(result.query)
@@ -1247,6 +1252,9 @@ fun BuilderRoot(
                 contactAction = null
                 help = false
             }
+        }
+        if (editingOffTask && PromptRouting.abandonTodoEdit(page == Page.Todos, CommandParser.parse(line))) {
+            editingTodoId = null
         }
         if (page == Page.Todos && input.isBlank()) {
             taskMode()
@@ -1706,7 +1714,7 @@ fun BuilderRoot(
                 }
                         }
                         Page.Podcasts -> {
-                val searching = input.trim().isNotEmpty()
+                val searching = PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && input.trim().isNotEmpty()
                 val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
                     Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
                 }
@@ -2539,7 +2547,7 @@ fun BuilderRoot(
                 )
             }
             Page.Stocks -> {
-                val searching = Stocks.queryFromInput(input).isNotEmpty()
+                val searching = PromptRouting.screenOwns('$', prompt) && Stocks.queryFromInput(input).isNotEmpty()
                 ScreenHeader(
                     title = Stocks.COMMAND,
                     leading = {
