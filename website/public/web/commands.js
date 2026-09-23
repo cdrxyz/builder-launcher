@@ -6,7 +6,7 @@ export const PREFIXES = [
 	{ glyph: '-', label: 'todo', web: true },
 	{ glyph: '+', label: 'note', web: true },
 	{ glyph: '$', label: 'stock', web: true },
-	{ glyph: '?', label: 'ask AI', web: false },
+	{ glyph: '?', label: 'ask AI', web: true },
 	{ glyph: '/', label: 'slash', web: true },
 ];
 
@@ -86,5 +86,6 @@ export function pagePrompt(tab) {
 	if (tab === 'notes' || tab === 'note') return '+';
 	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';
+	if (tab === 'chat' || tab === 'chats') return '?';
 	return DEFAULT_PROMPT;
 }

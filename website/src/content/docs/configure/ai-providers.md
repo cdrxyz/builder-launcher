@@ -60,6 +60,6 @@ Any OpenAI-compatible host. Set the base URL and API key. HTTPS anywhere; HTTP o
 
 ## Tokens
 
-OAuth tokens (xAI) are stored in encrypted prefs on the device and refreshed automatically. An API key remains as a fallback if OAuth is unavailable for your plan.
+OAuth tokens (xAI) are stored in encrypted prefs on the device and refreshed automatically. An API key remains as a fallback if OAuth is unavailable for your plan. **Include AI credentials** copies the current key and those tokens into backup so the web app can use them.
 
 See [Privacy](privacy/).

@@ -319,7 +319,7 @@ class BackupService(
 
     companion object {
         const val OVERWRITE_WARNING =
-            "This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens stay here. Continue?"
+            "This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?"
 
         fun lastBackupLabel(epochMs: Long): String {
             if (epochMs <= 0L) return "never"

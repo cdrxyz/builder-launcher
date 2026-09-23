@@ -8,6 +8,7 @@ const SHELL = [
 	'./crypto.js',
 	'./items.js',
 	'./markdown.js',
+	'./ai.js',
 	'./media.js',
 	'./commands.js',
 	'./account.js',

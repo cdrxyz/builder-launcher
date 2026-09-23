@@ -26,7 +26,9 @@ Answers render markdown: headings, lists, tables, fenced code, bold and italic.
 
 History lists the first line of each question, with the date edited underneath and delete on the right. Tap a row to reopen it. Empty chats are not saved.
 
-A lone `?` stays on home (help). Submit a question to open [Ask AI](ai/). `help` or `/help` is the command cheat sheet.
+A lone `?` stays on home. Submit a question to open [Ask AI](ai/). `help` or `/help` is the command cheat sheet.
+
+On [the web app](../../configure/web/), `?` uses the provider in the synced snapshot. Turn on **Include AI credentials** so the API key and OAuth tokens travel. The reply is markdown, same as the phone, once the model finishes. History is the `hist` button. A LAN Hermes URL is not reachable from the web app.
 
 | Provider | Default model | Endpoint |
 | --- | --- | --- |

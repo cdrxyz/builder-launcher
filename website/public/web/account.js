@@ -1,5 +1,5 @@
 export const OVERWRITE_WARNING =
-	'This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens stay here. Continue?';
+	'This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?';
 
 /** Vault and auth calls. Longer than RSS/Yahoo so a large snapshot can finish. */
 export const API_TIMEOUT_MS = 20_000;
@@ -85,7 +85,7 @@ export async function requestAccountCredential(
 	}
 }
 
-export async function apiJson(path, { method = 'GET', body, token } = {}) {
+export async function apiJson(path, { method = 'GET', body, token, timeout = API_TIMEOUT_MS } = {}) {
 	const headers = { accept: 'application/json' };
 	if (body !== undefined) headers['content-type'] = 'application/json';
 	if (token) headers.authorization = `Bearer ${token}`;
@@ -97,7 +97,7 @@ export async function apiJson(path, { method = 'GET', body, token } = {}) {
 			body: body !== undefined ? JSON.stringify(body) : undefined,
 			credentials: 'include',
 			cache: 'no-store',
-			signal: AbortSignal.timeout(API_TIMEOUT_MS),
+			signal: AbortSignal.timeout(timeout),
 		});
 	} catch (err) {
 		if (isAbortError(err)) throw new Error('Request timed out. Try again.');
