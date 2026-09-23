@@ -15,6 +15,7 @@ import {
 	USER_AGENT,
 } from './safe';
 import { fyydToItunes } from './podcasts';
+import { handleAi } from './ai';
 import { handleVault } from './vault';
 
 export interface Env {
@@ -89,6 +90,8 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 		if (url.pathname === '/api/weather/air' && request.method === 'GET') {
 			return weatherAir(url.searchParams.get('lat') || '', url.searchParams.get('lon') || '');
 		}
+		const ai = await handleAi(request, url);
+		if (ai) return ai;
 		return jsonError('Not found', 404);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Proxy failed';

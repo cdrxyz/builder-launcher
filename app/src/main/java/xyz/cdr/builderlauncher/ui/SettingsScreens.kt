@@ -766,7 +766,7 @@ internal fun BackupSettingsPage(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Sign-in replaces local data with the account snapshot. Sync now merges both ways. OAuth tokens stay on this phone.",
+            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Sign-in replaces local data with the account snapshot. Sync now merges both ways. OAuth tokens travel only when Include AI credentials is on.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -920,7 +920,7 @@ internal fun BackupSettingsPage(
         )
         Text(
             if (settings.backupIncludeAiCredentials) {
-                "On. The current provider API key is included in Builder account sync, S3 backups, and the JSON share so other devices can use the same ?. OAuth tokens still stay on this phone."
+                "On. The current provider API key and OAuth tokens are included in Builder account sync, S3 backups, and the JSON share so the web app can use the same ?. Do not enable unless you understand the risk."
             } else {
                 "Off. API keys stay out of Builder account sync, S3 backups, and the JSON share."
             },

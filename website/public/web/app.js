@@ -23,6 +23,21 @@ import {
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
 import {
+	AI_TIMEOUT_MS,
+	accessLabel,
+	applyRefresh,
+	chatPlan,
+	chatTitle,
+	dropThread,
+	editedLabel,
+	needsRefresh,
+	providerLabel,
+	questionFromInput,
+	refreshPlan,
+	threadsOf,
+	upsertThread,
+} from './ai.js';
+import {
 	DEFAULT_PROMPT,
 	webPrefixes,
 	builtinPage,
@@ -110,6 +125,7 @@ const CREDS_KEY = 'builder-launcher-web-creds';
 const SNAP_KEY = 'builder-launcher-web-snapshot';
 const ACCOUNT_KEY = 'builder-launcher-web-account';
 const INCLUDE_AI_KEY = 'builder-launcher-web-include-ai';
+const LOCAL_AI_KEY = 'builder-launcher-web-ai-key';
 const AUTOSYNC_KEY = 'builder-launcher-web-autosync';
 const AUTOSYNC = [
 	{ id: 'off', label: 'off' },
@@ -169,6 +185,8 @@ const state = {
 	account: loadAccount(),
 	accountCredPrompted: false,
 	includeAi: loadIncludeAi(),
+	chatId: null,
+	asking: false,
 	revision: 0,
 	doc: loadSnapshot(),
 };
@@ -566,6 +584,23 @@ function header() {
 		el.append(headerSlot());
 		return el;
 	}
+	if (state.tab === 'chat' || state.tab === 'chats') {
+		const back = state.tab === 'chats' ? () => (state.chatId ? openChat(state.chatId) : go('home')) : () => go('home');
+		el.append(button('<', back, 'ghost'));
+		el.append(title(state.tab === 'chats' ? 'chats' : 'chat'));
+		if (state.tab === 'chat') {
+			const tools = document.createElement('span');
+			tools.className = 'app-bar-slot chat-tools';
+			const provider = button(providerLabel(aiView().provider), () => {}, 'ghost');
+			provider.title = accessLabel(aiView());
+			provider.setAttribute('aria-label', 'provider');
+			tools.append(provider, button('hist', () => go('chats'), 'ghost'));
+			el.append(tools);
+		} else {
+			el.append(headerSlot());
+		}
+		return el;
+	}
 	const back = state.tab === 'show'
 		? () => go('pods')
 		: state.tab === 'stock'
@@ -623,6 +658,8 @@ function main() {
 	else if (state.tab === 'tasks') el.append(tasksScreen());
 	else if (state.tab === 'help') el.append(helpScreen());
 	else if (state.tab === 'weather') el.append(weatherScreen());
+	else if (state.tab === 'chat') el.append(chatScreen());
+	else if (state.tab === 'chats') el.append(chatHistoryScreen());
 	else el.append(homeScreen());
 	return el;
 }
@@ -776,6 +813,7 @@ function helpScreen() {
 		'-  todo',
 		'+  note',
 		'$  stock',
+		'?  ask AI',
 		'/  slash (notes stocks podcasts weather settings tasks pull push)',
 		'',
 		'Tap the prompt glyph for the prefix menu.',
@@ -932,8 +970,15 @@ function submitCommand() {
 		runSlash(text);
 		return;
 	}
-	if (prompt === '?' || prompt === '@' || prompt === '#') {
-		setStatus('Use the Android app for text, calls, and AI.');
+	if (prompt === '?') {
+		const question = questionFromInput(text);
+		if (!question) return;
+		if (state.tab !== 'chat') state.chatId = null;
+		askAi(question);
+		return;
+	}
+	if (prompt === '@' || prompt === '#') {
+		setStatus('Use the Android app for text and calls.');
 		return;
 	}
 	if (!text) return;
@@ -1404,10 +1449,10 @@ function episodeScreen() {
 function settingsScreen() {
 	const wrap = document.createElement('div');
 	wrap.className = 'settings';
-	wrap.append(accountCard(), autoSyncCard(), weatherCard(), includeAiCard(), s3Card());
+	wrap.append(accountCard(), autoSyncCard(), weatherCard(), includeAiCard(), aiAccessCard(), s3Card());
 	const note = document.createElement('p');
 	note.className = 'footer-note';
-	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in overwrites local data with the account snapshot. Sync now merges. Opt in below to include AI API keys for true ? sync. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
+	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in overwrites local data with the account snapshot. Sync now merges. Opt in below so the phone includes the API key and OAuth tokens for ?. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
 	wrap.append(note);
 	return wrap;
 }
@@ -1515,10 +1560,211 @@ function includeAiCard() {
 	const hint = document.createElement('p');
 	hint.className = 'hint';
 	hint.textContent = state.includeAi
-		? 'On. The phone includes the current provider API key in Builder account sync, S3, and JSON share so other devices can use the same ?. OAuth tokens stay on the phone. This PWA has no API keys of its own.'
-		: 'Off. API keys stay out of Builder account sync, S3 backups, and the JSON share.';
+		? 'On. The phone includes the current provider API key and OAuth tokens in Builder account sync, S3, and JSON share so this web app can use ?. A key saved below is included on the next sync.'
+		: 'Off. API keys and OAuth tokens stay out of uploads from a device with this off. Credentials already in the snapshot are kept so a phone that opted in is not wiped.';
 	wrap.append(row, hint);
 	return wrap;
+}
+
+function aiView() {
+	const settings = { ...(state.doc?.settings || {}) };
+	let local = '';
+	try {
+		local = localStorage.getItem(LOCAL_AI_KEY) || '';
+	} catch {
+		local = '';
+	}
+	if (!String(settings.apiKey || '').trim() && local) settings.apiKey = local;
+	return settings;
+}
+
+function writeAiSettings(next) {
+	ensureDoc();
+	const current = state.doc.settings || {};
+	mutate({
+		settings: {
+			...current,
+			oauthAccess: next.oauthAccess || '',
+			oauthRefresh: next.oauthRefresh || current.oauthRefresh || '',
+			oauthExpiresAtEpochMs: next.oauthExpiresAtEpochMs || 0,
+			oauthAccount: next.oauthAccount || current.oauthAccount || '',
+		},
+	});
+}
+
+function aiAccessCard() {
+	const wrap = document.createElement('div');
+	wrap.className = 'settings';
+	const heading = document.createElement('p');
+	heading.className = 'hint';
+	heading.textContent = 'AI';
+	const status = document.createElement('p');
+	status.className = 'hint';
+	status.textContent = accessLabel(aiView());
+	const form = document.createElement('form');
+	form.className = 'settings';
+	form.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const key = String(new FormData(form).get('apiKey') || '').trim();
+		try {
+			if (key) localStorage.setItem(LOCAL_AI_KEY, key);
+			else localStorage.removeItem(LOCAL_AI_KEY);
+		} catch {
+			/* private mode */
+		}
+		if (state.includeAi && key) {
+			ensureDoc();
+			mutate({ settings: { ...(state.doc.settings || {}), apiKey: key } });
+		}
+		setStatus(key ? 'Saved an API key on this browser.' : 'Cleared the browser API key.');
+	});
+	form.append(field('API key', 'apiKey', '', 'optional, stays here unless Include AI credentials is on', 'password'));
+	const save = document.createElement('button');
+	save.type = 'submit';
+	save.className = 'ghost';
+	save.textContent = 'save key';
+	form.append(save);
+	const hint = document.createElement('p');
+	hint.className = 'hint';
+	hint.textContent = 'Type ? and a question. The Worker forwards the key or OAuth token to the provider and does not store it. A home Hermes box on the LAN stays on the phone.';
+	wrap.append(heading, status, form, hint);
+	return wrap;
+}
+
+function openChat(id) {
+	state.chatId = id;
+	state.tab = 'chat';
+	state.prompt = '?';
+	state.draft = '';
+	state.menu = null;
+	render();
+}
+
+function chatScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'chat-log';
+	const thread = (state.doc?.chats || []).find((row) => row.id === state.chatId);
+	const messages = thread?.messages || [];
+	if (!messages.length && !state.asking) wrap.append(empty('Ask a question.'));
+	for (const msg of messages) {
+		if (String(msg.role).toLowerCase() === 'user') {
+			const p = document.createElement('p');
+			p.className = 'chat-user';
+			p.textContent = msg.content;
+			p.title = 'tap to copy';
+			p.addEventListener('click', () => copyText(msg.content));
+			wrap.append(p);
+		} else if (String(msg.role).toLowerCase() !== 'notice') {
+			const body = document.createElement('div');
+			body.className = 'chat-assistant';
+			body.innerHTML = renderMarkdown(msg.content);
+			body.title = 'tap to copy';
+			body.addEventListener('click', () => copyText(msg.content));
+			wrap.append(body);
+		}
+	}
+	if (state.asking) wrap.append(empty('…'));
+	return wrap;
+}
+
+function chatHistoryScreen() {
+	const wrap = document.createElement('div');
+	const rows = threadsOf(state.doc?.chats);
+	if (!rows.length) {
+		wrap.append(empty('No conversations yet.'));
+		return wrap;
+	}
+	for (const row of rows) {
+		const line = document.createElement('div');
+		line.className = 'row';
+		const body = document.createElement('button');
+		body.type = 'button';
+		body.className = 'body chat-open';
+		const title = document.createElement('span');
+		title.textContent = chatTitle(row.messages);
+		const when = document.createElement('span');
+		when.className = 'sub';
+		when.textContent = editedLabel(row.updatedAt || row.createdAt);
+		body.append(title, when);
+		body.addEventListener('click', () => openChat(row.id));
+		const del = button('×', () => {
+			ensureDoc();
+			if (state.chatId === row.id) state.chatId = null;
+			mutate({ chats: dropThread(state.doc.chats, row.id) });
+		}, 'ghost danger');
+		del.setAttribute('aria-label', 'delete chat');
+		line.append(body, del);
+		wrap.append(line);
+	}
+	return wrap;
+}
+
+async function copyText(text) {
+	try {
+		await navigator.clipboard.writeText(text);
+		setStatus('Copied.');
+	} catch {
+		setStatus('Could not copy.');
+	}
+}
+
+async function askAi(question) {
+	ensureDoc();
+	const now = Date.now();
+	const user = { role: 'user', content: question, createdAt: now };
+	const existing = (state.doc.chats || []).find((row) => row.id === state.chatId);
+	const thread = existing
+		? { ...existing, updatedAt: now, messages: [...(existing.messages || []), user] }
+		: { id: now.toString(36), createdAt: now, updatedAt: now, messages: [user] };
+	state.chatId = thread.id;
+	state.tab = 'chat';
+	state.prompt = '?';
+	state.draft = '';
+	state.asking = true;
+	state.menu = null;
+	mutate({ chats: upsertThread(state.doc.chats, thread) });
+	try {
+		let settings = aiView();
+		if (needsRefresh(settings, now)) {
+			const plan = refreshPlan(settings);
+			if (plan) {
+				try {
+					const tokens = await apiJson('/api/ai/refresh', { method: 'POST', body: plan, timeout: 20_000 });
+					settings = applyRefresh(settings, tokens);
+					writeAiSettings(settings);
+				} catch (err) {
+					if (!String(settings.apiKey || '').trim()) throw err;
+				}
+			}
+		}
+		const plan = chatPlan(settings, thread.messages, Date.now());
+		if (plan.error) {
+			finishAsk(thread, plan.error);
+			return;
+		}
+		const data = await apiJson('/api/ai/chat', {
+			method: 'POST',
+			body: plan,
+			timeout: AI_TIMEOUT_MS + 5_000,
+		});
+		finishAsk(thread, data?.text || 'Empty reply from the model.');
+	} catch (err) {
+		finishAsk(thread, err?.message || 'Could not reach the model.');
+	}
+}
+
+function finishAsk(thread, text) {
+	const now = Date.now();
+	const next = {
+		...thread,
+		updatedAt: now,
+		messages: [...thread.messages, { role: 'assistant', content: text, createdAt: now }],
+	};
+	state.asking = false;
+	state.chatId = next.id;
+	state.tab = 'chat';
+	state.prompt = '?';
+	mutate({ chats: upsertThread(state.doc?.chats, next) });
 }
 
 function s3Card() {

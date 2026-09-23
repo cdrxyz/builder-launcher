@@ -190,6 +190,45 @@ class BackupDocumentTest {
     }
 
     @Test
+    fun includeOffOmitsOAuth() {
+        val settings = BackupSettings.from(
+            xyz.cdr.builderlauncher.data.BuilderSettings(
+                provider = LlmProvider.XAI,
+                oauthAccess = "access-secret",
+                oauthRefresh = "refresh-secret",
+                oauthAccount = "me@example.com",
+            ),
+            includeApiKey = false,
+        )
+        assertEquals(null, settings.oauthAccess)
+        assertEquals(null, settings.oauthRefresh)
+        val encoded = kotlinx.serialization.json.Json { encodeDefaults = true }.encodeToString(
+            BackupDocument.serializer(),
+            BackupDocument(exportedAt = 1, settings = settings),
+        )
+        assertFalse(encoded.contains("access-secret"))
+        assertFalse(encoded.contains("refresh-secret"))
+    }
+
+    @Test
+    fun includeOnCarriesOAuth() {
+        val settings = BackupSettings.from(
+            xyz.cdr.builderlauncher.data.BuilderSettings(
+                provider = LlmProvider.XAI,
+                oauthAccess = "access-secret",
+                oauthRefresh = "refresh-secret",
+                oauthExpiresAtEpochMs = 50L,
+                oauthAccount = "me@example.com",
+            ),
+            includeApiKey = true,
+        )
+        assertEquals("access-secret", settings.oauthAccess)
+        assertEquals("refresh-secret", settings.oauthRefresh)
+        assertEquals(50L, settings.oauthExpiresAtEpochMs)
+        assertEquals("me@example.com", settings.oauthAccount)
+    }
+
+    @Test
     fun backupCarriesHomeTodoCount() {
         val settings = BackupSettings.from(
             xyz.cdr.builderlauncher.data.BuilderSettings(homeTodoCount = 5),
@@ -539,6 +578,6 @@ class BackupMergeTest {
     @Test
     fun overwriteWarningNamesLocalData() {
         assertTrue(BackupService.OVERWRITE_WARNING.contains("overwrite any local data"))
-        assertTrue(BackupService.OVERWRITE_WARNING.contains("OAuth tokens stay here"))
+        assertTrue(BackupService.OVERWRITE_WARNING.contains("unless the snapshot includes them"))
     }
 }

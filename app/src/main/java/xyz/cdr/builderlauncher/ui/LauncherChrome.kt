@@ -1752,7 +1752,7 @@ fun BackupChrome(
         )
         Text(
             if (includeAi) {
-                "On. Do not enable unless you use encrypted S3 backups or you understand the risk. Applies to S3 and the JSON share. OAuth tokens still stay on this phone."
+                "On. Do not enable unless you use encrypted S3 backups or you understand the risk. Applies to S3, account sync, and the JSON share. The current API key and OAuth tokens travel so the web app can use ?."
             } else {
                 "Off. API keys stay out of S3 backups and the JSON share."
             },

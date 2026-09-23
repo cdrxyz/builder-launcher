@@ -950,3 +950,58 @@ form.settings input,
 .note-editor textarea {
 	font-size: 16px;
 }
+
+.chat-tools {
+	gap: 0.35rem;
+	min-width: 5.5rem;
+	max-width: 46%;
+}
+
+.chat-tools .ghost {
+	max-width: 6.5rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chat-log {
+	display: flex;
+	flex-direction: column;
+	gap: 0.9rem;
+}
+
+.chat-user {
+	color: var(--accent);
+	margin: 0;
+	white-space: pre-wrap;
+}
+
+.chat-assistant {
+	margin: 0;
+}
+
+.chat-assistant :first-child {
+	margin-top: 0;
+}
+
+.chat-assistant p,
+.chat-assistant h1,
+.chat-assistant h2,
+.chat-assistant h3,
+.chat-assistant ul {
+	margin: 0.35rem 0;
+}
+
+button.body.chat-open {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.15rem;
+	background: none;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	padding: 0;
+	cursor: pointer;
+}

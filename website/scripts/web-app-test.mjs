@@ -291,6 +291,8 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.equal(pagePrompt('settings'), '>');
 	assert.equal(pagePrompt('help'), '>');
 	assert.equal(pagePrompt('weather'), '>');
+	assert.equal(pagePrompt('chat'), '?');
+	assert.equal(pagePrompt('chats'), '?');
 	assert.equal(slashResolve('set').name, 'settings');
 	assert.deepEqual(
 		slashMatches('').map((row) => row.name),
@@ -298,9 +300,36 @@ test('prefix typeMode and slash match the phone', () => {
 	);
 	assert.equal(builtinPage('notes'), 'notes');
 	assert.equal(builtinPage('weather'), 'weather');
-	assert.deepEqual(webPrefixes().map((row) => row.glyph), ['-', '+', '$', '/']);
+	assert.deepEqual(webPrefixes().map((row) => row.glyph), ['-', '+', '$', '?', '/']);
 	assert.equal(webPrefixes().some((row) => row.glyph === '*'), false);
 	assert.equal(homePreview([{ kind: 'todo', text: 'a' }, { kind: 'todo', text: 'b', completedAt: 1 }, { kind: 'note', text: 'n' }, { kind: 'todo', text: 'c' }]).map((i) => i.text).join(','), 'a,c');
+});
+
+test('ai chat plan uses the synced key and refuses a LAN host', async () => {
+	const { chatPlan, chatTitle, questionFromInput, threadsOf, bearerOf } = await import('../public/web/ai.js');
+	assert.equal(questionFromInput('?  what time'), 'what time');
+	assert.equal(chatTitle([{ role: 'user', content: 'first line\nsecond' }]), 'first line');
+	assert.deepEqual(
+		threadsOf([{ id: 'a', updatedAt: 1, messages: [{ role: 'user', content: 'old' }] }, { id: 'b', updatedAt: 2, messages: [] }]).map((row) => row.id),
+		['a'],
+	);
+	const plan = chatPlan(
+		{ provider: 'XAI', apiKey: 'sk-test' },
+		[{ role: 'user', content: 'hi' }],
+		1_000,
+	);
+	assert.equal(plan.base, 'https://api.x.ai/v1');
+	assert.equal(plan.bearer, 'sk-test');
+	assert.equal(plan.oauth, false);
+	const signed = chatPlan(
+		{ provider: 'XAI', oauthAccess: 'oauth-tok', oauthExpiresAtEpochMs: 400_000 },
+		[{ role: 'user', content: 'hi' }],
+		1_000,
+	);
+	assert.equal(bearerOf({ oauthAccess: 'oauth-tok', oauthExpiresAtEpochMs: 400_000 }, 1_000), 'oauth-tok');
+	assert.equal(signed.oauth, true);
+	assert.match(chatPlan({ provider: 'HERMES', hermesWebUrl: 'http://192.168.1.10:9119' }, [{ role: 'user', content: 'hi' }]).error, /LAN/);
+	assert.match(chatPlan({ provider: 'OPENAI' }, [{ role: 'user', content: 'hi' }]).error, /API key/);
 });
 
 test('mergeDocs unions items and honors deletedIds', async () => {
@@ -788,7 +817,8 @@ test('account API calls abort after 20s', async () => {
 	assert.equal(isAbortError({ name: 'TimeoutError' }), true);
 	assert.equal(isAbortError({ name: 'AbortError' }), true);
 	assert.equal(isAbortError({ name: 'TypeError' }), false);
-	assert.match(js, /AbortSignal\.timeout\(API_TIMEOUT_MS\)/);
+	assert.match(js, /timeout = API_TIMEOUT_MS/);
+	assert.match(js, /AbortSignal\.timeout\(timeout\)/);
 	assert.match(js, /Request timed out\. Try again\./);
 });
 
