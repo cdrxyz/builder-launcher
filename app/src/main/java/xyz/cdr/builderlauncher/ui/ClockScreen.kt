@@ -380,8 +380,8 @@ fun ClockAlertScreen(
                 lineHeight = 60.sp,
             ),
         )
-        Spacer(Modifier.height(24.dp))
         if (timer) {
+            Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text(
                     "stop",
@@ -395,16 +395,25 @@ fun ClockAlertScreen(
                 )
             }
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     "dismiss",
                     color = Dim,
-                    modifier = Modifier.clickable { onDismiss() }.padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .clickable { onDismiss() }
+                        .padding(top = 16.dp, bottom = 8.dp, end = 24.dp),
                 )
                 Text(
                     "snooze 8 min",
                     color = Accent,
-                    modifier = Modifier.clickable { onSnooze() }.padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .clickable { onSnooze() }
+                        .padding(top = 16.dp, bottom = 8.dp, start = 24.dp),
                 )
             }
         }
