@@ -7,6 +7,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import xyz.cdr.builderlauncher.clock.ClockAlarm
@@ -596,6 +597,21 @@ class BackupMergeTest {
         val otherWay = BackupMerge.merge(cloud, phone)
         assertEquals(listOf(keep.id), otherWay.alarms.map { it.id })
         assertTrue(otherWay.deletedAlarmIds.contains(gone.id))
+    }
+
+    @Test
+    fun mergeKeepsADismissedAlarmFromRingingAgain() {
+        val fired = ClockAlarm(id = "a1", hour = 7, minute = 30, lastFiredAt = 2_000L)
+        val stale = ClockAlarm(id = "a1", hour = 7, minute = 30, lastFiredAt = null, snoozeUntil = 500L)
+        val phone = BackupDocument(exportedAt = 20, alarms = listOf(fired))
+        val cloud = BackupDocument(exportedAt = 30, alarms = listOf(stale))
+        val merged = BackupMerge.merge(phone, cloud)
+        assertEquals(2_000L, merged.alarms.single().lastFiredAt)
+        assertNull(merged.alarms.single().snoozeUntil)
+
+        val otherWay = BackupMerge.merge(cloud, phone)
+        assertEquals(2_000L, otherWay.alarms.single().lastFiredAt)
+        assertNull(otherWay.alarms.single().snoozeUntil)
     }
 
     @Test

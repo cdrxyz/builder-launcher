@@ -241,6 +241,27 @@ object Clock {
         return alarm.copy(enabled = true, snoozeUntil = now + SNOOZE_MS)
     }
 
+    fun acknowledge(alarm: ClockAlarm, now: Long): ClockAlarm {
+        val last = alarm.lastFiredAt
+        return alarm.copy(
+            snoozeUntil = null,
+            lastFiredAt = if (last == null || now > last) now else last,
+        )
+    }
+
+    fun occurrenceHandled(
+        alarm: ClockAlarm,
+        now: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Boolean {
+        if (!alarm.enabled) return true
+        val snooze = alarm.snoozeUntil
+        if (snooze != null && snooze <= now) return false
+        val prev = previousTrigger(alarm.hour, alarm.minute, now, alarm.days, zone) ?: return true
+        val last = alarm.lastFiredAt ?: return false
+        return last >= prev
+    }
+
     fun nextFireAt(
         alarm: ClockAlarm,
         now: Long,

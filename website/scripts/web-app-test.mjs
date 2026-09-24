@@ -355,6 +355,18 @@ test('mergeDocs drops an alarm deleted on either side', async () => {
 	}
 });
 
+test('mergeDocs keeps a dismissed alarm from ringing again', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const fired = { id: 'a1', hour: 7, minute: 30, lastFiredAt: 2000 };
+	const stale = { id: 'a1', hour: 7, minute: 30, snoozeUntil: 500 };
+	const phone = { exportedAt: 20, alarms: [fired] };
+	const cloud = { exportedAt: 30, alarms: [stale] };
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.equal(merged.alarms[0].lastFiredAt, 2000);
+		assert.equal(merged.alarms[0].snoozeUntil ?? null, null);
+	}
+});
+
 test('first join keeps local-only data when remote is empty', async () => {
 	const { joinDocs, emptyDoc } = await import('../public/web/merge.js');
 	const local = {

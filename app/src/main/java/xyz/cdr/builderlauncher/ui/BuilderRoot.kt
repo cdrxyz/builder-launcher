@@ -3240,6 +3240,10 @@ fun BuilderRoot(
                     ClockScheduler.sync(ctx, clock.snapshot())
                 },
                 onDismiss = {
+                    val alarm = clock.snapshot().alarms.find { it.id == alert.alarmId }
+                    if (alarm != null) {
+                        clock.replaceAlarm(Clock.acknowledge(alarm, System.currentTimeMillis()))
+                    }
                     clearClockAlert()
                     ClockScheduler.sync(ctx, clock.snapshot())
                 },

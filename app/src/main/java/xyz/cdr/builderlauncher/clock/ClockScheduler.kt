@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import xyz.cdr.builderlauncher.MainActivity
 
@@ -41,14 +42,13 @@ object ClockScheduler {
             if (ends != null && ends > now) scheduleAlarm(app, am, timerRequest(app), ends)
         }
         snapshot.deletedAlarmIds.forEach { id ->
-            am.cancel(alarmRequest(app, id))
+            cancelAlarm(app, am, id)
         }
         val dropped = snapshot.deletedAlarmIds.toSet()
         snapshot.alarms.forEach { alarm ->
-            val req = alarmRequest(app, alarm.id)
-            am.cancel(req)
+            cancelAlarm(app, am, alarm.id)
             if (alarm.enabled && alarm.id !in dropped) {
-                scheduleAlarm(app, am, req, Clock.nextFireAt(alarm, now))
+                scheduleAlarm(app, am, alarmRequest(app, alarm.id), Clock.nextFireAt(alarm, now))
             }
         }
     }
@@ -92,14 +92,31 @@ object ClockScheduler {
         )
     }
 
+    private fun cancelAlarm(context: Context, am: AlarmManager, id: String) {
+        am.cancel(alarmRequest(context, id))
+        am.cancel(legacyAlarmRequest(context, id))
+    }
+
     private fun alarmRequest(context: Context, id: String): PendingIntent {
         val intent = Intent(context, ClockReceiver::class.java)
             .setAction(ACTION_ALARM)
+            .setData(Uri.parse("xyz.cdr.builderlauncher://alarm/$id"))
             .putExtra(EXTRA_ALARM_ID, id)
-        val code = 1000 + (id.hashCode() and 0x0fff)
         return PendingIntent.getBroadcast(
             context,
-            code,
+            id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun legacyAlarmRequest(context: Context, id: String): PendingIntent {
+        val intent = Intent(context, ClockReceiver::class.java)
+            .setAction(ACTION_ALARM)
+            .putExtra(EXTRA_ALARM_ID, id)
+        return PendingIntent.getBroadcast(
+            context,
+            1000 + (id.hashCode() and 0x0fff),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

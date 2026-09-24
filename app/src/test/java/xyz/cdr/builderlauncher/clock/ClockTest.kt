@@ -233,6 +233,24 @@ class ClockTest {
     }
 
     @Test
+    fun dismissMarksThisOccurrenceSoCatchUpDoesNotReplayIt() {
+        val zone = ZoneId.of("America/Toronto")
+        val slot = ZonedDateTime.of(2026, 9, 10, 7, 0, 0, 0, zone)
+        val late = slot.plusMinutes(20).toInstant().toEpochMilli()
+        val alarm = ClockAlarm(id = "thu", hour = 7, minute = 0, days = setOf(4))
+        assertTrue(Clock.catchUpDue(alarm, late, zone))
+        val dismissed = Clock.acknowledge(alarm, late)
+        assertEquals(late, dismissed.lastFiredAt)
+        assertNull(dismissed.snoozeUntil)
+        assertFalse(Clock.catchUpDue(dismissed, late, zone))
+        assertTrue(Clock.occurrenceHandled(dismissed, late, zone))
+        assertFalse(Clock.occurrenceHandled(alarm, late, zone))
+        val snoozed = Clock.snooze(dismissed, late)
+        assertFalse(Clock.occurrenceHandled(snoozed, late + Clock.SNOOZE_MS, zone))
+        assertTrue(Clock.occurrenceHandled(Clock.acknowledge(snoozed, late + Clock.SNOOZE_MS), late + Clock.SNOOZE_MS, zone))
+    }
+
+    @Test
     fun clockSoundLabelsAndDefault() {
         assertEquals(listOf("pulse", "chime", "bell", "orthodox", "hum", "off"), ClockSound.entries.map { it.label })
         assertEquals(ClockSound.PULSE, ClockSound.parse(null))
