@@ -19,10 +19,11 @@ class ClockReceiver : BroadcastReceiver() {
                 ClockScheduler.sync(context, store.snapshot())
             }
             ClockScheduler.ACTION_ALARM -> {
+                val now = System.currentTimeMillis()
                 val id = intent.getStringExtra(ClockScheduler.EXTRA_ALARM_ID)
                 val alarm = store.snapshot().alarms.find { it.id == id }
-                if (alarm != null) {
-                    val fired = Clock.fireAlarm(alarm, System.currentTimeMillis())
+                if (alarm != null && !Clock.occurrenceHandled(alarm, now)) {
+                    val fired = Clock.fireAlarm(alarm, now)
                     store.replaceAlarm(fired.alarm)
                     store.setAlert(fired.alert)
                 }

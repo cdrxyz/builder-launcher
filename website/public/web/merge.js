@@ -43,6 +43,32 @@ function mergeItemList(a, b) {
 	return out;
 }
 
+function mergeAlarm(x, y) {
+	const last = Math.max(x.lastFiredAt || 0, y.lastFiredAt || 0);
+	const snooze = Math.max(x.snoozeUntil || 0, y.snoozeUntil || 0);
+	const base = stamp(x) >= stamp(y) ? x : y;
+	return {
+		...base,
+		lastFiredAt: last || null,
+		snoozeUntil: snooze > last ? snooze : null,
+	};
+}
+
+function mergeAlarms(a, b) {
+	const left = byId(a);
+	const right = byId(b);
+	const ids = new Set([...left.keys(), ...right.keys()]);
+	const out = [];
+	for (const id of ids) {
+		const x = left.get(id);
+		const y = right.get(id);
+		if (!x) out.push(y);
+		else if (!y) out.push(x);
+		else out.push(mergeAlarm(x, y));
+	}
+	return out;
+}
+
 function mergeById(a, b) {
 	const left = byId(a);
 	const right = byId(b);
@@ -216,7 +242,7 @@ export function mergeDocs(a, b) {
 		pins: unique([...(a.pins || []), ...(b.pins || [])]),
 		watchlist: mergeWatch(a.watchlist, b.watchlist, preferA),
 		podcasts: mergePods(a.podcasts, b.podcasts),
-		alarms: mergeById(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
+		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
 		settings: newer.settings || older.settings,
 		deletedAlarmIds,

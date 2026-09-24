@@ -122,8 +122,20 @@ object BackupMerge {
 
     private fun mergeAlarms(a: List<ClockAlarm>, b: List<ClockAlarm>): List<ClockAlarm> {
         val map = LinkedHashMap<String, ClockAlarm>()
-        (a + b).forEach { item -> map[item.id] = item }
+        (a + b).forEach { item ->
+            val prev = map[item.id]
+            map[item.id] = if (prev == null) item else mergeAlarm(prev, item)
+        }
         return map.values.toList()
+    }
+
+    private fun mergeAlarm(a: ClockAlarm, b: ClockAlarm): ClockAlarm {
+        val last = maxOf(a.lastFiredAt ?: 0L, b.lastFiredAt ?: 0L).takeIf { it > 0L }
+        val snooze = maxOf(a.snoozeUntil ?: 0L, b.snoozeUntil ?: 0L).takeIf { it > 0L }
+        return b.copy(
+            lastFiredAt = last,
+            snoozeUntil = snooze?.takeIf { last == null || it > last },
+        )
     }
 
     private fun mergeZones(a: List<WorldClock>, b: List<WorldClock>): List<WorldClock> {

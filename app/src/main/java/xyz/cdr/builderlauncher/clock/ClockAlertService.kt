@@ -22,7 +22,9 @@ class ClockAlertService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP, ACTION_DISMISS -> {
+                acknowledgeShowingAlarm()
                 finishAlert()
+                ClockScheduler.sync(this, ClockStore.get(this).snapshot())
                 return START_NOT_STICKY
             }
             ACTION_RUN_AGAIN -> {
@@ -73,6 +75,14 @@ class ClockAlertService : Service() {
     override fun onDestroy() {
         ClockSoundPlayer.stop()
         super.onDestroy()
+    }
+
+    private fun acknowledgeShowingAlarm() {
+        val store = ClockStore.get(this)
+        val alert = store.snapshot().alert ?: return
+        if (alert.kind != ClockAlertKind.ALARM) return
+        val alarm = store.snapshot().alarms.find { it.id == alert.alarmId } ?: return
+        store.replaceAlarm(Clock.acknowledge(alarm, System.currentTimeMillis()))
     }
 
     private fun finishAlert() {
