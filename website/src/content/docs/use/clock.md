@@ -30,7 +30,7 @@ Alarms and the running timer play a real Android ringtone on the alarm stream, e
 | When | Prompt |
 | --- | --- |
 | Timer | `stop` or `run again` (same duration). |
-| Alarm | `dismiss` on the left stops it. `snooze 8 min` on the right rings again in 8 minutes. |
+| Alarm | `dismiss` on the left stops it. `snooze 8 min` on the right rings again in 8 minutes. Both sit above the software keyboard. |
 
 If the phone is locked or the screen is off, that same full-screen alert opens over the lock. Dismiss or snooze returns to the lock screen. Unlocked home still covers the command bar with the same screen. If it only shows as a notification, allow full-screen notifications for Builder Launcher in Android settings.
 
