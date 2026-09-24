@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
@@ -573,6 +574,28 @@ class BackupMergeTest {
         )
         val joined = BackupMerge.join(local, remote)
         assertEquals(html, joined.podcasts.episodes.single().description)
+    }
+
+    @Test
+    fun mergeDropsAnAlarmDeletedOnEitherSide() {
+        val gone = ClockAlarm(id = "a-gone", hour = 7, minute = 30, label = "up")
+        val keep = ClockAlarm(id = "a-keep", hour = 8, minute = 0, label = "keep")
+        val phone = BackupDocument(
+            exportedAt = 20,
+            alarms = listOf(keep),
+            deletedAlarmIds = listOf(gone.id),
+        )
+        val cloud = BackupDocument(
+            exportedAt = 10,
+            alarms = listOf(gone, keep),
+        )
+        val merged = BackupMerge.merge(phone, cloud)
+        assertEquals(listOf(keep.id), merged.alarms.map { it.id })
+        assertTrue(merged.deletedAlarmIds.contains(gone.id))
+
+        val otherWay = BackupMerge.merge(cloud, phone)
+        assertEquals(listOf(keep.id), otherWay.alarms.map { it.id })
+        assertTrue(otherWay.deletedAlarmIds.contains(gone.id))
     }
 
     @Test

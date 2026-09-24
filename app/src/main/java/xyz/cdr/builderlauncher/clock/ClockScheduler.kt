@@ -40,10 +40,14 @@ object ClockScheduler {
             val ends = snapshot.timer.endsAt
             if (ends != null && ends > now) scheduleAlarm(app, am, timerRequest(app), ends)
         }
+        snapshot.deletedAlarmIds.forEach { id ->
+            am.cancel(alarmRequest(app, id))
+        }
+        val dropped = snapshot.deletedAlarmIds.toSet()
         snapshot.alarms.forEach { alarm ->
             val req = alarmRequest(app, alarm.id)
             am.cancel(req)
-            if (alarm.enabled) {
+            if (alarm.enabled && alarm.id !in dropped) {
                 scheduleAlarm(app, am, req, Clock.nextFireAt(alarm, now))
             }
         }

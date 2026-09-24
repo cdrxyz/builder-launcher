@@ -21,6 +21,8 @@ object BackupMerge {
         val newer = if (preferA) a else b
         val deleted = (a.deletedIds + b.deletedIds).distinct()
         val drop = deleted.toSet()
+        val deletedAlarms = (a.deletedAlarmIds + b.deletedAlarmIds).distinct()
+        val dropAlarms = deletedAlarms.toSet()
         return BackupDocument(
             version = maxOf(a.version, b.version),
             exportedAt = maxOf(a.exportedAt, b.exportedAt),
@@ -34,9 +36,10 @@ object BackupMerge {
             pins = (a.pins + b.pins).distinct(),
             watchlist = mergeWatch(a.watchlist, b.watchlist, preferA),
             podcasts = mergePods(a.podcasts, b.podcasts),
-            alarms = mergeAlarms(a.alarms, b.alarms),
+            alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
             zones = mergeZones(a.zones, b.zones),
             settings = newer.settings,
+            deletedAlarmIds = deletedAlarms,
         )
     }
 

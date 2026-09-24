@@ -203,6 +203,8 @@ export function mergeDocs(a, b) {
 	const deleted = new Set(deletedIds.map(String));
 	const mergedItems = mergeItemList(a.items, b.items).filter((item) => !deleted.has(String(item.id)));
 	const items = alignOpenOrder(a.items, b.items, mergedItems);
+	const deletedAlarmIds = unique([...(a.deletedAlarmIds || []), ...(b.deletedAlarmIds || [])]);
+	const dropAlarms = new Set(deletedAlarmIds.map(String));
 	return {
 		...older,
 		...newer,
@@ -214,9 +216,10 @@ export function mergeDocs(a, b) {
 		pins: unique([...(a.pins || []), ...(b.pins || [])]),
 		watchlist: mergeWatch(a.watchlist, b.watchlist, preferA),
 		podcasts: mergePods(a.podcasts, b.podcasts),
-		alarms: mergeById(a.alarms, b.alarms),
+		alarms: mergeById(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
 		settings: newer.settings || older.settings,
+		deletedAlarmIds,
 	};
 }
 

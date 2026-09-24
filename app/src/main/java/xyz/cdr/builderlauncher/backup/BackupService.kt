@@ -60,9 +60,10 @@ class BackupService(
             pins = pins.packages.value,
             watchlist = stocks.watch.value,
             podcasts = podcasts.exportBackup(),
-            alarms = snap.alarms,
+            alarms = snap.alarms.filterNot { it.id in snap.deletedAlarmIds.toSet() },
             zones = snap.zones,
             settings = BackupSettings.from(current, includeApiKey = current.backupIncludeAiCredentials),
+            deletedAlarmIds = snap.deletedAlarmIds,
         )
     }
 
@@ -142,12 +143,14 @@ class BackupService(
             pins.replaceAll(doc.pins)
             stocks.replaceAll(doc.watchlist)
             podcasts.importBackup(doc.podcasts)
+            val drop = doc.deletedAlarmIds.toSet()
             clock.replaceFromBackup(
                 ClockSnapshot(
                     timer = TimerState(),
-                    alarms = doc.alarms,
+                    alarms = doc.alarms.filterNot { it.id in drop },
                     zones = doc.zones,
                     alert = null,
+                    deletedAlarmIds = doc.deletedAlarmIds,
                 ),
             )
             ClockScheduler.reconcile(context, clock)

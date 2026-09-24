@@ -491,4 +491,5 @@ data class ClockSnapshot(
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
     val alert: ClockAlert? = null,
+    val deletedAlarmIds: List<String> = emptyList(),
 )

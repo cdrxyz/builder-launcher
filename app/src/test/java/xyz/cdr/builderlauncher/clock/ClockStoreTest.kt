@@ -63,6 +63,26 @@ class ClockStoreTest {
     }
 
     @Test
+    fun removeAlarmStaysGoneAfterRelaunch() {
+        val (file, _) = store()
+        file.writeText(
+            """
+            {
+              "alarms": [
+                { "id": "a-gone", "hour": 7, "minute": 30, "label": "up" },
+                { "id": "a-keep", "hour": 8, "minute": 0, "label": "keep" }
+              ]
+            }
+            """.trimIndent(),
+        )
+        val first = ClockStore(file)
+        first.removeAlarm("a-gone")
+        val again = ClockStore(file)
+        assertEquals(listOf("a-keep"), again.snapshot().alarms.map { it.id })
+        assertTrue(again.snapshot().deletedAlarmIds.contains("a-gone"))
+    }
+
+    @Test
     fun unknownJsonKeysAreIgnored() {
         val (file, _) = store()
         file.writeText(

@@ -342,6 +342,19 @@ test('mergeDocs unions items and honors deletedIds', async () => {
 	assert.equal(merged.items.some((i) => i.id === '9'), false);
 });
 
+test('mergeDocs drops an alarm deleted on either side', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const gone = { id: 'a-gone', hour: 7, minute: 30 };
+	const keep = { id: 'a-keep', hour: 8, minute: 0 };
+	const phone = { exportedAt: 20, alarms: [keep], deletedAlarmIds: ['a-gone'] };
+	const cloud = { exportedAt: 10, alarms: [gone, keep] };
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.equal(merged.alarms.some((alarm) => alarm.id === 'a-gone'), false);
+		assert.equal(merged.alarms.some((alarm) => alarm.id === 'a-keep'), true);
+		assert.equal(merged.deletedAlarmIds.includes('a-gone'), true);
+	}
+});
+
 test('first join keeps local-only data when remote is empty', async () => {
 	const { joinDocs, emptyDoc } = await import('../public/web/merge.js');
 	const local = {
