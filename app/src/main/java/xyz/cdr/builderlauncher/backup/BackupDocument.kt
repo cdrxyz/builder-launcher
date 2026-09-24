@@ -34,6 +34,7 @@ data class BackupDocument(
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
+    val deletedAlarmIds: List<String> = emptyList(),
 ) {
     fun slimForAccount(): BackupDocument = copy(
         watchlist = watchlist.map { item ->

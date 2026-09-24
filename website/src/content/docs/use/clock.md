@@ -12,7 +12,7 @@ Three tabs:
 | Tab | What it does |
 | --- | --- |
 | Timer | Presets 1 / 5 / 10 / 15 / 25 / 30 minutes. Start, pause, reset. Type `5`, `8 minutes`, or `Pasta 8 minutes` in the bar. |
-| Alarm | Type `7:30am` or `Take out garbage Wednesdays 10:30pm`. Labels and weekdays stick on the row. Tap a row to enable or disable. Delete on the right. |
+| Alarm | Type `7:30am` or `Take out garbage Wednesdays 10:30pm`. Labels and weekdays stick on the row. Tap a row to enable or disable. Delete on the right removes it, including from a signed-in account. |
 | Time Zones | Type a city, pick a match. Shows local time and offset from here. Hold and drag a row across the list to reorder. Delete on the right. |
 
 ![Labeled recurring alarm](../../../assets/screenshots/clock-alarm.png)

@@ -50,7 +50,13 @@ class ClockStore internal constructor(private val file: File) {
     }
 
     fun removeAlarm(id: String) {
-        persist(_state.value.copy(alarms = _state.value.alarms.filterNot { it.id == id }))
+        val current = _state.value
+        persist(
+            current.copy(
+                alarms = current.alarms.filterNot { it.id == id },
+                deletedAlarmIds = (current.deletedAlarmIds + id).distinct(),
+            ),
+        )
     }
 
     fun addZone(label: String, zoneId: String): WorldClock? {
