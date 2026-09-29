@@ -40,6 +40,20 @@ class CommandParserTest {
     }
 
     @Test
+    fun eventWeekdayAndDates() {
+        val friday = CommandParser.parse("*dentist friday 9a") as Command.Event
+        assertEquals("dentist", friday.title)
+        assertEquals("friday 9a", friday.whenText)
+        val slash = CommandParser.parse("*standup 9/28 9:30") as Command.Event
+        assertEquals("standup", slash.title)
+        assertTrue(slash.whenText.contains("9/28"))
+        val iso = CommandParser.parse("*ship 2026-10-01") as Command.Event
+        assertEquals("ship", iso.title)
+        assertEquals("2026-10-01", iso.whenText)
+        assertEquals(Command.Event("friday meeting", ""), CommandParser.parse("*friday meeting"))
+    }
+
+    @Test
     fun todo() {
         assertEquals(Command.Todo("buy milk"), CommandParser.parse("-buy milk"))
     }

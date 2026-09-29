@@ -25,10 +25,13 @@ Examples:
 | You type | Result |
 | --- | --- |
 | `*dentist mar 24 9a` | Event titled dentist, start parsed as 24 Mar 9:00 |
+| `*dentist friday 9a` | Next Friday at 9:00. `next monday` on a Monday skips a week |
+| `*standup 9/28 9:30` | 28 Sep at 9:30. Month/day, not day/month |
+| `*ship 2026-10-01` | 1 Oct 2026 at 9:00. An explicit year stays put |
 | `*standup tomorrow 9:30` | Tomorrow at 9:30 |
 | `*ship tonight` | Tonight (default 20:00 if no clock) |
 | `*idea dump` | Title only; calendar app opens without a start time |
 
-Recognized when-text: month + day (`mar 24`), `today` / `tomorrow` / `tonight`, and clocks like `9a`, `9am`, `9:30`, `21:00`. A past month/day rolls to next year. A clock-only time that already passed today rolls to tomorrow.
+Recognized when-text: month + day (`mar 24`, `mar 24 2027`), numeric month/day (`9/28`, `9/28/26`), ISO dates (`2026-09-28`), weekdays (`friday`, `mon`, `this fri`, `next monday`), `today` / `tomorrow` / `tonight`, and clocks like `9a`, `9am`, `9:30`, `21:00`. A range (`9a-10:30`) sets the end. Otherwise the event is one hour. A past month/day or numeric date with no year rolls to next year. A weekday uses the next matching day, or a week later if that clock already passed today. `next monday` on a Monday skips to the following Monday. A clock-only time that already passed today rolls to tomorrow.
 
-The system calendar app receives `ACTION_INSERT`. If none is installed you get "No calendar app".
+The system calendar app receives `ACTION_INSERT` with the start and end. If none is installed you get "No calendar app".
