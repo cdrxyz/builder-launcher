@@ -1,5 +1,5 @@
 export const SYSTEM =
-	"You are a concise assistant on a builder's phone. Prefer short answers they can act on. Use markdown when it helps: headings, lists, tables, and fenced code. Skip preamble.";
+	"You are a concise assistant on a builder's phone. Prefer short answers they can act on. Use markdown when it helps: headings, lists, tables, and fenced code. Skip preamble. You can search the web, open a public page, and calculate. Use those for current facts and arithmetic. Do not invent sources.";
 
 export const AI_TIMEOUT_MS = 45_000;
 export const OAUTH_SKEW_MS = 120_000;
@@ -330,6 +330,7 @@ export function planUpstream(body) {
 	if (webUrl && !isPublicHttps(webUrl)) return { error: 'The web app can only reach a public HTTPS host. A LAN box stays on the phone.' };
 	if (apiBase && !isPublicHttps(apiBase)) return { error: 'The web app can only reach a public HTTPS host. A LAN box stays on the phone.' };
 	return {
+		provider,
 		kind: platform.kind,
 		url: base,
 		model: String(body?.model || platform.model).slice(0, 120),
@@ -350,4 +351,370 @@ export function upsertThread(threads, thread) {
 
 export function dropThread(threads, id) {
 	return (threads || []).filter((row) => String(row?.id) !== String(id));
+}
+
+const STORE_FALSE = new Set(['OPENAI', 'GENERIC', 'GEMINI', 'GROQ', 'XAI', 'DEEPSEEK', 'MISTRAL']);
+
+const TOOL_DEFS = [
+	{
+		name: 'web_search',
+		description: 'Search the public web. Use for current facts, news, and anything you are not sure of.',
+		schema: {
+			type: 'object',
+			properties: { query: { type: 'string', description: 'Search query' } },
+			required: ['query'],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: 'web_fetch',
+		description: 'Read the text of one public HTTPS page.',
+		schema: {
+			type: 'object',
+			properties: { url: { type: 'string', description: 'https URL' } },
+			required: ['url'],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: 'calculate',
+		description: 'Evaluate an arithmetic expression. No variables.',
+		schema: {
+			type: 'object',
+			properties: { expression: { type: 'string', description: 'Arithmetic expression' } },
+			required: ['expression'],
+			additionalProperties: false,
+		},
+	},
+];
+
+export function privacyExtra(provider) {
+	const id = String(provider || '').toUpperCase();
+	if (id === 'OPENROUTER') return { provider: { zdr: true, data_collection: 'deny' } };
+	if (STORE_FALSE.has(id)) return { store: false };
+	return {};
+}
+
+export function openaiTools() {
+	return TOOL_DEFS.map((tool) => ({
+		type: 'function',
+		function: { name: tool.name, description: tool.description, parameters: tool.schema },
+	}));
+}
+
+export function anthropicTools() {
+	return TOOL_DEFS.map((tool) => ({
+		name: tool.name,
+		description: tool.description,
+		input_schema: tool.schema,
+	}));
+}
+
+export function parseModelTurn(raw, kind) {
+	let root;
+	try {
+		root = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (kind === 'anthropic') {
+		const blocks = Array.isArray(root?.content) ? root.content : [];
+		const text = blocks
+			.filter((block) => block?.type === 'text' && typeof block.text === 'string')
+			.map((block) => block.text)
+			.join('');
+		const calls = blocks
+			.filter((block) => block?.type === 'tool_use' && block.name)
+			.map((block, index) => ({
+				id: String(block.id || `toolu_${index}`),
+				name: String(block.name),
+				arguments: JSON.stringify(block.input && typeof block.input === 'object' ? block.input : {}),
+			}));
+		if (!text && !calls.length) return null;
+		return { text, calls, blocks };
+	}
+	const message = root?.choices?.[0]?.message;
+	if (!message) return null;
+	const text = typeof message.content === 'string' ? message.content : '';
+	const calls = (Array.isArray(message.tool_calls) ? message.tool_calls : [])
+		.filter((call) => call?.function?.name)
+		.map((call, index) => ({
+			id: String(call.id || `call_${index}`),
+			name: String(call.function.name),
+			arguments:
+				typeof call.function.arguments === 'string'
+					? call.function.arguments
+					: JSON.stringify(call.function.arguments || {}),
+		}));
+	if (!text && !calls.length) return null;
+	return { text, calls, blocks: [] };
+}
+
+export function continueOpenAi(messages, turn, results) {
+	const calls = (turn?.calls || []).map((call) => ({
+		id: call.id,
+		type: 'function',
+		function: { name: call.name, arguments: call.arguments || '{}' },
+	}));
+	const assistant = { role: 'assistant', content: turn?.text || null, tool_calls: calls };
+	const rows = (results || []).map((row) => ({
+		role: 'tool',
+		tool_call_id: row.id,
+		content: String(row.content || '').slice(0, 6000),
+	}));
+	return [...(messages || []), assistant, ...rows];
+}
+
+export function continueAnthropic(messages, turn, results) {
+	const blocks =
+		Array.isArray(turn?.blocks) && turn.blocks.length
+			? turn.blocks
+			: [
+					...(turn?.text ? [{ type: 'text', text: turn.text }] : []),
+					...(turn?.calls || []).map((call) => ({
+						type: 'tool_use',
+						id: call.id,
+						name: call.name,
+						input: jsonObject(call.arguments),
+					})),
+				];
+	return [
+		...(messages || []),
+		{ role: 'assistant', content: blocks },
+		{
+			role: 'user',
+			content: (results || []).map((row) => ({
+				type: 'tool_result',
+				tool_use_id: row.id,
+				content: String(row.content || '').slice(0, 6000),
+			})),
+		},
+	];
+}
+
+function jsonObject(raw) {
+	try {
+		const value = JSON.parse(raw || '{}');
+		return value && typeof value === 'object' ? value : {};
+	} catch {
+		return {};
+	}
+}
+
+export function droppedFields(errorText) {
+	const lower = String(errorText || '').toLowerCase();
+	const unknown = /unknown|unrecognized|unexpected|not supported|not a valid|invalid parameter|extra field|additional propert/.test(lower);
+	if (!unknown) return { privacy: false, tools: false };
+	return {
+		privacy: /store|data_collection|\bzdr\b|provider/.test(lower),
+		tools: /tool/.test(lower),
+	};
+}
+
+export function publicPageUrl(raw) {
+	const value = String(raw || '').trim();
+	if (!isPublicHttps(value)) return '';
+	try {
+		const url = new URL(value);
+		url.hash = '';
+		return url.toString();
+	} catch {
+		return '';
+	}
+}
+
+function unwrapDdg(href) {
+	const decoded = String(href || '').replace(/&amp;/g, '&');
+	try {
+		const url = new URL(decoded, 'https://duckduckgo.com');
+		const uddg = url.searchParams.get('uddg');
+		if (uddg) return uddg;
+		if (url.protocol === 'https:' && !url.hostname.endsWith('duckduckgo.com')) return url.toString();
+	} catch {
+		return '';
+	}
+	return '';
+}
+
+function decodeEntities(text) {
+	return String(text || '')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&amp;/g, '&')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;|&apos;/g, "'")
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&nbsp;/g, ' ')
+		.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+export function parseDuckDuckGo(html) {
+	const raw = String(html || '');
+	const hits = [];
+	const re = /<a\b([^>]*class="[^"]*(?:result__a|result-link)[^"]*"[^>]*)>([\s\S]*?)<\/a>/gi;
+	let match;
+	while ((match = re.exec(raw)) && hits.length < 5) {
+		const href = /href="([^"]+)"/i.exec(match[1])?.[1] || '';
+		const url = publicPageUrl(unwrapDdg(href));
+		if (!url) continue;
+		const after = raw.slice(match.index + match[0].length, match.index + match[0].length + 800);
+		const snippet = /<(?:a|td)\b[^>]*class="[^"]*result[_-]snippet[^"]*"[^>]*>([\s\S]*?)<\/(?:a|td)>/i.exec(after);
+		hits.push({
+			title: decodeEntities(match[2]).slice(0, 160) || url,
+			url,
+			snippet: snippet ? decodeEntities(snippet[1]).slice(0, 240) : '',
+		});
+	}
+	return hits;
+}
+
+export function formatHits(hits) {
+	if (!hits?.length) return 'No results.';
+	return hits
+		.map((hit, index) => {
+			const lines = [`${index + 1}. ${hit.title}`, `   ${hit.url}`];
+			if (hit.snippet) lines.push(`   ${hit.snippet}`);
+			return lines.join('\n');
+		})
+		.join('\n');
+}
+
+export function stripHtml(html) {
+	return String(html || '')
+		.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+		.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&amp;/g, '&')
+		.replace(/&nbsp;/g, ' ')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;|&apos;/g, "'")
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+export function calculate(raw) {
+	const expr = String(raw || '').trim();
+	if (!expr || expr.length > 200 || !/^[\d\s.+\-*/%()a-z,]+$/i.test(expr)) return 'Could not calculate.';
+	try {
+		const parser = new Calc(expr);
+		const value = parser.parse();
+		if (!parser.done() || !Number.isFinite(value)) return 'Could not calculate.';
+		if (Number.isInteger(value) && Math.abs(value) < 1e15) return String(value);
+		return String(Math.round(value * 1e10) / 1e10);
+	} catch {
+		return 'Could not calculate.';
+	}
+}
+
+class Calc {
+	constructor(src) {
+		this.src = src;
+		this.i = 0;
+	}
+
+	done() {
+		this.skip();
+		return this.i >= this.src.length;
+	}
+
+	skip() {
+		while (this.src[this.i] === ' ') this.i += 1;
+	}
+
+	parse() {
+		const value = this.expr();
+		this.skip();
+		return value;
+	}
+
+	expr() {
+		let value = this.term();
+		for (;;) {
+			this.skip();
+			const op = this.src[this.i];
+			if (op !== '+' && op !== '-') break;
+			this.i += 1;
+			const right = this.term();
+			value = op === '+' ? value + right : value - right;
+		}
+		return value;
+	}
+
+	term() {
+		let value = this.unary();
+		for (;;) {
+			this.skip();
+			const op = this.src[this.i];
+			if (op !== '*' && op !== '/' && op !== '%') break;
+			this.i += 1;
+			const right = this.unary();
+			if ((op === '/' || op === '%') && right === 0) throw new Error('div0');
+			value = op === '*' ? value * right : op === '/' ? value / right : value % right;
+		}
+		return value;
+	}
+
+	unary() {
+		this.skip();
+		if (this.src[this.i] === '+') {
+			this.i += 1;
+			return this.unary();
+		}
+		if (this.src[this.i] === '-') {
+			this.i += 1;
+			return -this.unary();
+		}
+		return this.primary();
+	}
+
+	primary() {
+		this.skip();
+		if (this.src[this.i] === '(') {
+			this.i += 1;
+			const value = this.expr();
+			this.skip();
+			if (this.src[this.i] !== ')') throw new Error('paren');
+			this.i += 1;
+			return value;
+		}
+		if (/[a-z]/i.test(this.src[this.i] || '')) return this.call();
+		return this.number();
+	}
+
+	call() {
+		const start = this.i;
+		while (/[a-z]/i.test(this.src[this.i] || '')) this.i += 1;
+		const name = this.src.slice(start, this.i).toLowerCase();
+		this.skip();
+		if (this.src[this.i] !== '(') throw new Error('call');
+		this.i += 1;
+		const arg = this.expr();
+		this.skip();
+		if (this.src[this.i] !== ')') throw new Error('call');
+		this.i += 1;
+		if (name === 'sqrt') {
+			if (arg < 0) throw new Error('sqrt');
+			return Math.sqrt(arg);
+		}
+		if (name === 'abs') return Math.abs(arg);
+		throw new Error('fn');
+	}
+
+	number() {
+		const start = this.i;
+		if (this.src[this.i] === '.') this.i += 1;
+		while (/[0-9]/.test(this.src[this.i] || '')) this.i += 1;
+		if (this.src[this.i] === '.') {
+			this.i += 1;
+			while (/[0-9]/.test(this.src[this.i] || '')) this.i += 1;
+		}
+		if (this.i === start) throw new Error('num');
+		const value = Number(this.src.slice(start, this.i));
+		if (!Number.isFinite(value)) throw new Error('num');
+		return value;
+	}
 }
