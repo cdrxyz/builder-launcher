@@ -32,7 +32,7 @@ Empty list: `Type a show name, RSS URL, or paste Overcast OPML.`
 
 ## Show
 
-Open a subscription. Episode titles are shown in full. Length (or resume position) sits under the title on the left; the publish date sits on the right. Skipped and played episodes are grey. Tap a skipped title to restore it. Tap a played title to open it again. The download icon sits beside × — outline if not downloaded, filled if it is. Tap several episodes to queue downloads. Each shows 0% until that file starts, then percent while it fetches. One file downloads at a time. × skips or restores. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show and also sets which episode plays next when the current one finishes. Unsubscribe from the podcasts list.
+Open a subscription. The show title scrolls with the episode list — it is not pinned — so a long name does not cover the list on a short screen or with the keyboard up. Episode titles are shown in full. Length (or resume position) sits under the title on the left; the publish date sits on the right. Skipped and played episodes are grey. Tap a skipped title to restore it. Tap a played title to open it again. The download icon sits beside × — outline if not downloaded, filled if it is. Tap several episodes to queue downloads. Each shows 0% until that file starts, then percent while it fetches. One file downloads at a time. × skips or restores. Episodes default to **newest first**. Switch to **oldest first** on that show if you want to listen from the beginning. The choice is saved per show and also sets which episode plays next when the current one finishes. Unsubscribe from the podcasts list.
 
 ![Oldest first on a show](../../../assets/screenshots/podcast-show.png)
 
@@ -40,7 +40,7 @@ Open a subscription. Episode titles are shown in full. Length (or resume positio
 
 ![Play, position, and download](../../../assets/screenshots/podcast-episode.png)
 
-- Play/pause icons stream the enclosure, or the downloaded file when it exists.
+- Play/pause icons stream the enclosure, or the downloaded file when it exists. The show name and episode title scroll with the player and show notes. They are not pinned, so a long title can move off a short screen or when the keyboard is up.
 - A download icon sits at the top right. Outline if not downloaded, filled if it is. Percent shows 0% as soon as the episode is queued, then the fetch percent. Queued files wait until the active download finishes. Finished episodes delete their download.
 - Drag the progress bar. It sits inset from the screen edges so a side back gesture is not triggered. **−15** / **+15** skip 15 seconds. The [web app](../../configure/web/) uses the same layout.
 - Speed sits to the right of `12:00 of 1:02:03`. Tap it for 0.8×, 1×, 1.1×, 1.2×, 1.4×, 1.6×, 1.8×, 2×, 2.5×, 3×. That choice is the default for every show.

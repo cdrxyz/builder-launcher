@@ -1044,18 +1044,18 @@ fun PodcastShowChrome(
     ) {
         Text(Podcasts.BACK, color = Accent, modifier = Modifier.padding(vertical = 6.dp))
         Spacer(Modifier.height(8.dp))
-        Text(show, color = Paper, style = MaterialTheme.typography.headlineLarge)
-        if (author.isNotBlank()) {
-            Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        }
-        Spacer(Modifier.height(12.dp))
-        Text("Episodes", color = Dim, style = MaterialTheme.typography.labelSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            listOf("newest first", "oldest first").forEach { label ->
-                Text(label, color = if (label == order) Accent else Dim)
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Text(show, color = Paper, style = MaterialTheme.typography.headlineLarge)
+            if (author.isNotBlank()) {
+                Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
             }
-        }
-        Column(modifier = Modifier.weight(1f)) {
+            Spacer(Modifier.height(12.dp))
+            Text("Episodes", color = Dim, style = MaterialTheme.typography.labelSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                listOf("newest first", "oldest first").forEach { label ->
+                    Text(label, color = if (label == order) Accent else Dim)
+                }
+            }
             ThemedList {
                 episodes.forEachIndexed { index, row ->
                     PodcastRowChrome(row, last = index == episodes.lastIndex)
@@ -1102,7 +1102,8 @@ fun PodcastEpisodeChrome(
             }
         }
         Spacer(Modifier.height(8.dp))
-        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Text(show, color = Dim, style = MaterialTheme.typography.bodyMedium)
             Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(12.dp))
@@ -1127,6 +1128,7 @@ fun PodcastEpisodeChrome(
                 Text("Show notes", color = Dim, style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.height(8.dp))
                 PodcastNotesText(notes)
+            }
             }
         }
     }
