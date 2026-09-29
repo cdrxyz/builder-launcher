@@ -8,80 +8,38 @@ import org.junit.Test
 class HubMessagesTest {
     @Test
     fun signalWithoutRemoteInputStillCounts() {
-        assertTrue(
-            HubMessages.isReplyable(
-                packageName = "org.thoughtcrime.securesms",
-                category = null,
-                template = null,
-            ),
-        )
+        assertTrue(HubMessages.isReplyable(packageName = "org.thoughtcrime.securesms"))
     }
 
     @Test
     fun mollyWithoutRemoteInputStillCounts() {
-        assertTrue(
-            HubMessages.isReplyable(
-                packageName = "im.molly.app",
-                category = null,
-                template = null,
-            ),
-        )
+        assertTrue(HubMessages.isReplyable(packageName = "im.molly.app"))
     }
 
     @Test
-    fun categoryMessageCounts() {
-        assertTrue(
-            HubMessages.isReplyable(
-                packageName = "com.example.chat",
-                category = HubMessages.CATEGORY_MESSAGE,
-                template = null,
-            ),
-        )
+    fun messageCategoryDoesNotBypassTheAppList() {
+        assertFalse(HubMessages.isReplyable(packageName = "com.example.chat"))
     }
 
     @Test
-    fun messagingStyleCounts() {
-        assertTrue(
-            HubMessages.isReplyable(
-                packageName = "com.example.other",
-                category = null,
-                template = HubMessages.MESSAGING_STYLE,
-            ),
-        )
+    fun checkedAppCountsEvenWithoutAMessageCategory() {
+        val selection = HubAppSelection(restrict = true, packages = setOf("com.example.chat"))
+        assertTrue(HubMessages.isReplyable(packageName = "com.example.chat", selection = selection))
     }
 
     @Test
     fun calendarDoesNotCount() {
-        assertFalse(
-            HubMessages.isReplyable(
-                packageName = "com.google.android.calendar",
-                category = "event",
-                template = null,
-            ),
-        )
+        assertFalse(HubMessages.isReplyable(packageName = "com.google.android.calendar"))
     }
 
     @Test
     fun unknownAppDoesNotCount() {
-        assertFalse(
-            HubMessages.isReplyable(
-                packageName = "com.example.downloads",
-                category = null,
-                template = null,
-            ),
-        )
+        assertFalse(HubMessages.isReplyable(packageName = "com.example.downloads"))
     }
 
     @Test
     fun ongoingMessengerIsSkipped() {
-        assertFalse(
-            HubMessages.isReplyable(
-                packageName = "org.thoughtcrime.securesms",
-                category = null,
-                template = null,
-                ongoing = true,
-            ),
-        )
+        assertFalse(HubMessages.isReplyable(packageName = "org.thoughtcrime.securesms", ongoing = true))
     }
 
     @Test
@@ -89,8 +47,6 @@ class HubMessagesTest {
         assertFalse(
             HubMessages.isReplyable(
                 packageName = "com.google.android.apps.messaging",
-                category = HubMessages.CATEGORY_MESSAGE,
-                template = null,
                 groupSummary = true,
             ),
         )
@@ -99,6 +55,32 @@ class HubMessagesTest {
     @Test
     fun signalInPackageNameCounts() {
         assertTrue(HubMessages.isKnownMessenger("org.signal.nightly"))
+    }
+
+    @Test
+    fun slackPackageCounts() {
+        assertTrue(HubMessages.isKnownMessenger("com.Slack"))
+        assertTrue(HubMessages.isReplyable(packageName = "com.Slack"))
+    }
+
+    @Test
+    fun slackInPackageNameCounts() {
+        assertTrue(HubMessages.isKnownMessenger("com.Slack.intune"))
+    }
+
+    @Test
+    fun restrictedSelectionDropsUncheckedMessenger() {
+        val selection = HubAppSelection(restrict = true, packages = setOf("com.slack"))
+        assertFalse(HubMessages.isReplyable(packageName = "org.thoughtcrime.securesms", selection = selection))
+        assertTrue(HubMessages.isReplyable(packageName = "com.Slack", selection = selection))
+    }
+
+    @Test
+    fun emptyAndroidTextFallsBackToMessageLines() {
+        assertEquals(
+            "stand up in 5",
+            HubMessages.notificationBody(text = "", lines = listOf("stand up in 5")),
+        )
     }
 
     @Test

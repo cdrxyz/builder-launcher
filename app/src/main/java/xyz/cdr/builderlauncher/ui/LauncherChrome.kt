@@ -1701,6 +1701,13 @@ fun SettingsChrome(
         Spacer(Modifier.height(16.dp))
         CaretLink("… backup >", modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
         Text("Last backup: never", color = Dim, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        CaretLink("… hub apps >", modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        Text(
+            "Slack starts on, with Messages and the other messengers.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text("Notification access (hub)", color = Paper)
         Spacer(Modifier.height(12.dp))
@@ -1847,6 +1854,58 @@ fun CalendarChrome(
                     Text(item.account, color = Dim, style = MaterialTheme.typography.bodyMedium)
                 }
             }
+        }
+    }
+}
+
+data class HubAppChromeRow(
+    val name: String,
+    val checked: Boolean,
+)
+
+@Composable
+fun HubAppsChrome(
+    rows: List<HubAppChromeRow> = listOf(
+        HubAppChromeRow("Messages", true),
+        HubAppChromeRow("Signal", true),
+        HubAppChromeRow("Slack", true),
+        HubAppChromeRow("Calendar", false),
+    ),
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        ScreenHeader(
+            title = "hub apps",
+            leading = { ScreenBack() },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Choose which apps feed the hub. Slack starts on, with Messages and the other messengers. Unchecked apps stay out, even if Android marks the notification as a message.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text("Filter", color = Dim, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 10.dp))
+        Text(
+            "app name",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .inputChrome()
+                .padding(vertical = 6.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Include in hub", color = Dim, style = MaterialTheme.typography.labelSmall)
+        rows.forEach { item ->
+            Text(
+                if (item.checked) "[x] ${item.name}" else "[ ] ${item.name}",
+                color = Paper,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
 }

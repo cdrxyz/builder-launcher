@@ -837,6 +837,15 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun settingsHubApps() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HubAppsChrome()
+            }
+        }
+    }
+
+    @Test
     fun aiProviders() {
         paparazzi.snapshot {
             BuilderTheme {

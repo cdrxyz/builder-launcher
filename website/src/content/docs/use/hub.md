@@ -10,10 +10,11 @@ Type `hub` or press D-pad right. Swipe from the right of home also opens the hub
 The hub is **notifications only**. Todos stay on home / `… more tasks >`. Notes stay on `notes`.
 
 1. Settings → **Notification access (hub)** and grant access for Builder Launcher.
-2. Posted notifications appear here (up to 80). Long message bodies clip to 3 lines.
-3. Tap the message to open it in the source app. Reply stays on the arrow.
-4. Inline reply shows a field with a right-facing send arrow on the right.
-5. Dismiss removes it from the hub (and the system shade when the listener can). × at the top right dismisses every row at once.
+2. Settings → **… hub apps >** chooses which installed apps feed the hub. Slack starts on, with Messages and the other messengers. Uncheck an app to keep it out. Check any other installed app to include it. The choice stays on the phone. [Details](../configure/hub/).
+3. Posted notifications appear here (up to 80). Long message bodies clip to 3 lines.
+4. Tap the message to open it in the source app. Reply stays on the arrow.
+5. Inline reply shows a field with a right-facing send arrow on the right.
+6. Dismiss removes it from the hub (and the system shade when the listener can). × at the top right dismisses every row at once.
 
 ![Hub reply field with send icon](../../../assets/screenshots/hub-reply.png)
 

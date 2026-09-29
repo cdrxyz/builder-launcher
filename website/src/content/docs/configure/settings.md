@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: Type settings. Theme, AI providers, keyboard, home tasks, clock face, weather, clock sound, calendar, backup, hub and usage access, default Home.
+description: Type settings. Theme, AI providers, keyboard, home tasks, clock face, weather, clock sound, calendar, hub apps, backup, hub and usage access, default Home.
 ---
 
 Type `settings` or `/settings`.
@@ -22,6 +22,7 @@ Type `settings` or `/settings`.
 | Clock sound | `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off`. Tap a name to hear it. Pulse, chime, bell, and hum are Android Open Source Project tones (Apache 2.0). Orthodox is a public-domain Eastern Orthodox chant loop. Alerts play on the alarm stream through silent and vibrate. |
 | Calendar | `… calendar >` opens the dedicated screen. Shows whether calendar access is granted and which calendars feed the next event on home. [Details](calendar/). |
 | Backup | `… backup >` opens the dedicated screen. **Builder account** (preferred) or optional S3. [Details](backup/). Same account unlocks the [web app](web/) on a laptop or iPhone. |
+| Hub apps | `… hub apps >` opens the dedicated screen. Slack starts on, with Messages and the other messengers. Uncheck an app to keep its notifications out of the hub. [Details](hub/). |
 | Notification access (hub) | Opens Android's notification listener settings. |
 | Usage access | Opens Android's usage-access settings so [usage](../use/usage/) can read screen time. |
 | Set as default home app | Asks Android again if you declined the first prompt. |
