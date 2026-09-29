@@ -149,9 +149,13 @@ object EventWhen {
     }
 
     private fun clockFrom(m: MatchResult): Pair<Int, Int>? {
-        var hour = m.groupValues[1].toIntOrNull() ?: return null
-        val minute = m.groupValues[2].ifEmpty { "0" }.toIntOrNull() ?: return null
-        val ampm = m.groupValues[3]
+        val named = m.groupValues[1].lowercase(Locale.US)
+        if (named.isNotEmpty()) {
+            return if (named == "midnight") 0 to 0 else 12 to 0
+        }
+        var hour = m.groupValues[2].toIntOrNull() ?: return null
+        val minute = m.groupValues[3].ifEmpty { "0" }.toIntOrNull() ?: return null
+        val ampm = m.groupValues[4]
         if (ampm.startsWith("p") && hour < 12) hour += 12
         if (ampm.startsWith("a") && hour == 12) hour = 0
         if (hour !in 0..23 || minute !in 0..59) return null
@@ -229,10 +233,11 @@ object EventWhen {
         """jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"""
     private val WEEKDAY_NAME =
         """mondays?|mon|tuesdays?|tues|tue|wednesdays?|weds|wed|thursdays?|thurs|thu|fridays?|fri|saturdays?|sat|sundays?|sun"""
-    private val CLOCK_BODY = """\d{1,2}(?::\d{2})?\s*(?:a|am|p|pm)?"""
+    private val NAMED_CLOCK = """noon|midday|midnight"""
+    private val CLOCK_BODY = """(?:$NAMED_CLOCK|\d{1,2}(?::\d{2})?\s*(?:a|am|p|pm)?)"""
     private val CLOCK_OPT = """$CLOCK_BODY(?:\s*(?:-|–|—|to)\s*$CLOCK_BODY)?"""
     private val CLOCK_MARKED =
-        """(?:\d{1,2}:\d{2}\s*(?:a|am|p|pm)?|\d{1,2}\s*(?:a|am|p|pm))(?:\s*(?:-|–|—|to)\s*$CLOCK_BODY)?"""
+        """(?:\d{1,2}:\d{2}\s*(?:a|am|p|pm)?|\d{1,2}\s*(?:a|am|p|pm)|$NAMED_CLOCK)(?:\s*(?:-|–|—|to)\s*$CLOCK_BODY)?"""
     private val WHEN_SUFFIX = Regex(
         "(?i)(?:^|\\s)(" +
             "(?:on\\s+)?(?:today|tomorrow|tonight)(?:\\s+$CLOCK_OPT)?" +
@@ -255,7 +260,7 @@ object EventWhen {
         RegexOption.IGNORE_CASE,
     )
     private val CLOCK = Regex(
-        """\b(\d{1,2})(?::(\d{2}))?\s*(a|am|p|pm)?\b""",
+        """\b(?:(noon|midday|midnight)|(\d{1,2})(?::(\d{2}))?\s*(a|am|p|pm)?)\b""",
         RegexOption.IGNORE_CASE,
     )
 

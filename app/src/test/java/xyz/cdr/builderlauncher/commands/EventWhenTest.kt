@@ -119,6 +119,20 @@ class EventWhenTest {
         assertEquals("", EventWhen.split("friday meeting").second)
     }
 
+    @Test
+    fun driveHomeWedsElevenToNoon() {
+        val cmd = CommandParser.parse("* Drive Home weds 11am-noon") as Command.Event
+        assertEquals("Drive Home", cmd.title)
+        assertEquals("weds 11am-noon", cmd.whenText)
+        val parsed = EventWhen.parse(cmd.whenText, noon)!!
+        assertClock(parsed.beginMillis, 2026, Calendar.SEPTEMBER, 9, 11, 0)
+        assertClock(parsed.endMillis, 2026, Calendar.SEPTEMBER, 9, 12, 0)
+        val morning = GregorianCalendar(2026, Calendar.SEPTEMBER, 7, 8, 0, 0).timeInMillis
+        val nine = EventWhen.parse("9am-noon", morning)!!
+        assertClock(nine.beginMillis, 2026, Calendar.SEPTEMBER, 7, 9, 0)
+        assertClock(nine.endMillis, 2026, Calendar.SEPTEMBER, 7, 12, 0)
+    }
+
     private fun assertBegin(raw: String, year: Int, month: Int, day: Int, hour: Int, minute: Int) {
         val parsed = EventWhen.parse(raw, noon)!!
         assertClock(parsed.beginMillis, year, month, day, hour, minute)
