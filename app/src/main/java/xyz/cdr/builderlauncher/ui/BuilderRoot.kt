@@ -2922,22 +2922,24 @@ fun BuilderRoot(
                         .padding(vertical = 6.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                Text(show?.title ?: "Podcast", color = Paper, style = MaterialTheme.typography.headlineLarge)
-                show?.author?.takeIf { it.isNotBlank() }?.let { author ->
-                    Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                }
-                Spacer(Modifier.height(12.dp))
-                Text("Episodes", color = Dim, style = MaterialTheme.typography.labelSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                    listOf(EpisodeOrder.NEWEST, EpisodeOrder.OLDEST).forEach { option ->
-                        Text(
-                            Podcasts.episodeOrderLabel(option),
-                            color = if (order == option) Accent else Dim,
-                            modifier = Modifier.clickable { podcasts.setEpisodeOrder(feed, option) },
-                        )
-                    }
-                }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item(key = "header") {
+                        Text(show?.title ?: "Podcast", color = Paper, style = MaterialTheme.typography.headlineLarge)
+                        show?.author?.takeIf { it.isNotBlank() }?.let { author ->
+                            Text(author, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text("Episodes", color = Dim, style = MaterialTheme.typography.labelSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                            listOf(EpisodeOrder.NEWEST, EpisodeOrder.OLDEST).forEach { option ->
+                                Text(
+                                    Podcasts.episodeOrderLabel(option),
+                                    color = if (order == option) Accent else Dim,
+                                    modifier = Modifier.clickable { podcasts.setEpisodeOrder(feed, option) },
+                                )
+                            }
+                        }
+                    }
                     items(eps, key = { it.id }) { ep ->
                         val prog = podcastProgress[ep.id]
                         val skipped = Podcasts.skipped(prog)
@@ -3043,7 +3045,8 @@ fun BuilderRoot(
                 if (ep == null) {
                     Text("Episode gone", color = Dim)
                 } else {
-                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     Text(show?.title ?: "Podcast", color = Dim, style = MaterialTheme.typography.bodyMedium)
                     Text(ep.title, color = Paper, style = MaterialTheme.typography.headlineLarge)
                     Spacer(Modifier.height(12.dp))
@@ -3125,6 +3128,7 @@ fun BuilderRoot(
                             notes = ep.description,
                             onTimestamp = { ms -> seekEpisode(ep, ms) },
                         )
+                    }
                     }
                     }
                 }
