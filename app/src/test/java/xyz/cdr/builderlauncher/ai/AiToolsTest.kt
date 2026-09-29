@@ -95,6 +95,31 @@ class AiToolsTest {
     }
 
     @Test
+    fun duckDuckGoLiteMarkupIsARealSearchResult() {
+        val html = """
+            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fpost&amp;rut=1" class='result-link'>Example post</a>
+            <td class='result-snippet'>A short snippet.</td>
+        """.trimIndent()
+        val hits = AiTools.parseDuckDuckGo(html)
+        assertEquals(1, hits.size)
+        assertEquals("https://example.com/post", hits[0].url)
+        assertEquals("Example post", hits[0].title)
+        assertTrue(hits[0].snippet.contains("short snippet"))
+        assertEquals(
+            "https://lite.duckduckgo.com/lite/?q=weather+in+Kitchener",
+            AiTools.searchUrl("weather in Kitchener"),
+        )
+    }
+
+    @Test
+    fun toolOnlyTurnAtTheCapStillHasToBeAnswered() {
+        val call = AiTools.Call("call_1", "web_fetch", "{}")
+        assertEquals("run", AiTools.toolStep(listOf(call), 0, tools = true))
+        assertEquals("finish", AiTools.toolStep(listOf(call), AiTools.MAX_ROUNDS, tools = true))
+        assertEquals("answer", AiTools.toolStep(emptyList(), 1, tools = true))
+    }
+
+    @Test
     fun pageFetchRejectsPrivateHosts() {
         assertEquals("https://example.com/a", AiTools.publicPageUrl("https://example.com/a"))
         assertNull(AiTools.publicPageUrl("http://example.com/a"))

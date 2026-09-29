@@ -226,13 +226,15 @@ class LlmClient(
                 return llmError(posted.code, posted.raw)
             }
             val turn = (posted as ChatRound.Ok).turn
-            if (turn.calls.isEmpty() || !tools || round == AiTools.MAX_ROUNDS) {
-                return turn.text.ifBlank { EMPTY_REPLY }
+            when (val step = AiTools.toolStep(turn.calls, round, tools)) {
+                "answer" -> return turn.text.ifBlank { EMPTY_REPLY }
+                else -> {
+                    AiTools.status(turn.calls)?.let { emit(it, onDelta) }
+                    val results = turn.calls.take(4).map { call -> call.id to AiTools.run(call.name, call.arguments) { toolGet(it) } }
+                    wire = if (anthropic) AiTools.appendAnthropicTools(wire, turn, results) else AiTools.appendOpenAiTools(wire, turn, results)
+                    if (step == "finish") tools = false else round += 1
+                }
             }
-            AiTools.status(turn.calls)?.let { emit(it, onDelta) }
-            val results = turn.calls.take(4).map { call -> call.id to AiTools.run(call.name, call.arguments) { toolGet(it) } }
-            wire = if (anthropic) AiTools.appendAnthropicTools(wire, turn, results) else AiTools.appendOpenAiTools(wire, turn, results)
-            round += 1
         }
         return EMPTY_REPLY
     }

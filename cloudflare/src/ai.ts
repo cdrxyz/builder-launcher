@@ -19,7 +19,9 @@ import {
 	privacyExtra,
 	publicPageUrl,
 	readHermesSse,
+	searchUrl,
 	stripHtml,
+	toolStep,
 } from '../../website/public/web/ai.js';
 import { jsonError } from './safe';
 
@@ -174,7 +176,8 @@ async function toolLoop(
 	let privacy = true;
 	let tools = true;
 	let strips = 0;
-	for (let round = 0; round <= TOOL_ROUNDS; round++) {
+	let round = 0;
+	while (round <= TOOL_ROUNDS) {
 		const extra = privacy ? privacyExtra(provider) : {};
 		const res = await post(messages, extra, tools);
 		if (!res.ok) {
@@ -184,18 +187,20 @@ async function toolLoop(
 				if (drop.privacy) privacy = false;
 				if (drop.tools) tools = false;
 				strips += 1;
-				round -= 1;
 				continue;
 			}
 			return llmError(res.status, res.raw);
 		}
 		const turn = parseModelTurn(res.raw, kind);
 		if (!turn) return 'Empty reply from the model.';
-		if (!turn.calls.length || !tools || round === TOOL_ROUNDS) return turn.text || 'Empty reply from the model.';
+		const step = toolStep(turn.calls, round, tools, TOOL_ROUNDS);
+		if (step === 'answer') return turn.text || 'Empty reply from the model.';
 		const calls = turn.calls.slice(0, 4);
 		const results = [];
 		for (const call of calls) results.push({ id: call.id, content: await runTool(call.name, call.arguments) });
 		messages = kind === 'anthropic' ? continueAnthropic(messages, turn, results) : continueOpenAi(messages, turn, results);
+		if (step === 'finish') tools = false;
+		else round += 1;
 	}
 	return 'Empty reply from the model.';
 }
@@ -215,10 +220,10 @@ async function runTool(name: string, argsJson: string): Promise<string> {
 }
 
 async function searchWeb(query: string): Promise<string> {
-	const q = query.trim().slice(0, 200);
-	if (!q) return 'Need a query.';
+	const url = searchUrl(query);
+	if (!url) return 'Need a query.';
 	try {
-		const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+		const res = await fetch(url, {
 			headers: { 'user-agent': SEARCH_UA, accept: 'text/html' },
 			signal: AbortSignal.timeout(TOOL_FETCH_MS),
 		});
