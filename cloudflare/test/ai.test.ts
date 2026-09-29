@@ -17,7 +17,9 @@ import {
 	privacyExtra,
 	publicPageUrl,
 	readHermesSse,
+	searchUrl,
 	stripHtml,
+	toolStep,
 } from '../../website/public/web/ai.js';
 
 test('fixed providers ignore a swapped base', () => {
@@ -166,6 +168,23 @@ test('duckduckgo html keeps public https hits and unwraps redirects', () => {
 	assert.equal(hits[0].title, 'Example post');
 	assert.match(formatHits(hits), /example.com\/post/);
 	assert.equal(formatHits([]), 'No results.');
+});
+
+test('duckduckgo lite markup is a real search result', () => {
+	const html = `<a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fpost&amp;rut=1" class='result-link'>Example post</a>
+		<td class='result-snippet'>A short snippet.</td>`;
+	const hits = parseDuckDuckGo(html);
+	assert.equal(hits.length, 1);
+	assert.equal(hits[0].url, 'https://example.com/post');
+	assert.equal(hits[0].title, 'Example post');
+	assert.match(hits[0].snippet, /short snippet/);
+	assert.equal(searchUrl('weather in Kitchener'), 'https://lite.duckduckgo.com/lite/?q=weather%20in%20Kitchener');
+});
+
+test('a tool-only turn at the cap still has to be answered', () => {
+	assert.equal(toolStep([{ name: 'web_search' }], 0, true), 'run');
+	assert.equal(toolStep([{ name: 'web_fetch' }], 2, true), 'finish');
+	assert.equal(toolStep([], 1, true), 'answer');
 });
 
 test('page fetch rejects private hosts and strips tags', () => {

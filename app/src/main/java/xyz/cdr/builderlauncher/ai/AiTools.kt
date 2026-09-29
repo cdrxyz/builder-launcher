@@ -185,13 +185,13 @@ object AiTools {
 
     fun parseDuckDuckGo(html: String): List<Hit> {
         val hits = mutableListOf<Hit>()
-        val re = Regex("""<a\b([^>]*class="[^"]*(?:result__a|result-link)[^"]*"[^>]*)>([\s\S]*?)</a>""", RegexOption.IGNORE_CASE)
+        val re = Regex("""<a\b([^>]*class=['"][^'"]*(?:result__a|result-link)[^'"]*['"][^>]*)>([\s\S]*?)</a>""", RegexOption.IGNORE_CASE)
         for (match in re.findAll(html)) {
             if (hits.size >= 5) break
-            val href = Regex("""href="([^"]+)"""", RegexOption.IGNORE_CASE).find(match.groupValues[1])?.groupValues?.get(1).orEmpty()
+            val href = Regex("""href=['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE).find(match.groupValues[1])?.groupValues?.get(1).orEmpty()
             val url = publicPageUrl(unwrapDdg(href)) ?: continue
             val after = html.substring(match.range.last + 1, minOf(html.length, match.range.last + 801))
-            val snippet = Regex("""<(?:a|td)\b[^>]*class="[^"]*result[_-]snippet[^"]*"[^>]*>([\s\S]*?)</(?:a|td)>""", RegexOption.IGNORE_CASE)
+            val snippet = Regex("""<(?:a|td)\b[^>]*class=['"][^'"]*result[_-]snippet[^'"]*['"][^>]*>([\s\S]*?)</(?:a|td)>""", RegexOption.IGNORE_CASE)
                 .find(after)
                 ?.groupValues
                 ?.get(1)
@@ -241,13 +241,19 @@ object AiTools {
         }
     }
 
+    fun toolStep(calls: List<Call>, round: Int, tools: Boolean): String = when {
+        calls.isEmpty() || !tools -> "answer"
+        round >= MAX_ROUNDS -> "finish"
+        else -> "run"
+    }
+
     fun status(calls: List<Call>): String? =
         if (calls.any { it.name == "web_search" || it.name == "web_fetch" }) "Searching…" else null
 
     fun searchUrl(query: String): String? {
         val q = query.trim().take(200)
         if (q.isEmpty()) return null
-        return "https://html.duckduckgo.com/html/?q=${java.net.URLEncoder.encode(q, "UTF-8")}"
+        return "https://lite.duckduckgo.com/lite/?q=${java.net.URLEncoder.encode(q, "UTF-8")}"
     }
 
     private fun search(query: String, get: (String) -> String?): String {
@@ -324,7 +330,8 @@ object AiTools {
 
     private fun unwrapDdg(href: String): String {
         val decoded = href.replace("&amp;", "&")
-        val uri = runCatching { URI(decoded) }.getOrNull() ?: return ""
+        val absolute = if (decoded.startsWith("//")) "https:$decoded" else decoded
+        val uri = runCatching { URI(absolute) }.getOrNull() ?: return ""
         val query = uri.rawQuery.orEmpty()
         val uddg = query.split('&').firstOrNull { it.startsWith("uddg=") }?.substringAfter("uddg=")
         if (!uddg.isNullOrBlank()) return java.net.URLDecoder.decode(uddg, Charsets.UTF_8)

@@ -550,17 +550,29 @@ function decodeEntities(text) {
 		.trim();
 }
 
+export function searchUrl(query) {
+	const q = String(query || '').trim().slice(0, 200);
+	if (!q) return '';
+	return `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`;
+}
+
+export function toolStep(calls, round, tools, maxRounds = 2) {
+	if (!calls?.length || !tools) return 'answer';
+	if (round >= maxRounds) return 'finish';
+	return 'run';
+}
+
 export function parseDuckDuckGo(html) {
 	const raw = String(html || '');
 	const hits = [];
-	const re = /<a\b([^>]*class="[^"]*(?:result__a|result-link)[^"]*"[^>]*)>([\s\S]*?)<\/a>/gi;
+	const re = /<a\b([^>]*class=['"][^'"]*(?:result__a|result-link)[^'"]*['"][^>]*)>([\s\S]*?)<\/a>/gi;
 	let match;
 	while ((match = re.exec(raw)) && hits.length < 5) {
-		const href = /href="([^"]+)"/i.exec(match[1])?.[1] || '';
+		const href = /href=['"]([^'"]+)['"]/i.exec(match[1])?.[1] || '';
 		const url = publicPageUrl(unwrapDdg(href));
 		if (!url) continue;
 		const after = raw.slice(match.index + match[0].length, match.index + match[0].length + 800);
-		const snippet = /<(?:a|td)\b[^>]*class="[^"]*result[_-]snippet[^"]*"[^>]*>([\s\S]*?)<\/(?:a|td)>/i.exec(after);
+		const snippet = /<(?:a|td)\b[^>]*class=['"][^'"]*result[_-]snippet[^'"]*['"][^>]*>([\s\S]*?)<\/(?:a|td)>/i.exec(after);
 		hits.push({
 			title: decodeEntities(match[2]).slice(0, 160) || url,
 			url,
