@@ -26,9 +26,15 @@ data class LocalItem(
     val editedAt: Long get() = if (updatedAt > 0L) updatedAt else createdAt
 }
 
-class LocalLists(context: Context) {
-    private val file = File(context.filesDir, "lists.json")
+class LocalLists internal constructor(
+    private val file: File,
+    private val deletedFile: File = File(file.parentFile ?: file, "deleted-ids.json"),
+) {
+    constructor(context: Context) : this(File(context.filesDir, "lists.json"))
+
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val _deleted = MutableStateFlow(loadDeleted())
+    val deletedIds: StateFlow<List<String>> = _deleted.asStateFlow()
     private val _items = MutableStateFlow(load())
     val items: StateFlow<List<LocalItem>> = _items.asStateFlow()
 
@@ -46,6 +52,8 @@ class LocalLists(context: Context) {
     }
 
     fun remove(id: String) {
+        val deleted = (_deleted.value + id).distinct()
+        persistDeleted(deleted)
         persist(_items.value.filterNot { it.id == id })
     }
 
@@ -71,8 +79,10 @@ class LocalLists(context: Context) {
         )
     }
 
-    fun replaceAll(next: List<LocalItem>) {
-        persist(next)
+    fun replaceAll(next: List<LocalItem>, deleted: List<String>) {
+        val drop = deleted.distinct()
+        persistDeleted(drop)
+        persist(next.filterNot { it.id in drop.toSet() })
     }
 
     private fun persist(next: List<LocalItem>) {
@@ -80,12 +90,26 @@ class LocalLists(context: Context) {
         file.writeText(json.encodeToString(next))
     }
 
+    private fun persistDeleted(next: List<String>) {
+        _deleted.value = next
+        deletedFile.writeText(json.encodeToString(next))
+    }
+
+    private fun loadDeleted(): List<String> {
+        if (!deletedFile.exists()) return emptyList()
+        return runCatching {
+            json.decodeFromString<List<String>>(deletedFile.readText())
+        }.getOrDefault(emptyList())
+    }
+
     private fun load(): List<LocalItem> {
         if (!file.exists()) return emptyList()
         val raw = runCatching {
             json.decodeFromString<List<LocalItem>>(file.readText())
         }.getOrDefault(emptyList())
-        val next = HomeTodos.migrateOpenOrder(raw)
+        val migrated = HomeTodos.migrateOpenOrder(raw)
+        val drop = _deleted.value.toSet()
+        val next = migrated.filterNot { it.id in drop }
         if (next != raw) {
             runCatching { file.writeText(json.encodeToString(next)) }
         }

@@ -23,6 +23,6 @@ App search that looks like "Notes" also shows `… all notes >` so you do not op
 
 ## List
 
-Type `notes` or tap `… all notes >`. The list title `notes` is centered at the top. Notes sort by date edited. The first line (heading stripped) is the title; untitled if blank. Delete is on the right.
+Type `notes` or tap `… all notes >`. The list title `notes` is centered at the top. Notes sort by date edited. The first line (heading stripped) is the title; untitled if blank. Delete on the right removes it, including from a signed-in account.
 
 ![Notes list sorted by date edited](../../../assets/screenshots/notes.png)
