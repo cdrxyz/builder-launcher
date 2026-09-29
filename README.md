@@ -72,7 +72,7 @@ Type on the home screen, then Enter.
 | --- | --- | --- |
 | `@` | `@jason on my way!` | Draft an SMS in the launcher; Enter again to send |
 | `#` | `#lauren` | Dial |
-| `*` | `*dentist mar 24 9a` | Create a calendar event |
+| `*` | `*dentist friday 9a` | Create a calendar event |
 | `-` | `-buy milk` | Save a todo on home and the tasks list |
 | `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` or Home saves |
 | | `notes` | Open all notes. App search shows `… all notes >` so it is not an installed Notes app |

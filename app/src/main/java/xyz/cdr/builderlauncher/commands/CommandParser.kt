@@ -100,16 +100,7 @@ object CommandParser {
     }
 
     private fun splitEvent(rest: String): Command.Event {
-        val time = Regex(
-            """(?i)\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:\s+\d{1,2}(?::\d{2})?\s*(?:a|am|p|pm)?)?|\d{1,2}:\d{2}|\d{1,2}\s*(?:a|am|p|pm)|tomorrow|today|tonight)\b.*$""",
-        ).find(rest)
-        return if (time != null && time.range.first > 0) {
-            Command.Event(
-                title = rest.substring(0, time.range.first).trim(),
-                whenText = rest.substring(time.range.first).trim(),
-            )
-        } else {
-            Command.Event(title = rest, whenText = "")
-        }
+        val (title, whenText) = EventWhen.split(rest)
+        return Command.Event(title, whenText)
     }
 }

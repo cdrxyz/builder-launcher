@@ -40,15 +40,15 @@ class CommandExecutor(
             is Command.Message -> contactAction(command.target, command.body, ContactAction.Message)
             is Command.Call -> contactAction(command.target, "", ContactAction.Call)
             is Command.Event -> {
-                val start = EventWhen.millis(command.whenText)
+                val insert = CalendarInsert.from(command.title, command.whenText)
                 val intent = Intent(Intent.ACTION_INSERT)
                     .setData(CalendarContract.Events.CONTENT_URI)
-                    .putExtra(CalendarContract.Events.TITLE, command.title)
+                    .putExtra(CalendarContract.Events.TITLE, insert.title)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (start != null) {
-                    intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
-                } else if (command.whenText.isNotBlank()) {
-                    intent.putExtra(CalendarContract.Events.DESCRIPTION, command.whenText)
+                insert.beginMillis?.let { intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, it) }
+                insert.endMillis?.let { intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, it) }
+                if (!insert.description.isNullOrBlank()) {
+                    intent.putExtra(CalendarContract.Events.DESCRIPTION, insert.description)
                 }
                 startOrToast(intent, "No calendar app")
                 ExecResult.None

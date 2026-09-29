@@ -9,7 +9,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | --- | --- | --- |
 | `@` | `@jason on my way!` | Draft an SMS in the launcher; Enter again to send |
 | `#` | `#lauren` | Dial |
-| `*` | `*dentist mar 24 9a` | Create a calendar event |
+| `*` | `*dentist friday 9a` | Create a calendar event. Also `mar 24`, `9/28`, `2026-10-01` |
 | `-` | `-buy milk` | Save a todo on home and the tasks list |
 | `+` | `+` then write | Full-screen markdown note; first line starts as `# ` h1. `<` or Home saves |
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
