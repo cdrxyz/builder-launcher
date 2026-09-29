@@ -615,6 +615,28 @@ class BackupMergeTest {
     }
 
     @Test
+    fun mergeDropsANoteDeletedOnEitherSideEvenIfTheCopyIsNewer() {
+        val gone = LocalItem("n-gone", "note", "secret", createdAt = 1, updatedAt = 50)
+        val keep = LocalItem("n-keep", "note", "keep", createdAt = 1, updatedAt = 2)
+        val phone = BackupDocument(
+            exportedAt = 20,
+            items = listOf(keep),
+            deletedIds = listOf(gone.id),
+        )
+        val cloud = BackupDocument(
+            exportedAt = 30,
+            items = listOf(gone, keep),
+        )
+        val merged = BackupMerge.merge(phone, cloud)
+        assertEquals(listOf(keep.id), merged.items.map { it.id })
+        assertTrue(merged.deletedIds.contains(gone.id))
+
+        val otherWay = BackupMerge.merge(cloud, phone)
+        assertEquals(listOf(keep.id), otherWay.items.map { it.id })
+        assertTrue(otherWay.deletedIds.contains(gone.id))
+    }
+
+    @Test
     fun overwriteWarningNamesLocalData() {
         assertTrue(BackupService.OVERWRITE_WARNING.contains("overwrite any local data"))
         assertTrue(BackupService.OVERWRITE_WARNING.contains("unless the snapshot includes them"))

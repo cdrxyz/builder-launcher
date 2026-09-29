@@ -55,7 +55,8 @@ class BackupService(
         val current = settings.settings.value
         return BackupDocument(
             exportedAt = nowMs,
-            items = lists.items.value,
+            items = lists.items.value.filterNot { it.id in lists.deletedIds.value.toSet() },
+            deletedIds = lists.deletedIds.value,
             chats = chats.threads.value,
             pins = pins.packages.value,
             watchlist = stocks.watch.value,
@@ -138,7 +139,8 @@ class BackupService(
     fun apply(doc: BackupDocument) {
         applying = true
         try {
-            lists.replaceAll(doc.items)
+            val dropItems = doc.deletedIds.toSet()
+            lists.replaceAll(doc.items.filterNot { it.id in dropItems }, doc.deletedIds)
             chats.replaceAll(doc.chats)
             pins.replaceAll(doc.pins)
             stocks.replaceAll(doc.watchlist)
@@ -162,6 +164,7 @@ class BackupService(
 
     fun localWrites(): Flow<Unit> = merge(
         lists.items.map { },
+        lists.deletedIds.map { },
         chats.threads.map { },
         pins.packages.map { },
         stocks.watch.map { },
