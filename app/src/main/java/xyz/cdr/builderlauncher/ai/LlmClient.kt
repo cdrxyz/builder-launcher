@@ -3,14 +3,11 @@ package xyz.cdr.builderlauncher.ai
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.data.BuilderSettings
@@ -93,6 +90,7 @@ class LlmClient(
                     turns,
                     bearer,
                     onDelta,
+                    provider = snapshot.provider,
                 )
             } catch (_: Throwable) {
                 text
@@ -128,6 +126,7 @@ class LlmClient(
                     bearer,
                     onDelta,
                     platform.extraHeaders,
+                    snapshot.provider,
                 )
                 ChatKind.ANTHROPIC_MESSAGES -> anthropicMessages(
                     base,
@@ -136,6 +135,7 @@ class LlmClient(
                     bearer,
                     oauthLive,
                     onDelta,
+                    snapshot.provider,
                 )
             }
         } catch (_: Throwable) {
@@ -151,37 +151,20 @@ class LlmClient(
         bearer: String?,
         onDelta: ((String) -> Unit)?,
         extraHeaders: Map<String, String> = emptyMap(),
+        provider: LlmProvider = LlmProvider.GENERIC,
     ): String {
         val root = AiPlatforms.chatRoot(base)
-        val turns = messagesJson(messages)
-        fun body(stream: Boolean) = """
-            {
-              "model": ${esc(model)},
-              "messages": [
-                {"role":"system","content":${esc(SYSTEM)}},
-                $turns
-              ],
-              "max_tokens": 2048,
-              "temperature": 0.4,
-              "stream": $stream
-            }
-        """.trimIndent()
-        fun request(stream: Boolean): Request {
-            val reqBuilder = Request.Builder()
-                .url("$root/chat/completions")
-                .post(body(stream).toRequestBody(JSON))
-                .header("Content-Type", "application/json")
-            if (!bearer.isNullOrBlank()) {
-                reqBuilder.header("Authorization", "Bearer $bearer")
-            }
-            extraHeaders.forEach { (k, v) -> reqBuilder.header(k, v) }
-            return reqBuilder.build()
-        }
-        return http.newCall(request(true)).execute().use { resp ->
-            if (shouldRetryWithoutStream(resp)) null else readStream(resp, onDelta, openai = true)
-        } ?: http.newCall(request(false)).execute().use { resp ->
-            readStream(resp, onDelta, openai = true)
-        }
+        return toolChat(
+            url = "$root/chat/completions",
+            model = model,
+            messages = AiTools.textMessages(messages, system = true),
+            bearer = bearer,
+            onDelta = onDelta,
+            extraHeaders = extraHeaders,
+            provider = provider,
+            anthropic = false,
+            oauth = false,
+        )
     }
 
     private suspend fun anthropicMessages(
@@ -191,25 +174,108 @@ class LlmClient(
         bearer: String?,
         oauth: Boolean,
         onDelta: ((String) -> Unit)?,
+        provider: LlmProvider,
     ): String {
         val root = base.trimEnd('/')
         val url = if (root.endsWith("/v1")) "$root/messages" else "$root/v1/messages"
-        val turns = messagesJson(messages)
-        fun body(stream: Boolean) = """
-            {
-              "model": ${esc(model)},
-              "max_tokens": 2048,
-              "stream": $stream,
-              "system": ${esc(SYSTEM)},
-              "messages": [$turns]
+        return toolChat(
+            url = url,
+            model = model,
+            messages = AiTools.textMessages(messages, system = false),
+            bearer = bearer,
+            onDelta = onDelta,
+            extraHeaders = emptyMap(),
+            provider = provider,
+            anthropic = true,
+            oauth = oauth,
+        )
+    }
+
+    private suspend fun toolChat(
+        url: String,
+        model: String,
+        messages: List<kotlinx.serialization.json.JsonObject>,
+        bearer: String?,
+        onDelta: ((String) -> Unit)?,
+        extraHeaders: Map<String, String>,
+        provider: LlmProvider,
+        anthropic: Boolean,
+        oauth: Boolean,
+    ): String {
+        var wire = messages
+        var privacy = true
+        var tools = true
+        var strips = 0
+        var round = 0
+        while (round <= AiTools.MAX_ROUNDS) {
+            val body = if (anthropic) {
+                AiTools.anthropicRequest(model, wire, tools, stream = true)
+            } else {
+                AiTools.openaiRequest(model, wire, provider, privacy, tools, stream = true)
             }
-        """.trimIndent()
-        fun request(stream: Boolean): Request {
-            val reqBuilder = Request.Builder()
-                .url(url)
-                .post(body(stream).toRequestBody(JSON))
-                .header("Content-Type", "application/json")
-                .header("anthropic-version", "2023-06-01")
+            val posted = postChat(url, body, bearer, extraHeaders, anthropic, oauth, onDelta, streamFirst = true)
+            if (posted is ChatRound.Fail) {
+                val drop = if (posted.code == 400) AiTools.droppedFields(posted.raw) else AiTools.Drop(false, false)
+                val canStrip = (drop.privacy && privacy) || (drop.tools && tools)
+                if (canStrip && strips < 2) {
+                    if (drop.privacy) privacy = false
+                    if (drop.tools) tools = false
+                    strips += 1
+                    continue
+                }
+                return llmError(posted.code, posted.raw)
+            }
+            val turn = (posted as ChatRound.Ok).turn
+            if (turn.calls.isEmpty() || !tools || round == AiTools.MAX_ROUNDS) {
+                return turn.text.ifBlank { EMPTY_REPLY }
+            }
+            AiTools.status(turn.calls)?.let { emit(it, onDelta) }
+            val results = turn.calls.take(4).map { call -> call.id to AiTools.run(call.name, call.arguments) { toolGet(it) } }
+            wire = if (anthropic) AiTools.appendAnthropicTools(wire, turn, results) else AiTools.appendOpenAiTools(wire, turn, results)
+            round += 1
+        }
+        return EMPTY_REPLY
+    }
+
+    private suspend fun postChat(
+        url: String,
+        streamedBody: String,
+        bearer: String?,
+        extraHeaders: Map<String, String>,
+        anthropic: Boolean,
+        oauth: Boolean,
+        onDelta: ((String) -> Unit)?,
+        streamFirst: Boolean,
+    ): ChatRound {
+        fun body(stream: Boolean): String {
+            val root = json.parseToJsonElement(streamedBody).jsonObject.toMutableMap()
+            root["stream"] = kotlinx.serialization.json.JsonPrimitive(stream)
+            return kotlinx.serialization.json.JsonObject(root).toString()
+        }
+        val first = executeChat(url, if (streamFirst) streamedBody else body(false), bearer, extraHeaders, anthropic, oauth, onDelta)
+        if (first is ChatRound.Fail && first.code in 400..499 && first.code != 401 && first.code != 403 && first.code != 429) {
+            val drop = AiTools.droppedFields(first.raw)
+            if (drop.privacy || drop.tools) return first
+            return executeChat(url, body(false), bearer, extraHeaders, anthropic, oauth, onDelta)
+        }
+        return first
+    }
+
+    private suspend fun executeChat(
+        url: String,
+        body: String,
+        bearer: String?,
+        extraHeaders: Map<String, String>,
+        anthropic: Boolean,
+        oauth: Boolean,
+        onDelta: ((String) -> Unit)?,
+    ): ChatRound {
+        val reqBuilder = Request.Builder()
+            .url(url)
+            .post(body.toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+        if (anthropic) {
+            reqBuilder.header("anthropic-version", "2023-06-01")
             if (!bearer.isNullOrBlank()) {
                 if (oauth) {
                     reqBuilder.header("Authorization", "Bearer $bearer")
@@ -218,100 +284,91 @@ class LlmClient(
                     reqBuilder.header("x-api-key", bearer)
                 }
             }
-            return reqBuilder.build()
+        } else if (!bearer.isNullOrBlank()) {
+            reqBuilder.header("Authorization", "Bearer $bearer")
         }
-        return http.newCall(request(true)).execute().use { resp ->
-            if (shouldRetryWithoutStream(resp)) null else readStream(resp, onDelta, openai = false)
-        } ?: http.newCall(request(false)).execute().use { resp ->
-            readStream(resp, onDelta, openai = false)
-        }
-    }
-
-    private fun shouldRetryWithoutStream(resp: Response): Boolean {
-        if (resp.isSuccessful) return false
-        return resp.code in 400..499 && resp.code != 401 && resp.code != 403 && resp.code != 429
-    }
-
-    private suspend fun readStream(
-        resp: Response,
-        onDelta: ((String) -> Unit)?,
-        openai: Boolean,
-    ): String {
-        val body = resp.body ?: return if (resp.isSuccessful) EMPTY_REPLY else llmError(resp.code, "")
-        if (!resp.isSuccessful) return llmError(resp.code, body.string())
-        val source = body.source()
-        var first: String? = null
-        while (!source.exhausted()) {
-            val line = source.readUtf8Line() ?: break
-            if (line.isNotEmpty()) {
-                first = line
-                break
-            }
-        }
-        val start = first ?: return EMPTY_REPLY
-        if (!ChatStream.looksLikeSse(start)) {
-            val rest = source.readUtf8()
-            val raw = if (rest.isEmpty()) start else start + "\n" + rest
-            val full = if (openai) extractOpenAi(raw) else extractAnthropic(raw)
-            val text = full ?: raw.take(400)
-            emit(text, onDelta)
-            return text.ifBlank { EMPTY_REPLY }
-        }
-        val acc = StringBuilder()
-        val frame = StringBuilder()
-        suspend fun consume(line: String) {
-            if (line.isEmpty()) {
-                val data = ChatStream.sseData(frame.toString())
-                frame.clear()
-                val piece = if (openai) ChatStream.openaiDelta(data) else ChatStream.anthropicDelta(data)
-                if (!piece.isNullOrEmpty()) {
-                    acc.append(piece)
-                    emit(acc.toString(), onDelta)
+        extraHeaders.forEach { (k, v) -> reqBuilder.header(k, v) }
+        return http.newCall(reqBuilder.build()).execute().use { resp ->
+            val responseBody = resp.body ?: return@use ChatRound.Fail(resp.code, "")
+            if (!resp.isSuccessful) return@use ChatRound.Fail(resp.code, responseBody.string())
+            val source = responseBody.source()
+            val accum = AiTools.TurnAccum(openai = !anthropic)
+            var first: String? = null
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (line.isNotEmpty()) {
+                    first = line
+                    break
                 }
-            } else {
-                frame.append(line).append('\n')
             }
+            val start = first ?: return@use ChatRound.Ok(AiTools.Turn("", emptyList()))
+            if (!ChatStream.looksLikeSse(start)) {
+                val rest = source.readUtf8()
+                val raw = if (rest.isEmpty()) start else start + "\n" + rest
+                val turn = AiTools.parseBody(raw, openai = !anthropic) ?: AiTools.Turn(raw.take(400), emptyList())
+                if (turn.calls.isEmpty()) emit(turn.text, onDelta)
+                return@use ChatRound.Ok(turn)
+            }
+            val frame = StringBuilder()
+            suspend fun consume(line: String) {
+                if (line.isEmpty()) {
+                    val data = ChatStream.sseData(frame.toString())
+                    frame.clear()
+                    val before = accum.turn().text.length
+                    accum.acceptData(data)
+                    val turn = accum.turn()
+                    if (turn.calls.isEmpty() && turn.text.length > before) emit(turn.text, onDelta)
+                } else {
+                    frame.append(line).append('\n')
+                }
+            }
+            consume(start)
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                consume(line)
+            }
+            if (frame.isNotEmpty()) consume("")
+            ChatRound.Ok(accum.turn())
         }
-        consume(start)
-        while (!source.exhausted()) {
-            val line = source.readUtf8Line() ?: break
-            consume(line)
+    }
+
+    private fun toolGet(url: String): String? = toolGet(url, hops = 0)
+
+    private fun toolGet(url: String, hops: Int): String? {
+        if (hops > 2 || AiTools.publicPageUrl(url) == null) return null
+        val req = Request.Builder()
+            .url(url)
+            .header("User-Agent", AiTools.SEARCH_UA)
+            .header("Accept", "text/html,text/plain,application/json")
+            .get()
+            .build()
+        return runCatching {
+            http.newBuilder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .callTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+                .newCall(req)
+                .execute()
+                .use { resp ->
+                    if (resp.code in 300..399) resp.header("Location") to null
+                    else if (!resp.isSuccessful) null to null
+                    else null to resp.body?.string()?.take(80_000)
+                }
+        }.getOrNull()?.let { (redirect, body) ->
+            if (redirect != null) toolGet(java.net.URI(url).resolve(redirect).toString(), hops + 1) else body
         }
-        if (frame.isNotEmpty()) consume("")
-        return acc.toString().ifBlank { EMPTY_REPLY }
+    }
+
+    private sealed class ChatRound {
+        data class Ok(val turn: AiTools.Turn) : ChatRound()
+        data class Fail(val code: Int, val raw: String) : ChatRound()
     }
 
     private suspend fun emit(text: String, onDelta: ((String) -> Unit)?) {
         if (onDelta == null || text.isEmpty()) return
         withContext(Dispatchers.Main.immediate) { onDelta(text) }
-    }
-
-    private fun extractOpenAi(raw: String): String? {
-        return runCatching {
-            val root = json.parseToJsonElement(raw).jsonObject
-            root["choices"]
-                ?.jsonArray
-                ?.firstOrNull()
-                ?.jsonObject
-                ?.get("message")
-                ?.jsonObject
-                ?.get("content")
-                ?.jsonPrimitive
-                ?.content
-        }.getOrNull()
-    }
-
-    private fun extractAnthropic(raw: String): String? {
-        return runCatching {
-            val root = json.parseToJsonElement(raw).jsonObject
-            root["content"]
-                ?.jsonArray
-                ?.firstOrNull()
-                ?.jsonObject
-                ?.get("text")
-                ?.jsonPrimitive
-                ?.content
-        }.getOrNull()
     }
 
     private fun llmError(code: Int, raw: String): String = "LLM error $code: ${raw.take(280)}"
@@ -326,32 +383,8 @@ class LlmClient(
         }
     }
 
-    private fun messagesJson(messages: List<ChatMessage>): String =
-        messages.joinToString(",") { msg ->
-            val role = if (msg.fromUser) "user" else "assistant"
-            "{\"role\":${esc(role)},\"content\":${esc(msg.content)}}"
-        }
-
-    private fun esc(value: String): String =
-        buildString {
-            append('"')
-            value.forEach { ch ->
-                when (ch) {
-                    '\\' -> append("\\\\")
-                    '"' -> append("\\\"")
-                    '\n' -> append("\\n")
-                    '\r' -> append("\\r")
-                    '\t' -> append("\\t")
-                    else -> append(ch)
-                }
-            }
-            append('"')
-        }
-
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private const val EMPTY_REPLY = "Empty reply from the model."
-        private const val SYSTEM =
-            "You are a concise assistant on a builder's phone. Prefer short answers they can act on. Use markdown when it helps: headings, lists, tables, and fenced code. Skip preamble."
     }
 }

@@ -1745,7 +1745,7 @@ async function askAi(question) {
 		const data = await apiJson('/api/ai/chat', {
 			method: 'POST',
 			body: plan,
-			timeout: AI_TIMEOUT_MS + 5_000,
+			timeout: AI_TIMEOUT_MS * 2 + 10_000,
 		});
 		finishAsk(thread, data?.text || 'Empty reply from the model.');
 	} catch (err) {

@@ -2,19 +2,31 @@ import {
 	AI_TIMEOUT_MS,
 	SYSTEM,
 	XAI_OAUTH,
+	anthropicTools,
+	calculate,
 	chatRoot,
+	continueAnthropic,
+	continueOpenAi,
+	droppedFields,
+	formatHits,
 	isPublicHttps,
 	llmError,
-	parseChatPayload,
+	openaiTools,
+	parseDuckDuckGo,
+	parseModelTurn,
 	parseRefresh,
 	planUpstream,
+	privacyExtra,
+	publicPageUrl,
 	readHermesSse,
+	stripHtml,
 } from '../../website/public/web/ai.js';
 import { jsonError } from './safe';
 
 type Turn = { role: string; content: string };
 type Plan = {
 	error?: string;
+	provider?: string;
 	kind: string;
 	url: string;
 	model: string;
@@ -81,14 +93,24 @@ async function aiRefresh(request: Request): Promise<Response> {
 	return Response.json(tokens, { headers: { 'cache-control': 'no-store' } });
 }
 
-function openaiBody(model: string, messages: Turn[]) {
-	return JSON.stringify({
+const TOOL_ROUNDS = 2;
+const TOOL_FETCH_MS = 8_000;
+const SEARCH_UA = 'BuilderLauncher/0.1 (+https://cdr.xyz)';
+
+function openaiBody(model: string, messages: unknown[], extra: Record<string, unknown>, tools: boolean) {
+	const body: Record<string, unknown> = {
 		model,
-		messages: [{ role: 'system', content: SYSTEM }, ...messages],
+		messages,
 		max_tokens: 2048,
 		temperature: 0.4,
 		stream: false,
-	});
+		...extra,
+	};
+	if (tools) {
+		body.tools = openaiTools();
+		body.tool_choice = 'auto';
+	}
+	return JSON.stringify(body);
 }
 
 async function openaiAsk(plan: Plan): Promise<string> {
@@ -96,15 +118,15 @@ async function openaiAsk(plan: Plan): Promise<string> {
 	const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
 	if (plan.bearer) headers.authorization = `Bearer ${plan.bearer}`;
 	Object.assign(headers, plan.extraHeaders);
-	const res = await fetch(`${root}/chat/completions`, {
-		method: 'POST',
-		headers,
-		body: openaiBody(plan.model, plan.messages),
-		signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+	return toolLoop(plan.provider || '', [{ role: 'system', content: SYSTEM }, ...plan.messages], 'openai', async (messages, extra, tools) => {
+		const res = await fetch(`${root}/chat/completions`, {
+			method: 'POST',
+			headers,
+			body: openaiBody(plan.model, messages, extra, tools),
+			signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+		});
+		return { ok: res.ok, status: res.status, raw: await res.text() };
 	});
-	const raw = await res.text();
-	if (!res.ok) return llmError(res.status, raw);
-	return parseChatPayload(raw, 'openai') || 'Empty reply from the model.';
 }
 
 async function anthropicAsk(plan: Plan): Promise<string> {
@@ -123,21 +145,118 @@ async function anthropicAsk(plan: Plan): Promise<string> {
 			headers['x-api-key'] = plan.bearer;
 		}
 	}
-	const res = await fetch(url, {
-		method: 'POST',
-		headers,
-		body: JSON.stringify({
+	return toolLoop(plan.provider || '', plan.messages, 'anthropic', async (messages, _extra, tools) => {
+		const body: Record<string, unknown> = {
 			model: plan.model,
 			max_tokens: 2048,
 			stream: false,
 			system: SYSTEM,
-			messages: plan.messages,
-		}),
-		signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+			messages,
+		};
+		if (tools) body.tools = anthropicTools();
+		const res = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+		});
+		return { ok: res.ok, status: res.status, raw: await res.text() };
 	});
-	const raw = await res.text();
-	if (!res.ok) return llmError(res.status, raw);
-	return parseChatPayload(raw, 'anthropic') || 'Empty reply from the model.';
+}
+
+async function toolLoop(
+	provider: string,
+	start: unknown[],
+	kind: 'openai' | 'anthropic',
+	post: (messages: unknown[], extra: Record<string, unknown>, tools: boolean) => Promise<{ ok: boolean; status: number; raw: string }>,
+): Promise<string> {
+	let messages = start;
+	let privacy = true;
+	let tools = true;
+	let strips = 0;
+	for (let round = 0; round <= TOOL_ROUNDS; round++) {
+		const extra = privacy ? privacyExtra(provider) : {};
+		const res = await post(messages, extra, tools);
+		if (!res.ok) {
+			const drop = res.status === 400 ? droppedFields(res.raw) : { privacy: false, tools: false };
+			const canStrip = (drop.privacy && privacy) || (drop.tools && tools);
+			if (canStrip && strips < 2) {
+				if (drop.privacy) privacy = false;
+				if (drop.tools) tools = false;
+				strips += 1;
+				round -= 1;
+				continue;
+			}
+			return llmError(res.status, res.raw);
+		}
+		const turn = parseModelTurn(res.raw, kind);
+		if (!turn) return 'Empty reply from the model.';
+		if (!turn.calls.length || !tools || round === TOOL_ROUNDS) return turn.text || 'Empty reply from the model.';
+		const calls = turn.calls.slice(0, 4);
+		const results = [];
+		for (const call of calls) results.push({ id: call.id, content: await runTool(call.name, call.arguments) });
+		messages = kind === 'anthropic' ? continueAnthropic(messages, turn, results) : continueOpenAi(messages, turn, results);
+	}
+	return 'Empty reply from the model.';
+}
+
+async function runTool(name: string, argsJson: string): Promise<string> {
+	let args: Record<string, unknown> = {};
+	try {
+		const parsed = JSON.parse(argsJson || '{}');
+		if (parsed && typeof parsed === 'object') args = parsed as Record<string, unknown>;
+	} catch {
+		return 'Invalid tool arguments.';
+	}
+	if (name === 'web_search') return searchWeb(String(args.query || ''));
+	if (name === 'web_fetch') return fetchPage(String(args.url || ''));
+	if (name === 'calculate') return calculate(String(args.expression || ''));
+	return 'Unknown tool.';
+}
+
+async function searchWeb(query: string): Promise<string> {
+	const q = query.trim().slice(0, 200);
+	if (!q) return 'Need a query.';
+	try {
+		const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+			headers: { 'user-agent': SEARCH_UA, accept: 'text/html' },
+			signal: AbortSignal.timeout(TOOL_FETCH_MS),
+		});
+		if (!res.ok) return 'Search failed.';
+		return formatHits(parseDuckDuckGo(await res.text()));
+	} catch {
+		return 'Search failed.';
+	}
+}
+
+async function fetchPage(raw: string): Promise<string> {
+	let url = publicPageUrl(raw);
+	if (!url) return 'Only public HTTPS pages.';
+	try {
+		for (let hop = 0; hop < 3; hop++) {
+			const res = await fetch(url, {
+				headers: { 'user-agent': SEARCH_UA, accept: 'text/html,text/plain,application/json' },
+				redirect: 'manual',
+				signal: AbortSignal.timeout(TOOL_FETCH_MS),
+			});
+			if (res.status >= 300 && res.status < 400) {
+				const next = publicPageUrl(new URL(res.headers.get('location') || '', url).toString());
+				if (!next) return 'Only public HTTPS pages.';
+				url = next;
+				continue;
+			}
+			if (!res.ok) return 'Page could not be read.';
+			const type = res.headers.get('content-type') || '';
+			if (type && !/text\/|json|xml/.test(type)) return 'Page is not text.';
+			const bytes = new Uint8Array(await res.arrayBuffer());
+			const text = new TextDecoder().decode(bytes.subarray(0, 80_000));
+			const plain = /json|xml/.test(type) ? text : stripHtml(text);
+			return plain.replace(/\s+/g, ' ').trim().slice(0, 6000) || 'Page was empty.';
+		}
+		return 'Page could not be read.';
+	} catch {
+		return 'Page could not be read.';
+	}
 }
 
 class CookieJar {
