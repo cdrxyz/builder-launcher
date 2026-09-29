@@ -16,6 +16,7 @@ import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.BackupSettings
 import xyz.cdr.builderlauncher.calendar.CalendarSelection
 import xyz.cdr.builderlauncher.clock.ClockSound
+import xyz.cdr.builderlauncher.hub.HubAppSelection
 
 enum class LlmProvider {
     HERMES, XAI, OPENAI, ANTHROPIC, GEMINI, OPENROUTER, GROQ, DEEPSEEK, MISTRAL, LMSTUDIO, OLLAMA, GENERIC,
@@ -59,6 +60,8 @@ data class BuilderSettings(
     val backupIncludeAiCredentials: Boolean = false,
     val calendarRestrict: Boolean = false,
     val calendarIds: Set<Long> = emptySet(),
+    val hubRestrict: Boolean = false,
+    val hubPackages: Set<String> = emptySet(),
 ) {
     val signedIn: Boolean get() = oauthAccess.isNotBlank() || oauthRefresh.isNotBlank()
 
@@ -201,6 +204,10 @@ class SettingsRepository(context: Context) {
             prefs.getString(KEY_CALENDAR_RESTRICT, ""),
             prefs.getString(KEY_CALENDAR_IDS, ""),
         )
+        val hubApps = HubAppSelection.decode(
+            prefs.getString(KEY_HUB_RESTRICT, ""),
+            prefs.getString(KEY_HUB_PACKAGES, ""),
+        )
         return BuilderSettings(
             provider = provider,
             hermesBaseUrl = prefs.getString(KEY_HERMES, "") ?: "",
@@ -241,6 +248,8 @@ class SettingsRepository(context: Context) {
             backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
             calendarRestrict = calendar.restrict,
             calendarIds = calendar.ids,
+            hubRestrict = hubApps.restrict,
+            hubPackages = hubApps.packages,
         )
     }
 
@@ -300,6 +309,14 @@ class SettingsRepository(context: Context) {
                 KEY_CALENDAR_IDS,
                 CalendarSelection.encodeIds(CalendarSelection(next.calendarRestrict, next.calendarIds)),
             )
+            .putString(
+                KEY_HUB_RESTRICT,
+                HubAppSelection.encodeRestrict(HubAppSelection(next.hubRestrict, next.hubPackages)),
+            )
+            .putString(
+                KEY_HUB_PACKAGES,
+                HubAppSelection.encodePackages(HubAppSelection(next.hubRestrict, next.hubPackages)),
+            )
             .putString(KEY_ACCOUNTS, json.encodeToString(accounts))
             .apply()
     }
@@ -343,6 +360,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_BACKUP_AI = "backup_include_ai"
         private const val KEY_CALENDAR_RESTRICT = "calendar_restrict"
         private const val KEY_CALENDAR_IDS = "calendar_ids"
+        private const val KEY_HUB_RESTRICT = "hub_restrict"
+        private const val KEY_HUB_PACKAGES = "hub_packages"
         private const val KEY_ACCOUNTS = "provider_accounts"
 
         private fun createPrefs(context: Context): SharedPreferences {

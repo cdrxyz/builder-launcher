@@ -9,8 +9,6 @@ object HubMessages {
     const val BACK = "<"
     const val TITLE = "hub"
     const val CLEAR_ALL = "clear all"
-    const val CATEGORY_MESSAGE = "msg"
-    const val MESSAGING_STYLE = "android.app.Notification\$MessagingStyle"
 
     val knownPackages = setOf(
         "com.google.android.apps.messaging",
@@ -29,28 +27,45 @@ object HubMessages {
         "com.facebook.orca",
         "com.facebook.mlite",
         "com.slack",
+        "com.Slack",
         "com.discord",
         "im.vector.app",
         "ch.threema.app",
         "xyz.klinker.messenger",
     )
 
+    private val knownLower = knownPackages.map { it.lowercase() }.toSet()
+
     fun isReplyable(
         packageName: String,
-        category: String?,
-        template: String?,
         ongoing: Boolean = false,
         groupSummary: Boolean = false,
+        selection: HubAppSelection = HubAppSelection(),
     ): Boolean {
         if (ongoing || groupSummary) return false
-        if (category == CATEGORY_MESSAGE) return true
-        if (template == MESSAGING_STYLE) return true
-        return isKnownMessenger(packageName)
+        return selection.checked(packageName)
     }
 
     fun isKnownMessenger(packageName: String): Boolean {
         val p = packageName.lowercase()
-        if (p in knownPackages) return true
-        return p.contains("signal") || p.contains("molly") || p.contains("securesms")
+        if (p in knownLower) return true
+        return p.contains("signal") ||
+            p.contains("molly") ||
+            p.contains("securesms") ||
+            p.contains("slack")
+    }
+
+    /** Slack often leaves android.text empty and puts the preview in the message lines. */
+    fun notificationBody(
+        text: String,
+        bigText: String = "",
+        lines: List<String> = emptyList(),
+        summary: String = "",
+    ): String {
+        if (text.isNotBlank()) return text.trim()
+        if (bigText.isNotBlank()) return bigText.trim()
+        val joined = lines.map { it.trim() }.filter { it.isNotEmpty() }.takeLast(3).joinToString("\n")
+        if (joined.isNotBlank()) return joined
+        return summary.trim()
     }
 }

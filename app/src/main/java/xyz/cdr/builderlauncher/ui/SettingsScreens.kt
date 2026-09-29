@@ -186,6 +186,7 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.BackPress
 import xyz.cdr.builderlauncher.home.BackResult
+import xyz.cdr.builderlauncher.hub.HubAppSelection
 import xyz.cdr.builderlauncher.hub.HubMessages
 import xyz.cdr.builderlauncher.hub.HubStore
 import xyz.cdr.builderlauncher.stocks.HomeTicker
@@ -253,6 +254,7 @@ internal fun SettingsPage(
     onRequestHome: () -> Unit,
 ) {
     var calendarOpen by remember { mutableStateOf(false) }
+    var hubAppsOpen by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var placeQuery by remember { mutableStateOf(settings.weatherPlace) }
@@ -275,6 +277,17 @@ internal fun SettingsPage(
             onBack = { calendarOpen = false },
             repo = repo,
             calendar = calendar,
+            resumeEpoch = resumeEpoch,
+        )
+        return
+    }
+
+    if (hubAppsOpen) {
+        BackHandler { hubAppsOpen = false }
+        HubAppsSettingsPage(
+            settings = settings,
+            onBack = { hubAppsOpen = false },
+            repo = repo,
             resumeEpoch = resumeEpoch,
         )
         return
@@ -554,6 +567,19 @@ internal fun SettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(16.dp))
+        CaretLink(
+            "… hub apps >",
+            modifier = Modifier
+                .clickable { hubAppsOpen = true }
+                .padding(vertical = 6.dp)
+                .fillMaxWidth(),
+        )
+        Text(
+            "Slack starts on, with Messages and the other messengers.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Spacer(Modifier.height(20.dp))
         Text(
             "Notification access (hub)",
@@ -724,6 +750,93 @@ internal fun CalendarSettingsPage(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun HubAppsSettingsPage(
+    settings: BuilderSettings,
+    onBack: () -> Unit,
+    repo: SettingsRepository,
+    resumeEpoch: Int,
+) {
+    val ctx = LocalContext.current
+    var filter by remember { mutableStateOf("") }
+    var installed by remember { mutableStateOf<List<LaunchableApp>?>(null) }
+    LaunchedEffect(resumeEpoch) {
+        installed = InstalledApps(ctx).all()
+            .distinctBy { it.packageName.lowercase() }
+            .sortedWith(
+                compareByDescending<LaunchableApp> { HubMessages.isKnownMessenger(it.packageName) }
+                    .thenBy { it.label.lowercase() },
+            )
+    }
+    val selection = HubAppSelection(settings.hubRestrict, settings.hubPackages)
+    val query = filter.trim().lowercase()
+    val loaded = installed.orEmpty()
+    val shown = if (query.isEmpty()) {
+        loaded
+    } else {
+        loaded.filter {
+            it.label.lowercase().contains(query) || it.packageName.lowercase().contains(query)
+        }
+    }
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ScreenHeader(
+            title = "hub apps",
+            leading = { ScreenBack(onBack = onBack) },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Choose which apps feed the hub. Slack starts on, with Messages and the other messengers. Unchecked apps stay out, even if Android marks the notification as a message.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        LabeledField(
+            label = "Filter",
+            value = filter,
+            placeholder = "app name",
+            onChange = { filter = it },
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Include in hub", color = Dim, style = MaterialTheme.typography.labelSmall)
+        val apps = installed
+        if (apps == null) {
+            Text(
+                "Loading apps.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else if (apps.isEmpty()) {
+            Text(
+                "No other apps on this phone.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else if (shown.isEmpty()) {
+            Text(
+                "No app matches.",
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else {
+            shown.forEach { app ->
+                val on = selection.checked(app.packageName)
+                Text(
+                    if (on) "[x] ${app.label}" else "[ ] ${app.label}",
+                    color = Paper,
+                    modifier = Modifier
+                        .clickable {
+                            val next = selection.toggle(app.packageName, loaded.map { it.packageName })
+                            repo.update { it.copy(hubRestrict = next.restrict, hubPackages = next.packages) }
+                        }
+                        .padding(top = 8.dp),
+                )
             }
         }
     }

@@ -58,6 +58,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `stock-detail.png` | `stockDetail` |
 | `hub.png` | `hub` |
 | `hub-reply.png` | `hubReply` |
+| `hub-apps.png` | `settingsHubApps` |
 | `settings.png` | `settings` |
 | `settings-theme-plain.png` | `settingsThemePlain` |
 | `settings-theme-material.png` | `settingsThemeMaterial` |

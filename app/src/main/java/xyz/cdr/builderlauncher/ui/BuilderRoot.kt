@@ -174,6 +174,8 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.BackPress
 import xyz.cdr.builderlauncher.home.BackResult
+import xyz.cdr.builderlauncher.hub.HubAppSelection
+import xyz.cdr.builderlauncher.hub.HubFilter
 import xyz.cdr.builderlauncher.hub.HubMessages
 import xyz.cdr.builderlauncher.hub.HubStore
 import xyz.cdr.builderlauncher.stocks.HomeTicker
@@ -373,6 +375,9 @@ fun BuilderRoot(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     CalendarHomeSync(calendar, settings, appsEpoch)
+    LaunchedEffect(settings.hubRestrict, settings.hubPackages) {
+        HubFilter.publish(HubAppSelection(settings.hubRestrict, settings.hubPackages))
+    }
     DisposableEffect(page) {
         if (page != Page.Settings) ClockSoundPlayer.stopPreview()
         onDispose { ClockSoundPlayer.stopPreview() }

@@ -7,8 +7,16 @@ import android.app.RemoteInput
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import xyz.cdr.builderlauncher.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,22 +69,36 @@ object HubStore {
 class NotificationHubService : NotificationListenerService() {
     private val intents = mutableMapOf<String, PendingIntent?>()
     private val replies = mutableMapOf<String, Pair<PendingIntent, Array<RemoteInput>>>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var filterJob: Job? = null
 
     override fun onListenerConnected() {
         HubStore.open = { key -> open(key) }
         HubStore.dismiss = { key -> dismiss(key) }
         HubStore.reply = { key, text -> reply(key, text) }
-        val items = activeNotifications.mapNotNull { toItem(it) }
-        HubStore.replace(items)
-        pruneIntents()
+        val disk = runCatching { SettingsRepository(this).settings.value }.getOrNull()
+        if (disk != null) {
+            HubFilter.ensure(HubAppSelection(disk.hubRestrict, disk.hubPackages))
+        }
+        filterJob?.cancel()
+        filterJob = scope.launch {
+            HubFilter.selection.collect { refreshActive() }
+        }
     }
 
     override fun onListenerDisconnected() {
+        filterJob?.cancel()
         HubStore.open = { false }
         HubStore.dismiss = {}
         HubStore.reply = { _, _ -> false }
         intents.clear()
         replies.clear()
+    }
+
+    override fun onDestroy() {
+        filterJob?.cancel()
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -157,6 +179,13 @@ class NotificationHubService : NotificationListenerService() {
         HubStore.remove(key)
     }
 
+    private fun refreshActive() {
+        val posted = runCatching { activeNotifications }.getOrNull() ?: return
+        val items = posted.mapNotNull { toItem(it) }
+        HubStore.replace(items)
+        pruneIntents()
+    }
+
     private fun pruneIntents() {
         val keep = HubStore.items.value.map { it.key }.toSet()
         intents.keys.retainAll(keep)
@@ -167,9 +196,15 @@ class NotificationHubService : NotificationListenerService() {
         if (sbn.packageName == packageName) return null
         val notification = sbn.notification
         val extras = notification.extras
-        val title = extras.getCharSequence("android.title")?.toString().orEmpty()
-        val text = extras.getCharSequence("android.text")?.toString().orEmpty()
-        if (title.isBlank() && text.isBlank()) return null
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+        val big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
+        val summary = extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString().orEmpty()
+        val conversation = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString().orEmpty()
+        val lines = messageLines(extras)
+        val body = HubMessages.notificationBody(text, big, lines, summary)
+        val shownTitle = title.ifBlank { conversation }
+        if (shownTitle.isBlank() && body.isBlank()) return null
         val replyAction = notification.actions?.firstOrNull { action ->
             action.remoteInputs?.any { it.resultKey.isNotBlank() } == true
         }
@@ -181,10 +216,9 @@ class NotificationHubService : NotificationListenerService() {
         val groupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
         if (!HubMessages.isReplyable(
                 packageName = sbn.packageName,
-                category = notification.category,
-                template = extras.getString(Notification.EXTRA_TEMPLATE),
                 ongoing = ongoing,
                 groupSummary = groupSummary,
+                selection = HubFilter.selection.value,
             )
         ) {
             return null
@@ -206,8 +240,8 @@ class NotificationHubService : NotificationListenerService() {
         return HubItem(
             key = key,
             source = label,
-            title = title.ifBlank { label },
-            body = text,
+            title = shownTitle.ifBlank { label },
+            body = body,
             postedAt = sbn.postTime,
             packageName = sbn.packageName,
             notifId = sbn.id,
@@ -215,4 +249,21 @@ class NotificationHubService : NotificationListenerService() {
             canInlineReply = hasRemoteInput,
         )
     }
+
+    private fun messageLines(extras: Bundle): List<String> = runCatching {
+        val raw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+        }
+        val fromStyle = raw.orEmpty().mapNotNull { item ->
+            val bundle = item as? Bundle ?: return@mapNotNull null
+            bundle.getCharSequence("text")?.toString()
+        }
+        val fromLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            ?.map { it.toString() }
+            .orEmpty()
+        fromStyle + fromLines
+    }.getOrDefault(emptyList())
 }
