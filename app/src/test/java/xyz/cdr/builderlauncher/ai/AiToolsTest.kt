@@ -152,6 +152,59 @@ class AiToolsTest {
         val turn = accum.turn()
         assertEquals("web_search", turn.calls[0].name)
         assertEquals("{\"query\":\"x\"}", turn.calls[0].arguments)
-        assertEquals("Searching…", AiTools.status(turn.calls))
+        assertEquals(
+            listOf("Searching", "x"),
+            AiTools.activity(turn.calls),
+        )
+    }
+
+    @Test
+    fun searchActivityNamesTheQueryThenTheSites() {
+        val call = AiTools.Call("call_1", "web_search", """{"query":"weather in Kitchener"}""")
+        assertEquals(listOf("Searching", "weather in Kitchener"), AiTools.activity(listOf(call)))
+        val hits = listOf(
+            AiTools.Hit("Forecast", "https://www.weather.gc.ca/city", "rain"),
+            AiTools.Hit("Wiki", "https://en.wikipedia.org/wiki/Kitchener", ""),
+        )
+        assertEquals(listOf("weather.gc.ca", "en.wikipedia.org"), AiTools.hosts(hits))
+        assertEquals(
+            listOf("Searching", "weather in Kitchener", "· weather.gc.ca", "· en.wikipedia.org"),
+            AiTools.activity(listOf(call), AiTools.hosts(hits)),
+        )
+        val page = AiTools.Call("call_2", "web_fetch", """{"url":"https://example.com/post"}""")
+        assertEquals(listOf("Reading", "example.com"), AiTools.activity(listOf(page)))
+    }
+
+    @Test
+    fun searchFailureStaysOneShortLine() {
+        val html = "<html><body>" + "x".repeat(50_000) + " anomaly detection challenge</body></html>"
+        val shown = AiTools.shortFailure(html)
+        assertEquals("Search failed.", shown)
+        assertFalse(shown.contains("anomaly"))
+        assertTrue(shown.length < 80)
+        assertFalse(shown.contains('\n'))
+        assertEquals("Search failed.", AiTools.chatDisplay("LLM error 502: $html"))
+        assertEquals("Could not reach the model.", AiTools.chatDisplay("LLM error 500: " + "{".repeat(500)))
+        assertEquals("Hello", AiTools.chatDisplay("Hello"))
+        val answer = "Kotlin has a GC. Rust does not.\n\nUse Kotlin on Android."
+        assertEquals(answer, AiTools.chatDisplay(answer))
+    }
+
+    @Test
+    fun searchDoesNotReturnTheErrorPage() {
+        val html = "<!DOCTYPE html><html><body>captcha " + "z".repeat(9_000) + "</body></html>"
+        val failed = AiTools.perform("web_search", """{"query":"weather"}""") { html }
+        assertEquals("Search failed.", failed.text)
+        assertTrue(failed.failed)
+        assertTrue(failed.sites.isEmpty())
+        assertFalse(failed.text.contains("captcha"))
+        val ok = """
+            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fpost&amp;rut=1" class='result-link'>Example post</a>
+            <td class='result-snippet'>A short snippet.</td>
+        """.trimIndent()
+        val hit = AiTools.perform("web_search", """{"query":"cedar"}""") { ok }
+        assertFalse(hit.failed)
+        assertEquals(listOf("example.com"), hit.sites)
+        assertTrue(hit.text.contains("example.com/post"))
     }
 }

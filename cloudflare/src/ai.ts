@@ -8,18 +8,21 @@ import {
 	continueAnthropic,
 	continueOpenAi,
 	droppedFields,
-	formatHits,
 	isPublicHttps,
 	llmError,
 	openaiTools,
-	parseDuckDuckGo,
 	parseModelTurn,
 	parseRefresh,
+	performTool,
 	planUpstream,
 	privacyExtra,
 	publicPageUrl,
 	readHermesSse,
+	searchActivity,
 	searchUrl,
+	looksLikeErrorPage,
+	chatDisplay,
+	hostOf,
 	stripHtml,
 	toolStep,
 } from '../../website/public/web/ai.js';
@@ -59,17 +62,32 @@ async function aiChat(request: Request): Promise<Response> {
 	if (!plan.bearer && plan.kind !== 'hermes' && !plan.keyOptional) {
 		return jsonError('Sign in or paste an API key in settings.');
 	}
-	try {
-		const text =
-			plan.kind === 'hermes'
-				? await hermesAsk(plan)
-				: plan.kind === 'anthropic'
-					? await anthropicAsk(plan)
-					: await openaiAsk(plan);
-		return Response.json({ text }, { headers: { 'cache-control': 'no-store' } });
-	} catch {
-		return Response.json({ text: 'Could not reach the model.' }, { headers: { 'cache-control': 'no-store' } });
-	}
+	const encoder = new TextEncoder();
+	const stream = new ReadableStream({
+		async start(controller) {
+			const send = (event: string, data: unknown) => {
+				controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+			};
+			const onProgress = (lines: string[]) => {
+				if (lines.length) send('search', { lines });
+			};
+			try {
+				const text =
+					plan.kind === 'hermes'
+						? await hermesAsk(plan)
+						: plan.kind === 'anthropic'
+							? await anthropicAsk(plan, onProgress)
+							: await openaiAsk(plan, onProgress);
+				send('done', { text: chatDisplay(text) });
+			} catch {
+				send('done', { text: 'Could not reach the model.' });
+			}
+			controller.close();
+		},
+	});
+	return new Response(stream, {
+		headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store' },
+	});
 }
 
 async function aiRefresh(request: Request): Promise<Response> {
@@ -115,7 +133,7 @@ function openaiBody(model: string, messages: unknown[], extra: Record<string, un
 	return JSON.stringify(body);
 }
 
-async function openaiAsk(plan: Plan): Promise<string> {
+async function openaiAsk(plan: Plan, onProgress?: (lines: string[]) => void): Promise<string> {
 	const root = chatRoot(plan.url);
 	const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
 	if (plan.bearer) headers.authorization = `Bearer ${plan.bearer}`;
@@ -128,10 +146,10 @@ async function openaiAsk(plan: Plan): Promise<string> {
 			signal: AbortSignal.timeout(AI_TIMEOUT_MS),
 		});
 		return { ok: res.ok, status: res.status, raw: await res.text() };
-	});
+	}, onProgress);
 }
 
-async function anthropicAsk(plan: Plan): Promise<string> {
+async function anthropicAsk(plan: Plan, onProgress?: (lines: string[]) => void): Promise<string> {
 	const root = plan.url.replace(/\/+$/, '');
 	const url = root.endsWith('/v1') ? `${root}/messages` : `${root}/v1/messages`;
 	const headers: Record<string, string> = {
@@ -163,7 +181,7 @@ async function anthropicAsk(plan: Plan): Promise<string> {
 			signal: AbortSignal.timeout(AI_TIMEOUT_MS),
 		});
 		return { ok: res.ok, status: res.status, raw: await res.text() };
-	});
+	}, onProgress);
 }
 
 async function toolLoop(
@@ -171,6 +189,7 @@ async function toolLoop(
 	start: unknown[],
 	kind: 'openai' | 'anthropic',
 	post: (messages: unknown[], extra: Record<string, unknown>, tools: boolean) => Promise<{ ok: boolean; status: number; raw: string }>,
+	onProgress?: (lines: string[]) => void,
 ): Promise<string> {
 	let messages = start;
 	let privacy = true;
@@ -194,10 +213,21 @@ async function toolLoop(
 		const turn = parseModelTurn(res.raw, kind);
 		if (!turn) return 'Empty reply from the model.';
 		const step = toolStep(turn.calls, round, tools, TOOL_ROUNDS);
-		if (step === 'answer') return turn.text || 'Empty reply from the model.';
+		if (step === 'answer') return chatDisplay(turn.text || 'Empty reply from the model.');
 		const calls = turn.calls.slice(0, 4);
+		const started = searchActivity(calls);
+		if (started.length) onProgress?.(started);
+		const sites: string[] = [];
+		let failed = false;
 		const results = [];
-		for (const call of calls) results.push({ id: call.id, content: await runTool(call.name, call.arguments) });
+		for (const call of calls) {
+			const outcome = await runTool(call.name, call.arguments);
+			sites.push(...outcome.sites);
+			if (outcome.failed && (call.name === 'web_search' || call.name === 'web_fetch')) failed = true;
+			const lines = searchActivity(calls, sites, failed);
+			if (lines.length) onProgress?.(lines);
+			results.push({ id: call.id, content: outcome.text });
+		}
 		messages = kind === 'anthropic' ? continueAnthropic(messages, turn, results) : continueOpenAi(messages, turn, results);
 		if (step === 'finish') tools = false;
 		else round += 1;
@@ -205,32 +235,41 @@ async function toolLoop(
 	return 'Empty reply from the model.';
 }
 
-async function runTool(name: string, argsJson: string): Promise<string> {
+type ToolOutcome = { text: string; sites: string[]; failed: boolean };
+
+async function runTool(name: string, argsJson: string): Promise<ToolOutcome> {
 	let args: Record<string, unknown> = {};
 	try {
 		const parsed = JSON.parse(argsJson || '{}');
 		if (parsed && typeof parsed === 'object') args = parsed as Record<string, unknown>;
 	} catch {
-		return 'Invalid tool arguments.';
+		return { text: 'Invalid tool arguments.', sites: [], failed: true };
 	}
 	if (name === 'web_search') return searchWeb(String(args.query || ''));
-	if (name === 'web_fetch') return fetchPage(String(args.url || ''));
-	if (name === 'calculate') return calculate(String(args.expression || ''));
-	return 'Unknown tool.';
+	if (name === 'web_fetch') {
+		const raw = String(args.url || '');
+		const text = await fetchPage(raw);
+		const host = hostOf(publicPageUrl(raw));
+		const failed = text === 'Page could not be read.' || text === 'Only public HTTPS pages.';
+		return { text, sites: host ? [host] : [], failed };
+	}
+	if (name === 'calculate') return { text: calculate(String(args.expression || '')), sites: [], failed: false };
+	return { text: 'Unknown tool.', sites: [], failed: true };
 }
 
-async function searchWeb(query: string): Promise<string> {
+async function searchWeb(query: string): Promise<ToolOutcome> {
 	const url = searchUrl(query);
-	if (!url) return 'Need a query.';
+	if (!url) return { text: 'Need a query.', sites: [], failed: true };
 	try {
 		const res = await fetch(url, {
 			headers: { 'user-agent': SEARCH_UA, accept: 'text/html' },
 			signal: AbortSignal.timeout(TOOL_FETCH_MS),
 		});
-		if (!res.ok) return 'Search failed.';
-		return formatHits(parseDuckDuckGo(await res.text()));
+		if (!res.ok) return { text: 'Search failed.', sites: [], failed: true };
+		const html = await res.text();
+		return performTool('web_search', JSON.stringify({ query }), () => html);
 	} catch {
-		return 'Search failed.';
+		return { text: 'Search failed.', sites: [], failed: true };
 	}
 }
 
@@ -255,6 +294,7 @@ async function fetchPage(raw: string): Promise<string> {
 			if (type && !/text\/|json|xml/.test(type)) return 'Page is not text.';
 			const bytes = new Uint8Array(await res.arrayBuffer());
 			const text = new TextDecoder().decode(bytes.subarray(0, 80_000));
+			if (looksLikeErrorPage(text)) return 'Page could not be read.';
 			const plain = /json|xml/.test(type) ? text : stripHtml(text);
 			return plain.replace(/\s+/g, ' ').trim().slice(0, 6000) || 'Page was empty.';
 		}

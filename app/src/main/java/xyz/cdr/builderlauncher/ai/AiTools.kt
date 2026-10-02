@@ -230,14 +230,24 @@ object AiTools {
 
     fun calculate(raw: String): String = Calculator.preview(raw) ?: "Could not calculate."
 
-    fun run(name: String, argsJson: String, get: (String) -> String?): String {
+    data class ToolResult(val text: String, val sites: List<String> = emptyList(), val failed: Boolean = false)
+
+    fun run(name: String, argsJson: String, get: (String) -> String?): String = perform(name, argsJson, get).text
+
+    fun perform(name: String, argsJson: String, get: (String) -> String?): ToolResult {
         val args = runCatching { json.parseToJsonElement(argsJson).jsonObject }.getOrNull()
-            ?: return "Invalid tool arguments."
+            ?: return ToolResult("Invalid tool arguments.", failed = true)
         return when (name) {
-            "web_search" -> search(args["query"]?.jsonPrimitive?.contentOrNull.orEmpty(), get)
-            "web_fetch" -> fetchPage(args["url"]?.jsonPrimitive?.contentOrNull.orEmpty(), get)
-            "calculate" -> calculate(args["expression"]?.jsonPrimitive?.contentOrNull.orEmpty())
-            else -> "Unknown tool."
+            "web_search" -> searchResult(args["query"]?.jsonPrimitive?.contentOrNull.orEmpty(), get)
+            "web_fetch" -> {
+                val raw = args["url"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                val host = hostOf(publicPageUrl(raw).orEmpty())
+                val text = fetchPage(raw, get)
+                val failed = text == "Page could not be read." || text == "Only public HTTPS pages."
+                ToolResult(text, listOfNotNull(host), failed)
+            }
+            "calculate" -> ToolResult(calculate(args["expression"]?.jsonPrimitive?.contentOrNull.orEmpty()))
+            else -> ToolResult("Unknown tool.", failed = true)
         }
     }
 
@@ -247,8 +257,47 @@ object AiTools {
         else -> "run"
     }
 
-    fun status(calls: List<Call>): String? =
-        if (calls.any { it.name == "web_search" || it.name == "web_fetch" }) "Searching…" else null
+    fun activity(calls: List<Call>, sites: List<String> = emptyList(), failed: Boolean = false): List<String> {
+        val looking = calls.filter { it.name == "web_search" || it.name == "web_fetch" }
+        if (looking.isEmpty()) return emptyList()
+        if (failed && sites.isEmpty()) return listOf("Search failed")
+        val heading = if (looking.any { it.name == "web_search" }) "Searching" else "Reading"
+        val queries = looking.mapNotNull { queryLabel(it) }.distinct().take(4)
+        val siteLines = sites.map { "· $it" }.distinct().take(8)
+        val tail = if (failed) listOf("Search failed") else emptyList()
+        return listOf(heading) + queries + siteLines + tail
+    }
+
+    fun hosts(hits: List<Hit>): List<String> = hits.mapNotNull { hostOf(it.url) }.distinct()
+
+    fun shortFailure(raw: String): String {
+        val flat = raw.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim()
+        if (flat.length in 1..60 && !flat.contains('<') && !flat.contains('{') && !flat.contains("http", ignoreCase = true)) {
+            return flat
+        }
+        return "Search failed."
+    }
+
+    fun shortReason(raw: String): String {
+        val flat = runCatching {
+            val root = json.parseToJsonElement(raw).jsonObject
+            val message = root["message"]?.jsonPrimitive?.contentOrNull
+            val err = root["error"]
+            val fromErr = runCatching { err?.jsonPrimitive?.contentOrNull }.getOrNull()
+                ?: err?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull
+            (message ?: fromErr)?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+        }.getOrDefault("")
+        if (flat.length in 1..60 && flat.none { it == '<' || it == '{' || it == '\n' }) return flat
+        return "request failed"
+    }
+
+    fun chatDisplay(source: String): String {
+        val trimmed = source.trim()
+        if (trimmed.isEmpty()) return source
+        if (isDump(trimmed)) return if (looksLikeSearchDump(trimmed)) "Search failed." else "Could not reach the model."
+        if (trimmed.length > 12_000) return trimmed.take(12_000).trimEnd() + "…"
+        return source
+    }
 
     fun searchUrl(query: String): String? {
         val q = query.trim().take(200)
@@ -256,15 +305,52 @@ object AiTools {
         return "https://lite.duckduckgo.com/lite/?q=${java.net.URLEncoder.encode(q, "UTF-8")}"
     }
 
-    private fun search(query: String, get: (String) -> String?): String {
-        val url = searchUrl(query) ?: return "Need a query."
-        val html = get(url) ?: return "Search failed."
-        return formatHits(parseDuckDuckGo(html))
+    private fun searchResult(query: String, get: (String) -> String?): ToolResult {
+        val url = searchUrl(query) ?: return ToolResult("Need a query.", failed = true)
+        val html = get(url) ?: return ToolResult("Search failed.", failed = true)
+        if (looksLikeErrorPage(html)) return ToolResult("Search failed.", failed = true)
+        val hits = parseDuckDuckGo(html)
+        return ToolResult(formatHits(hits), hosts(hits))
+    }
+
+    private fun looksLikeErrorPage(html: String): Boolean {
+        val lower = html.lowercase()
+        if (lower.contains("result-link") || lower.contains("result__a")) return false
+        if (lower.contains("captcha") || lower.contains("access denied")) return true
+        return html.length > 8_000 && (lower.contains("<html") || lower.contains("<!doctype"))
+    }
+
+    private fun queryLabel(call: Call): String? {
+        val args = runCatching { json.parseToJsonElement(call.arguments).jsonObject }.getOrNull()
+        return when (call.name) {
+            "web_search" -> args?.get("query")?.jsonPrimitive?.contentOrNull?.trim()?.take(80)?.ifBlank { null }
+            "web_fetch" -> hostOf(args?.get("url")?.jsonPrimitive?.contentOrNull.orEmpty())
+            else -> null
+        }
+    }
+
+    private fun hostOf(raw: String): String? {
+        val host = runCatching { URI(raw).host }.getOrNull()?.lowercase()?.removePrefix("www.").orEmpty()
+        return host.ifBlank { null }
+    }
+
+    private fun isDump(text: String): Boolean {
+        val lower = text.lowercase()
+        if (lower.contains("<html") || lower.contains("<!doctype")) return true
+        if (text.startsWith("LLM error") && text.length > 160) return true
+        if (text.startsWith("{") && text.length > 400) return true
+        return text.length > 12_000
+    }
+
+    private fun looksLikeSearchDump(text: String): Boolean {
+        val lower = text.lowercase()
+        return lower.contains("<html") || lower.contains("<!doctype") || lower.contains("duckduckgo") || lower.contains("search failed")
     }
 
     private fun fetchPage(raw: String, get: (String) -> String?): String {
         val url = publicPageUrl(raw) ?: return "Only public HTTPS pages."
         val body = get(url) ?: return "Page could not be read."
+        if (looksLikeErrorPage(body)) return "Page could not be read."
         val plain = if (body.trimStart().startsWith("{") || body.trimStart().startsWith("[")) body else stripHtml(body)
         return plain.replace(Regex("\\s+"), " ").trim().take(6000).ifBlank { "Page was empty." }
     }

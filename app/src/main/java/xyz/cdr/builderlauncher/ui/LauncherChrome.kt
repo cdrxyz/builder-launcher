@@ -563,6 +563,7 @@ fun ChatChrome(
     messages: List<ChatBubble>,
     input: String = "",
     busy: Boolean = false,
+    activity: List<String> = emptyList(),
     provider: LlmProvider = LlmProvider.XAI,
     providerMenu: Boolean = false,
 ) {
@@ -598,7 +599,9 @@ fun ChatChrome(
                     MarkdownDocument(msg.body)
                 }
             }
-            if (busy) {
+            if (activity.isNotEmpty()) {
+                SearchActivity(activity)
+            } else if (busy) {
                 Text("…", color = Dim, style = MaterialTheme.typography.bodyLarge)
             }
         }

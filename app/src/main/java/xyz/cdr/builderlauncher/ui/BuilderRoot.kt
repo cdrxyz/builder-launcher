@@ -278,6 +278,7 @@ fun BuilderRoot(
     var chatId by remember { mutableStateOf<String?>(null) }
     var chatBusy by remember { mutableStateOf(false) }
     var streamDraft by remember { mutableStateOf("") }
+    var searchLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var choices by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var appQuery by remember { mutableStateOf(false) }
     var appMiss by remember { mutableStateOf(AppTaskFallback.State()) }
@@ -555,12 +556,15 @@ fun BuilderRoot(
         input = ""
         chatBusy = true
         streamDraft = ""
+        searchLines = emptyList()
         val snapshot = chats.get(thread.id) ?: thread
         scope.launch {
             try {
-                val reply = llm.ask(snapshot.messages) { streamed ->
-                    streamDraft = streamed
-                }
+                val reply = llm.ask(
+                    snapshot.messages,
+                    onDelta = { streamed -> streamDraft = streamed },
+                    onSearch = { lines -> searchLines = lines },
+                )
                 if (chats.get(thread.id) != null) {
                     reply.notice?.let { notice ->
                         chats.addMessage(thread.id, ChatMessage(role = "notice", content = notice))
@@ -581,6 +585,7 @@ fun BuilderRoot(
                 }
             } finally {
                 streamDraft = ""
+                searchLines = emptyList()
                 chatBusy = false
             }
         }
@@ -590,6 +595,7 @@ fun BuilderRoot(
         chatId = id
         chatBusy = false
         streamDraft = ""
+        searchLines = emptyList()
         prompt = '?'
         input = ""
         choices = emptyList()
@@ -2174,7 +2180,7 @@ fun BuilderRoot(
                 val messages = thread?.messages.orEmpty()
                 val listState = rememberLazyListState()
                 var providerMenu by remember { mutableStateOf(false) }
-                LaunchedEffect(messages.size, chatBusy, streamDraft) {
+                LaunchedEffect(messages.size, chatBusy, streamDraft, searchLines) {
                     val target = if (chatBusy) messages.size else messages.lastIndex
                     if (target >= 0) listState.scrollToItem(target)
                 }
@@ -2251,9 +2257,12 @@ fun BuilderRoot(
                     }
                     if (chatBusy) {
                         item {
+                            if (searchLines.isNotEmpty()) {
+                                SearchActivity(searchLines)
+                            }
                             if (streamDraft.isNotEmpty()) {
                                 MarkdownDocument(streamDraft)
-                            } else {
+                            } else if (searchLines.isEmpty()) {
                                 ThinkingDots()
                             }
                         }

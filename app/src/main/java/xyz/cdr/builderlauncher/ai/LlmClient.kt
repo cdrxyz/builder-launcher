@@ -32,16 +32,17 @@ class LlmClient(
     suspend fun ask(
         messages: List<ChatMessage>,
         onDelta: ((String) -> Unit)? = null,
+        onSearch: ((List<String>) -> Unit)? = null,
     ): LlmAnswer = withContext(Dispatchers.IO) {
         val turns = messages.filter { it.content.isNotBlank() && !it.isNotice }
         val primary = settings.settings.value.provider
-        var last = askOne(settings.settings.value, turns, onDelta)
+        var last = askOne(settings.settings.value, turns, onDelta, onSearch)
         if (!AiFallback.failed(last.text) || primary != LlmProvider.HERMES) return@withContext last
         val primaryFail = last
         for (provider in AiFallback.order(primary).drop(1)) {
             if (provider !in settings.connectedProviders()) continue
             val view = settings.viewAs(provider)
-            val next = askOne(view, turns, onDelta = null)
+            val next = askOne(view, turns, onDelta = null, onSearch = null)
             if (!AiFallback.failed(next.text)) {
                 emit(next.text, onDelta)
                 return@withContext next.copy(
@@ -59,6 +60,7 @@ class LlmClient(
         snapshot: BuilderSettings,
         turns: List<ChatMessage>,
         onDelta: ((String) -> Unit)?,
+        onSearch: ((List<String>) -> Unit)?,
     ): LlmAnswer {
         val platform = AiPlatforms.of(snapshot.provider)
         if (snapshot.provider == LlmProvider.HERMES) {
@@ -79,7 +81,7 @@ class LlmClient(
             } catch (_: Throwable) {
                 "Could not reach the Web UI."
             }
-            if (!HermesWebUi.authFailed(text)) return LlmAnswer(text)
+            if (!HermesWebUi.authFailed(text)) return LlmAnswer(AiTools.chatDisplay(text))
             val api = HermesUrls.apiBase(snapshot)
             if (api.isBlank() || !EndpointPolicy.allowed(api)) return LlmAnswer(text)
             val bearer = snapshot.apiKey.trim().ifBlank { null }
@@ -90,12 +92,13 @@ class LlmClient(
                     turns,
                     bearer,
                     onDelta,
+                    onSearch,
                     provider = snapshot.provider,
                 )
             } catch (_: Throwable) {
                 text
             }
-            return LlmAnswer(if (HermesWebUi.authFailed(viaApi)) text else viaApi)
+            return LlmAnswer(AiTools.chatDisplay(if (HermesWebUi.authFailed(viaApi)) text else viaApi))
         }
         val base = settings.effectiveBaseUrl(snapshot)
         if (base.isBlank()) {
@@ -125,6 +128,7 @@ class LlmClient(
                     turns,
                     bearer,
                     onDelta,
+                    onSearch,
                     platform.extraHeaders,
                     snapshot.provider,
                 )
@@ -135,13 +139,14 @@ class LlmClient(
                     bearer,
                     oauthLive,
                     onDelta,
+                    onSearch,
                     snapshot.provider,
                 )
             }
         } catch (_: Throwable) {
             "Could not reach the model."
         }
-        return LlmAnswer(text)
+        return LlmAnswer(AiTools.chatDisplay(text))
     }
 
     private suspend fun openaiChat(
@@ -150,6 +155,7 @@ class LlmClient(
         messages: List<ChatMessage>,
         bearer: String?,
         onDelta: ((String) -> Unit)?,
+        onSearch: ((List<String>) -> Unit)?,
         extraHeaders: Map<String, String> = emptyMap(),
         provider: LlmProvider = LlmProvider.GENERIC,
     ): String {
@@ -160,6 +166,7 @@ class LlmClient(
             messages = AiTools.textMessages(messages, system = true),
             bearer = bearer,
             onDelta = onDelta,
+            onSearch = onSearch,
             extraHeaders = extraHeaders,
             provider = provider,
             anthropic = false,
@@ -174,6 +181,7 @@ class LlmClient(
         bearer: String?,
         oauth: Boolean,
         onDelta: ((String) -> Unit)?,
+        onSearch: ((List<String>) -> Unit)?,
         provider: LlmProvider,
     ): String {
         val root = base.trimEnd('/')
@@ -184,6 +192,7 @@ class LlmClient(
             messages = AiTools.textMessages(messages, system = false),
             bearer = bearer,
             onDelta = onDelta,
+            onSearch = onSearch,
             extraHeaders = emptyMap(),
             provider = provider,
             anthropic = true,
@@ -197,6 +206,7 @@ class LlmClient(
         messages: List<kotlinx.serialization.json.JsonObject>,
         bearer: String?,
         onDelta: ((String) -> Unit)?,
+        onSearch: ((List<String>) -> Unit)?,
         extraHeaders: Map<String, String>,
         provider: LlmProvider,
         anthropic: Boolean,
@@ -227,10 +237,18 @@ class LlmClient(
             }
             val turn = (posted as ChatRound.Ok).turn
             when (val step = AiTools.toolStep(turn.calls, round, tools)) {
-                "answer" -> return turn.text.ifBlank { EMPTY_REPLY }
+                "answer" -> return AiTools.chatDisplay(turn.text.ifBlank { EMPTY_REPLY })
                 else -> {
-                    AiTools.status(turn.calls)?.let { emit(it, onDelta) }
-                    val results = turn.calls.take(4).map { call -> call.id to AiTools.run(call.name, call.arguments) { toolGet(it) } }
+                    val sites = mutableListOf<String>()
+                    var searchFailed = false
+                    emitSearch(AiTools.activity(turn.calls), onSearch)
+                    val results = turn.calls.take(4).map { call ->
+                        val outcome = AiTools.perform(call.name, call.arguments) { toolGet(it) }
+                        sites += outcome.sites
+                        if (outcome.failed && (call.name == "web_search" || call.name == "web_fetch")) searchFailed = true
+                        emitSearch(AiTools.activity(turn.calls, sites.distinct(), searchFailed), onSearch)
+                        call.id to outcome.text
+                    }
                     wire = if (anthropic) AiTools.appendAnthropicTools(wire, turn, results) else AiTools.appendOpenAiTools(wire, turn, results)
                     if (step == "finish") tools = false else round += 1
                 }
@@ -308,7 +326,7 @@ class LlmClient(
                 val rest = source.readUtf8()
                 val raw = if (rest.isEmpty()) start else start + "\n" + rest
                 val turn = AiTools.parseBody(raw, openai = !anthropic) ?: AiTools.Turn(raw.take(400), emptyList())
-                if (turn.calls.isEmpty()) emit(turn.text, onDelta)
+                if (turn.calls.isEmpty()) emit(AiTools.chatDisplay(turn.text), onDelta)
                 return@use ChatRound.Ok(turn)
             }
             val frame = StringBuilder()
@@ -319,7 +337,7 @@ class LlmClient(
                     val before = accum.turn().text.length
                     accum.acceptData(data)
                     val turn = accum.turn()
-                    if (turn.calls.isEmpty() && turn.text.length > before) emit(turn.text, onDelta)
+                    if (turn.calls.isEmpty() && turn.text.length > before) emit(AiTools.chatDisplay(turn.text), onDelta)
                 } else {
                     frame.append(line).append('\n')
                 }
@@ -373,7 +391,12 @@ class LlmClient(
         withContext(Dispatchers.Main.immediate) { onDelta(text) }
     }
 
-    private fun llmError(code: Int, raw: String): String = "LLM error $code: ${raw.take(280)}"
+    private suspend fun emitSearch(lines: List<String>, onSearch: ((List<String>) -> Unit)?) {
+        if (onSearch == null || lines.isEmpty()) return
+        withContext(Dispatchers.Main.immediate) { onSearch(lines) }
+    }
+
+    private fun llmError(code: Int, raw: String): String = "LLM error $code: ${AiTools.shortReason(raw)}"
 
     private fun missingCreds(provider: LlmProvider): String {
         val platform = AiPlatforms.of(provider)

@@ -20,6 +20,11 @@ import {
 	searchUrl,
 	stripHtml,
 	toolStep,
+	searchActivity,
+	hostsFromHits,
+	shortFailure,
+	chatDisplay,
+	performTool,
 } from '../../website/public/web/ai.js';
 
 test('fixed providers ignore a swapped base', () => {
@@ -209,4 +214,43 @@ test('unknown privacy or tool fields are the only reason to drop them', () => {
 	assert.deepEqual(droppedFields('tools is not supported by this model'), { privacy: false, tools: true });
 	assert.deepEqual(droppedFields('No endpoints found that match your data policy (ZDR)'), { privacy: false, tools: false });
 	assert.deepEqual(droppedFields('invalid api key'), { privacy: false, tools: false });
+});
+
+test('search activity names the query then the sites', () => {
+	const call = { name: 'web_search', arguments: '{"query":"weather in Kitchener"}' };
+	assert.deepEqual(searchActivity([call]), ['Searching', 'weather in Kitchener']);
+	const hits = [
+		{ title: 'Forecast', url: 'https://www.weather.gc.ca/city', snippet: 'rain' },
+		{ title: 'Wiki', url: 'https://en.wikipedia.org/wiki/Kitchener', snippet: '' },
+	];
+	assert.deepEqual(hostsFromHits(hits), ['weather.gc.ca', 'en.wikipedia.org']);
+	assert.deepEqual(searchActivity([call], hostsFromHits(hits)), [
+		'Searching',
+		'weather in Kitchener',
+		'· weather.gc.ca',
+		'· en.wikipedia.org',
+	]);
+	assert.deepEqual(searchActivity([{ name: 'web_fetch', arguments: '{"url":"https://example.com/post"}' }]), [
+		'Reading',
+		'example.com',
+	]);
+});
+
+test('a search failure stays one short line and is not returned as the page', () => {
+	const html = `<html><body>${'x'.repeat(50000)} anomaly detection challenge</body></html>`;
+	const shown = shortFailure(html);
+	assert.equal(shown, 'Search failed.');
+	assert.equal(shown.includes('anomaly'), false);
+	assert.equal(shown.length < 80, true);
+	assert.equal(shown.includes('\n'), false);
+	assert.equal(chatDisplay(`LLM error 502: ${html}`), 'Search failed.');
+	assert.equal(chatDisplay(`LLM error 500: ${'{'.repeat(500)}`), 'Could not reach the model.');
+	assert.equal(chatDisplay('Hello'), 'Hello');
+	const answer = 'Kotlin has a GC. Rust does not.\n\nUse Kotlin on Android.';
+	assert.equal(chatDisplay(answer), answer);
+	const failed = performTool('web_search', '{"query":"weather"}', () => html.replace('html', '!DOCTYPE html><html'));
+	assert.equal(failed.text, 'Search failed.');
+	assert.equal(failed.failed, true);
+	assert.deepEqual(failed.sites, []);
+	assert.equal(failed.text.includes('anomaly'), false);
 });

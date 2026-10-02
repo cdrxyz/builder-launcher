@@ -12,7 +12,9 @@ Nothing is sent anywhere until you submit a question. There is no analytics.
 1. Configure a provider in [AI providers](../configure/ai-providers/).
 2. Type `?` on home. The bar stays at the bottom. Write the question there.
 3. Enter or the send arrow submits. Then the full-screen chat opens, with the same bar still at the bottom. The bar stays one line until the question wraps.
-4. The reply streams in above the bar. A short `…` shows until the first token arrives. Follow-ups stay in the same thread. If the model searches or opens a page, the phone shows Searching… until the answer starts.
+4. The reply streams in above the bar. A short `…` shows until the first token arrives. Follow-ups stay in the same thread. If the model searches or opens a page, the phone lists the query and the sites as they come in, instead of a static Searching…. A failed search stays one short line. The raw error page is not the reply.
+
+![Search lists the query and the sites](../../../assets/screenshots/chat-searching.png)
 
 The model can search the public web, open one public HTTPS page, and calculate. It uses those for current facts and arithmetic. Tool calls are not saved in the chat. Hermes keeps its own tools.
 
@@ -30,7 +32,7 @@ History lists the first line of each question, with the date edited underneath a
 
 A lone `?` stays on home. Submit a question to open [Ask AI](ai/). `help` or `/help` is the command cheat sheet.
 
-On [the web app](../../configure/web/), `?` uses the provider in the synced snapshot. Turn on **Include AI credentials** so the API key and OAuth tokens travel. The reply is markdown, same as the phone, once the model finishes. The same search, page, and calculator tools run on the Worker, so a question that needs the web can take longer. History is the `hist` button. A LAN Hermes URL is not reachable from the web app.
+On [the web app](../../configure/web/), `?` uses the provider in the synced snapshot. Turn on **Include AI credentials** so the API key and OAuth tokens travel. The reply is markdown, same as the phone, once the model finishes. The same search, page, and calculator tools run on the Worker, so a question that needs the web can take longer. While it searches, the page lists the query and the sites, same as the phone. A failed search stays one short line. History is the `hist` button. A LAN Hermes URL is not reachable from the web app.
 
 | Provider | Default model | Endpoint |
 | --- | --- | --- |
