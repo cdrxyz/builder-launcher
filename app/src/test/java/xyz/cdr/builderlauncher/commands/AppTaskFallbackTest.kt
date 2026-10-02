@@ -84,11 +84,56 @@ class AppTaskFallbackTest {
         assertTrue(Calculator.looksLike("2+"))
         assertTrue(Calculator.looksLike("sqrt("))
         assertTrue(Calculator.looksLike("2-2"))
-        assertFalse(Calculator.looksLike("buy"))
         assertFalse(Calculator.looksLike("42"))
+        assertFalse(Calculator.looksLike("buy"))
         val minus = step("2-2", matches = 0)
         assertFalse(minus.switched)
         assertTrue(minus.suppressApps)
+    }
+
+    @Test
+    fun digitRunStaysInDefaultUntilTheEquationIsTyped() {
+        var state = AppTaskFallback.State()
+        for (input in listOf("5", "50", "500", "5000", "5000*", "5000*.", "5000*.05")) {
+            val result = step(input, matches = 0, state = state)
+            assertFalse("$input switched", result.switched)
+            assertEquals('>', result.mode.prompt)
+            assertEquals(input, result.mode.input)
+            state = result.state
+        }
+        val done = step("5000*.05", matches = 0, state = state)
+        assertTrue(done.suppressApps)
+        assertEquals("250", Calculator.preview("5000*.05"))
+        assertEquals("250", Calculator.commit("5000*.05"))
+    }
+
+    @Test
+    fun equationAlreadyInTaskModeReturnsToCalculator() {
+        val stolen = step("5000*.05", matches = 0, prompt = '-')
+        assertTrue(stolen.switched)
+        assertEquals('>', stolen.mode.prompt)
+        assertEquals("5000*.05", stolen.mode.input)
+        assertTrue(stolen.suppressApps)
+        val prose = step("buy milk", matches = 0, prompt = '-')
+        assertFalse(prose.switched)
+        assertEquals('-', prose.mode.prompt)
+    }
+
+    @Test
+    fun lettersAfterANumberStillSwitchToTaskMode() {
+        var state = step("500", matches = 0).state
+        var last = step("500", matches = 0, state = state)
+        var switched = false
+        for (input in listOf("500a", "500ab", "500abc")) {
+            last = step(input, matches = 0, state = last.state)
+            if (last.switched) {
+                switched = true
+                break
+            }
+        }
+        assertTrue(switched)
+        assertEquals('-', last.mode.prompt)
+        assertEquals("500abc", last.mode.input)
     }
 
     @Test

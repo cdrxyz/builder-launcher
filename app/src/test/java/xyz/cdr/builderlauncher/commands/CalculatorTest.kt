@@ -55,6 +55,14 @@ class CalculatorTest {
         assertFalse(Calculator.looksLike("buy milk"))
         assertFalse(Calculator.looksLike("pre-tax"))
         assertTrue(Calculator.looksLike("2-2"))
+        assertTrue(Calculator.looksLike("5000*.05"))
+        assertEquals("250", Calculator.preview("5000*.05"))
+        assertNull(Calculator.preview("5000*. 05"))
+        assertTrue(Calculator.couldStillBeMath("5000"))
+        assertTrue(Calculator.couldStillBeMath("5000."))
+        assertTrue(Calculator.couldStillBeMath(".05"))
+        assertFalse(Calculator.couldStillBeMath("5000*.05"))
+        assertFalse(Calculator.couldStillBeMath("buy"))
     }
 
     @Test

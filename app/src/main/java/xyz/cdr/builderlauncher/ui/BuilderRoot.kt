@@ -1015,6 +1015,11 @@ fun BuilderRoot(
             pick = AppPick.Launch
             appMiss = AppTaskFallback.State()
         } else if (PrefixCommands.isModePrompt(first)) {
+            val back = if (page == Page.Home) AppTaskFallback.returnToCalculator(next) else null
+            if (back != null) {
+                applyMode(back.mode)
+                return
+            }
             people = emptyList()
             choices = emptyList()
             appQuery = false

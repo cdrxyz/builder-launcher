@@ -38,6 +38,10 @@ object PrefixCommands {
 
     fun usesRawSymbolKeyboard(glyph: Char): Boolean = glyph == '$'
 
+    /** Hardware keyboards insert a space after `.`. Default and stock drop it. */
+    fun stripsAutoPeriodSpace(glyph: Char): Boolean =
+        glyph == DEFAULT_PROMPT || usesRawSymbolKeyboard(glyph)
+
     /** Prose modes. Default stays off so calculator expressions are not rewritten. */
     fun usesAutocorrect(glyph: Char): Boolean = glyph == '-' || glyph == '+' || glyph == '?'
 
@@ -57,11 +61,9 @@ object PrefixCommands {
         } else {
             current.copy(input = newInput)
         }
-        return if (usesRawSymbolKeyboard(next.prompt)) {
-            next.copy(input = collapsePeriodSpaces(next.input))
-        } else {
-            next
-        }
+        val collapsed = collapsePeriodSpaces(next.input)
+        val dropSpace = stripsAutoPeriodSpace(next.prompt) || Calculator.looksLike(collapsed)
+        return if (dropSpace) next.copy(input = collapsed) else next
     }
 
     internal fun collapsePeriodSpaces(input: String): String =

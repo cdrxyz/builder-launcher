@@ -21,6 +21,7 @@ object AppTaskFallback {
     fun reserved(query: String): Boolean {
         if (query.isBlank()) return true
         if (Calculator.looksLike(query)) return true
+        if (Calculator.couldStillBeMath(query)) return true
         if (query.last().isWhitespace()) return false
         if (SlashCommands.matches(query).isNotEmpty()) return true
         if (Notes.matchesQuery(query)) return true
@@ -30,7 +31,19 @@ object AppTaskFallback {
         return query.equals("timer", ignoreCase = true)
     }
 
+    /** An equation that task mode already stole should calculate, not save a todo. */
+    fun returnToCalculator(mode: PrefixCommands.Mode): Result? {
+        if (mode.prompt != '-' || !Calculator.looksLike(mode.input)) return null
+        return Result(
+            PrefixCommands.Mode(input = mode.input),
+            State(),
+            switched = true,
+            suppressApps = true,
+        )
+    }
+
     fun step(mode: PrefixCommands.Mode, matchCount: Int, state: State): Result {
+        returnToCalculator(mode)?.let { return it }
         if (mode.prompt != PrefixCommands.DEFAULT_PROMPT) {
             return Result(mode, State(), false)
         }
