@@ -2022,7 +2022,7 @@ fun ClockChrome(
             when (tab) {
                 "Alarm" -> {
                     if (alarms.isEmpty()) {
-                        Text("Type 7:30am or Take out garbage Wednesdays 10:30pm.", color = Dim)
+                        Text(Clock.ALARM_HINT, color = Dim)
                     } else {
                         alarms.forEach { alarm ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

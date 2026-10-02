@@ -71,6 +71,73 @@ class ClockTest {
     }
 
     @Test
+    fun parseIntervalAlarmSeries() {
+        val advil = Clock.parseAlarmInputs("Advil every 4 hours starting at 8pm")
+        assertEquals(
+            listOf(0 to 0, 4 to 0, 8 to 0, 12 to 0, 16 to 0, 20 to 0),
+            advil.map { it.hour to it.minute },
+        )
+        assertTrue(advil.all { it.label == "Advil" && it.days.isEmpty() })
+
+        val dose = Clock.parseAlarmInputs("every 6 hours starting at 9:30am ibuprofen")
+        assertEquals(
+            listOf(3 to 30, 9 to 30, 15 to 30, 21 to 30),
+            dose.map { it.hour to it.minute },
+        )
+        assertTrue(dose.all { it.label == "ibuprofen" })
+
+        val gym = Clock.parseAlarmInputs("Gym every 12 hours from 6am weekdays")
+        assertEquals(listOf(6 to 0, 18 to 0), gym.map { it.hour to it.minute })
+        assertTrue(gym.all { it.label == "Gym" && it.days == (1..5).toSet() })
+
+        val compact = Clock.parseAlarmInputs("Advil every 4h starting at 20:00")
+        assertEquals(
+            listOf(0 to 0, 4 to 0, 8 to 0, 12 to 0, 16 to 0, 20 to 0),
+            compact.map { it.hour to it.minute },
+        )
+
+        assertTrue(Clock.parseAlarmInputs("every 5 hours starting at 8pm").isEmpty())
+        assertTrue(Clock.parseAlarmInputs("Advil every 4 hours").isEmpty())
+        assertTrue(Clock.parseAlarmInputs("every 4.5 hours starting at 8pm").isEmpty())
+        assertEquals(1, Clock.parseAlarmInputs("Take out garbage Wednesdays 10:30pm").size)
+
+        val reordered = Clock.parseAlarmInputs("starting at 8pm every 4 hours Advil")
+        assertEquals(
+            listOf(0 to 0, 4 to 0, 8 to 0, 12 to 0, 16 to 0, 20 to 0),
+            reordered.map { it.hour to it.minute },
+        )
+        assertTrue(reordered.all { it.label == "Advil" })
+
+        val comma = Clock.parseAlarmInputs("Advil every 4 hours, starting at 8pm")
+        assertEquals(6, comma.size)
+        assertTrue(comma.all { it.label == "Advil" })
+
+        val daily = Clock.parseAlarmInputs("every 24 hours starting at 8pm")
+        assertEquals(listOf(20 to 0), daily.map { it.hour to it.minute })
+        assertEquals("", daily.single().label)
+
+        val minutes = Clock.parseAlarmInputs("every 90 minutes starting at 8pm")
+        assertEquals(16, minutes.size)
+        assertEquals(20 to 0, minutes.first { it.hour == 20 }.let { it.hour to it.minute })
+        assertEquals(21 to 30, minutes.first { it.hour == 21 }.let { it.hour to it.minute })
+        assertTrue(minutes.all { it.label == "" })
+
+        val attack = Clock.parseAlarmInputs("every 4 hours attack at 9pm")
+        assertEquals(6, attack.size)
+        assertTrue(attack.all { it.label == "attack" })
+        assertTrue(attack.any { it.hour == 21 && it.minute == 0 })
+
+        val fromWork = Clock.parseAlarmInputs("Call mom from work every 4 hours starting at 8pm")
+        assertEquals(6, fromWork.size)
+        assertTrue(fromWork.all { it.label == "Call mom from work" })
+
+        val starts = Clock.parseAlarmInputs("every 4 hours starts at 9pm")
+        assertEquals(6, starts.size)
+        assertTrue(starts.all { it.label == "" })
+        assertTrue(starts.any { it.hour == 21 && it.minute == 0 })
+    }
+
+    @Test
     fun formatDaysAndAlarmStatus() {
         assertEquals("", Clock.formatDays(emptySet()))
         assertEquals("Wed", Clock.formatDays(setOf(3)))
