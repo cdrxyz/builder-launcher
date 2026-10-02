@@ -249,7 +249,7 @@ object HermesWebUi {
     private fun obj(raw: String): JsonObject? =
         runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull()
 
-    private fun llmError(code: Int, raw: String): String = "LLM error $code: ${raw.take(280)}"
+    private fun llmError(code: Int, raw: String): String = "LLM error $code: ${AiTools.shortReason(raw)}"
 
     private fun esc(value: String): String = buildString {
         append('"')

@@ -244,8 +244,55 @@ export function parseChatPayload(raw, kind) {
 }
 
 export function llmError(code, raw) {
-	const snippet = String(raw || '').replace(/\s+/g, ' ').slice(0, 280);
-	return `LLM error ${code}: ${snippet}`.trim();
+	return `LLM error ${code}: ${shortReason(raw)}`.trim();
+}
+
+export function shortReason(raw) {
+	let flat = '';
+	try {
+		const root = JSON.parse(String(raw || ''));
+		const message = typeof root?.message === 'string' ? root.message : '';
+		const err = root?.error;
+		const fromErr = typeof err === 'string' ? err : typeof err?.message === 'string' ? err.message : '';
+		flat = String(message || fromErr).replace(/\s+/g, ' ').trim();
+	} catch {
+		flat = '';
+	}
+	if (flat.length >= 1 && flat.length <= 60 && !/[<{]/.test(flat)) return flat;
+	return 'request failed';
+}
+
+export function shortFailure(raw) {
+	const flat = String(raw || '')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (flat.length >= 1 && flat.length <= 60 && !flat.includes('<') && !flat.includes('{') && !/http/i.test(flat)) {
+		return flat;
+	}
+	return 'Search failed.';
+}
+
+export function chatDisplay(source) {
+	const text = String(source ?? '');
+	const trimmed = text.trim();
+	if (!trimmed) return text;
+	if (isDump(trimmed)) return looksLikeSearchDump(trimmed) ? 'Search failed.' : 'Could not reach the model.';
+	if (trimmed.length > 12000) return `${trimmed.slice(0, 12000).trimEnd()}…`;
+	return text;
+}
+
+function isDump(text) {
+	const lower = text.toLowerCase();
+	if (lower.includes('<html') || lower.includes('<!doctype')) return true;
+	if (text.startsWith('LLM error') && text.length > 160) return true;
+	if (text.startsWith('{') && text.length > 400) return true;
+	return text.length > 12000;
+}
+
+function looksLikeSearchDump(text) {
+	const lower = text.toLowerCase();
+	return lower.includes('<html') || lower.includes('<!doctype') || lower.includes('duckduckgo') || lower.includes('search failed');
 }
 
 export function parseRefresh(raw, now, previousRefresh) {
@@ -554,6 +601,90 @@ export function searchUrl(query) {
 	const q = String(query || '').trim().slice(0, 200);
 	if (!q) return '';
 	return `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`;
+}
+
+export function hostOf(raw) {
+	try {
+		const host = new URL(String(raw || '')).hostname.toLowerCase().replace(/^www\./, '');
+		return host || '';
+	} catch {
+		return '';
+	}
+}
+
+export function hostsFromHits(hits) {
+	const seen = [];
+	for (const hit of hits || []) {
+		const host = hostOf(hit?.url);
+		if (host && !seen.includes(host)) seen.push(host);
+	}
+	return seen;
+}
+
+function queryLabel(call) {
+	let args = {};
+	try {
+		const parsed = JSON.parse(call?.arguments || '{}');
+		if (parsed && typeof parsed === 'object') args = parsed;
+	} catch {
+		args = {};
+	}
+	if (call?.name === 'web_search') return String(args.query || '').trim().slice(0, 80);
+	if (call?.name === 'web_fetch') return hostOf(args.url);
+	return '';
+}
+
+export function searchActivity(calls, sites = [], failed = false) {
+	const looking = (calls || []).filter((call) => call?.name === 'web_search' || call?.name === 'web_fetch');
+	if (!looking.length) return [];
+	if (failed && !sites.length) return ['Search failed'];
+	const heading = looking.some((call) => call.name === 'web_search') ? 'Searching' : 'Reading';
+	const queries = [];
+	for (const call of looking) {
+		const label = queryLabel(call);
+		if (label && !queries.includes(label)) queries.push(label);
+		if (queries.length >= 4) break;
+	}
+	const siteLines = [];
+	for (const site of sites) {
+		const line = `· ${site}`;
+		if (site && !siteLines.includes(line)) siteLines.push(line);
+		if (siteLines.length >= 8) break;
+	}
+	return [heading, ...queries, ...siteLines, ...(failed ? ['Search failed'] : [])];
+}
+
+export function looksLikeErrorPage(html) {
+	const lower = String(html || '').toLowerCase();
+	if (lower.includes('result-link') || lower.includes('result__a')) return false;
+	if (lower.includes('captcha') || lower.includes('access denied')) return true;
+	return String(html || '').length > 8000 && (lower.includes('<html') || lower.includes('<!doctype'));
+}
+
+export function performTool(name, argsJson, get) {
+	let args = {};
+	try {
+		const parsed = JSON.parse(argsJson || '{}');
+		if (parsed && typeof parsed === 'object') args = parsed;
+	} catch {
+		return { text: 'Invalid tool arguments.', sites: [], failed: true };
+	}
+	if (name === 'web_search') {
+		const url = searchUrl(args.query);
+		if (!url) return { text: 'Need a query.', sites: [], failed: true };
+		const html = get(url);
+		if (!html) return { text: 'Search failed.', sites: [], failed: true };
+		if (looksLikeErrorPage(html)) return { text: 'Search failed.', sites: [], failed: true };
+		const hits = parseDuckDuckGo(html);
+		return { text: formatHits(hits), sites: hostsFromHits(hits), failed: false };
+	}
+	if (name === 'web_fetch') {
+		const page = publicPageUrl(args.url);
+		const host = hostOf(page);
+		return { text: page ? 'Page could not be read.' : 'Only public HTTPS pages.', sites: host ? [host] : [], failed: true };
+	}
+	if (name === 'calculate') return { text: calculate(args.expression), sites: [], failed: false };
+	return { text: 'Unknown tool.', sites: [], failed: true };
 }
 
 export function toolStep(calls, round, tools, maxRounds = 2) {

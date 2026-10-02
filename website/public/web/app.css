@@ -978,6 +978,23 @@ form.settings input,
 
 .chat-assistant {
 	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.chat-search {
+	color: var(--muted);
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 0.9rem;
+}
+
+.chat-search p {
+	margin: 0;
+}
+
+.chat-search p + p {
+	padding-left: 0.75rem;
 }
 
 .chat-assistant :first-child {

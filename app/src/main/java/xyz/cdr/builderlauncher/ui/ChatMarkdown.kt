@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import xyz.cdr.builderlauncher.ai.AiTools
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Line
 import xyz.cdr.builderlauncher.ui.theme.Paper
@@ -165,10 +166,11 @@ fun annotatedInline(
 
 @Composable
 fun MarkdownDocument(source: String, modifier: Modifier = Modifier) {
+    val shown = AiTools.chatDisplay(source)
     val accent = Accent
     val paper = Paper
     Column(modifier = modifier.fillMaxWidth()) {
-        parseMarkdown(source).forEachIndexed { index, block ->
+        parseMarkdown(shown).forEachIndexed { index, block ->
             if (index > 0) Spacer(Modifier.height(8.dp))
             when (block) {
                 is MdBlock.Heading -> {

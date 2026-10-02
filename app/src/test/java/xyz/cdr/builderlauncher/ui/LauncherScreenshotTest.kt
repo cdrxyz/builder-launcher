@@ -718,6 +718,27 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun chatSearching() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ChatChrome(
+                    messages = listOf(
+                        ChatBubble(user = true, body = "weather in Kitchener"),
+                    ),
+                    input = "",
+                    busy = true,
+                    activity = listOf(
+                        "Searching",
+                        "weather in Kitchener",
+                        "· weather.gc.ca",
+                        "· en.wikipedia.org",
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun chatProviderMenu() {
         paparazzi.snapshot {
             BuilderTheme {

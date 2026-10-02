@@ -814,6 +814,20 @@ internal fun CommandBar(
 }
 
 @Composable
+internal fun SearchActivity(lines: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        lines.forEachIndexed { index, line ->
+            Text(
+                line,
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = if (index == 0) Modifier else Modifier.padding(start = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
 internal fun ThinkingDots() {
     var n by remember { mutableIntStateOf(1) }
     LaunchedEffect(Unit) {

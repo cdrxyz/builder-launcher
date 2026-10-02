@@ -28,6 +28,7 @@ import {
 	applyRefresh,
 	chatPlan,
 	chatTitle,
+	chatDisplay,
 	dropThread,
 	editedLabel,
 	needsRefresh,
@@ -1657,14 +1658,28 @@ function chatScreen() {
 		} else if (String(msg.role).toLowerCase() !== 'notice') {
 			const body = document.createElement('div');
 			body.className = 'chat-assistant';
-			body.innerHTML = renderMarkdown(msg.content);
+			body.innerHTML = renderMarkdown(chatDisplay(msg.content));
 			body.title = 'tap to copy';
 			body.addEventListener('click', () => copyText(msg.content));
 			wrap.append(body);
 		}
 	}
-	if (state.asking) wrap.append(empty('…'));
+	if (state.asking) {
+		if (state.searchLines?.length) wrap.append(searchActivity(state.searchLines));
+		else wrap.append(empty('…'));
+	}
 	return wrap;
+}
+
+function searchActivity(lines) {
+	const box = document.createElement('div');
+	box.className = 'chat-search';
+	for (const line of lines) {
+		const row = document.createElement('p');
+		row.textContent = line;
+		box.append(row);
+	}
+	return box;
 }
 
 function chatHistoryScreen() {
@@ -1721,6 +1736,7 @@ async function askAi(question) {
 	state.prompt = '?';
 	state.draft = '';
 	state.asking = true;
+	state.searchLines = [];
 	state.menu = null;
 	mutate({ chats: upsertThread(state.doc.chats, thread) });
 	try {
@@ -1742,15 +1758,68 @@ async function askAi(question) {
 			finishAsk(thread, plan.error);
 			return;
 		}
-		const data = await apiJson('/api/ai/chat', {
-			method: 'POST',
-			body: plan,
-			timeout: AI_TIMEOUT_MS * 2 + 10_000,
-		});
-		finishAsk(thread, data?.text || 'Empty reply from the model.');
+		const data = await readChat(plan);
+		finishAsk(thread, chatDisplay(data?.text || 'Empty reply from the model.'));
 	} catch (err) {
-		finishAsk(thread, err?.message || 'Could not reach the model.');
+		finishAsk(thread, chatDisplay(err?.message || 'Could not reach the model.'));
 	}
+}
+
+async function readChat(plan) {
+	const res = await fetch('/api/ai/chat', {
+		method: 'POST',
+		headers: { accept: 'text/event-stream, application/json', 'content-type': 'application/json' },
+		body: JSON.stringify(plan),
+		credentials: 'include',
+		cache: 'no-store',
+		signal: AbortSignal.timeout(AI_TIMEOUT_MS * 2 + 10_000),
+	});
+	const type = res.headers.get('content-type') || '';
+	if (!type.includes('text/event-stream')) {
+		const text = await res.text();
+		let data = null;
+		try {
+			data = text ? JSON.parse(text) : null;
+		} catch {
+			throw new Error(chatDisplay(text));
+		}
+		if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+		return data;
+	}
+	if (!res.ok || !res.body) throw new Error('Could not reach the model.');
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let buf = '';
+	let finalText = '';
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buf += decoder.decode(value, { stream: true });
+		const frames = buf.split('\n\n');
+		buf = frames.pop() || '';
+		for (const frame of frames) {
+			if (!frame.trim()) continue;
+			const event = frame.split('\n').find((line) => line.startsWith('event:'))?.slice(6).trim() || 'message';
+			const data = frame
+				.split('\n')
+				.filter((line) => line.startsWith('data:'))
+				.map((line) => line.slice(5).trim())
+				.join('\n');
+			let parsed = null;
+			try {
+				parsed = JSON.parse(data);
+			} catch {
+				parsed = null;
+			}
+			if (event === 'search' && Array.isArray(parsed?.lines)) {
+				state.searchLines = parsed.lines;
+				render();
+			} else if (event === 'done') {
+				finalText = String(parsed?.text || '');
+			}
+		}
+	}
+	return { text: finalText };
 }
 
 function finishAsk(thread, text) {
@@ -1761,6 +1830,7 @@ function finishAsk(thread, text) {
 		messages: [...thread.messages, { role: 'assistant', content: text, createdAt: now }],
 	};
 	state.asking = false;
+	state.searchLines = [];
 	state.chatId = next.id;
 	state.tab = 'chat';
 	state.prompt = '?';
