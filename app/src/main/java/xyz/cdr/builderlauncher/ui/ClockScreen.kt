@@ -197,7 +197,7 @@ private fun AlarmPane(
 ) {
     Column(Modifier.fillMaxWidth()) {
         if (alarms.isEmpty()) {
-            Text("Type 7:30am or Take out garbage Wednesdays 10:30pm.", color = Dim)
+            Text(Clock.ALARM_HINT, color = Dim)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 alarms.forEach { alarm ->

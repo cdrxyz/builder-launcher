@@ -1086,8 +1086,9 @@ fun BuilderRoot(
                 return true
             }
             ClockTab.Alarm -> {
-                val parsed = Clock.parseAlarmInput(text) ?: return false
-                clock.addAlarm(parsed.hour, parsed.minute, parsed.label, parsed.days)
+                val parsed = Clock.parseAlarmInputs(text)
+                if (parsed.isEmpty()) return false
+                clock.addAlarms(parsed)
                 ClockScheduler.sync(ctx, clock.snapshot())
                 clearBar()
                 return true

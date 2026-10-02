@@ -103,4 +103,18 @@ class ClockStoreTest {
         assertEquals("NYC", snap.zones.single().label)
         assertEquals("America/New_York", snap.zones.single().zoneId)
     }
+
+    @Test
+    fun intervalSeriesGetsDistinctIds() {
+        val (_, store) = store()
+        val parsed = Clock.parseAlarmInputs("Advil every 4 hours starting at 8pm")
+        val added = store.addAlarms(parsed)
+        assertEquals(6, added.size)
+        assertEquals(6, added.map { it.id }.distinct().size)
+        assertEquals(
+            listOf(0 to 0, 4 to 0, 8 to 0, 12 to 0, 16 to 0, 20 to 0),
+            store.snapshot().alarms.map { it.hour to it.minute },
+        )
+        assertTrue(store.snapshot().alarms.all { it.label == "Advil" && it.enabled })
+    }
 }

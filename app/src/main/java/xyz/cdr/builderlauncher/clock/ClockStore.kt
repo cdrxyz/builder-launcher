@@ -41,6 +41,27 @@ class ClockStore internal constructor(private val file: File) {
         return alarm
     }
 
+    fun addAlarms(items: List<ParsedAlarm>): List<ClockAlarm> {
+        if (items.isEmpty()) return emptyList()
+        val stamp = System.currentTimeMillis().toString(36)
+        val nonce = System.nanoTime().toString(36)
+        val created = items.mapIndexed { index, item ->
+            ClockAlarm(
+                id = "$stamp-$nonce-$index",
+                hour = item.hour,
+                minute = item.minute,
+                label = item.label.trim(),
+                days = item.days.filter { it in 1..7 }.toSet(),
+            )
+        }
+        persist(
+            _state.value.copy(
+                alarms = (_state.value.alarms + created).sortedWith(compareBy({ it.hour }, { it.minute })),
+            ),
+        )
+        return created
+    }
+
     fun toggleAlarm(id: String) {
         persist(
             _state.value.copy(

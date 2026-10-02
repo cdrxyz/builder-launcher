@@ -10,6 +10,8 @@ enum class ClockTab { Timer, Alarm, Zones }
 
 object Clock {
     const val BACK = "<"
+    const val ALARM_HINT =
+        "Type 7:30am, Take out garbage Wednesdays 10:30pm, or Advil every 4 hours starting at 8pm."
     const val COMMAND = "clock"
     val PRESETS_MIN = listOf(1, 5, 10, 15, 25, 30)
     const val DEFAULT_TIMER_MS = 5 * 60_000L
@@ -82,13 +84,24 @@ object Clock {
 
     fun parseAlarm(raw: String): Pair<Int, Int>? = parseAlarmInput(raw)?.let { it.hour to it.minute }
 
-    fun parseAlarmInput(raw: String): ParsedAlarm? {
+    fun parseAlarmInput(raw: String): ParsedAlarm? = parseAlarmInputs(raw).firstOrNull()
+
+    fun parseAlarmInputs(raw: String): List<ParsedAlarm> {
         val original = raw.trim()
-        if (original.isEmpty()) return null
-        val (withoutDays, days) = extractDays(original)
-        val timeHit = findAlarmTime(withoutDays) ?: return null
+        if (original.isEmpty()) return emptyList()
+        val interval = findInterval(original)
+        if (interval == null && looseInterval(original)) return emptyList()
+        val body = if (interval != null) original.removeRange(interval.range) else original
+        val (withoutDays, days) = extractDays(body)
+        val timeHit = findAlarmTime(withoutDays) ?: return emptyList()
         val leftover = withoutDays.removeRange(timeHit.second).replace(Regex("\\s+"), " ").trim()
-        return ParsedAlarm(timeHit.first.first, timeHit.first.second, cleanAlarmLabel(leftover), days)
+        val label = if (interval != null) cleanIntervalLabel(leftover) else cleanAlarmLabel(leftover)
+        if (interval == null) {
+            return listOf(ParsedAlarm(timeHit.first.first, timeHit.first.second, label, days))
+        }
+        val times = expandClockTimes(timeHit.first.first, timeHit.first.second, interval.minutes)
+            ?: return emptyList()
+        return times.map { (hour, minute) -> ParsedAlarm(hour, minute, label, days) }
     }
 
     fun formatAlarm(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)
@@ -427,9 +440,55 @@ object Clock {
 
     private fun cleanAlarmLabel(raw: String): String {
         return raw.trim()
-            .replace(Regex("(?i)\\b(set|an|a|alarm|for|at)\\b"), " ")
-            .replace(Regex("\\s+"), " ")
+            .replace(Regex("""(?i)\b(set|an|a|alarm|for|at)\b"""), " ")
+            .replace(Regex("""\s+"""), " ")
             .trim()
+    }
+
+    private data class IntervalHit(val minutes: Int, val range: IntRange)
+
+    private fun findInterval(raw: String): IntervalHit? {
+        val re = Regex(
+            """(?i)\bevery\s+(\d+)(?![\d.])\s*(hours?|hrs?|h|minutes?|mins?|m)\b(?:\s*,?\s*(?:(?:starting|starts|begins|beginning|from|start)\b(?:\s+at\b)?|\bat\b))?""",
+        )
+        val match = re.find(raw) ?: return null
+        val count = match.groupValues[1].toIntOrNull() ?: return null
+        if (count <= 0 || count > 24 * 60) return null
+        val hours = match.groupValues[2].startsWith("h", ignoreCase = true)
+        if (hours && count > 24) return null
+        val minutes = if (hours) count * 60 else count
+        return IntervalHit(minutes, match.range)
+    }
+
+    private fun looseInterval(raw: String): Boolean {
+        return Regex("""(?i)\bevery\s+\d+(?:\.\d+)?\s*(?:hours?|hrs?|h|minutes?|mins?|m)\b""")
+            .containsMatchIn(raw)
+    }
+
+    private fun expandClockTimes(hour: Int, minute: Int, intervalMinutes: Int): List<Pair<Int, Int>>? {
+        if (hour !in 0..23 || minute !in 0..59 || intervalMinutes <= 0) return null
+        val day = 24 * 60
+        if (day % intervalMinutes != 0) return null
+        val count = day / intervalMinutes
+        if (count !in 1..24) return null
+        val start = hour * 60 + minute
+        return (0 until count).map { step ->
+            val at = (start + step * intervalMinutes) % day
+            (at / 60) to (at % 60)
+        }.distinct().sortedWith(compareBy({ it.first }, { it.second }))
+    }
+
+    private fun cleanIntervalLabel(raw: String): String {
+        var text = raw.trim()
+        val edge = Regex(
+            """(?i)(?:^(?:starting|starts|start|begins|beginning|from|on|at)\b\s*|\s*\b(?:starting|starts|start|begins|beginning|from|on|at)$)""",
+        )
+        repeat(6) {
+            val next = text.replace(edge, " ").replace(Regex("""\s+"""), " ").trim()
+            if (next == text) return cleanAlarmLabel(text)
+            text = next
+        }
+        return cleanAlarmLabel(text)
     }
 }
 
