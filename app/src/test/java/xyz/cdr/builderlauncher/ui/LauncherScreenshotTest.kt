@@ -963,6 +963,26 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun clockAlarmScroll() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockChrome(
+                    tab = "Alarm",
+                    alarms = (0 until 12).map { index ->
+                        xyz.cdr.builderlauncher.clock.ClockAlarm(
+                            id = index.toString(),
+                            hour = index % 12,
+                            minute = index * 5 % 60,
+                            enabled = index % 2 == 0,
+                            label = "Alarm $index",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    @Test
     fun weather() {
         paparazzi.snapshot {
             BuilderTheme {

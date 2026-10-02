@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,7 +89,7 @@ fun ClockScreen(
             }
         }
     }
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxSize()) {
         ScreenHeader(
             title = Clock.COMMAND,
             leading = { ScreenBack(Clock.BACK, onBack = onBack) },
@@ -107,31 +110,36 @@ fun ClockScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
-        when (tab) {
-            ClockTab.Timer -> TimerPane(
-                display = Clock.formatTimer(Clock.remainingMs(snapshot.timer, now.value)),
-                running = snapshot.timer.running,
-                durationMs = snapshot.timer.durationMs,
-                label = snapshot.timer.label,
-                onPreset = onPreset,
-                onStartPause = onStartPause,
-                onReset = onReset,
-            )
-            ClockTab.Alarm -> AlarmPane(
-                alarms = snapshot.alarms,
-                now = now.value,
-                onToggle = onToggleAlarm,
-                onRemove = onRemoveAlarm,
-                onDismissSnooze = onDismissSnooze,
-            )
-            ClockTab.Zones -> ZonePane(
-                zones = snapshot.zones,
-                hits = zoneHits,
-                now = now.value,
-                onPick = onPickZone,
-                onRemove = onRemoveZone,
-                onMove = onMoveZone,
-            )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (tab) {
+                ClockTab.Timer -> TimerPane(
+                    display = Clock.formatTimer(Clock.remainingMs(snapshot.timer, now.value)),
+                    running = snapshot.timer.running,
+                    durationMs = snapshot.timer.durationMs,
+                    label = snapshot.timer.label,
+                    onPreset = onPreset,
+                    onStartPause = onStartPause,
+                    onReset = onReset,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                ClockTab.Alarm -> AlarmPane(
+                    alarms = snapshot.alarms,
+                    now = now.value,
+                    onToggle = onToggleAlarm,
+                    onRemove = onRemoveAlarm,
+                    onDismissSnooze = onDismissSnooze,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                ClockTab.Zones -> ZonePane(
+                    zones = snapshot.zones,
+                    hits = zoneHits,
+                    now = now.value,
+                    onPick = onPickZone,
+                    onRemove = onRemoveZone,
+                    onMove = onMoveZone,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
@@ -145,8 +153,9 @@ private fun TimerPane(
     onPreset: (Int) -> Unit,
     onStartPause: () -> Unit,
     onReset: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         Text(
             display,
             color = Paper,
@@ -199,8 +208,9 @@ private fun AlarmPane(
     onToggle: (String) -> Unit,
     onRemove: (String) -> Unit,
     onDismissSnooze: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         if (alarms.isEmpty()) {
             Text(Clock.ALARM_HINT, color = Dim)
         } else {
@@ -256,6 +266,7 @@ private fun ZonePane(
     onPick: (WeatherPlace) -> Unit,
     onRemove: (String) -> Unit,
     onMove: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var dragFrom by remember { mutableStateOf<Int?>(null) }
     var dragTo by remember { mutableStateOf<Int?>(null) }
@@ -263,7 +274,12 @@ private fun ZonePane(
     var rowHeight by remember { mutableFloatStateOf(0f) }
     val gap = with(LocalDensity.current) { 4.dp.toPx() }
     val liveZones = rememberUpdatedState(zones)
-    Column(Modifier.fillMaxWidth()) {
+    val scroll = rememberScrollState()
+    Column(
+        modifier
+            .fillMaxWidth()
+            .verticalScroll(scroll, enabled = dragFrom == null),
+    ) {
         if (hits.isNotEmpty()) {
             hits.forEach { place ->
                 Text(
