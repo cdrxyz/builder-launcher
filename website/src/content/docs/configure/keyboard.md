@@ -13,4 +13,4 @@ Keyboard mode in settings: `auto` (default), `hardware`, or `software`.
 
 The command bar always sits at the bottom. D-pad right from the bar opens the hub. Enter submits.
 
-On a software keyboard, default `>` mode disables autocorrect so the calculator is not rewritten. Switching the prompt to `-` (todos), `+` (notes), or `?` (AI) turns autocorrect back on.
+On a software keyboard, default `>` mode disables autocorrect so the calculator is not rewritten, and drops the extra space a keyboard inserts after a period. Switching the prompt to `-` (todos), `+` (notes), or `?` (AI) turns autocorrect back on and keeps that space, unless the line is an equation.

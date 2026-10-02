@@ -3,7 +3,7 @@ title: Todos
 description: Save tasks with -, preview them on home, expand the full list.
 ---
 
-Prefix `-`. Example: `-buy milk`. From default `>` mode, typing with no app matches switches to this mode after three more characters, unless the text looks like math or a ticker.
+Prefix `-`. Example: `-buy milk`. From default `>` mode, typing with no app matches switches to this mode after three more characters, unless the text is a number, looks like math (`5000*.05`), or is a ticker. An equation that already switched returns to the calculator on home.
 
 ![Three open todos on home](../../../assets/screenshots/home.png)
 

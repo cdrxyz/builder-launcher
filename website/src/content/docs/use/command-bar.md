@@ -9,7 +9,7 @@ The prompt is always at the bottom. On a slab phone the software keyboard stays 
 
 - Type, then **Enter** / Go.
 - **D-pad right** opens the [hub](hub/). **D-pad left** opens [podcasts](podcasts/).
-- Tap the prompt glyph (`>`) to open the prefix menu. The glyph is a large tap target so it does not steal taps into the field. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Typing in default `>` mode to filter apps also hides todos so more matches fit. Both lists scroll when they do not fit. Math-shaped input (`2+2`, `12*`, `sqrt(9)`) stays calculator on home. ALL-CAPS tickers (`AAPL`) and symbols with an exchange or class (`OBE.TO`, `BRK.B`, `BTC-USD`) switch to `$` when no app matches. Otherwise, three more unmatched characters switch the bar to `-` task mode with the same text.
+- Tap the prompt glyph (`>`) to open the prefix menu. The glyph is a large tap target so it does not steal taps into the field. On home, that menu and the `/` slash list hide todos and pinned apps so the list can use the space. Typing in default `>` mode to filter apps also hides todos so more matches fit. Both lists scroll when they do not fit. Math-shaped input (`2+2`, `12*`, `sqrt(9)`, `5000*.05`) stays calculator on home, including while you are still typing the number. A keyboard space after a period is removed in `>` mode so decimals stay as typed. ALL-CAPS tickers (`AAPL`) and symbols with an exchange or class (`OBE.TO`, `BRK.B`, `BTC-USD`) switch to `$` when no app matches. Otherwise, three more unmatched characters switch the bar to `-` task mode with the same text. An equation that already switched returns to the calculator.
 
 The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt, not text in the box.
 
@@ -28,7 +28,7 @@ The **glyph holds the prefix**. The field stays empty so `$` mode is the prompt,
 
 Picking a row sets the prompt glyph. The glyph wins over the screen you are on: task mode on stocks saves a todo, not a ticker. Type the rest of the command in the field. Pick **slash** to list slash commands above the bar. The list scrolls if there are more rows than fit.
 
-Software keyboards keep autocorrect **off** in default `>` mode so live calculator expressions (`2+2`, `3*7`) are not rewritten. Autocorrect turns **on** for `-` todos, `+` notes, and `?` AI, and in the full-screen note editor. Long `-` todos and `?` questions stay one line until they wrap.
+Software keyboards keep autocorrect **off** in default `>` mode so live calculator expressions (`2+2`, `5000*.05`) are not rewritten. The extra space a keyboard inserts after a period is also removed there, and in `$` mode. Autocorrect turns **on** for `-` todos, `+` notes, and `?` AI, and in the full-screen note editor; those modes keep the space after a period unless the line is an equation. Long `-` todos and `?` questions stay one line until they wrap.
 
 Picking **ask AI** keeps you on the current screen. The dedicated chat screen opens only after you submit a question, with the same bar at the bottom. `/ai` in the slash menu opens that screen immediately so you can switch providers or open history without asking first.
 

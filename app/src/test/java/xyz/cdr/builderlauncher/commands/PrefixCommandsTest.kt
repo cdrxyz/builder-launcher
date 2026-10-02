@@ -197,6 +197,25 @@ class PrefixCommandsTest {
     }
 
     @Test
+    fun typeInDefaultModeDropsAutoSpaceAfterPeriod() {
+        val typed = PrefixCommands.type(PrefixCommands.Mode(), "5000*. 05")
+        assertEquals('>', typed.prompt)
+        assertEquals("5000*.05", typed.input)
+        assertTrue(PrefixCommands.stripsAutoPeriodSpace('>'))
+        assertTrue(PrefixCommands.stripsAutoPeriodSpace('$'))
+        assertFalse(PrefixCommands.stripsAutoPeriodSpace('-'))
+    }
+
+    @Test
+    fun typeInTodoModeDropsPeriodSpaceOnlyWhenTheLineIsMath() {
+        val prose = PrefixCommands.type(PrefixCommands.Mode(prompt = '-', input = "Dr."), "Dr. Smith")
+        assertEquals("Dr. Smith", prose.input)
+        val math = PrefixCommands.type(PrefixCommands.Mode(prompt = '-', input = "5000*."), "5000*. 05")
+        assertEquals('-', math.prompt)
+        assertEquals("5000*.05", math.input)
+    }
+
+    @Test
     fun typeInOtherModesKeepsSpaceAfterPeriod() {
         val inTodo = PrefixCommands.Mode(prompt = '-', input = "Dr.")
         val typed = PrefixCommands.type(inTodo, "Dr. Smith")

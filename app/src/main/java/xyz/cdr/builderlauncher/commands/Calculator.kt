@@ -37,6 +37,16 @@ object Calculator {
 
     fun looksLike(raw: String): Boolean = looksLikeMath(raw)
 
+    /**
+     * A bare number or trailing decimal. Task mode must not steal these, or
+     * `5000*.05` switches to a todo before the operator is typed.
+     */
+    fun couldStillBeMath(raw: String): Boolean {
+        val s = raw.trim()
+        if (s.isEmpty() || looksLike(s)) return false
+        return NUMBER_IN_PROGRESS.matches(s)
+    }
+
     fun commit(raw: String): String? = preview(raw)
 
     private val FUNCS: Map<String, (List<Double>) -> Double?> = mapOf(
@@ -71,6 +81,8 @@ object Calculator {
         "e" to Math.E,
         "tau" to Math.PI * 2,
     )
+
+    private val NUMBER_IN_PROGRESS = Regex("""\d[\d.]*|\.\d*""")
 
     private val NAMED = Regex(
         """\b(sqrt|cbrt|atan2|floor|ceil|trunc|round|abs|sin|cos|tan|log2|log10|asin|acos|atan|exp|log|ln|max|min|pow|sign)\b""",
