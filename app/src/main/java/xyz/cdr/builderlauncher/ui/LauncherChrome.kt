@@ -2021,7 +2021,8 @@ fun ClockChrome(
             }
         }
         Spacer(Modifier.height(12.dp))
-        Column(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             when (tab) {
                 "Alarm" -> {
                     if (alarms.isEmpty()) {
@@ -2071,6 +2072,7 @@ fun ClockChrome(
                     }
                 }
             }
+        }
         }
         Spacer(Modifier.height(8.dp))
         CommandRow("")
