@@ -21,7 +21,7 @@ A snoozed alarm stays on the list with the minutes left and dismiss.
 
 ![Snoozed alarm with dismiss](../../../assets/screenshots/clock-alarm-snoozed.png)
 
-While the timer is running, home replaces the large clock with the countdown. Tap it to return here.
+While a timer is running, home replaces the large clock with the countdown. Tap it to return here. A snooze does the same: the large time is the minutes left, and a tap opens the alarm list so that row's dismiss is there.
 
 Timers, alarms, and time zones stay on the device across app launches. A running timer keeps counting; enabled alarms still fire after a reboot. If home opens after the alarm time (phone off, or the launcher woke late), it still rings for up to 2 hours, unless that ring was dismissed. Dismiss ends this occurrence. It does not ring again until the next scheduled time, including after account sync.
 

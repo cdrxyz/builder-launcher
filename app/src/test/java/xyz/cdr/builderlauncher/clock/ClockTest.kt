@@ -165,6 +165,11 @@ class ClockTest {
         assertEquals("0:30", Clock.homeClockLabel(running, now + 30_000, "15:42"))
         val paused = Clock.pause(running, now + 20_000)
         assertEquals("15:42", Clock.homeClockLabel(paused, now + 20_000, "15:42"))
+        val snoozed = Clock.snooze(ClockAlarm(id = "a", hour = 6, minute = 30), now)
+        assertEquals("7:30", Clock.homeClockLabel(idle, listOf(snoozed), now + 30_000, "15:42"))
+        assertEquals("0:30", Clock.homeClockLabel(running, listOf(snoozed), now + 30_000, "15:42"))
+        val later = Clock.snooze(ClockAlarm(id = "b", hour = 7, minute = 0), now + 60_000)
+        assertEquals(snoozed.id, Clock.activeSnooze(listOf(later, snoozed), now)?.id)
     }
 
     @Test

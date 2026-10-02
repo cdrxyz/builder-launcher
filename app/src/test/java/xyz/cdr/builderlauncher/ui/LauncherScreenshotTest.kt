@@ -81,6 +81,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeSnooze() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "7:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    prompt = ">",
+                    todos = listOf("buy milk"),
+                    analog = false,
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeTicker() {
         paparazzi.snapshot {
             BuilderTheme {

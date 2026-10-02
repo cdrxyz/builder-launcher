@@ -813,7 +813,8 @@ fun BuilderRoot(
         input = ""
     }
 
-    fun openClock() {
+    fun openClock(tab: ClockTab? = null) {
+        if (tab != null) clockTab = tab
         prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
         choices = emptyList()
@@ -1370,12 +1371,21 @@ fun BuilderRoot(
                     ticker = ticker,
                     event = upcoming,
                     timer = clockState.timer,
+                    alarms = clockState.alarms,
                     analog = settings.clockFace == ClockFace.ANALOG &&
                         index == pagerState.currentPage &&
                         !HomeStrip.coversPager(page),
                     todosToday = HomeTodos.completedToday(HomeTodos.of(local)),
                     productiveShare = if (usageToday.granted) usageToday.productiveShare else null,
-                    onOpenClock = { openClock() },
+                    onOpenClock = {
+                        val snap = clock.snapshot()
+                        val tab = if (!snap.timer.running && Clock.activeSnooze(snap.alarms, System.currentTimeMillis()) != null) {
+                            ClockTab.Alarm
+                        } else {
+                            null
+                        }
+                        openClock(tab)
+                    },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
                     onOpenTicker = { openStocksList() },

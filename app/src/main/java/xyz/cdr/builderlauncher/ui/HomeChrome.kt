@@ -132,6 +132,7 @@ import xyz.cdr.builderlauncher.calendar.DeviceCalendar
 import xyz.cdr.builderlauncher.calendar.UpcomingEvent
 import xyz.cdr.builderlauncher.calendar.UpcomingEvents
 import xyz.cdr.builderlauncher.clock.Clock
+import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.clock.ClockSound
@@ -232,6 +233,7 @@ internal fun ClockHeader(
     ticker: HomeTickerLine?,
     event: UpcomingEvent?,
     timer: TimerState,
+    alarms: List<ClockAlarm> = emptyList(),
     analog: Boolean,
     todosToday: Int,
     productiveShare: Int?,
@@ -249,17 +251,18 @@ internal fun ClockHeader(
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(timer.running, timer.endsAt, analog, lifecycleOwner) {
+    LaunchedEffect(timer.running, timer.endsAt, alarms, analog, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             now.value = System.currentTimeMillis()
             while (true) {
                 now.value = System.currentTimeMillis()
-                delay(Clock.homeTickMs(timer.running, analog))
+                delay(Clock.homeTickMs(timer.running, analog, Clock.activeSnooze(alarms, now.value) != null))
             }
         }
     }
     val clockText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
-    val time = Clock.homeClockLabel(timer, now.value, clockText)
+    val time = Clock.homeClockLabel(timer, alarms, now.value, clockText)
+    val snoozeCountdown = !timer.running && Clock.activeSnooze(alarms, now.value) != null
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     val cal = Calendar.getInstance().apply { timeInMillis = now.value }
     val eventLine = event?.let { UpcomingEvents.line(it, now.value) }
@@ -346,7 +349,7 @@ internal fun ClockHeader(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val analogFace = analog && !timer.running
+                val analogFace = analog && !timer.running && !snoozeCountdown
                 ClockFaceRow(
                     analog = analogFace,
                     time = time,
