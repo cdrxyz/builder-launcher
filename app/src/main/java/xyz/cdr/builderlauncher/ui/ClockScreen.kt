@@ -70,6 +70,7 @@ fun ClockScreen(
     onReset: () -> Unit,
     onToggleAlarm: (String) -> Unit,
     onRemoveAlarm: (String) -> Unit,
+    onDismissSnooze: (String) -> Unit,
     onPickZone: (WeatherPlace) -> Unit,
     onRemoveZone: (String) -> Unit,
     onMoveZone: (Int, Int) -> Unit,
@@ -118,8 +119,10 @@ fun ClockScreen(
             )
             ClockTab.Alarm -> AlarmPane(
                 alarms = snapshot.alarms,
+                now = now.value,
                 onToggle = onToggleAlarm,
                 onRemove = onRemoveAlarm,
+                onDismissSnooze = onDismissSnooze,
             )
             ClockTab.Zones -> ZonePane(
                 zones = snapshot.zones,
@@ -192,8 +195,10 @@ private fun TimerPane(
 @Composable
 private fun AlarmPane(
     alarms: List<ClockAlarm>,
+    now: Long,
     onToggle: (String) -> Unit,
     onRemove: (String) -> Unit,
+    onDismissSnooze: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
         if (alarms.isEmpty()) {
@@ -201,6 +206,7 @@ private fun AlarmPane(
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 alarms.forEach { alarm ->
+                    val waiting = Clock.snoozed(alarm, now)
                     Row(
                         Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -216,9 +222,18 @@ private fun AlarmPane(
                                 Text(alarm.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
                             }
                             Text(
-                                Clock.alarmStatus(alarm),
+                                Clock.alarmStatus(alarm, now),
                                 color = if (alarm.enabled) Accent else Dim,
                                 style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        if (waiting) {
+                            Text(
+                                "dismiss",
+                                color = Accent,
+                                modifier = Modifier
+                                    .clickable { onDismissSnooze(alarm.id) }
+                                    .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
                             )
                         }
                         DeleteIcon(

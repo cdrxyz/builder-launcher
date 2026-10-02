@@ -925,6 +925,27 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun clockAlarmSnoozed() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockChrome(
+                    tab = "Alarm",
+                    alarms = listOf(
+                        xyz.cdr.builderlauncher.clock.ClockAlarm(
+                            id = "1",
+                            hour = 6,
+                            minute = 30,
+                            enabled = true,
+                            label = "Wake",
+                            snoozeUntil = System.currentTimeMillis() + xyz.cdr.builderlauncher.clock.Clock.SNOOZE_MS,
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun weather() {
         paparazzi.snapshot {
             BuilderTheme {

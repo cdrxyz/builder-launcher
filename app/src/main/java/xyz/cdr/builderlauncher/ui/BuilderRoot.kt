@@ -1293,6 +1293,16 @@ fun BuilderRoot(
         ClockAlertService.stop(ctx)
     }
 
+    fun dismissSnoozedAlarm(id: String) {
+        val now = System.currentTimeMillis()
+        val alarm = clock.snapshot().alarms.find { it.id == id } ?: return
+        clock.replaceAlarm(Clock.acknowledge(alarm, now))
+        if (clock.snapshot().alert?.alarmId == id) {
+            clearClockAlert()
+        }
+        ClockScheduler.sync(ctx, clock.snapshot())
+    }
+
     val onStrip = HomeStrip.contains(page)
     val pagerState = rememberPagerState(
         initialPage = HomeStrip.indexOf(page) ?: HomeStrip.HOME,
@@ -2469,6 +2479,7 @@ fun BuilderRoot(
                         clock.removeAlarm(id)
                         ClockScheduler.sync(ctx, clock.snapshot())
                     },
+                    onDismissSnooze = { id -> dismissSnoozedAlarm(id) },
                     onPickZone = { addWorldClock(it) },
                     onRemoveZone = { clock.removeZone(it) },
                     onMoveZone = { from, to -> clock.moveZone(from, to) },

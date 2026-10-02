@@ -116,10 +116,20 @@ object Clock {
         return wanted.joinToString(" ") { names[it] }
     }
 
-    fun alarmStatus(alarm: ClockAlarm): String {
+    fun alarmStatus(alarm: ClockAlarm, now: Long = System.currentTimeMillis()): String {
+        if (snoozed(alarm, now)) {
+            val left = ((alarm.snoozeUntil ?: now) - now).coerceAtLeast(0L)
+            val min = ((left + 59_999L) / 60_000L).coerceAtLeast(1L)
+            return "snoozed  $min min"
+        }
         val on = if (alarm.enabled) "on" else "off"
         val days = formatDays(alarm.days)
         return if (days.isEmpty()) on else "$on  $days"
+    }
+
+    fun snoozed(alarm: ClockAlarm, now: Long = System.currentTimeMillis()): Boolean {
+        val until = alarm.snoozeUntil ?: return false
+        return alarm.enabled && until > now
     }
 
     fun nextTrigger(

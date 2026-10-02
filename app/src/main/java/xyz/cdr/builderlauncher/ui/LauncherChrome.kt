@@ -2036,6 +2036,9 @@ fun ClockChrome(
                                     }
                                     Text(Clock.alarmStatus(alarm), color = if (alarm.enabled) Accent else Dim)
                                 }
+                                if (Clock.snoozed(alarm)) {
+                                    Text("dismiss", color = Accent, modifier = Modifier.padding(end = 12.dp))
+                                }
                                 DeleteIcon()
                             }
                         }

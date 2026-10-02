@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.clock
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -29,8 +30,7 @@ object ClockAlertLock {
             Intent.FLAG_ACTIVITY_SINGLE_TOP or
             Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
 
-    fun shouldLaunch(alerting: Boolean, keyguardLocked: Boolean): Boolean =
-        alerting && keyguardLocked
+    fun shouldLaunch(alerting: Boolean, keyguardLocked: Boolean): Boolean = alerting
 
     fun keyguardLocked(context: Context): Boolean {
         val keyguard = context.applicationContext.getSystemService<KeyguardManager>()
@@ -44,7 +44,20 @@ object ClockAlertLock {
 
     fun tryLaunch(context: Context) {
         val app = context.applicationContext
-        runCatching { app.startActivity(activityIntent(app)) }
+        val intent = activityIntent(app)
+        val started = runCatching {
+            app.startActivity(intent)
+            true
+        }.getOrDefault(false)
+        if (started) return
+        runCatching {
+            PendingIntent.getActivity(
+                app,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            ).send()
+        }
     }
 
     fun apply(activity: Activity, alerting: Boolean) {

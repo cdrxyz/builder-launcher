@@ -36,9 +36,10 @@ class ClockAlertLockTest {
     }
 
     @Test
-    fun dedicatedActivityLaunchesOnlyWhenLockedAndAlerting() {
+    fun dedicatedActivityLaunchesWheneverAnAlertIsShowing() {
         assertTrue(ClockAlertLock.shouldLaunch(alerting = true, keyguardLocked = true))
-        assertFalse(ClockAlertLock.shouldLaunch(alerting = true, keyguardLocked = false))
+        assertTrue(ClockAlertLock.shouldLaunch(alerting = true, keyguardLocked = false))
         assertFalse(ClockAlertLock.shouldLaunch(alerting = false, keyguardLocked = true))
+        assertFalse(ClockAlertLock.shouldLaunch(alerting = false, keyguardLocked = false))
     }
 }
