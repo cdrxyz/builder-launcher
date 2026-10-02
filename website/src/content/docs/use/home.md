@@ -7,6 +7,8 @@ description: Analog clock, next calendar event, weather on the left, podcasts, r
 
 ![Home with a running timer in place of the clock](../../../assets/screenshots/home-timer.png)
 
+![Home with a snooze countdown in place of the clock](../../../assets/screenshots/home-snooze.png)
+
 ![Home with weather on the left and the watchlist ticker on the right](../../../assets/screenshots/home-ticker.png)
 
 Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or as a compact row of icons if you turn that on in [settings](../configure/settings/).
@@ -15,7 +17,7 @@ Home is empty on purpose. There is no icon grid. Apps you pin sit as names, or a
 | --- | --- |
 | Podcasts | Headphones mark, top left. Tap it for [podcasts](podcasts/). While audio is playing it is pause (tap to pause); after pause it is play for 8 seconds, then headphones again. Swipe from the left of home, or D-pad left, also opens the list. The whole home screen slides with your finger. |
 | Weather | Condition icon over the temperature, on the left of the clock. Tap it for the [weather](weather/) forecast. [Configure weather](../configure/weather/). |
-| Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, the large time is the countdown instead. Tap it for [clock](clock/) (timer, alarm, time zones). Fired timers and alarms cover home full screen; over the lock when the phone is locked. Todos completed today sit to the left of the face; today's productive share of screen time sits to the right (needs [usage](usage/) access). Tap the count for [tasks](todos/), the percent for usage. |
+| Clock | Centered. Analog face by default, with digital time and weekday/date below. Settings can switch to digital only. While a timer is running, or an alarm is snoozed, the large time is the countdown instead. Tap a timer countdown for [clock](clock/). Tap a snooze countdown for the alarm list, where that row has dismiss. Fired timers and alarms cover home full screen; over the lock when the phone is locked, and also when the phone is already unlocked. Todos completed today sit to the left of the face; today's productive share of screen time sits to the right (needs [usage](usage/) access). Tap the count for [tasks](todos/), the percent for usage. |
 | Next event | Under the date. Title and time from the device calendar (`dentist · 09:00`, or `dentist · Tue 09:00` if it is not today). All-day events say `today` or the weekday. Hidden until you grant calendar access, and while nothing is upcoming. Tap it to open that event. Pick calendars in [settings](../configure/calendar/). See [Calendar](calendar/). |
 | Ticker | To the right of the clock, left of the hub icon. Cycles the [watchlist](stocks/) every 5 seconds with today's percent (green up, red down). Hidden when the list is empty. Tap it for the watchlist. |
 | Hub | Messages icon, top right. Tap, swipe from the right of home, or D-pad right opens the [hub](hub/). |

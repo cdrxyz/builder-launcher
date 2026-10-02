@@ -25,6 +25,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `home.png` | `home` |
 | `home-playing.png` | `homePlaying` |
 | `home-timer.png` | `homeTimer` |
+| `home-snooze.png` | `homeSnooze` |
 | `home-ticker.png` | `homeTicker` |
 | `home-todo-wrap.png` | `homeTodoWrap` |
 | `home-todo-single-line.png` | `homeTodoSingleLine` |
@@ -69,6 +70,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `clock.png` | `clock` |
 | `clock-timer-alert.png` | `clockTimerAlert` |
 | `clock-alarm-alert.png` | `clockAlarmAlert` |
+| `clock-alarm-snoozed.png` | `clockAlarmSnoozed` |
 | `weather.png` | `weather` |
 | `usage.png` | `usage` |
 | `usage-theme-plain.png` | `usageThemePlain` |

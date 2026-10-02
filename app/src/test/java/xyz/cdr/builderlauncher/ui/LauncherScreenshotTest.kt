@@ -81,6 +81,23 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun homeSnooze() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                HomeChrome(
+                    time = "7:42",
+                    date = "Mon 7 Sep",
+                    weather = "18° cloudy",
+                    input = "",
+                    prompt = ">",
+                    todos = listOf("buy milk"),
+                    analog = false,
+                )
+            }
+        }
+    }
+
+    @Test
     fun homeTicker() {
         paparazzi.snapshot {
             BuilderTheme {
@@ -918,6 +935,27 @@ class LauncherScreenshotTest {
                             days = setOf(3),
                         ),
                         xyz.cdr.builderlauncher.clock.ClockAlarm(id = "2", hour = 7, minute = 15, enabled = false),
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun clockAlarmSnoozed() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockChrome(
+                    tab = "Alarm",
+                    alarms = listOf(
+                        xyz.cdr.builderlauncher.clock.ClockAlarm(
+                            id = "1",
+                            hour = 6,
+                            minute = 30,
+                            enabled = true,
+                            label = "Wake",
+                            snoozeUntil = System.currentTimeMillis() + xyz.cdr.builderlauncher.clock.Clock.SNOOZE_MS,
+                        ),
                     ),
                 )
             }

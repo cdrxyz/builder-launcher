@@ -12,12 +12,16 @@ Three tabs:
 | Tab | What it does |
 | --- | --- |
 | Timer | Presets 1 / 5 / 10 / 15 / 25 / 30 minutes. Start, pause, reset. Type `5`, `8 minutes`, or `Pasta 8 minutes` in the bar. |
-| Alarm | Type `7:30am`, `Take out garbage Wednesdays 10:30pm`, or `Advil every 4 hours starting at 8pm`. Labels and weekdays stick on the row. An interval adds one daily alarm at each step from that time — 8pm, 12am, 4am, 8am, 12pm, 4pm — all with the same label. The gap has to divide the day evenly, and it will not add more than 24 alarms. Tap a row to enable or disable. Delete on the right removes it, including from a signed-in account. |
+| Alarm | Type `7:30am`, `Take out garbage Wednesdays 10:30pm`, or `Advil every 4 hours starting at 8pm`. Labels and weekdays stick on the row. An interval adds one daily alarm at each step from that time — 8pm, 12am, 4am, 8am, 12pm, 4pm — all with the same label. The gap has to divide the day evenly, and it will not add more than 24 alarms. Tap a row to enable or disable. A snoozed row says how many minutes are left and has `dismiss`, which cancels that ring and keeps the next scheduled time. Delete on the right removes it, including from a signed-in account. |
 | Time Zones | Type a city, pick a match. Shows local time and offset from here. Hold and drag a row across the list to reorder. Delete on the right. |
 
 ![Labeled recurring alarm](../../../assets/screenshots/clock-alarm.png)
 
-While the timer is running, home replaces the large clock with the countdown. Tap it to return here.
+A snoozed alarm stays on the list with the minutes left and dismiss.
+
+![Snoozed alarm with dismiss](../../../assets/screenshots/clock-alarm-snoozed.png)
+
+While a timer is running, home replaces the large clock with the countdown. Tap it to return here. A snooze does the same: the large time is the minutes left, and a tap opens the alarm list so that row's dismiss is there.
 
 Timers, alarms, and time zones stay on the device across app launches. A running timer keeps counting; enabled alarms still fire after a reboot. If home opens after the alarm time (phone off, or the launcher woke late), it still rings for up to 2 hours, unless that ring was dismissed. Dismiss ends this occurrence. It does not ring again until the next scheduled time, including after account sync.
 
@@ -30,7 +34,7 @@ Alarms and the running timer play a real Android ringtone on the alarm stream, e
 | When | Prompt |
 | --- | --- |
 | Timer | `stop` or `run again` (same duration). |
-| Alarm | `dismiss` on the left stops it. `snooze 8 min` on the right rings again in 8 minutes. Both sit above the software keyboard. |
+| Alarm | `dismiss` on the left stops it. `snooze 8 min` on the right rings again in 8 minutes. Both sit above the software keyboard. The same screen opens when the phone is unlocked, including when a snooze ends, so the alarm can be stopped without opening the notification. |
 
 If the phone is locked or the screen is off, that same full-screen alert opens over the lock. Dismiss or snooze returns to the lock screen. Unlocked home still covers the command bar with the same screen. If it only shows as a notification, allow full-screen notifications for Builder Launcher in Android settings.
 

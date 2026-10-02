@@ -813,7 +813,8 @@ fun BuilderRoot(
         input = ""
     }
 
-    fun openClock() {
+    fun openClock(tab: ClockTab? = null) {
+        if (tab != null) clockTab = tab
         prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
         choices = emptyList()
@@ -1293,6 +1294,16 @@ fun BuilderRoot(
         ClockAlertService.stop(ctx)
     }
 
+    fun dismissSnoozedAlarm(id: String) {
+        val now = System.currentTimeMillis()
+        val alarm = clock.snapshot().alarms.find { it.id == id } ?: return
+        clock.replaceAlarm(Clock.acknowledge(alarm, now))
+        if (clock.snapshot().alert?.alarmId == id) {
+            clearClockAlert()
+        }
+        ClockScheduler.sync(ctx, clock.snapshot())
+    }
+
     val onStrip = HomeStrip.contains(page)
     val pagerState = rememberPagerState(
         initialPage = HomeStrip.indexOf(page) ?: HomeStrip.HOME,
@@ -1360,12 +1371,21 @@ fun BuilderRoot(
                     ticker = ticker,
                     event = upcoming,
                     timer = clockState.timer,
+                    alarms = clockState.alarms,
                     analog = settings.clockFace == ClockFace.ANALOG &&
                         index == pagerState.currentPage &&
                         !HomeStrip.coversPager(page),
                     todosToday = HomeTodos.completedToday(HomeTodos.of(local)),
                     productiveShare = if (usageToday.granted) usageToday.productiveShare else null,
-                    onOpenClock = { openClock() },
+                    onOpenClock = {
+                        val snap = clock.snapshot()
+                        val tab = if (!snap.timer.running && Clock.activeSnooze(snap.alarms, System.currentTimeMillis()) != null) {
+                            ClockTab.Alarm
+                        } else {
+                            null
+                        }
+                        openClock(tab)
+                    },
                     onOpenWeather = { openWeather() },
                     onOpenHub = { openHub() },
                     onOpenTicker = { openStocksList() },
@@ -2469,6 +2489,7 @@ fun BuilderRoot(
                         clock.removeAlarm(id)
                         ClockScheduler.sync(ctx, clock.snapshot())
                     },
+                    onDismissSnooze = { id -> dismissSnoozedAlarm(id) },
                     onPickZone = { addWorldClock(it) },
                     onRemoveZone = { clock.removeZone(it) },
                     onMoveZone = { from, to -> clock.moveZone(from, to) },

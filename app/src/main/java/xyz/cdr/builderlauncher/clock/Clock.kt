@@ -24,8 +24,8 @@ object Clock {
     const val ANALOG_TICK_MS = 1_000L
     const val DIGITAL_TICK_MS = 15_000L
 
-    fun homeTickMs(timerRunning: Boolean, analog: Boolean): Long = when {
-        timerRunning -> TIMER_TICK_MS
+    fun homeTickMs(timerRunning: Boolean, analog: Boolean, snoozeActive: Boolean = false): Long = when {
+        timerRunning || snoozeActive -> TIMER_TICK_MS
         analog -> ANALOG_TICK_MS
         else -> DIGITAL_TICK_MS
     }
@@ -48,10 +48,20 @@ object Clock {
         return (timer.endsAt - now).coerceIn(0L, cap)
     }
 
-    fun homeClockLabel(timer: TimerState, now: Long, clockText: String): String {
-        if (!timer.running) return clockText
-        return formatTimer(remainingMs(timer, now))
+    fun homeClockLabel(timer: TimerState, now: Long, clockText: String): String =
+        homeClockLabel(timer, emptyList(), now, clockText)
+
+    fun homeClockLabel(timer: TimerState, alarms: List<ClockAlarm>, now: Long, clockText: String): String {
+        if (timer.running) return formatTimer(remainingMs(timer, now))
+        val snooze = activeSnooze(alarms, now) ?: return clockText
+        return formatTimer(snoozeRemainingMs(snooze, now))
     }
+
+    fun activeSnooze(alarms: List<ClockAlarm>, now: Long): ClockAlarm? =
+        alarms.filter { snoozed(it, now) }.minByOrNull { it.snoozeUntil ?: Long.MAX_VALUE }
+
+    fun snoozeRemainingMs(alarm: ClockAlarm, now: Long): Long =
+        ((alarm.snoozeUntil ?: now) - now).coerceAtLeast(0L)
 
     fun start(timer: TimerState, now: Long): TimerState {
         val left = remainingMs(timer, now).coerceAtLeast(1L)
@@ -116,10 +126,20 @@ object Clock {
         return wanted.joinToString(" ") { names[it] }
     }
 
-    fun alarmStatus(alarm: ClockAlarm): String {
+    fun alarmStatus(alarm: ClockAlarm, now: Long = System.currentTimeMillis()): String {
+        if (snoozed(alarm, now)) {
+            val left = ((alarm.snoozeUntil ?: now) - now).coerceAtLeast(0L)
+            val min = ((left + 59_999L) / 60_000L).coerceAtLeast(1L)
+            return "snoozed  $min min"
+        }
         val on = if (alarm.enabled) "on" else "off"
         val days = formatDays(alarm.days)
         return if (days.isEmpty()) on else "$on  $days"
+    }
+
+    fun snoozed(alarm: ClockAlarm, now: Long = System.currentTimeMillis()): Boolean {
+        val until = alarm.snoozeUntil ?: return false
+        return alarm.enabled && until > now
     }
 
     fun nextTrigger(
