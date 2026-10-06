@@ -637,6 +637,29 @@ class BackupMergeTest {
     }
 
     @Test
+    fun reopeningATaskBeatsTheSyncedCompletedCopy() {
+        val reopened = LocalItem("t1", "todo", "buy screws", createdAt = 100, updatedAt = 3_000)
+        val completed = LocalItem("t1", "todo", "buy screws", createdAt = 100, completedAt = 2_000)
+        val phone = BackupDocument(exportedAt = 30, items = listOf(reopened))
+        val cloud = BackupDocument(exportedAt = 20, items = listOf(completed))
+        // Last-write-wins must follow the edit time of the toggle, not the
+        // stale completedAt of the snapshot the reopen is undoing.
+        assertNull(BackupMerge.merge(phone, cloud).items.single().completedAt)
+        assertNull(BackupMerge.merge(cloud, phone).items.single().completedAt)
+    }
+
+    @Test
+    fun aFreshCompletionBeatsAnUnsyncedOpenCopy() {
+        val open = LocalItem("t1", "todo", "x", createdAt = 100)
+        val completed = LocalItem("t1", "todo", "x", createdAt = 100, completedAt = 2_000)
+        val phone = BackupDocument(exportedAt = 30, items = listOf(open))
+        val cloud = BackupDocument(exportedAt = 20, items = listOf(completed))
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            assertEquals(2_000L, merged.items.single().completedAt)
+        }
+    }
+
+    @Test
     fun overwriteWarningNamesLocalData() {
         assertTrue(BackupService.OVERWRITE_WARNING.contains("overwrite any local data"))
         assertTrue(BackupService.OVERWRITE_WARNING.contains("unless the snapshot includes them"))

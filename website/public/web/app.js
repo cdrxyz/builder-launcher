@@ -2471,7 +2471,10 @@ function toggleTodo(id) {
 	setItems(
 		list.map((entry) => {
 			if (entry.id !== id) return entry;
-			return { ...entry, completedAt: markingDone ? now : null };
+			// A toggle is an edit: bump updatedAt so merge stamping (max of updatedAt,
+			// completedAt, createdAt) sees the reopen instead of losing to the synced
+			// snapshot that still carries the old completedAt.
+			return { ...entry, completedAt: markingDone ? now : null, updatedAt: now };
 		}),
 	);
 }

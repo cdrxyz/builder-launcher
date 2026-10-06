@@ -70,11 +70,13 @@ class LocalLists internal constructor(
     }
 
     fun toggleComplete(id: String, now: Long = System.currentTimeMillis()) {
+        // A toggle is an edit: bump updatedAt so sync last-write-wins (BackupMerge.stamp)
+        // still sees the change when completedAt is cleared back to null.
         persist(
             _items.value.map { item ->
                 if (item.id != id) item
-                else if (item.completedAt != null) item.copy(completedAt = null)
-                else item.copy(completedAt = now)
+                else if (item.completedAt != null) item.copy(completedAt = null, updatedAt = now)
+                else item.copy(completedAt = now, updatedAt = now)
             },
         )
     }
