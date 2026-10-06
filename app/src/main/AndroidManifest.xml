@@ -96,6 +96,7 @@
             android:turnScreenOn="true"
             android:taskAffinity=""
             android:theme="@style/Theme.BuilderLauncher"
+            android:windowSoftInputMode="adjustResize"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout" />
 
         <service

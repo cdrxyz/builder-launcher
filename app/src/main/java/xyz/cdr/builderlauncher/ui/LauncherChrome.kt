@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -2084,13 +2085,15 @@ fun ClockAlertChrome(
     kind: String = "timer",
     time: String = "5:00",
     label: String = "Time is up",
+    contentInsets: WindowInsets = WindowInsets(0, 0, 0, 0),
 ) {
     ClockAlertScreen(
         alert = if (kind == "alarm") {
             ClockAlert(kind = ClockAlertKind.ALARM, hour = 6, minute = 30, label = label)
         } else {
-            ClockAlert(kind = ClockAlertKind.TIMER, durationMs = 5 * 60_000L)
+            ClockAlert(kind = ClockAlertKind.TIMER, durationMs = 5 * 60_000L, label = label)
         },
+        contentInsets = contentInsets,
     )
 }
 
