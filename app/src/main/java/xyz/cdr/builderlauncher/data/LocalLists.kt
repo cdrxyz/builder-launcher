@@ -73,8 +73,10 @@ class LocalLists internal constructor(
         persist(
             _items.value.map { item ->
                 if (item.id != id) item
-                else if (item.completedAt != null) item.copy(completedAt = null)
-                else item.copy(completedAt = now)
+                else item.copy(
+                    completedAt = if (item.completedAt != null) null else now,
+                    updatedAt = now,
+                )
             },
         )
     }

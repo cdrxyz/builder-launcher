@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -49,5 +50,26 @@ class LocalListsTest {
         val again = LocalLists(file)
         assertEquals(listOf(keep.id), again.items.value.map { it.id })
         assertTrue(again.deletedIds.value.contains(gone.id))
+    }
+
+    @Test
+    fun toggleCompleteStampsUpdatedAtWhenReopening() {
+        val (_, lists) = store()
+        val id = lists.add("todo", "buy milk")
+        lists.toggleComplete(id, now = 5_000)
+        lists.toggleComplete(id, now = 9_000)
+        val item = lists.items.value.single()
+        assertNull(item.completedAt)
+        assertEquals(9_000L, item.updatedAt)
+    }
+
+    @Test
+    fun toggleCompleteStampsUpdatedAtWhenCompleting() {
+        val (_, lists) = store()
+        val id = lists.add("todo", "buy milk")
+        lists.toggleComplete(id, now = 5_000)
+        val item = lists.items.value.single()
+        assertEquals(5_000L, item.completedAt)
+        assertEquals(5_000L, item.updatedAt)
     }
 }

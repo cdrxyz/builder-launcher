@@ -637,6 +637,32 @@ class BackupMergeTest {
     }
 
     @Test
+    fun mergeKeepsAReopenedTaskWhenUpdatedAtIsNewer() {
+        val completed = LocalItem(
+            "t1",
+            "todo",
+            "buy milk",
+            createdAt = 1000,
+            updatedAt = 1000,
+            completedAt = 5000,
+        )
+        val reopened = completed.copy(completedAt = null, updatedAt = 9000)
+        for (merged in listOf(
+            BackupMerge.merge(
+                BackupDocument(exportedAt = 5000, items = listOf(completed)),
+                BackupDocument(exportedAt = 9000, items = listOf(reopened)),
+            ),
+            BackupMerge.merge(
+                BackupDocument(exportedAt = 9000, items = listOf(reopened)),
+                BackupDocument(exportedAt = 5000, items = listOf(completed)),
+            ),
+        )) {
+            assertNull(merged.items.single().completedAt)
+            assertEquals(9000L, merged.items.single().updatedAt)
+        }
+    }
+
+    @Test
     fun overwriteWarningNamesLocalData() {
         assertTrue(BackupService.OVERWRITE_WARNING.contains("overwrite any local data"))
         assertTrue(BackupService.OVERWRITE_WARNING.contains("unless the snapshot includes them"))
