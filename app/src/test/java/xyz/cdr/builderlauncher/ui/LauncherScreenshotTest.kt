@@ -1,6 +1,9 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import org.junit.Rule
@@ -915,6 +918,20 @@ class LauncherScreenshotTest {
         paparazzi.snapshot {
             BuilderTheme {
                 ClockAlertChrome(kind = "alarm", label = "Alarm")
+            }
+        }
+    }
+
+    @Test
+    fun clockAlarmAlertKeyboard() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                val bottom = with(LocalDensity.current) { 320.dp.roundToPx() }
+                ClockAlertChrome(
+                    kind = "alarm",
+                    label = "Take out garbage",
+                    contentInsets = WindowInsets(0, 0, 0, bottom),
+                )
             }
         }
     }

@@ -1,21 +1,26 @@
 package xyz.cdr.builderlauncher.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -31,12 +36,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -57,6 +65,7 @@ import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
 import xyz.cdr.builderlauncher.ui.theme.Ink
+import xyz.cdr.builderlauncher.ui.theme.LocalTokens
 import xyz.cdr.builderlauncher.ui.theme.Paper
 import xyz.cdr.builderlauncher.weather.WeatherPlace
 
@@ -375,6 +384,7 @@ fun ClockAlertScreen(
     alert: ClockAlert,
     modifier: Modifier = Modifier,
     sound: ClockSound = ClockSound.OFF,
+    contentInsets: WindowInsets = WindowInsets.safeDrawing,
     onStop: () -> Unit = {},
     onRunAgain: () -> Unit = {},
     onDismiss: () -> Unit = {},
@@ -386,7 +396,9 @@ fun ClockAlertScreen(
         onDispose { }
     }
     val timer = alert.kind == ClockAlertKind.TIMER
-    Column(
+    val title = if (timer) alert.label.ifBlank { "Time is up" } else alert.label.ifBlank { "Alarm" }
+    val time = if (timer) Clock.formatTimer(alert.durationMs) else Clock.formatAlarm(alert.hour, alert.minute)
+    Box(
         modifier
             .fillMaxSize()
             .background(Ink)
@@ -394,61 +406,90 @@ fun ClockAlertScreen(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
             ) {}
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .windowInsetsPadding(contentInsets),
     ) {
-        Text(
-            if (timer) alert.label.ifBlank { "Time is up" } else alert.label.ifBlank { "Alarm" },
-            color = Dim,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            if (timer) Clock.formatTimer(alert.durationMs) else Clock.formatAlarm(alert.hour, alert.minute),
-            color = Paper,
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Medium,
-                lineHeight = 60.sp,
-            ),
-        )
-        if (timer) {
-            Spacer(Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text(
-                    "stop",
-                    color = Accent,
-                    modifier = Modifier.clickable { onStop() }.padding(vertical = 8.dp),
-                )
-                Text(
-                    "run again",
-                    color = Accent,
-                    modifier = Modifier.clickable { onRunAgain() }.padding(vertical = 8.dp),
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+        BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 8.dp)) {
+            val heightDp = maxHeight.value.toInt()
+            val titleSize = ClockAlertLayout.titleSp(heightDp)
+            val timeSize = ClockAlertLayout.timeSp(heightDp)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = maxHeight),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "dismiss",
-                    color = Dim,
-                    modifier = Modifier
-                        .clickable { onDismiss() }
-                        .padding(top = 16.dp, bottom = 8.dp, end = 24.dp),
+                    title,
+                    color = Paper,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = titleSize.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = (titleSize + 6).sp,
+                    ),
                 )
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    "snooze 8 min",
-                    color = Accent,
-                    modifier = Modifier
-                        .clickable { onSnooze() }
-                        .padding(top = 16.dp, bottom = 8.dp, start = 24.dp),
+                    time,
+                    color = Paper,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = timeSize.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = (timeSize + 4).sp,
+                    ),
                 )
+                Spacer(Modifier.height(28.dp))
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (timer) {
+                        AlertAction("stop", Accent, Accent, heightDp, onStop)
+                        AlertAction("run again", Accent, Accent, heightDp, onRunAgain)
+                    } else {
+                        AlertAction("dismiss", Paper, Dim, heightDp, onDismiss)
+                        AlertAction("snooze 8 min", Accent, Accent, heightDp, onSnooze)
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun AlertAction(
+    label: String,
+    text: Color,
+    border: Color,
+    heightDp: Int,
+    onClick: () -> Unit,
+) {
+    val size = ClockAlertLayout.actionSp(heightDp)
+    val shape = RoundedCornerShape(LocalTokens.current.radius)
+    Box(
+        Modifier
+            .fillMaxWidth(0.86f)
+            .defaultMinSize(minHeight = ClockAlertLayout.actionMinHeightDp(heightDp).dp)
+            .border(2.dp, border, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = text,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = size.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = (size + 6).sp,
+            ),
+        )
     }
 }

@@ -31,14 +31,14 @@ Timers, alarms, and time zones stay on the device across app launches. A running
 
 Alarms and the running timer play a real Android ringtone on the alarm stream, even if the phone is on silent or vibrate. The clip loops and fades in over 4 seconds. Pick `pulse`, `chime`, `bell`, `orthodox`, `hum`, or `off` in [settings](../../configure/settings/) — tap a name to hear it. Orthodox is a public-domain chant. `<` returns home.
 
-![Timer is up: stop or run again](../../../assets/screenshots/clock-timer-alert.png)
+![Timer is up: stop or run again, centered](../../../assets/screenshots/clock-timer-alert.png)
 
-![Alarm: dismiss on the left, snooze on the right](../../../assets/screenshots/clock-alarm-alert.png)
+![Alarm name large, dismiss and snooze in the middle](../../../assets/screenshots/clock-alarm-alert.png)
 
 | When | Prompt |
 | --- | --- |
 | Timer | `stop` or `run again` (same duration). |
-| Alarm | `dismiss` on the left stops it. `snooze 8 min` on the right rings again in 8 minutes. Both sit above the software keyboard. The same screen opens when the phone is unlocked, including when a snooze ends, so the alarm can be stopped without opening the notification. |
+| Alarm | `dismiss` stops it. `snooze 8 min` rings again in 8 minutes. The name is large. Both actions sit in the middle of the space still on screen: above the software keyboard, or in the middle of the display when that keyboard is closed or the phone has a hardware keyboard. The same screen opens when the phone is unlocked, including when a snooze ends, so the alarm can be stopped without opening the notification. |
 
 If the phone is locked or the screen is off, that same full-screen alert opens over the lock. Dismiss or snooze returns to the lock screen. Unlocked home still covers the command bar with the same screen. If it only shows as a notification, allow full-screen notifications for Builder Launcher in Android settings.
 
