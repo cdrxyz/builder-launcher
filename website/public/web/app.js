@@ -19,6 +19,7 @@ import {
 	notesByEdited,
 	openTodos,
 	seedNote,
+	toggledTodo,
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
@@ -2468,15 +2469,7 @@ function toggleTodo(id) {
 		cancelCompleteAnim(id);
 	}
 	const now = Date.now();
-	setItems(
-		list.map((entry) => {
-			if (entry.id !== id) return entry;
-			// A toggle is an edit: bump updatedAt so merge stamping (max of updatedAt,
-			// completedAt, createdAt) sees the reopen instead of losing to the synced
-			// snapshot that still carries the old completedAt.
-			return { ...entry, completedAt: markingDone ? now : null, updatedAt: now };
-		}),
-	);
+	setItems(list.map((entry) => (entry.id === id ? toggledTodo(entry, now) : entry)));
 }
 
 function removeItem(id) {
