@@ -19,6 +19,7 @@ import {
 	notesByEdited,
 	openTodos,
 	seedNote,
+	toggledTodo,
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
@@ -2468,12 +2469,7 @@ function toggleTodo(id) {
 		cancelCompleteAnim(id);
 	}
 	const now = Date.now();
-	setItems(
-		list.map((entry) => {
-			if (entry.id !== id) return entry;
-			return { ...entry, completedAt: markingDone ? now : null };
-		}),
-	);
+	setItems(list.map((entry) => (entry.id === id ? toggledTodo(entry, now) : entry)));
 }
 
 function removeItem(id) {

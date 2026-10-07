@@ -727,7 +727,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v26/);
+	assert.match(sw, /builder-launcher-web-v27/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -923,4 +923,26 @@ test('open todos sort newest first unless manually moved lower', () => {
 		).map((item) => item.id),
 		['web', 'a', 'b'],
 	);
+});
+
+test('reopening a task stamps updatedAt so sync keeps it open', async () => {
+	const { toggledTodo } = await import('../public/web/items.js');
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const completed = { id: 't1', kind: 'todo', text: 'buy screws', createdAt: 1000, updatedAt: 1000, completedAt: 5000 };
+	const reopened = toggledTodo(completed, 9000);
+	assert.equal(reopened.completedAt, null);
+	assert.equal(reopened.updatedAt, 9000);
+	for (const merged of [
+		mergeDocs({ exportedAt: 5000, items: [completed] }, { exportedAt: 9000, items: [reopened] }),
+		mergeDocs({ exportedAt: 9000, items: [reopened] }, { exportedAt: 5000, items: [completed] }),
+	]) {
+		const item = merged.items.find((row) => row.id === 't1');
+		assert.equal(item.completedAt, null);
+		assert.equal(item.updatedAt, 9000);
+	}
+	const marked = toggledTodo({ ...completed, completedAt: null }, 5000);
+	assert.equal(marked.completedAt, 5000);
+	assert.equal(marked.updatedAt, 5000);
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /toggledTodo\(entry, now\)/);
 });

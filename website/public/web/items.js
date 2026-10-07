@@ -10,6 +10,13 @@ export function isDone(item) {
 	return item?.completedAt != null;
 }
 
+// A toggle is an edit. Clearing completedAt without a newer updatedAt loses
+// to the synced checked-off copy, whose stamp is the completion time.
+export function toggledTodo(item, now) {
+	const markingDone = item?.completedAt == null;
+	return { ...item, completedAt: markingDone ? now : null, updatedAt: now };
+}
+
 export function editedAt(item) {
 	return item?.updatedAt > 0 ? item.updatedAt : item?.createdAt || 0;
 }

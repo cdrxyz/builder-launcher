@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -49,5 +50,25 @@ class LocalListsTest {
         val again = LocalLists(file)
         assertEquals(listOf(keep.id), again.items.value.map { it.id })
         assertTrue(again.deletedIds.value.contains(gone.id))
+    }
+
+    @Test
+    fun toggleCompleteStampsUpdatedAtBothWaysSoSyncSeesAReopen() {
+        val (file, lists) = store()
+        val task = LocalItem(id = "t1", kind = "todo", text = "buy screws", createdAt = 100)
+        lists.replaceAll(listOf(task), deleted = emptyList())
+
+        lists.toggleComplete(task.id, now = 2_000)
+        assertEquals(listOf(2_000L), lists.items.value.map { it.completedAt })
+        assertEquals(listOf(2_000L), lists.items.value.map { it.updatedAt })
+
+        // Reopening clears completedAt but must raise updatedAt above the
+        // completion stamp, or BackupMerge.stamp keeps the done copy newer
+        // and sync resurrects the checkmark forever.
+        lists.toggleComplete(task.id, now = 3_000)
+        val reopened = lists.items.value.single()
+        assertNull(reopened.completedAt)
+        assertEquals(3_000L, reopened.updatedAt)
+        assertEquals(3_000L, LocalLists(file).items.value.single().updatedAt)
     }
 }
