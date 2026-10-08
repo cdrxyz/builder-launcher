@@ -12,13 +12,19 @@ object ClockScheduler {
     const val ACTION_TIMER = "xyz.cdr.builderlauncher.clock.TIMER"
     const val ACTION_ALARM = "xyz.cdr.builderlauncher.clock.ALARM"
     const val EXTRA_ALARM_ID = "alarm_id"
+    const val EXTRA_TIMER_ID = "timer_id"
+    private const val TIMER_REQUEST = 0x5A110000
+    private const val ALARM_REQUEST = 0x11A10000
 
     fun reconcile(context: Context, store: ClockStore, now: Long = System.currentTimeMillis()) {
-        val snap = store.snapshot()
-        if (snap.alert == null && Clock.overdueTimer(snap.timer, now)) {
-            val fired = Clock.fireTimer(snap.timer)
-            store.setTimer(fired.timer)
-            store.setAlert(fired.alert)
+        val snap = Clock.normalize(store.snapshot(), now)
+        if (snap.alert == null) {
+            val due = Clock.overdueTimers(snap.timers, now).firstOrNull()
+            if (due != null) {
+                val fired = Clock.fireTimer(due)
+                store.setTimer(fired.timer)
+                store.setAlert(fired.alert)
+            }
         }
         if (store.snapshot().alert == null) {
             store.snapshot().alarms.forEach { alarm ->
@@ -36,10 +42,16 @@ object ClockScheduler {
     fun sync(context: Context, snapshot: ClockSnapshot, now: Long = System.currentTimeMillis()) {
         val app = context.applicationContext
         val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.cancel(timerRequest(app))
-        if (snapshot.timer.running) {
-            val ends = snapshot.timer.endsAt
-            if (ends != null && ends > now) scheduleAlarm(app, am, timerRequest(app), ends)
+        val snap = Clock.normalize(snapshot, now)
+        am.cancel(legacyTimerRequest(app))
+        snap.timers.forEach { timer ->
+            cancelTimer(app, timer.id)
+        }
+        snap.timers.forEach { timer ->
+            val ends = timer.endsAt
+            if (timer.running && ends != null && ends > now) {
+                scheduleAlarm(app, am, timerRequest(app, timer.id), ends)
+            }
         }
         snapshot.deletedAlarmIds.forEach { id ->
             cancelAlarm(app, am, id)
@@ -53,10 +65,14 @@ object ClockScheduler {
         }
     }
 
-    fun cancelTimer(context: Context) {
+    fun cancelTimer(context: Context, id: String = "") {
         val app = context.applicationContext
         val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.cancel(timerRequest(app))
+        if (id.isNotBlank()) {
+            am.cancel(timerRequest(app, id))
+            am.cancel(hashCodeRequest(app, ACTION_TIMER, EXTRA_TIMER_ID, id, "timer"))
+        }
+        am.cancel(legacyTimerRequest(app))
     }
 
     private fun scheduleAlarm(context: Context, am: AlarmManager, request: PendingIntent, at: Long) {
@@ -82,7 +98,20 @@ object ClockScheduler {
         }
     }
 
-    private fun timerRequest(context: Context): PendingIntent {
+    fun timerRequest(context: Context, id: String): PendingIntent {
+        val intent = Intent(context, ClockReceiver::class.java)
+            .setAction(ACTION_TIMER)
+            .setData(Uri.parse("xyz.cdr.builderlauncher://timer/$id"))
+            .putExtra(EXTRA_TIMER_ID, id)
+        return PendingIntent.getBroadcast(
+            context,
+            TIMER_REQUEST xor id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun legacyTimerRequest(context: Context): PendingIntent {
         val intent = Intent(context, ClockReceiver::class.java).setAction(ACTION_TIMER)
         return PendingIntent.getBroadcast(
             context,
@@ -95,6 +124,26 @@ object ClockScheduler {
     private fun cancelAlarm(context: Context, am: AlarmManager, id: String) {
         am.cancel(alarmRequest(context, id))
         am.cancel(legacyAlarmRequest(context, id))
+        am.cancel(hashCodeRequest(context, ACTION_ALARM, EXTRA_ALARM_ID, id, "alarm"))
+    }
+
+    private fun hashCodeRequest(
+        context: Context,
+        action: String,
+        extra: String,
+        id: String,
+        kind: String,
+    ): PendingIntent {
+        val intent = Intent(context, ClockReceiver::class.java)
+            .setAction(action)
+            .setData(Uri.parse("xyz.cdr.builderlauncher://$kind/$id"))
+            .putExtra(extra, id)
+        return PendingIntent.getBroadcast(
+            context,
+            id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun alarmRequest(context: Context, id: String): PendingIntent {
@@ -104,7 +153,7 @@ object ClockScheduler {
             .putExtra(EXTRA_ALARM_ID, id)
         return PendingIntent.getBroadcast(
             context,
-            id.hashCode(),
+            ALARM_REQUEST xor id.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

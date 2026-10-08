@@ -60,6 +60,7 @@ import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.clock.ClockSoundPlayer
 import xyz.cdr.builderlauncher.clock.ClockSnapshot
 import xyz.cdr.builderlauncher.clock.ClockTab
+import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.data.ListReorder
 import xyz.cdr.builderlauncher.ui.theme.Accent
@@ -78,8 +79,9 @@ fun ClockScreen(
     onBack: () -> Unit,
     onTab: (ClockTab) -> Unit,
     onPreset: (Int) -> Unit,
-    onStartPause: () -> Unit,
-    onReset: () -> Unit,
+    onStartPause: (String) -> Unit,
+    onReset: (String) -> Unit,
+    onRemoveTimer: (String) -> Unit,
     onToggleAlarm: (String) -> Unit,
     onRemoveAlarm: (String) -> Unit,
     onDismissSnooze: (String) -> Unit,
@@ -89,12 +91,13 @@ fun ClockScreen(
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(snapshot.timer.running, snapshot.timer.endsAt, lifecycleOwner) {
+    val timers = Clock.timersOf(snapshot)
+    LaunchedEffect(timers.any { it.running }, timers.map { it.endsAt }, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             now.value = System.currentTimeMillis()
             while (true) {
                 now.value = System.currentTimeMillis()
-                delay(Clock.homeTickMs(snapshot.timer.running, analog = false))
+                delay(Clock.homeTickMs(Clock.anyTimerRunning(timers), analog = false))
             }
         }
     }
@@ -122,13 +125,12 @@ fun ClockScreen(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
                 ClockTab.Timer -> TimerPane(
-                    display = Clock.formatTimer(Clock.remainingMs(snapshot.timer, now.value)),
-                    running = snapshot.timer.running,
-                    durationMs = snapshot.timer.durationMs,
-                    label = snapshot.timer.label,
+                    timers = timers,
+                    now = now.value,
                     onPreset = onPreset,
                     onStartPause = onStartPause,
                     onReset = onReset,
+                    onRemove = onRemoveTimer,
                     modifier = Modifier.fillMaxSize(),
                 )
                 ClockTab.Alarm -> AlarmPane(
@@ -155,32 +157,62 @@ fun ClockScreen(
 
 @Composable
 private fun TimerPane(
-    display: String,
-    running: Boolean,
-    durationMs: Long,
-    label: String,
+    timers: List<TimerState>,
+    now: Long,
     onPreset: (Int) -> Unit,
-    onStartPause: () -> Unit,
-    onReset: () -> Unit,
+    onStartPause: (String) -> Unit,
+    onReset: (String) -> Unit,
+    onRemove: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val rows = timers.ifEmpty { listOf(TimerState()) }
+    val idle = rows.singleOrNull()?.takeIf { !it.running }
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        Text(
-            display,
-            color = Paper,
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Medium,
-                lineHeight = 60.sp,
-            ),
-        )
-        if (label.isNotBlank()) {
-            Text(label, color = Dim, style = MaterialTheme.typography.bodyMedium)
+        rows.forEach { timer ->
+            val display = Clock.formatTimer(Clock.remainingMs(timer, now))
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    Text(
+                        display,
+                        color = Paper,
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontSize = if (rows.size == 1) 56.sp else 36.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = if (rows.size == 1) 60.sp else 40.sp,
+                        ),
+                    )
+                    if (timer.label.isNotBlank()) {
+                        Text(timer.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Text(
+                            if (timer.running) "pause" else "start",
+                            color = Accent,
+                            modifier = Modifier.clickable { onStartPause(timer.id) }.padding(vertical = 8.dp),
+                        )
+                        Text(
+                            "reset",
+                            color = Dim,
+                            modifier = Modifier.clickable { onReset(timer.id) }.padding(vertical = 8.dp),
+                        )
+                    }
+                }
+                if (rows.size > 1 || timer.label.isNotBlank()) {
+                    DeleteIcon(
+                        Modifier
+                            .clickable { onRemove(timer.id) }
+                            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Clock.PRESETS_MIN.forEach { min ->
-                val selected = durationMs == min * 60_000L && !running
+                val selected = idle != null && idle.durationMs == min * 60_000L
                 Text(
                     min.toString(),
                     color = if (selected) Accent else Dim,
@@ -188,21 +220,8 @@ private fun TimerPane(
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            Text(
-                if (running) "pause" else "start",
-                color = Accent,
-                modifier = Modifier.clickable { onStartPause() }.padding(vertical = 8.dp),
-            )
-            Text(
-                "reset",
-                color = Dim,
-                modifier = Modifier.clickable { onReset() }.padding(vertical = 8.dp),
-            )
-        }
         Text(
-            "Type Pasta 8 minutes, then Enter.",
+            "Type Pasta 8 minutes, then Enter. Each name is its own timer.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 12.dp),

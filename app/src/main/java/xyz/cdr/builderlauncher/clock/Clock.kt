@@ -49,12 +49,77 @@ object Clock {
     }
 
     fun homeClockLabel(timer: TimerState, now: Long, clockText: String): String =
-        homeClockLabel(timer, emptyList(), now, clockText)
+        homeClockLabel(listOf(timer), emptyList(), now, clockText)
 
-    fun homeClockLabel(timer: TimerState, alarms: List<ClockAlarm>, now: Long, clockText: String): String {
-        if (timer.running) return formatTimer(remainingMs(timer, now))
+    fun homeClockLabel(timer: TimerState, alarms: List<ClockAlarm>, now: Long, clockText: String): String =
+        homeClockLabel(listOf(timer), alarms, now, clockText)
+
+    fun homeClockLabel(timers: List<TimerState>, alarms: List<ClockAlarm>, now: Long, clockText: String): String {
+        val running = soonestRunning(timers, now)
+        if (running != null) return formatTimer(remainingMs(running, now))
         val snooze = activeSnooze(alarms, now) ?: return clockText
         return formatTimer(snoozeRemainingMs(snooze, now))
+    }
+
+    fun soonestRunning(timers: List<TimerState>, now: Long): TimerState? =
+        timers.filter { it.running }.minByOrNull { remainingMs(it, now) }
+
+    fun anyTimerRunning(timers: List<TimerState>): Boolean = timers.any { it.running }
+
+    fun overdueTimers(timers: List<TimerState>, now: Long): List<TimerState> =
+        timers.filter { overdueTimer(it, now) }.sortedBy { it.endsAt ?: Long.MAX_VALUE }
+
+    fun ensureId(timer: TimerState): TimerState =
+        if (timer.id.isNotBlank()) timer else timer.copy(id = newTimerId())
+
+    fun newTimerId(): String = "${System.currentTimeMillis().toString(36)}-${System.nanoTime().toString(36)}"
+
+    fun replaceTimer(timers: List<TimerState>, timer: TimerState): List<TimerState> {
+        val next = ensureId(timer)
+        return if (timers.any { it.id == next.id }) {
+            timers.map { if (it.id == next.id) next else it }
+        } else {
+            timers + next
+        }
+    }
+
+    fun addTimer(timers: List<TimerState>, parsed: ParsedTimer, id: String = newTimerId()): List<TimerState> {
+        val next = setDuration(TimerState(id = id), parsed.durationMs, parsed.label)
+        val only = timers.singleOrNull()
+        if (only != null && unusedDefault(only)) {
+            return listOf(next.copy(id = only.id.ifBlank { id }))
+        }
+        return timers + next
+    }
+
+    fun unusedDefault(timer: TimerState): Boolean =
+        !timer.running && timer.label.isBlank() && timer.remainingMs == timer.durationMs &&
+            timer.durationMs == DEFAULT_TIMER_MS && timer.id.isBlank() && timer.endsAt == null
+
+    fun timersOf(snapshot: ClockSnapshot): List<TimerState> = normalize(snapshot).timers
+
+    fun normalize(snapshot: ClockSnapshot, now: Long = System.currentTimeMillis()): ClockSnapshot {
+        val raw = if (snapshot.timers.isNotEmpty()) {
+            snapshot.timers
+        } else if (unusedDefault(snapshot.timer)) {
+            emptyList()
+        } else {
+            listOf(snapshot.timer)
+        }
+        val timers = raw.filterNot { unusedDefault(it) }.map { ensureId(it) }.distinctBy { it.id }
+        val primary = soonestRunning(timers, now) ?: timers.firstOrNull() ?: TimerState()
+        return snapshot.copy(timer = primary, timers = timers)
+    }
+
+    fun keepLocalTimers(local: ClockSnapshot, remote: ClockSnapshot): ClockSnapshot {
+        val kept = normalize(local)
+        return normalize(
+            remote.copy(
+                timer = kept.timer,
+                timers = kept.timers,
+                alert = local.alert ?: remote.alert,
+            ),
+        )
     }
 
     fun activeSnooze(alarms: List<ClockAlarm>, now: Long): ClockAlarm? =
@@ -78,7 +143,7 @@ object Clock {
 
     fun setDuration(timer: TimerState, durationMs: Long, label: String = ""): TimerState {
         val ms = durationMs.coerceIn(1_000L, 24 * 60 * 60_000L)
-        return TimerState(durationMs = ms, remainingMs = ms, label = label.trim())
+        return timer.copy(durationMs = ms, remainingMs = ms, running = false, endsAt = null, label = label.trim())
     }
 
     fun parseTimer(raw: String): Long? = parseTimerInput(raw)?.durationMs
@@ -248,13 +313,19 @@ object Clock {
         val duration = timer.durationMs.coerceAtLeast(1_000L)
         return TimerFire(
             timer = reset(timer),
-            alert = ClockAlert(kind = ClockAlertKind.TIMER, durationMs = duration, label = timer.label),
+            alert = ClockAlert(
+                kind = ClockAlertKind.TIMER,
+                durationMs = duration,
+                timerId = timer.id,
+                label = timer.label,
+            ),
         )
     }
 
     fun runAgain(alert: ClockAlert, now: Long): TimerState {
         val duration = alert.durationMs.coerceAtLeast(1_000L)
-        return start(TimerState(durationMs = duration, remainingMs = duration, label = alert.label), now)
+        val id = alert.timerId.ifBlank { newTimerId() }
+        return start(TimerState(id = id, durationMs = duration, remainingMs = duration, label = alert.label), now)
     }
 
     fun fireAlarm(alarm: ClockAlarm, now: Long): AlarmFire {
@@ -523,6 +594,7 @@ data class ParsedAlarm(
 
 @Serializable
 data class TimerState(
+    val id: String = "",
     val durationMs: Long = Clock.DEFAULT_TIMER_MS,
     val remainingMs: Long = Clock.DEFAULT_TIMER_MS,
     val running: Boolean = false,
@@ -550,6 +622,7 @@ data class ClockAlert(
     val kind: ClockAlertKind,
     val durationMs: Long = 0,
     val alarmId: String = "",
+    val timerId: String = "",
     val hour: Int = 0,
     val minute: Int = 0,
     val label: String = "",
@@ -588,6 +661,7 @@ data class WorldClock(
 @Serializable
 data class ClockSnapshot(
     val timer: TimerState = TimerState(),
+    val timers: List<TimerState> = emptyList(),
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
     val alert: ClockAlert? = null,

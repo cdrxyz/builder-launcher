@@ -2003,6 +2003,7 @@ fun AiProvidersChrome(
 fun ClockChrome(
     tab: String = "Timer",
     timer: String = "5:00",
+    timers: List<Pair<String, String>> = emptyList(),
     alarms: List<ClockAlarm> = emptyList(),
     zones: List<WorldClock> = emptyList(),
 ) {
@@ -2059,17 +2060,22 @@ fun ClockChrome(
                     }
                 }
                 else -> {
-                    Text(timer, color = Paper, style = MaterialTheme.typography.headlineLarge)
+                    val rows = timers.ifEmpty { listOf(timer to "") }
+                    rows.forEach { (display, label) ->
+                        Text(display, color = Paper, style = MaterialTheme.typography.headlineLarge)
+                        if (label.isNotBlank()) {
+                            Text(label, color = Dim)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            Text("start", color = Accent)
+                            Text("reset", color = Dim)
+                        }
+                    }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Clock.PRESETS_MIN.forEach { min ->
-                            Text(min.toString(), color = if (min == 5) Accent else Dim)
+                            Text(min.toString(), color = if (min == 5 && rows.size == 1) Accent else Dim)
                         }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        Text("start", color = Accent)
-                        Text("reset", color = Dim)
                     }
                 }
             }

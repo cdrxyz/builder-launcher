@@ -105,6 +105,81 @@ class ClockStoreTest {
     }
 
     @Test
+    fun namedTimersSurviveRelaunch() {
+        val (file, first) = store()
+        first.replaceTimers(
+            listOf(
+                TimerState(
+                    id = "rice",
+                    durationMs = 10 * 60_000L,
+                    remainingMs = 9 * 60_000L,
+                    running = true,
+                    endsAt = 9_000_000L,
+                    label = "Rice",
+                ),
+                TimerState(
+                    id = "pasta",
+                    durationMs = 8 * 60_000L,
+                    remainingMs = 8 * 60_000L,
+                    label = "Pasta",
+                ),
+            ),
+        )
+        val relaunched = ClockStore(file)
+        val snap = Clock.normalize(relaunched.snapshot())
+        assertEquals(listOf("Rice", "Pasta"), snap.timers.map { it.label })
+        assertTrue(snap.timers.first().running)
+        assertEquals(9_000_000L, snap.timers.first().endsAt)
+        assertEquals("Rice", snap.timer.label)
+    }
+
+    @Test
+    fun addTimerKeepsTheRunningOne() {
+        val (_, store) = store()
+        store.setTimer(
+            Clock.start(Clock.setDuration(TimerState(id = "rice"), 10 * 60_000L, "Rice"), 1_000_000L),
+        )
+        store.addTimer(Clock.parseTimerInput("Pasta 8 minutes")!!)
+        val snap = Clock.normalize(store.snapshot())
+        assertEquals(2, snap.timers.size)
+        assertTrue(snap.timers.any { it.label == "Rice" && it.running })
+        assertTrue(snap.timers.any { it.label == "Pasta" && !it.running && it.durationMs == 8 * 60_000L })
+    }
+
+    @Test
+    fun addUnlabeledFiveMinuteKeepsExistingTimer() {
+        val (_, store) = store()
+        store.setTimer(
+            Clock.start(Clock.setDuration(TimerState(id = "rice"), 10 * 60_000L, "Rice"), 1_000_000L),
+        )
+        store.addTimer(Clock.parseTimerInput("5")!!)
+        val snap = Clock.normalize(store.snapshot())
+        assertEquals(2, snap.timers.size)
+        assertTrue(snap.timers.any { it.label == "Rice" && it.running })
+        assertTrue(snap.timers.any { it.label.isBlank() && it.durationMs == 5 * 60_000L && !it.running })
+    }
+
+    @Test
+    fun backupApplyKeepsRunningTimers() {
+        val (_, store) = store()
+        val running = Clock.start(Clock.setDuration(TimerState(id = "rice"), 10 * 60_000L, "Rice"), 1_000_000L)
+        store.replaceTimers(listOf(running))
+        store.replaceFromBackup(
+            Clock.keepLocalTimers(
+                store.snapshot(),
+                ClockSnapshot(
+                    alarms = listOf(ClockAlarm(id = "a1", hour = 7, minute = 30)),
+                    zones = emptyList(),
+                ),
+            ),
+        )
+        val snap = Clock.normalize(store.snapshot())
+        assertEquals("Rice", snap.timers.single().label)
+        assertTrue(snap.timers.single().running)
+        assertEquals(1, snap.alarms.size)
+    }
+
+    @Test
     fun intervalSeriesGetsDistinctIds() {
         val (_, store) = store()
         val parsed = Clock.parseAlarmInputs("Advil every 4 hours starting at 8pm")

@@ -8,13 +8,31 @@ import xyz.cdr.builderlauncher.data.ListReorder
 import java.io.File
 
 class ClockStore internal constructor(private val file: File) {
-    private val _state = MutableStateFlow(ClockPersistence.read(file))
+    private val _state = MutableStateFlow(Clock.normalize(ClockPersistence.read(file)))
     val state: StateFlow<ClockSnapshot> = _state.asStateFlow()
 
     fun snapshot(): ClockSnapshot = _state.value
 
     fun setTimer(timer: TimerState) {
-        persist(_state.value.copy(timer = timer))
+        val current = Clock.normalize(_state.value)
+        persist(current.copy(timers = Clock.replaceTimer(current.timers, timer)))
+    }
+
+    fun replaceTimers(timers: List<TimerState>) {
+        persist(_state.value.copy(timers = timers))
+    }
+
+    fun addTimer(parsed: ParsedTimer): TimerState {
+        val current = Clock.normalize(_state.value)
+        val next = Clock.addTimer(current.timers, parsed)
+        persist(current.copy(timers = next))
+        return next.last()
+    }
+
+    fun removeTimer(id: String) {
+        val current = Clock.normalize(_state.value)
+        val remaining = current.timers.filterNot { it.id == id }
+        persist(current.copy(timers = remaining))
     }
 
     fun setAlert(alert: ClockAlert?) {
@@ -106,8 +124,9 @@ class ClockStore internal constructor(private val file: File) {
     }
 
     private fun persist(next: ClockSnapshot) {
-        ClockPersistence.write(file, next)
-        _state.value = next
+        val normalized = Clock.normalize(next)
+        ClockPersistence.write(file, normalized)
+        _state.value = normalized
     }
 
     companion object {

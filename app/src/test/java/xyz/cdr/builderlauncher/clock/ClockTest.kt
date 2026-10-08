@@ -353,4 +353,108 @@ class ClockTest {
         assertEquals("1:00", Clock.formatTimer(Clock.remainingMs(started, now)))
         assertEquals("1:00", Clock.homeClockLabel(started, now - 15_000, "15:42"))
     }
+
+    @Test
+    fun namedTimersKeepRunningIndependently() {
+        val now = 1_000_000L
+        val pasta = Clock.start(
+            Clock.setDuration(TimerState(id = "pasta"), 8 * 60_000L, "Pasta"),
+            now,
+        )
+        val eggs = Clock.start(
+            Clock.setDuration(TimerState(id = "eggs"), 3 * 60_000L, "eggs"),
+            now + 1_000,
+        )
+        val timers = listOf(pasta, eggs)
+        assertEquals(2, timers.size)
+        assertEquals(listOf("Pasta", "eggs"), timers.map { it.label })
+        assertTrue(timers.all { it.running })
+        assertEquals("eggs", Clock.soonestRunning(timers, now + 1_000)?.id)
+        assertEquals("2:30", Clock.homeClockLabel(timers, emptyList(), now + 31_000, "15:42"))
+        val fired = Clock.fireTimer(eggs)
+        assertEquals("eggs", fired.alert.timerId)
+        assertEquals("eggs", fired.alert.label)
+        assertFalse(fired.timer.running)
+        val after = Clock.replaceTimer(timers, fired.timer)
+        assertTrue(after.find { it.id == "pasta" }!!.running)
+        assertEquals("Pasta", after.find { it.id == "pasta" }!!.label)
+        assertEquals(now + 8 * 60_000L, after.find { it.id == "pasta" }!!.endsAt)
+        val again = Clock.runAgain(fired.alert, now + 3 * 60_000L)
+        assertEquals("eggs", again.id)
+        assertEquals("eggs", again.label)
+        assertTrue(again.running)
+    }
+
+    @Test
+    fun addingATimerDoesNotReplaceARunningOne() {
+        val now = 2_000_000L
+        val running = Clock.start(Clock.setDuration(TimerState(id = "a"), 10 * 60_000L, "Rice"), now)
+        val added = Clock.addTimer(listOf(running), Clock.parseTimerInput("Pasta 8 minutes")!!)
+        assertEquals(2, added.size)
+        assertTrue(added.find { it.id == "a" }!!.running)
+        assertEquals("Rice", added.find { it.id == "a" }!!.label)
+        assertEquals("Pasta", added.last().label)
+        assertEquals(8 * 60_000L, added.last().durationMs)
+        assertFalse(added.last().running)
+    }
+
+    @Test
+    fun overdueTimersAreEachDue() {
+        val now = 5_000_000L
+        val due = TimerState(id = "due", durationMs = 60_000, remainingMs = 60_000, running = true, endsAt = now - 1)
+        val later = TimerState(id = "later", durationMs = 60_000, remainingMs = 60_000, running = true, endsAt = now + 10_000)
+        assertEquals(listOf("due"), Clock.overdueTimers(listOf(due, later), now).map { it.id })
+        assertTrue(Clock.anyTimerRunning(listOf(due, later)))
+        assertFalse(Clock.anyTimerRunning(listOf(Clock.reset(due))))
+    }
+
+    @Test
+    fun snapshotPrefersTimersListAndMigratesLegacy() {
+        val running = TimerState(id = "t1", durationMs = 90_000, remainingMs = 45_000, running = true, endsAt = 9_000_000L, label = "Rice")
+        val idle = TimerState(id = "t2", durationMs = 60_000, remainingMs = 60_000, label = "Tea")
+        val snap = Clock.normalize(ClockSnapshot(timers = listOf(running, idle)))
+        assertEquals(running, snap.timer)
+        assertEquals(listOf("t1", "t2"), snap.timers.map { it.id })
+        val legacy = Clock.normalize(ClockSnapshot(timer = running.copy(id = "")))
+        assertEquals(1, legacy.timers.size)
+        assertTrue(legacy.timers.single().id.isNotBlank())
+        assertEquals("Rice", legacy.timers.single().label)
+        assertTrue(legacy.timers.single().running)
+    }
+
+    @Test
+    fun unlabeledFiveMinuteTimerStaysWhenAnotherExists() {
+        val now = 2_000_000L
+        val running = Clock.start(Clock.setDuration(TimerState(id = "rice"), 10 * 60_000L, "Rice"), now)
+        val added = Clock.addTimer(listOf(running), Clock.parseTimerInput("5")!!)
+        val snap = Clock.normalize(ClockSnapshot(timers = added), now)
+        assertEquals(2, snap.timers.size)
+        assertTrue(snap.timers.any { it.label == "Rice" && it.running })
+        assertTrue(snap.timers.any { it.label.isBlank() && it.durationMs == 5 * 60_000L && !it.running })
+    }
+
+    @Test
+    fun clearingATimerAlertLeavesTheNextOverdueReadyToFire() {
+        val now = 9_000_000L
+        val first = TimerState(id = "eggs", durationMs = 60_000, remainingMs = 60_000, running = true, endsAt = now - 2, label = "eggs")
+        val second = TimerState(id = "pasta", durationMs = 90_000, remainingMs = 90_000, running = true, endsAt = now - 1, label = "Pasta")
+        var snap = Clock.normalize(ClockSnapshot(timers = listOf(first, second)), now)
+        val due = Clock.overdueTimers(snap.timers, now)
+        assertEquals(listOf("eggs", "pasta"), due.map { it.id })
+        val fired = Clock.fireTimer(due.first())
+        snap = Clock.normalize(
+            snap.copy(timers = Clock.replaceTimer(snap.timers, fired.timer), alert = fired.alert),
+            now,
+        )
+        assertEquals("eggs", snap.alert?.timerId)
+        snap = snap.copy(alert = null)
+        val next = Clock.overdueTimers(snap.timers, now).first()
+        assertEquals("pasta", next.id)
+        val firedNext = Clock.fireTimer(next)
+        assertEquals("pasta", firedNext.alert.timerId)
+        assertEquals("Pasta", firedNext.alert.label)
+        val after = Clock.replaceTimer(snap.timers, firedNext.timer)
+        assertFalse(after.find { it.id == "eggs" }!!.running)
+        assertFalse(after.find { it.id == "pasta" }!!.running)
+    }
 }

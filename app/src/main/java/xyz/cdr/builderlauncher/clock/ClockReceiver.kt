@@ -12,10 +12,16 @@ class ClockReceiver : BroadcastReceiver() {
                 ClockScheduler.reconcile(context, store)
             }
             ClockScheduler.ACTION_TIMER -> {
-                val fired = Clock.fireTimer(store.snapshot().timer)
-                store.setTimer(fired.timer)
-                store.setAlert(fired.alert)
-                ClockAlertService.start(context)
+                val now = System.currentTimeMillis()
+                val snap = Clock.normalize(store.snapshot(), now)
+                val id = intent.getStringExtra(ClockScheduler.EXTRA_TIMER_ID)
+                val timer = snap.timers.find { it.id == id } ?: Clock.overdueTimers(snap.timers, now).firstOrNull()
+                if (timer != null && Clock.overdueTimer(timer, now) && snap.alert == null) {
+                    val fired = Clock.fireTimer(timer)
+                    store.setTimer(fired.timer)
+                    store.setAlert(fired.alert)
+                    ClockAlertService.start(context)
+                }
                 ClockScheduler.sync(context, store.snapshot())
             }
             ClockScheduler.ACTION_ALARM -> {
