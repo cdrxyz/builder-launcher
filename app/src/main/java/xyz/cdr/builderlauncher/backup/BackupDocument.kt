@@ -43,7 +43,7 @@ data class BackupDocument(
         podcasts = podcasts.copy(
             episodes = emptyList(),
             cacheBytes = 0L,
-            progress = podcasts.progress.filter { it.lastPlayedAt > 0L || it.savedAt > 0L },
+            progress = podcasts.progress.filter { it.lastPlayedAt > 0L || it.savedAt > 0L || it.skipped },
         ),
     )
 }

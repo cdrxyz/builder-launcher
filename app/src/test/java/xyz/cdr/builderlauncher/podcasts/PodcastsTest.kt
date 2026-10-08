@@ -276,6 +276,15 @@ class PodcastsTest {
     }
 
     @Test
+    fun aCheckpointDoesNotUndismiss() {
+        val dismissed = EpisodeProgress("ep", positionMs = 10, durationMs = 100, lastPlayedAt = 40, skipped = true)
+        val next = Podcasts.checkpointProgress(dismissed, "ep", 20, 100, now = 60)
+        assertTrue(next.skipped)
+        assertEquals(60L, next.lastPlayedAt)
+        assertEquals(20L, next.positionMs)
+    }
+
+    @Test
     fun scrubMapsXToPosition() {
         assertEquals(0L, Podcasts.progressAt(0f, 100f, 60_000))
         assertEquals(30_000L, Podcasts.progressAt(50f, 100f, 60_000))
@@ -375,6 +384,33 @@ class PodcastsTest {
             Podcasts.playedDownloadsToDelete(setOf("done", "play", "fresh"), progress),
         )
         assertEquals(emptyList<String>(), Podcasts.playedDownloadsToDelete(setOf("play"), progress))
+    }
+
+    @Test
+    fun deletesADismissedDownload() {
+        val progress = mapOf(
+            "gone" to EpisodeProgress("gone", skipped = true, lastPlayedAt = 50),
+            "play" to EpisodeProgress("play", 10_000, 3_600_000, lastPlayedAt = 1),
+        )
+        assertEquals(
+            listOf("gone"),
+            Podcasts.playedDownloadsToDelete(setOf("gone", "play"), progress),
+        )
+    }
+
+    @Test
+    fun dismissStampsProgressSoANeverPlayedEpisodeCanSync() {
+        val row = Podcasts.progressAfterSkip(
+            previous = null,
+            episodeId = "ep",
+            durationMs = 60_000,
+            now = 50,
+            skipped = true,
+        )
+        assertTrue(row.skipped)
+        assertEquals(50L, row.lastPlayedAt)
+        assertEquals("ep", row.episodeId)
+        assertEquals(60_000L, row.durationMs)
     }
 
     @Test

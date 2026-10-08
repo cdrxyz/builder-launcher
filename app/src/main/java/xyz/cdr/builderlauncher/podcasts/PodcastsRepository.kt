@@ -282,15 +282,19 @@ class PodcastsRepository(
     fun setSkipped(episodeId: String, skipped: Boolean, durationMs: Long = 0L) {
         val prev = _progress.value[episodeId]
         val dur = durationMs.takeIf { it > 0L } ?: prev?.durationMs ?: 0L
-        _progress.value = _progress.value + (episodeId to EpisodeProgress(
+        _progress.value = _progress.value + (episodeId to Podcasts.progressAfterSkip(
+            previous = prev,
             episodeId = episodeId,
-            positionMs = prev?.positionMs ?: 0L,
             durationMs = dur,
-            lastPlayedAt = prev?.lastPlayedAt ?: 0L,
-            finished = prev?.finished == true,
+            now = System.currentTimeMillis(),
             skipped = skipped,
         ))
         persist()
+        if (skipped) {
+            deleteDownload(episodeId)
+            File(cacheDir, Podcasts.cacheFileName(episodeId) + ".part").delete()
+            _downloadProgress.update { it - episodeId }
+        }
     }
 
     fun saveToRecent(episodeId: String, durationMs: Long = 0L) {
@@ -327,6 +331,11 @@ class PodcastsRepository(
     private suspend fun downloadOne(episode: PodcastEpisode): File? = withContext(Dispatchers.IO) {
         val url = episode.enclosureUrl
         if (url.isBlank()) return@withContext null
+        if (Podcasts.skipped(_progress.value[episode.id])) {
+            File(cacheDir, Podcasts.cacheFileName(episode.id)).delete()
+            File(cacheDir, Podcasts.cacheFileName(episode.id) + ".part").delete()
+            return@withContext null
+        }
         cacheDir.mkdirs()
         val dest = File(cacheDir, Podcasts.cacheFileName(episode.id))
         if (dest.exists() && dest.length() > 0L) {
@@ -345,6 +354,7 @@ class PodcastsRepository(
                         val buf = ByteArray(64 * 1024)
                         var received = 0L
                         while (true) {
+                            if (Podcasts.skipped(_progress.value[episode.id])) return@use false
                             val n = input.read(buf)
                             if (n < 0) break
                             out.write(buf, 0, n)
@@ -364,6 +374,11 @@ class PodcastsRepository(
         if (!tmp.renameTo(dest)) {
             tmp.copyTo(dest, overwrite = true)
             tmp.delete()
+        }
+        if (Podcasts.skipped(_progress.value[episode.id])) {
+            dest.delete()
+            tmp.delete()
+            return@withContext null
         }
         touchDownload(episode.id, dest.length())
         evict(keepIds = _downloadProgress.value.keys)

@@ -15,7 +15,9 @@ import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
+import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.stocks.WatchItem
 import java.security.SecureRandom
 
@@ -280,7 +282,7 @@ class BackupDocumentTest {
     }
 
     @Test
-    fun slimForAccountKeepsASavedEpisodeThatWasNeverPlayed() {
+    fun slimForAccountKeepsSavedAndDismissedEpisodesThatWereNeverPlayed() {
         val doc = BackupDocument(
             exportedAt = 1,
             podcasts = PodcastBackup(
@@ -288,6 +290,7 @@ class BackupDocumentTest {
                     EpisodeProgress("played", lastPlayedAt = 9),
                     EpisodeProgress("fresh", lastPlayedAt = 0),
                     EpisodeProgress("saved", lastPlayedAt = 0, savedAt = 40),
+                    EpisodeProgress("gone", lastPlayedAt = 0, skipped = true),
                 ),
             ),
         )
@@ -295,6 +298,7 @@ class BackupDocumentTest {
         assertTrue(ids.contains("played"))
         assertFalse(ids.contains("fresh"))
         assertTrue(ids.contains("saved"))
+        assertTrue(ids.contains("gone"))
     }
 }
 
@@ -674,6 +678,52 @@ class BackupMergeTest {
         val cloud = BackupDocument(exportedAt = 20, items = listOf(completed))
         for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
             assertEquals(2_000L, merged.items.single().completedAt)
+        }
+    }
+
+    @Test
+    fun aDismissedEpisodeStaysDismissedAgainstTheSyncedPlay() {
+        val show = PodcastShow("https://feeds.example/show", "Show")
+        val episode = PodcastEpisode("ep", show.feedUrl, "Nope", pubDate = 9)
+        val dismissed = EpisodeProgress("ep", positionMs = 12_000, lastPlayedAt = 40, skipped = true)
+        val played = EpisodeProgress("ep", positionMs = 12_000, lastPlayedAt = 40)
+        val phone = BackupDocument(
+            exportedAt = 50,
+            podcasts = PodcastBackup(shows = listOf(show), episodes = listOf(episode), progress = listOf(dismissed)),
+        )
+        val cloud = BackupDocument(
+            exportedAt = 40,
+            podcasts = PodcastBackup(shows = listOf(show), episodes = listOf(episode), progress = listOf(played)),
+        )
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            val row = merged.podcasts.progress.single { it.episodeId == "ep" }
+            assertTrue(row.skipped)
+            val progress = merged.podcasts.progress.associateBy { it.episodeId }
+            assertFalse(
+                Podcasts.homeRows(listOf(show), listOf(episode), progress)
+                    .filterIsInstance<PodcastHomeRow.Fresh>()
+                    .any { it.episode.id == "ep" },
+            )
+            assertEquals(
+                null,
+                Podcasts.nextEpisode(
+                    listOf(PodcastEpisode("older", show.feedUrl, "Older", pubDate = 1), episode),
+                    "older",
+                    progress,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun aLaterListenBeatsAnOlderDismiss() {
+        val dismissed = EpisodeProgress("ep", lastPlayedAt = 40, skipped = true)
+        val played = EpisodeProgress("ep", positionMs = 1_000, lastPlayedAt = 80)
+        val phone = BackupDocument(exportedAt = 40, podcasts = PodcastBackup(progress = listOf(dismissed)))
+        val cloud = BackupDocument(exportedAt = 80, podcasts = PodcastBackup(progress = listOf(played)))
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            assertFalse(merged.podcasts.progress.single().skipped)
+            assertEquals(80L, merged.podcasts.progress.single().lastPlayedAt)
         }
     }
 

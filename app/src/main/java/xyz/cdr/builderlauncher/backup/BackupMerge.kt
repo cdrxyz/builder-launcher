@@ -110,7 +110,13 @@ object BackupMerge {
         val progress = LinkedHashMap<String, EpisodeProgress>()
         (a.progress + b.progress).forEach { row ->
             val prev = progress[row.episodeId]
-            val chosen = if (prev == null || row.lastPlayedAt >= prev.lastPlayedAt) row else prev
+            val chosen = when {
+                prev == null -> row
+                row.lastPlayedAt > prev.lastPlayedAt -> row
+                row.lastPlayedAt < prev.lastPlayedAt -> prev
+                row.skipped != prev.skipped -> if (row.skipped) row else prev
+                else -> row
+            }
             val savedAt = maxOf(chosen.savedAt, prev?.savedAt ?: 0L, row.savedAt)
             progress[row.episodeId] = if (savedAt == chosen.savedAt) chosen else chosen.copy(savedAt = savedAt)
         }

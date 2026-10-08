@@ -250,7 +250,7 @@ object Podcasts {
             durationMs = dur,
             lastPlayedAt = now,
             finished = false,
-            skipped = false,
+            skipped = previous?.skipped == true,
         )
     }
 
@@ -293,6 +293,25 @@ object Podcasts {
             finished = previous?.finished == true,
             skipped = false,
             savedAt = now,
+        )
+    }
+
+    fun progressAfterSkip(
+        previous: EpisodeProgress?,
+        episodeId: String,
+        durationMs: Long,
+        now: Long,
+        skipped: Boolean,
+    ): EpisodeProgress {
+        val dur = durationMs.takeIf { it > 0L } ?: previous?.durationMs ?: 0L
+        return EpisodeProgress(
+            episodeId = episodeId,
+            positionMs = previous?.positionMs ?: 0L,
+            durationMs = dur,
+            lastPlayedAt = now,
+            finished = previous?.finished == true,
+            skipped = skipped,
+            savedAt = previous?.savedAt ?: 0L,
         )
     }
 
@@ -408,7 +427,7 @@ object Podcasts {
     fun playedDownloadsToDelete(
         downloads: Set<String>,
         progress: Map<String, EpisodeProgress>,
-    ): List<String> = downloads.filter { finished(progress[it]) }
+    ): List<String> = downloads.filter { finished(progress[it]) || skipped(progress[it]) }
 
     fun mediaSessionActive(
         episodeId: String?,
