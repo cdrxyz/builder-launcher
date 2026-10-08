@@ -11,7 +11,10 @@ import org.junit.Test
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
+import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
+import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.stocks.StockCagr
 import xyz.cdr.builderlauncher.stocks.StockPoint
@@ -1142,6 +1145,26 @@ class LauncherScreenshotTest {
 
     @Test
     fun podcastsThemeIos() { snap(UiTheme.IOS) { samplePodcasts() } }
+
+    @Test
+    fun podcastNext() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastListPage(
+                    title = "next",
+                    onBack = {},
+                    episodes = listOf(
+                        PodcastEpisode("n", "https://atp.fm/rss", "Newest", pubDate = 9, durationMs = 3_600_000),
+                        PodcastEpisode("o", "https://atp.fm/rss", "Older", pubDate = 1, durationMs = 1_800_000),
+                    ),
+                    shows = listOf(PodcastShow("https://atp.fm/rss", "Accidental Tech Podcast")),
+                    progress = emptyMap(),
+                    onOpen = {},
+                    onSave = {},
+                )
+            }
+        }
+    }
 
     private fun snap(theme: UiTheme, tone: UiTone = theme.defaultTone, content: @Composable () -> Unit) {
         paparazzi.snapshot {

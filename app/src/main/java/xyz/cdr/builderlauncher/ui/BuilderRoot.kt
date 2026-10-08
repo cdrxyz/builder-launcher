@@ -516,7 +516,9 @@ fun BuilderRoot(
     }
     LaunchedEffect(page, input, prompt) {
         if (page != Page.Podcasts || !PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt)) {
-            if (page != Page.PodcastShow && page != Page.PodcastEpisode && page != Page.PodcastSettings) {
+            if (page != Page.PodcastShow && page != Page.PodcastEpisode && page != Page.PodcastSettings &&
+                page != Page.PodcastRecent && page != Page.PodcastNext
+            ) {
                 podcastHits = emptyList()
             }
             return@LaunchedEffect
@@ -986,7 +988,8 @@ fun BuilderRoot(
             return
         }
         if (page == Page.Clock || page == Page.Weather || page == Page.Usage ||
-            page == Page.Podcasts || page == Page.PodcastShow || page == Page.PodcastEpisode || page == Page.PodcastSettings
+            page == Page.Podcasts || page == Page.PodcastShow || page == Page.PodcastEpisode || page == Page.PodcastSettings ||
+                page == Page.PodcastRecent || page == Page.PodcastNext
         ) {
             choices = emptyList()
             people = emptyList()
@@ -1913,6 +1916,22 @@ fun BuilderRoot(
                                             onDismiss = { skipEpisode(ep) },
                                         )
                                     }
+                                }
+                                is PodcastHomeRow.More -> {
+                                    CaretLink(
+                                        row.label,
+                                        modifier = Modifier
+                                            .clickable {
+                                                page = if (row.label == Podcasts.ALL_RECENT) {
+                                                    Page.PodcastRecent
+                                                } else {
+                                                    Page.PodcastNext
+                                                }
+                                            }
+                                            .padding(vertical = 4.dp),
+                                        color = Dim,
+                                        caretColor = Dim,
+                                    )
                                 }
                                 is PodcastHomeRow.Subscription -> {
                                     Row(
@@ -2949,6 +2968,27 @@ fun BuilderRoot(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+            }
+            Page.PodcastRecent -> {
+                PodcastListPage(
+                    title = "recent",
+                    onBack = { page = Page.Podcasts },
+                    episodes = Podcasts.recentEpisodes(podcastShows, podcastEpisodes, podcastProgress),
+                    shows = podcastShows,
+                    progress = podcastProgress,
+                    onOpen = { openPodcastEpisode(it.id) },
+                )
+            }
+            Page.PodcastNext -> {
+                PodcastListPage(
+                    title = "next",
+                    onBack = { page = Page.Podcasts },
+                    episodes = Podcasts.catalogEpisodes(podcastShows, podcastEpisodes),
+                    shows = podcastShows,
+                    progress = podcastProgress,
+                    onOpen = { openPodcastEpisode(it.id) },
+                    onSave = { podcasts.saveToRecent(it.id, it.durationMs) },
+                )
             }
             Page.PodcastShow -> {
                 val feed = podcastShowUrl.orEmpty()

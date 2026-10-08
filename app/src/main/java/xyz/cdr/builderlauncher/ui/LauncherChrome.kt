@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
@@ -96,7 +98,10 @@ import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockRange
 import xyz.cdr.builderlauncher.stocks.StockStatLine
 import xyz.cdr.builderlauncher.stocks.Stocks
+import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
+import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
+import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.weather.WeatherCodes
 import xyz.cdr.builderlauncher.weather.WeatherDay
@@ -816,6 +821,12 @@ fun PodcastsChrome(
                             PodcastRowChrome(row, last = index == continueRows.lastIndex)
                         }
                     }
+                    CaretLink(
+                        Podcasts.ALL_RECENT,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = Dim,
+                        caretColor = Dim,
+                    )
                 }
                 if (newRows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_NEXT)
@@ -824,6 +835,12 @@ fun PodcastsChrome(
                             PodcastRowChrome(row, last = index == newRows.lastIndex)
                         }
                     }
+                    CaretLink(
+                        Podcasts.ALL_NEXT,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = Dim,
+                        caretColor = Dim,
+                    )
                 }
                 if (shows.isNotEmpty()) {
                     PodcastSectionHeader(Podcasts.SECTION_SHOWS)
@@ -2826,6 +2843,72 @@ fun PauseIcon(modifier: Modifier = Modifier, color: Color = Accent) {
         val h = size.height * 0.68f
         drawRect(color = color, topLeft = Offset(x1, top), size = Size(w, h))
         drawRect(color = color, topLeft = Offset(x2, top), size = Size(w, h))
+    }
+}
+
+@Composable
+fun PlusIcon(modifier: Modifier = Modifier) {
+    Text(
+        "+",
+        color = Paper,
+        style = MaterialTheme.typography.headlineLarge,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun PodcastListPage(
+    title: String,
+    onBack: () -> Unit,
+    episodes: List<PodcastEpisode>,
+    shows: List<PodcastShow>,
+    progress: Map<String, EpisodeProgress>,
+    onOpen: (PodcastEpisode) -> Unit,
+    onSave: ((PodcastEpisode) -> Unit)? = null,
+) {
+    val showById = shows.associateBy { it.feedUrl }
+    Column(Modifier.fillMaxSize()) {
+        Text(
+            Podcasts.BACK,
+            color = Accent,
+            modifier = Modifier
+                .clickable(onClick = onBack)
+                .padding(vertical = 6.dp),
+        )
+        Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
+        Spacer(Modifier.height(8.dp))
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(episodes, key = { it.id }) { ep ->
+                val prog = progress[ep.id]
+                val show = showById[ep.showId]
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .clickable { onOpen(ep) },
+                    ) {
+                        Text(
+                            ep.title,
+                            color = if (Podcasts.episodeListDimmed(Podcasts.skipped(prog), Podcasts.finished(prog))) Dim else Paper,
+                        )
+                        if (show != null) {
+                            Text(show.title, color = Dim, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    if (onSave != null && !Podcasts.inRecent(prog)) {
+                        PlusIcon(
+                            Modifier
+                                .semantics { contentDescription = "add to recent" }
+                                .clickable { onSave(ep) }
+                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

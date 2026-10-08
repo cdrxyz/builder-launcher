@@ -1,5 +1,7 @@
 export const STOCKS_MAX = 100;
 export const PODCAST_CONTINUE = 3;
+export const ALL_RECENT = '… all recent episodes >';
+export const ALL_NEXT = '… all next episodes >';
 export const PODCAST_NEW = 5;
 export const FINISH_REMAINING_MS = 30_000;
 export const HOME_MARK_IDLE_MS = 8_000;
@@ -465,13 +467,52 @@ export function skipped(progress) {
 	return progress?.skipped === true;
 }
 
+export function inRecent(progress) {
+	if (!progress || finished(progress) || skipped(progress)) return false;
+	return (progress.lastPlayedAt || 0) > 0 || (progress.savedAt || 0) > 0;
+}
+
+export function recentAt(progress) {
+	return Math.max(progress?.lastPlayedAt || 0, progress?.savedAt || 0);
+}
+
+export function savedProgress(previous, episodeId, durationMs, now) {
+	const dur = durationMs > 0 ? durationMs : previous?.durationMs || 0;
+	return {
+		episodeId,
+		positionMs: previous?.positionMs || 0,
+		durationMs: dur,
+		lastPlayedAt: previous?.lastPlayedAt || 0,
+		finished: previous?.finished === true,
+		skipped: false,
+		savedAt: now,
+	};
+}
+
+export function recentEpisodes(shows, episodes, progress) {
+	const feeds = new Set((shows || []).map((show) => String(show.feedUrl || '').toLowerCase()));
+	const byId = new Map((episodes || []).map((episode) => [episode.id, episode]));
+	return [...(progress || [])]
+		.filter((row) => inRecent(row))
+		.sort((a, b) => recentAt(b) - recentAt(a))
+		.map((row) => byId.get(row.episodeId))
+		.filter((episode) => episode && feeds.has(String(episode.showId || '').toLowerCase()));
+}
+
+export function catalogEpisodes(shows, episodes) {
+	const feeds = new Set((shows || []).map((show) => String(show.feedUrl || '').toLowerCase()));
+	return [...(episodes || [])]
+		.filter((episode) => feeds.has(String(episode.showId || '').toLowerCase()))
+		.sort((a, b) => (b.pubDate || 0) - (a.pubDate || 0));
+}
+
 export function homeRows(shows, episodes, progress, currentEpisodeId = null) {
 	const showById = new Map((shows || []).map((show) => [show.feedUrl, show]));
 	const byId = progressMap(progress);
 	const currentId = currentEpisodeId || null;
 	const continueRows = [...byId.values()]
-		.filter((row) => !finished(row) && !skipped(row) && row.lastPlayedAt > 0 && row.episodeId !== currentId)
-		.sort((a, b) => (b.lastPlayedAt || 0) - (a.lastPlayedAt || 0))
+		.filter((row) => inRecent(row) && row.episodeId !== currentId)
+		.sort((a, b) => recentAt(b) - recentAt(a))
 		.map((row) => {
 			const episode = (episodes || []).find((item) => item.id === row.episodeId);
 			const show = episode ? showById.get(episode.showId) : null;
@@ -501,10 +542,12 @@ export function homeRows(shows, episodes, progress, currentEpisodeId = null) {
 	if (continueRows.length) {
 		rows.push({ kind: 'header', title: 'recent' });
 		rows.push(...continueRows);
+		rows.push({ kind: 'more', label: ALL_RECENT });
 	}
 	if (fresh.length) {
 		rows.push({ kind: 'header', title: 'next 5 episodes' });
 		rows.push(...fresh);
+		rows.push({ kind: 'more', label: ALL_NEXT });
 	}
 	if (subs.length) {
 		rows.push({ kind: 'header', title: 'podcasts' });

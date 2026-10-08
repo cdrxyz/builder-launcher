@@ -55,6 +55,10 @@ import {
 	beta,
 	cagrStats,
 	finished,
+	catalogEpisodes,
+	inRecent,
+	recentEpisodes,
+	savedProgress,
 	formatDuration,
 	formatPercent,
 	formatPosition,
@@ -603,7 +607,7 @@ function header() {
 		}
 		return el;
 	}
-	const back = state.tab === 'show'
+	const back = state.tab === 'show' || state.tab === 'recent' || state.tab === 'next'
 		? () => go('pods')
 		: state.tab === 'stock'
 			? () => go('stocks')
@@ -611,7 +615,18 @@ function header() {
 				? () => (state.showId ? go('show') : go('pods'))
 				: () => go('home');
 	el.append(button('<', back, 'ghost'));
-	el.append(title(state.tab === 'pods' ? 'podcasts' : state.tab === 'tasks' ? 'tasks' : state.tab === 'stock' ? (state.stockSymbol || 'stock') : state.tab));
+	const heading = state.tab === 'pods'
+		? 'podcasts'
+		: state.tab === 'tasks'
+			? 'tasks'
+			: state.tab === 'stock'
+				? (state.stockSymbol || 'stock')
+				: state.tab === 'recent'
+					? 'recent'
+					: state.tab === 'next'
+						? 'next'
+						: state.tab;
+	el.append(title(heading));
 	el.append(gearButton());
 	return el;
 }
@@ -655,6 +670,8 @@ function main() {
 	else if (state.tab === 'stocks') el.append(stocksScreen());
 	else if (state.tab === 'stock') el.append(stockDetailScreen());
 	else if (state.tab === 'pods') el.append(podsScreen());
+	else if (state.tab === 'recent') el.append(podcastCatalogScreen('recent'));
+	else if (state.tab === 'next') el.append(podcastCatalogScreen('next'));
 	else if (state.tab === 'show') el.append(showScreen());
 	else if (state.tab === 'episode') el.append(episodeScreen());
 	else if (state.tab === 'tasks') el.append(tasksScreen());
@@ -1334,6 +1351,10 @@ function podsScreen() {
 			wrap.append(section(row.title));
 			continue;
 		}
+		if (row.kind === 'more') {
+			wrap.append(button(row.label, () => go(row.label.includes('recent') ? 'recent' : 'next'), 'more-link'));
+			continue;
+		}
 		if (row.kind === 'subscription') {
 			wrap.append(showRow(row.show));
 			continue;
@@ -1341,6 +1362,47 @@ function podsScreen() {
 		wrap.append(episodeRow(row.episode, row.show, row.progress));
 	}
 	return wrap;
+}
+
+function podcastCatalogScreen(kind) {
+	const wrap = document.createElement('div');
+	const bag = podcastsOf(state.doc);
+	const byId = progressMap(bag.progress);
+	const episodes = kind === 'recent'
+		? recentEpisodes(bag.shows, bag.episodes, bag.progress)
+		: catalogEpisodes(bag.shows, bag.episodes);
+	const shows = new Map((bag.shows || []).map((show) => [show.feedUrl, show]));
+	if (!episodes.length) wrap.append(empty(kind === 'recent' ? 'No recent episodes.' : 'No episodes yet.'));
+	for (const episode of episodes) {
+		const progress = byId.get(episode.id);
+		const plus = kind === 'next' && !inRecent(progress)
+			? button('+', () => saveEpisodeToRecent(episode), 'ghost')
+			: null;
+		if (plus) {
+			plus.setAttribute('aria-label', 'add to recent');
+			plus.addEventListener('click', (event) => event.stopPropagation());
+		}
+		wrap.append(listRow({
+			title: episode.title,
+			subtitle: shows.get(episode.showId)?.title || '',
+			trail: plus,
+			dim: finished(progress) || skipped(progress),
+			onClick: () => {
+				state.tab = 'episode';
+				state.showId = episode.showId;
+				state.episodeId = episode.id;
+				render();
+			},
+		}));
+	}
+	return wrap;
+}
+
+function saveEpisodeToRecent(episode) {
+	const bag = podcastsOf(state.doc);
+	const prev = progressMap(bag.progress).get(episode.id);
+	const next = savedProgress(prev, episode.id, episode.durationMs || 0, Date.now());
+	mutate({ podcasts: { ...bag, progress: upsertProgress(bag.progress, next) } });
 }
 
 function showScreen() {
