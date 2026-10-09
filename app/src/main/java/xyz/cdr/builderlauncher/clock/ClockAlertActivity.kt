@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.delay
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.ui.ClockAlertScreen
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
@@ -33,7 +34,10 @@ class ClockAlertActivity : ComponentActivity() {
             val alert = clockState.alert
             BuilderTheme(theme = current.uiTheme, tone = current.uiTone, accent = accentColor(current.accentHex)) {
                 if (alert == null) {
-                    LaunchedEffect(Unit) { finish() }
+                    LaunchedEffect(alert) {
+                        delay(200)
+                        if (clock.snapshot().alert == null) finish()
+                    }
                 } else {
                     ClockAlertScreen(
                         alert = alert,
@@ -50,8 +54,13 @@ class ClockAlertActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        ClockAlertLock.apply(this, alerting = ClockStore.get(this).snapshot().alert != null)
-        if (ClockStore.get(this).snapshot().alert == null) finish()
+        val clock = ClockStore.get(this)
+        ClockAlertLock.apply(this, alerting = clock.snapshot().alert != null)
+        if (clock.snapshot().alert == null) {
+            window.decorView.postDelayed({
+                if (!isFinishing && ClockStore.get(this).snapshot().alert == null) finish()
+            }, 200)
+        }
     }
 
     private fun send(action: String) {

@@ -24,7 +24,7 @@ class ClockAlertService : Service() {
             ACTION_STOP, ACTION_DISMISS -> {
                 acknowledgeShowingAlarm()
                 finishAlert()
-                ClockScheduler.sync(this, ClockStore.get(this).snapshot())
+                ClockScheduler.reconcile(this, ClockStore.get(this))
                 return START_NOT_STICKY
             }
             ACTION_RUN_AGAIN -> {
@@ -34,7 +34,7 @@ class ClockAlertService : Service() {
                     store.setTimer(Clock.runAgain(alert, System.currentTimeMillis()))
                 }
                 finishAlert()
-                ClockScheduler.sync(this, ClockStore.get(this).snapshot())
+                ClockScheduler.reconcile(this, ClockStore.get(this))
                 return START_NOT_STICKY
             }
             ACTION_SNOOZE -> {
@@ -45,7 +45,7 @@ class ClockAlertService : Service() {
                     store.replaceAlarm(Clock.snooze(alarm, System.currentTimeMillis()))
                 }
                 finishAlert()
-                ClockScheduler.sync(this, ClockStore.get(this).snapshot())
+                ClockScheduler.reconcile(this, ClockStore.get(this))
                 return START_NOT_STICKY
             }
         }

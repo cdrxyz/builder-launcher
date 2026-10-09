@@ -905,6 +905,18 @@ class LauncherScreenshotTest {
     }
 
     @Test
+    fun clockNamedTimers() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                ClockChrome(
+                    tab = "Timer",
+                    timers = listOf("8:00" to "Pasta", "3:00" to "eggs"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun clockTimerAlert() {
         paparazzi.snapshot {
             BuilderTheme {

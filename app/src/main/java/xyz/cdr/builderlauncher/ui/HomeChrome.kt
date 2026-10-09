@@ -233,6 +233,7 @@ internal fun ClockHeader(
     ticker: HomeTickerLine?,
     event: UpcomingEvent?,
     timer: TimerState,
+    timers: List<TimerState> = emptyList(),
     alarms: List<ClockAlarm> = emptyList(),
     analog: Boolean,
     todosToday: Int,
@@ -251,18 +252,19 @@ internal fun ClockHeader(
 ) {
     val now = remember { mutableStateOf(System.currentTimeMillis()) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(timer.running, timer.endsAt, alarms, analog, lifecycleOwner) {
+    val runningTimers = timers.ifEmpty { listOf(timer) }
+    LaunchedEffect(Clock.anyTimerRunning(runningTimers), runningTimers.map { it.endsAt }, alarms, analog, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             now.value = System.currentTimeMillis()
             while (true) {
                 now.value = System.currentTimeMillis()
-                delay(Clock.homeTickMs(timer.running, analog, Clock.activeSnooze(alarms, now.value) != null))
+                delay(Clock.homeTickMs(Clock.anyTimerRunning(runningTimers), analog, Clock.activeSnooze(alarms, now.value) != null))
             }
         }
     }
     val clockText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now.value))
-    val time = Clock.homeClockLabel(timer, alarms, now.value, clockText)
-    val snoozeCountdown = !timer.running && Clock.activeSnooze(alarms, now.value) != null
+    val time = Clock.homeClockLabel(runningTimers, alarms, now.value, clockText)
+    val snoozeCountdown = !Clock.anyTimerRunning(runningTimers) && Clock.activeSnooze(alarms, now.value) != null
     val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(now.value))
     val cal = Calendar.getInstance().apply { timeInMillis = now.value }
     val eventLine = event?.let { UpcomingEvents.line(it, now.value) }

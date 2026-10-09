@@ -68,6 +68,7 @@ is the offline fallback when you cannot run Gradle. Do not commit `*-ai.png` dra
 | `backup.png` | `settingsBackup` |
 | `ai-providers.png` | `aiProviders` |
 | `clock.png` | `clock` |
+| `clock-named-timers.png` | `clockNamedTimers` |
 | `clock-timer-alert.png` | `clockTimerAlert` |
 | `clock-alarm-alert.png` | `clockAlarmAlert` |
 | `clock-alarm-snoozed.png` | `clockAlarmSnoozed` |

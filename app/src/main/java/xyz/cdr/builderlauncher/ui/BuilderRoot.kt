@@ -138,6 +138,7 @@ import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.clock.ClockSoundPlayer
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.clock.ClockTab
+import xyz.cdr.builderlauncher.clock.ParsedTimer
 import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.commands.AppPick
 import xyz.cdr.builderlauncher.commands.AppPickQuery
@@ -1092,7 +1093,7 @@ fun BuilderRoot(
         when (clockTab) {
             ClockTab.Timer -> {
                 val parsed = Clock.parseTimerInput(text) ?: return false
-                clock.setTimer(Clock.setDuration(clock.snapshot().timer, parsed.durationMs, parsed.label))
+                clock.addTimer(parsed)
                 ClockScheduler.sync(ctx, clock.snapshot())
                 clearBar()
                 return true
@@ -1291,7 +1292,10 @@ fun BuilderRoot(
 
     fun clearClockAlert() {
         clock.setAlert(null)
-        ClockAlertService.stop(ctx)
+        ClockScheduler.reconcile(ctx, clock)
+        if (clock.snapshot().alert == null) {
+            ClockAlertService.stop(ctx)
+        }
     }
 
     fun dismissSnoozedAlarm(id: String) {
@@ -1371,6 +1375,7 @@ fun BuilderRoot(
                     ticker = ticker,
                     event = upcoming,
                     timer = clockState.timer,
+                    timers = clockState.timers,
                     alarms = clockState.alarms,
                     analog = settings.clockFace == ClockFace.ANALOG &&
                         index == pagerState.currentPage &&
@@ -1379,7 +1384,7 @@ fun BuilderRoot(
                     productiveShare = if (usageToday.granted) usageToday.productiveShare else null,
                     onOpenClock = {
                         val snap = clock.snapshot()
-                        val tab = if (!snap.timer.running && Clock.activeSnooze(snap.alarms, System.currentTimeMillis()) != null) {
+                        val tab = if (!Clock.anyTimerRunning(snap.timers.ifEmpty { listOf(snap.timer) }) && Clock.activeSnooze(snap.alarms, System.currentTimeMillis()) != null) {
                             ClockTab.Alarm
                         } else {
                             null
@@ -2465,20 +2470,26 @@ fun BuilderRoot(
                     onBack = { page = Page.Home },
                     onTab = { clockTab = it; zoneHits = emptyList() },
                     onPreset = { min ->
-                        clock.setTimer(Clock.setDuration(clock.snapshot().timer, min * 60_000L))
+                        clock.addTimer(ParsedTimer(min * 60_000L))
                         ClockScheduler.sync(ctx, clock.snapshot())
                     },
-                    onStartPause = {
-                        val next = if (clock.snapshot().timer.running) {
-                            Clock.pause(clock.snapshot().timer, System.currentTimeMillis())
-                        } else {
-                            Clock.start(clock.snapshot().timer, System.currentTimeMillis())
-                        }
+                    onStartPause = { id ->
+                        val now = System.currentTimeMillis()
+                        val snap = Clock.normalize(clock.snapshot())
+                        val timer = snap.timers.find { it.id == id } ?: snap.timer
+                        val next = if (timer.running) Clock.pause(timer, now) else Clock.start(timer, now)
                         clock.setTimer(next)
                         ClockScheduler.sync(ctx, clock.snapshot())
                     },
-                    onReset = {
-                        clock.setTimer(Clock.reset(clock.snapshot().timer))
+                    onReset = { id ->
+                        val snap = Clock.normalize(clock.snapshot())
+                        val timer = snap.timers.find { it.id == id } ?: snap.timer
+                        clock.setTimer(Clock.reset(timer))
+                        ClockScheduler.sync(ctx, clock.snapshot())
+                    },
+                    onRemoveTimer = { id ->
+                        ClockScheduler.cancelTimer(ctx, id)
+                        clock.removeTimer(id)
                         ClockScheduler.sync(ctx, clock.snapshot())
                     },
                     onToggleAlarm = { id ->

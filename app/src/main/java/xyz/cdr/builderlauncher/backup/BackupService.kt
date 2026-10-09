@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.clock.ClockSnapshot
 import xyz.cdr.builderlauncher.clock.ClockStore
-import xyz.cdr.builderlauncher.clock.TimerState
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.LocalLists
@@ -147,12 +147,13 @@ class BackupService(
             podcasts.importBackup(doc.podcasts)
             val drop = doc.deletedAlarmIds.toSet()
             clock.replaceFromBackup(
-                ClockSnapshot(
-                    timer = TimerState(),
-                    alarms = doc.alarms.filterNot { it.id in drop },
-                    zones = doc.zones,
-                    alert = null,
-                    deletedAlarmIds = doc.deletedAlarmIds,
+                Clock.keepLocalTimers(
+                    clock.snapshot(),
+                    ClockSnapshot(
+                        alarms = doc.alarms.filterNot { it.id in drop },
+                        zones = doc.zones,
+                        deletedAlarmIds = doc.deletedAlarmIds,
+                    ),
                 ),
             )
             ClockScheduler.reconcile(context, clock)
