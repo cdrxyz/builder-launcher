@@ -446,6 +446,51 @@ test('slimDoc keeps subscriptions and played progress, not catalogs or quotes', 
 	assert.equal(slim.watchlist[0].price, undefined);
 });
 
+test('slimDoc keeps a dismiss that was never played', async () => {
+	const { slimDoc } = await import('../public/web/merge.js');
+	const slim = slimDoc({
+		podcasts: {
+			progress: [
+				{ episodeId: 'played', lastPlayedAt: 9 },
+				{ episodeId: 'fresh', lastPlayedAt: 0 },
+				{ episodeId: 'gone', lastPlayedAt: 0, skipped: true },
+			],
+		},
+	});
+	assert.deepEqual(slim.podcasts.progress.map((row) => row.episodeId).sort(), ['gone', 'played']);
+});
+
+test('a dismissed episode stays out of next after either merge order', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const { homeRows } = await import('../public/web/media.js');
+	const show = { feedUrl: 'https://feeds.example/show', title: 'Show' };
+	const episode = { id: 'ep', showId: show.feedUrl, title: 'Nope', pubDate: 9 };
+	const phone = {
+		exportedAt: 50,
+		podcasts: {
+			shows: [show],
+			episodes: [episode],
+			progress: [{ episodeId: 'ep', positionMs: 12000, lastPlayedAt: 40, skipped: true }],
+		},
+	};
+	const cloud = {
+		exportedAt: 40,
+		podcasts: {
+			shows: [show],
+			episodes: [episode],
+			progress: [{ episodeId: 'ep', positionMs: 12000, lastPlayedAt: 40, skipped: false }],
+		},
+	};
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		const row = merged.podcasts.progress.find((item) => item.episodeId === 'ep');
+		assert.equal(row.skipped, true);
+		const fresh = homeRows(merged.podcasts.shows, merged.podcasts.episodes, merged.podcasts.progress)
+			.filter((item) => item.kind === 'fresh')
+			.map((item) => item.episode.id);
+		assert.equal(fresh.includes('ep'), false);
+	}
+});
+
 test('writeSnapshot stores a slim copy and recovers from Safari quota', async () => {
 	const { writeSnapshot, isQuotaError } = await import('../public/web/merge.js');
 	assert.equal(isQuotaError({ name: 'QuotaExceededError', message: 'The quota has been exceeded.' }), true);
@@ -737,7 +782,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v28/);
+	assert.match(sw, /builder-launcher-web-v29/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {

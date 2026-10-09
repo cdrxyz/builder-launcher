@@ -121,7 +121,11 @@ function mergeProgress(a, b) {
 		}
 		const nextAt = row.lastPlayedAt || 0;
 		const prevAt = prev.lastPlayedAt || 0;
-		const chosen = nextAt >= prevAt ? row : prev;
+		let chosen = prev;
+		if (nextAt > prevAt) chosen = row;
+		else if (nextAt < prevAt) chosen = prev;
+		else if (Boolean(row.skipped) !== Boolean(prev.skipped)) chosen = row.skipped ? row : prev;
+		else chosen = row;
 		const savedAt = Math.max(chosen.savedAt || 0, prev.savedAt || 0, row.savedAt || 0);
 		map.set(id, savedAt === (chosen.savedAt || 0) ? chosen : { ...chosen, savedAt });
 	}
@@ -181,7 +185,7 @@ export function slimDoc(doc) {
 		podcasts: {
 			shows: pods.shows || [],
 			episodes: [],
-			progress: (pods.progress || []).filter((row) => (row?.lastPlayedAt || 0) > 0 || (row?.savedAt || 0) > 0),
+			progress: (pods.progress || []).filter((row) => (row?.lastPlayedAt || 0) > 0 || (row?.savedAt || 0) > 0 || row?.skipped === true),
 		},
 	};
 }

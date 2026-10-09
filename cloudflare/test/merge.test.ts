@@ -46,3 +46,17 @@ test('a fresh completion beats an unsynced open copy in either merge order', () 
 		assert.equal(merged.items[0].completedAt, T1);
 	}
 });
+
+test('a dismissed episode stays dismissed against the synced play', () => {
+	const phone = {
+		exportedAt: 50,
+		podcasts: { progress: [{ episodeId: 'ep', lastPlayedAt: 40, skipped: true }] },
+	};
+	const cloud = {
+		exportedAt: 40,
+		podcasts: { progress: [{ episodeId: 'ep', lastPlayedAt: 40, skipped: false }] },
+	};
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.equal(merged.podcasts.progress[0].skipped, true);
+	}
+});
