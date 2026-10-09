@@ -2470,13 +2470,7 @@ fun BuilderRoot(
                     onBack = { page = Page.Home },
                     onTab = { clockTab = it; zoneHits = emptyList() },
                     onPreset = { min ->
-                        val snap = Clock.normalize(clock.snapshot())
-                        val idle = snap.timers.singleOrNull()?.takeIf { !it.running }
-                        if (idle != null) {
-                            clock.setTimer(Clock.setDuration(idle, min * 60_000L, idle.label))
-                        } else {
-                            clock.addTimer(ParsedTimer(min * 60_000L))
-                        }
+                        clock.addTimer(ParsedTimer(min * 60_000L))
                         ClockScheduler.sync(ctx, clock.snapshot())
                     },
                     onStartPause = { id ->

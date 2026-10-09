@@ -423,6 +423,22 @@ class ClockTest {
     }
 
     @Test
+    fun addTimerDoesNotReplaceAPausedOne() {
+        val now = 2_000_000L
+        val paused = Clock.pause(
+            Clock.start(Clock.setDuration(TimerState(id = "tea"), 10 * 60_000L, "Tea"), now),
+            now + 30_000L,
+        )
+        val added = Clock.addTimer(listOf(paused), ParsedTimer(15 * 60_000L))
+        assertEquals(2, added.size)
+        assertEquals("tea", added.first().id)
+        assertEquals("Tea", added.first().label)
+        assertFalse(added.first().running)
+        assertEquals(15 * 60_000L, added.last().durationMs)
+        assertFalse(added.last().running)
+    }
+
+    @Test
     fun unlabeledFiveMinuteTimerStaysWhenAnotherExists() {
         val now = 2_000_000L
         val running = Clock.start(Clock.setDuration(TimerState(id = "rice"), 10 * 60_000L, "Rice"), now)

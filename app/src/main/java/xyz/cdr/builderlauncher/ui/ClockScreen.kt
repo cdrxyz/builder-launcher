@@ -171,10 +171,10 @@ private fun TimerPane(
         rows.forEach { timer ->
             val display = Clock.formatTimer(Clock.remainingMs(timer, now))
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
                     Text(
                         display,
                         color = Paper,
@@ -187,29 +187,35 @@ private fun TimerPane(
                     if (timer.label.isNotBlank()) {
                         Text(timer.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        Text(
-                            if (timer.running) "pause" else "start",
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TimerAction(
+                            label = if (timer.running) "pause" else "start",
                             color = Accent,
-                            modifier = Modifier.clickable { onStartPause(timer.id) }.padding(vertical = 8.dp),
+                            onClick = { onStartPause(timer.id) },
                         )
-                        Text(
-                            "reset",
+                        TimerAction(
+                            label = "reset",
                             color = Dim,
-                            modifier = Modifier.clickable { onReset(timer.id) }.padding(vertical = 8.dp),
+                            onClick = { onReset(timer.id) },
                         )
                     }
                 }
                 if (rows.size > 1 || timer.label.isNotBlank()) {
-                    DeleteIcon(
-                        Modifier
-                            .clickable { onRemove(timer.id) }
-                            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = CommandTouch, minHeight = CommandTouch)
+                            .clickable { onRemove(timer.id) },
+                    ) {
+                        DeleteIcon()
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Clock.PRESETS_MIN.forEach { min ->
                 val selected = idle != null && idle.durationMs == min * 60_000L
@@ -226,6 +232,22 @@ private fun TimerPane(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 12.dp),
         )
+    }
+}
+
+@Composable
+private fun TimerAction(
+    label: String,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        contentAlignment = Alignment.CenterStart,
+        modifier = Modifier
+            .defaultMinSize(minWidth = CommandTouch, minHeight = CommandTouch)
+            .clickable(onClick = onClick),
+    ) {
+        Text(label, color = color)
     }
 }
 

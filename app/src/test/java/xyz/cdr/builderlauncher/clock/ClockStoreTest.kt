@@ -147,6 +147,24 @@ class ClockStoreTest {
     }
 
     @Test
+    fun addTimerKeepsAPausedOne() {
+        val (_, store) = store()
+        val now = 1_000_000L
+        store.setTimer(
+            Clock.pause(
+                Clock.start(Clock.setDuration(TimerState(id = "tea"), 10 * 60_000L, "Tea"), now),
+                now + 30_000L,
+            ),
+        )
+        store.addTimer(ParsedTimer(15 * 60_000L))
+        val snap = Clock.normalize(store.snapshot())
+        assertEquals(2, snap.timers.size)
+        assertEquals("Tea", snap.timers.first().label)
+        assertFalse(snap.timers.first().running)
+        assertEquals(15 * 60_000L, snap.timers.last().durationMs)
+    }
+
+    @Test
     fun addUnlabeledFiveMinuteKeepsExistingTimer() {
         val (_, store) = store()
         store.setTimer(

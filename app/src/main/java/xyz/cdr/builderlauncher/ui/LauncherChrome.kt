@@ -2062,16 +2062,21 @@ fun ClockChrome(
                 else -> {
                     val rows = timers.ifEmpty { listOf(timer to "") }
                     rows.forEach { (display, label) ->
-                        Text(display, color = Paper, style = MaterialTheme.typography.headlineLarge)
-                        if (label.isNotBlank()) {
-                            Text(label, color = Dim)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                            Text("start", color = Accent)
-                            Text("reset", color = Dim)
+                        Column(Modifier.padding(vertical = 8.dp)) {
+                            Text(display, color = Paper, style = MaterialTheme.typography.headlineLarge)
+                            if (label.isNotBlank()) {
+                                Text(label, color = Dim)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                            ) {
+                                Text("start", color = Accent)
+                                Text("reset", color = Dim)
+                            }
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(20.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Clock.PRESETS_MIN.forEach { min ->
                             Text(min.toString(), color = if (min == 5 && rows.size == 1) Accent else Dim)

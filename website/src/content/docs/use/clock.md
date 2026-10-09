@@ -11,7 +11,7 @@ Three tabs:
 
 | Tab | What it does |
 | --- | --- |
-| Timer | Presets 1 / 5 / 10 / 15 / 25 / 30 minutes. Start, pause, reset on each row. Type `5`, `8 minutes`, or `Pasta 8 minutes` in the bar. A labeled line adds another timer instead of replacing the one that is already counting. The pane scrolls if the keyboard covers start or reset. |
+| Timer | Presets 1 / 5 / 10 / 15 / 25 / 30 minutes. Start, pause, reset on each row. Type `5`, `8 minutes`, or `Pasta 8 minutes` in the bar, or tap a preset — each one adds another timer. The pane scrolls if the keyboard covers start or reset. |
 | Alarm | Type `7:30am`, `Take out garbage Wednesdays 10:30pm`, or `Advil every 4 hours starting at 8pm`. Labels and weekdays stick on the row. An interval adds one daily alarm at each step from that time — 8pm, 12am, 4am, 8am, 12pm, 4pm — all with the same label. The gap has to divide the day evenly, and it will not add more than 24 alarms. The list scrolls. Tap a row to enable or disable. A snoozed row says how many minutes are left and has `dismiss`, which cancels that ring and keeps the next scheduled time. Delete on the right removes it, including from a signed-in account. |
 | Time Zones | Type a city, pick a match. Shows local time and offset from here. The list scrolls. Hold and drag a row across the list to reorder. Delete on the right. |
 
@@ -25,7 +25,7 @@ A long alarm list stays above the command bar and scrolls.
 
 ![Twelve alarms, the rest scroll](../../../assets/screenshots/clock-alarm-scroll.png)
 
-A labeled line adds another timer instead of replacing the one that is already counting.
+A named line or a preset tap adds another timer instead of replacing one that is already there.
 
 ![Two named timers](../../../assets/screenshots/clock-named-timers.png)
 
