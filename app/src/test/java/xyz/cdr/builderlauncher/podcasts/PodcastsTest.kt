@@ -147,6 +147,32 @@ class PodcastsTest {
     }
 
     @Test
+    fun plusAddsAnUnplayedEpisodeToRecentAndTheFullLists() {
+        val show = PodcastShow("https://feeds.example/show", "Show")
+        val older = episode("old", show.feedUrl, "Older", pubDate = 1_000)
+        val newer = episode("new", show.feedUrl, "Newer", pubDate = 9_000)
+        val played = episode("play", show.feedUrl, "Played", pubDate = 5_000)
+        val saved = Podcasts.savedProgress(previous = null, episodeId = "new", durationMs = 60_000, now = 80)
+        assertEquals(80L, saved.savedAt)
+        assertEquals(0L, saved.lastPlayedAt)
+        assertFalse(saved.skipped)
+        val progress = mapOf(
+            "play" to EpisodeProgress("play", positionMs = 1_000, lastPlayedAt = 40),
+            "new" to saved,
+        )
+        val episodes = listOf(older, newer, played)
+        val shows = listOf(show)
+        assertEquals(listOf("new", "play"), Podcasts.recentEpisodes(shows, episodes, progress).map { it.id })
+        assertEquals(listOf("new", "play", "old"), Podcasts.catalogEpisodes(shows, episodes).map { it.id })
+        val rows = Podcasts.homeRows(shows, episodes, progress)
+        assertEquals(listOf("new", "play"), rows.filterIsInstance<PodcastHomeRow.Continue>().map { it.episode.id })
+        val labels = rows.filterIsInstance<PodcastHomeRow.More>().map { it.label }
+        assertEquals(listOf(Podcasts.ALL_RECENT, Podcasts.ALL_NEXT), labels)
+        assertEquals("… all recent episodes >", Podcasts.ALL_RECENT)
+        assertEquals("… all next episodes >", Podcasts.ALL_NEXT)
+    }
+
+    @Test
     fun evictsOldestUntilUnderCapKeepingPlaying() {
         val files = listOf(
             PodcastCacheFile("a", 4_000, lastAccessAt = 1),

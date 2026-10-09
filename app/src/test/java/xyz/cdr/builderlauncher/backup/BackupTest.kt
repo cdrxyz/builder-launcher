@@ -278,6 +278,24 @@ class BackupDocumentTest {
         assertEquals(null, slimDoc.watchlist.single().price)
         assertEquals(0L, slimDoc.podcasts.cacheBytes)
     }
+
+    @Test
+    fun slimForAccountKeepsASavedEpisodeThatWasNeverPlayed() {
+        val doc = BackupDocument(
+            exportedAt = 1,
+            podcasts = PodcastBackup(
+                progress = listOf(
+                    EpisodeProgress("played", lastPlayedAt = 9),
+                    EpisodeProgress("fresh", lastPlayedAt = 0),
+                    EpisodeProgress("saved", lastPlayedAt = 0, savedAt = 40),
+                ),
+            ),
+        )
+        val ids = doc.slimForAccount().podcasts.progress.map { it.episodeId }
+        assertTrue(ids.contains("played"))
+        assertFalse(ids.contains("fresh"))
+        assertTrue(ids.contains("saved"))
+    }
 }
 
 class S3SignerTest {

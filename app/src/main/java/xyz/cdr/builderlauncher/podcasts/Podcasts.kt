@@ -17,6 +17,8 @@ object Podcasts {
     const val SECTION_RECENT = "recent"
     const val SECTION_NEXT = "next 5 episodes"
     const val SECTION_SHOWS = "podcasts"
+    const val ALL_RECENT = "… all recent episodes >"
+    const val ALL_NEXT = "… all next episodes >"
     const val ART_DP = 36
     const val TITLE_LINES = 3
     const val SHOW_LINES = 1
@@ -72,8 +74,8 @@ object Podcasts {
         val showById = shows.associateBy { it.feedUrl }
         val currentId = currentEpisodeId?.takeIf { it.isNotBlank() }
         val continueRows = progress.values
-            .filter { !finished(it) && !skipped(it) && it.lastPlayedAt > 0L && it.episodeId != currentId }
-            .sortedByDescending { it.lastPlayedAt }
+            .filter { inRecent(it) && it.episodeId != currentId }
+            .sortedByDescending { recentAt(it) }
             .mapNotNull { p ->
                 val episode = episodes.find { it.id == p.episodeId } ?: return@mapNotNull null
                 val show = showById[episode.showId] ?: return@mapNotNull null
@@ -96,10 +98,12 @@ object Podcasts {
         if (continueRows.isNotEmpty()) {
             rows += PodcastHomeRow.Header(SECTION_RECENT)
             rows += continueRows
+            rows += PodcastHomeRow.More(ALL_RECENT)
         }
         if (fresh.isNotEmpty()) {
             rows += PodcastHomeRow.Header(SECTION_NEXT)
             rows += fresh
+            rows += PodcastHomeRow.More(ALL_NEXT)
         }
         if (subs.isNotEmpty()) {
             rows += PodcastHomeRow.Header(SECTION_SHOWS)
@@ -265,6 +269,57 @@ object Podcasts {
         val fmt = java.text.SimpleDateFormat("d MMM yyyy", locale)
         fmt.timeZone = timeZone
         return fmt.format(java.util.Date(pubDate))
+    }
+
+    fun inRecent(progress: EpisodeProgress?): Boolean {
+        if (progress == null || finished(progress) || skipped(progress)) return false
+        return progress.lastPlayedAt > 0L || progress.savedAt > 0L
+    }
+
+    fun recentAt(progress: EpisodeProgress): Long = maxOf(progress.lastPlayedAt, progress.savedAt)
+
+    fun savedProgress(
+        previous: EpisodeProgress?,
+        episodeId: String,
+        durationMs: Long,
+        now: Long,
+    ): EpisodeProgress {
+        val dur = durationMs.takeIf { it > 0L } ?: previous?.durationMs ?: 0L
+        return EpisodeProgress(
+            episodeId = episodeId,
+            positionMs = previous?.positionMs ?: 0L,
+            durationMs = dur,
+            lastPlayedAt = previous?.lastPlayedAt ?: 0L,
+            finished = previous?.finished == true,
+            skipped = false,
+            savedAt = now,
+        )
+    }
+
+    fun recentEpisodes(
+        shows: List<PodcastShow>,
+        episodes: List<PodcastEpisode>,
+        progress: Map<String, EpisodeProgress>,
+    ): List<PodcastEpisode> {
+        val showById = shows.associateBy { it.feedUrl.lowercase() }
+        return progress.values
+            .filter { inRecent(it) }
+            .sortedByDescending { recentAt(it) }
+            .mapNotNull { row ->
+                val episode = episodes.find { it.id == row.episodeId } ?: return@mapNotNull null
+                if (showById[episode.showId.lowercase()] == null) return@mapNotNull null
+                episode
+            }
+    }
+
+    fun catalogEpisodes(
+        shows: List<PodcastShow>,
+        episodes: List<PodcastEpisode>,
+    ): List<PodcastEpisode> {
+        val feeds = shows.map { it.feedUrl.lowercase() }.toSet()
+        return episodes
+            .filter { it.showId.lowercase() in feeds }
+            .sortedByDescending { it.pubDate }
     }
 
     fun skipped(progress: EpisodeProgress?): Boolean = progress?.skipped == true
@@ -527,6 +582,7 @@ data class EpisodeProgress(
     val lastPlayedAt: Long = 0L,
     val finished: Boolean = false,
     val skipped: Boolean = false,
+    val savedAt: Long = 0L,
 )
 
 data class PodcastCacheFile(
@@ -577,4 +633,6 @@ sealed class PodcastHomeRow {
     data class Subscription(
         val show: PodcastShow,
     ) : PodcastHomeRow()
+
+    data class More(val label: String) : PodcastHomeRow()
 }

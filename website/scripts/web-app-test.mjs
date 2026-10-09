@@ -258,8 +258,18 @@ test('podcast home rows match phone sections', () => {
 	];
 	const rows = homeRows(shows, episodes, progress);
 	assert.deepEqual(
-		rows.map((row) => row.kind + (row.episode?.id || row.show?.title || row.title)),
-		['headerrecent', 'continuemid', 'headernext 5 episodes', 'freshnew', 'freshold', 'headerpodcasts', 'subscriptionShow'],
+		rows.map((row) => row.kind + (row.episode?.id || row.show?.title || row.title || row.label || '')),
+		[
+			'headerrecent',
+			'continuemid',
+			'more… all recent episodes >',
+			'headernext 5 episodes',
+			'freshnew',
+			'freshold',
+			'more… all next episodes >',
+			'headerpodcasts',
+			'subscriptionShow',
+		],
 	);
 	assert.equal(finished({ finished: true }), true);
 	assert.equal(podcastsOf({}).shows.length, 0);
@@ -727,7 +737,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v27/);
+	assert.match(sw, /builder-launcher-web-v28/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {

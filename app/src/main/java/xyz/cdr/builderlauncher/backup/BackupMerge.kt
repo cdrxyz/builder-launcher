@@ -110,7 +110,9 @@ object BackupMerge {
         val progress = LinkedHashMap<String, EpisodeProgress>()
         (a.progress + b.progress).forEach { row ->
             val prev = progress[row.episodeId]
-            progress[row.episodeId] = if (prev == null || row.lastPlayedAt >= prev.lastPlayedAt) row else prev
+            val chosen = if (prev == null || row.lastPlayedAt >= prev.lastPlayedAt) row else prev
+            val savedAt = maxOf(chosen.savedAt, prev?.savedAt ?: 0L, row.savedAt)
+            progress[row.episodeId] = if (savedAt == chosen.savedAt) chosen else chosen.copy(savedAt = savedAt)
         }
         return PodcastBackup(
             shows = shows.values.toList(),

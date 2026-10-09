@@ -115,7 +115,15 @@ function mergeProgress(a, b) {
 		const id = String(row?.episodeId || '');
 		if (!id) continue;
 		const prev = map.get(id);
-		if (!prev || (row.lastPlayedAt || 0) >= (prev.lastPlayedAt || 0)) map.set(id, row);
+		if (!prev) {
+			map.set(id, row);
+			continue;
+		}
+		const nextAt = row.lastPlayedAt || 0;
+		const prevAt = prev.lastPlayedAt || 0;
+		const chosen = nextAt >= prevAt ? row : prev;
+		const savedAt = Math.max(chosen.savedAt || 0, prev.savedAt || 0, row.savedAt || 0);
+		map.set(id, savedAt === (chosen.savedAt || 0) ? chosen : { ...chosen, savedAt });
 	}
 	return [...map.values()];
 }
@@ -173,7 +181,7 @@ export function slimDoc(doc) {
 		podcasts: {
 			shows: pods.shows || [],
 			episodes: [],
-			progress: (pods.progress || []).filter((row) => (row?.lastPlayedAt || 0) > 0),
+			progress: (pods.progress || []).filter((row) => (row?.lastPlayedAt || 0) > 0 || (row?.savedAt || 0) > 0),
 		},
 	};
 }

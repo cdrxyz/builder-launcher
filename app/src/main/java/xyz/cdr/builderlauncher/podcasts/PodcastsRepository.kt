@@ -293,6 +293,18 @@ class PodcastsRepository(
         persist()
     }
 
+    fun saveToRecent(episodeId: String, durationMs: Long = 0L) {
+        if (episodeId.isBlank()) return
+        val prev = _progress.value[episodeId]
+        _progress.value = _progress.value + (episodeId to Podcasts.savedProgress(
+            previous = prev,
+            episodeId = episodeId,
+            durationMs = durationMs,
+            now = System.currentTimeMillis(),
+        ))
+        persist()
+    }
+
     fun markDownloadQueued(episodeId: String) {
         if (episodeId.isBlank()) return
         _downloadProgress.update { current ->
