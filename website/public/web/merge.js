@@ -45,8 +45,18 @@ function mergeItemList(a, b) {
 
 function mergeAlarm(x, y) {
 	const last = Math.max(x.lastFiredAt || 0, y.lastFiredAt || 0);
-	const snooze = Math.max(x.snoozeUntil || 0, y.snoozeUntil || 0);
-	const base = stamp(x) >= stamp(y) ? x : y;
+	const sx = x.updatedAt || 0;
+	const sy = y.updatedAt || 0;
+	let base = x;
+	if (sy > sx) base = y;
+	else if (sx > sy) base = x;
+	else if (x.enabled === false && y.enabled !== false) base = x;
+	else if (y.enabled === false && x.enabled !== false) base = y;
+	const snooze = base.enabled === false
+		? 0
+		: sx !== sy
+			? (base.snoozeUntil || 0)
+			: Math.max(x.snoozeUntil || 0, y.snoozeUntil || 0);
 	return {
 		...base,
 		lastFiredAt: last || null,

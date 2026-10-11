@@ -139,8 +139,20 @@ object BackupMerge {
 
     private fun mergeAlarm(a: ClockAlarm, b: ClockAlarm): ClockAlarm {
         val last = maxOf(a.lastFiredAt ?: 0L, b.lastFiredAt ?: 0L).takeIf { it > 0L }
-        val snooze = maxOf(a.snoozeUntil ?: 0L, b.snoozeUntil ?: 0L).takeIf { it > 0L }
-        return b.copy(
+        val base = when {
+            a.updatedAt != b.updatedAt -> if (a.updatedAt > b.updatedAt) a else b
+            !a.enabled && b.enabled -> a
+            !b.enabled && a.enabled -> b
+            else -> b
+        }
+        val snooze = if (!base.enabled) {
+            null
+        } else if (a.updatedAt != b.updatedAt) {
+            base.snoozeUntil
+        } else {
+            maxOf(a.snoozeUntil ?: 0L, b.snoozeUntil ?: 0L).takeIf { it > 0L }
+        }
+        return base.copy(
             lastFiredAt = last,
             snoozeUntil = snooze?.takeIf { last == null || it > last },
         )

@@ -637,6 +637,47 @@ class BackupMergeTest {
     }
 
     @Test
+    fun mergeKeepsADisabledAlarmOffWhenTheOtherCopyIsStillOn() {
+        val off = ClockAlarm(id = "a1", hour = 7, minute = 30, enabled = false, label = "up", lastFiredAt = 2_000L)
+        val on = ClockAlarm(id = "a1", hour = 7, minute = 30, enabled = true, label = "up", snoozeUntil = 9_000L)
+        val phone = BackupDocument(exportedAt = 20, alarms = listOf(off))
+        val cloud = BackupDocument(exportedAt = 40, alarms = listOf(on))
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            val alarm = merged.alarms.single()
+            assertFalse(alarm.enabled)
+            assertEquals(2_000L, alarm.lastFiredAt)
+            assertNull(alarm.snoozeUntil)
+        }
+    }
+
+    @Test
+    fun mergeTurnsAnAlarmBackOnWhenThatEditIsNewer() {
+        val off = ClockAlarm(id = "a1", hour = 7, minute = 30, enabled = false, updatedAt = 100)
+        val on = ClockAlarm(id = "a1", hour = 7, minute = 30, enabled = true, updatedAt = 200, snoozeUntil = 9_000L)
+        val phone = BackupDocument(exportedAt = 20, alarms = listOf(off))
+        val cloud = BackupDocument(exportedAt = 10, alarms = listOf(on))
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            val alarm = merged.alarms.single()
+            assertTrue(alarm.enabled)
+            assertEquals(200L, alarm.updatedAt)
+            assertEquals(9_000L, alarm.snoozeUntil)
+        }
+    }
+
+    @Test
+    fun mergeKeepsANewerDisableOverAnOlderEnable() {
+        val off = ClockAlarm(id = "a1", hour = 7, minute = 30, enabled = false, updatedAt = 500)
+        val on = ClockAlarm(id = "a1", hour = 7, minute = 30, enabled = true, updatedAt = 100)
+        val phone = BackupDocument(exportedAt = 10, alarms = listOf(off))
+        val cloud = BackupDocument(exportedAt = 90, alarms = listOf(on))
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            val alarm = merged.alarms.single()
+            assertFalse(alarm.enabled)
+            assertEquals(500L, alarm.updatedAt)
+        }
+    }
+
+    @Test
     fun mergeDropsANoteDeletedOnEitherSideEvenIfTheCopyIsNewer() {
         val gone = LocalItem("n-gone", "note", "secret", createdAt = 1, updatedAt = 50)
         val keep = LocalItem("n-keep", "note", "keep", createdAt = 1, updatedAt = 2)
