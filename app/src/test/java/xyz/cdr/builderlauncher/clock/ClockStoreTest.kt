@@ -210,4 +210,22 @@ class ClockStoreTest {
         )
         assertTrue(store.snapshot().alarms.all { it.label == "Advil" && it.enabled })
     }
+
+    @Test
+    fun toggleAlarmStaysOffUntilTurnedBackOn() {
+        val (file, first) = store()
+        val alarm = first.addAlarm(7, 30, "up")
+        first.replaceAlarm(alarm.copy(snoozeUntil = 9_000L))
+        first.toggleAlarm(alarm.id, now = 500)
+        val off = ClockStore(file).snapshot().alarms.single()
+        assertFalse(off.enabled)
+        assertEquals(500L, off.updatedAt)
+        assertNull(off.snoozeUntil)
+
+        ClockStore(file).toggleAlarm(alarm.id, now = 800)
+        val on = ClockStore(file).snapshot().alarms.single()
+        assertTrue(on.enabled)
+        assertEquals(800L, on.updatedAt)
+        assertNull(on.snoozeUntil)
+    }
 }

@@ -305,6 +305,7 @@ class ClockTest {
         val snoozed = Clock.snooze(fired.alarm, now)
         assertEquals(now + Clock.SNOOZE_MS, snoozed.snoozeUntil)
         assertTrue(snoozed.enabled)
+        assertEquals(now, snoozed.updatedAt)
         assertEquals(now + Clock.SNOOZE_MS, Clock.nextFireAt(snoozed, now))
         assertTrue(Clock.nextFireAt(fired.alarm, now) > now)
         assertEquals(now, Clock.nextFireAt(snoozed.copy(snoozeUntil = now), now))

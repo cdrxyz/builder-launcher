@@ -80,10 +80,13 @@ class ClockStore internal constructor(private val file: File) {
         return created
     }
 
-    fun toggleAlarm(id: String) {
+    fun toggleAlarm(id: String, now: Long = System.currentTimeMillis()) {
         persist(
             _state.value.copy(
-                alarms = _state.value.alarms.map { if (it.id == id) it.copy(enabled = !it.enabled) else it },
+                alarms = _state.value.alarms.map { alarm ->
+                    if (alarm.id != id) alarm
+                    else alarm.copy(enabled = !alarm.enabled, snoozeUntil = null, updatedAt = now)
+                },
             ),
         )
     }

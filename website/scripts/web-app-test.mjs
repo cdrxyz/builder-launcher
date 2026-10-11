@@ -377,6 +377,42 @@ test('mergeDocs keeps a dismissed alarm from ringing again', async () => {
 	}
 });
 
+test('mergeDocs keeps a disabled alarm off when the other copy is still on', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const off = { id: 'a1', hour: 7, minute: 30, enabled: false, lastFiredAt: 2000 };
+	const on = { id: 'a1', hour: 7, minute: 30, enabled: true, snoozeUntil: 9000 };
+	const phone = { exportedAt: 20, alarms: [off] };
+	const cloud = { exportedAt: 40, alarms: [on] };
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		const alarm = merged.alarms[0];
+		assert.equal(alarm.enabled, false);
+		assert.equal(alarm.lastFiredAt, 2000);
+		assert.equal(alarm.snoozeUntil ?? null, null);
+	}
+});
+
+test('mergeDocs turns an alarm back on when that edit is newer', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const off = { id: 'a1', hour: 7, minute: 30, enabled: false, updatedAt: 100 };
+	const on = { id: 'a1', hour: 7, minute: 30, enabled: true, updatedAt: 200, snoozeUntil: 9000 };
+	for (const merged of [mergeDocs({ alarms: [off] }, { alarms: [on] }), mergeDocs({ alarms: [on] }, { alarms: [off] })]) {
+		const alarm = merged.alarms[0];
+		assert.equal(alarm.enabled, true);
+		assert.equal(alarm.updatedAt, 200);
+		assert.equal(alarm.snoozeUntil, 9000);
+	}
+});
+
+test('mergeDocs keeps a newer disable over an older enable', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const off = { id: 'a1', hour: 7, minute: 30, enabled: false, updatedAt: 500 };
+	const on = { id: 'a1', hour: 7, minute: 30, enabled: true, updatedAt: 100 };
+	for (const merged of [mergeDocs({ alarms: [off] }, { alarms: [on] }), mergeDocs({ alarms: [on] }, { alarms: [off] })]) {
+		assert.equal(merged.alarms[0].enabled, false);
+		assert.equal(merged.alarms[0].updatedAt, 500);
+	}
+});
+
 test('first join keeps local-only data when remote is empty', async () => {
 	const { joinDocs, emptyDoc } = await import('../public/web/merge.js');
 	const local = {

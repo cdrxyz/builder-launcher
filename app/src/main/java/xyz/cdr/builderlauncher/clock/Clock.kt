@@ -342,7 +342,7 @@ object Clock {
     }
 
     fun snooze(alarm: ClockAlarm, now: Long): ClockAlarm {
-        return alarm.copy(enabled = true, snoozeUntil = now + SNOOZE_MS)
+        return alarm.copy(enabled = true, snoozeUntil = now + SNOOZE_MS, updatedAt = now)
     }
 
     fun acknowledge(alarm: ClockAlarm, now: Long): ClockAlarm {
@@ -612,6 +612,7 @@ data class ClockAlarm(
     val days: Set<Int> = emptySet(),
     val snoozeUntil: Long? = null,
     val lastFiredAt: Long? = null,
+    val updatedAt: Long = 0,
 )
 
 @Serializable
