@@ -11,6 +11,7 @@ import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.data.PinChange
 import xyz.cdr.builderlauncher.data.StockInsert
 import xyz.cdr.builderlauncher.data.UiTheme
 import xyz.cdr.builderlauncher.data.UiTone
@@ -29,6 +30,7 @@ data class BackupDocument(
     val deletedIds: List<String> = emptyList(),
     val chats: List<ChatThread> = emptyList(),
     val pins: List<String> = emptyList(),
+    val pinChanges: List<PinChange> = emptyList(),
     val watchlist: List<WatchItem> = emptyList(),
     val podcasts: PodcastBackup = PodcastBackup(),
     val alarms: List<ClockAlarm> = emptyList(),

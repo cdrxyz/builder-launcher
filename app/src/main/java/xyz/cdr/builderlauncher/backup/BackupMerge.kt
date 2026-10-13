@@ -5,6 +5,7 @@ import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.data.ChatThread
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.data.PinChange
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
@@ -23,6 +24,7 @@ object BackupMerge {
         val drop = deleted.toSet()
         val deletedAlarms = (a.deletedAlarmIds + b.deletedAlarmIds).distinct()
         val dropAlarms = deletedAlarms.toSet()
+        val (pins, pinChanges) = mergePins(a.pins, b.pins, a.pinChanges, b.pinChanges)
         return BackupDocument(
             version = maxOf(a.version, b.version),
             exportedAt = maxOf(a.exportedAt, b.exportedAt),
@@ -33,7 +35,8 @@ object BackupMerge {
             ),
             deletedIds = deleted,
             chats = mergeChats(a.chats, b.chats),
-            pins = (a.pins + b.pins).distinct(),
+            pins = pins,
+            pinChanges = pinChanges,
             watchlist = mergeWatch(a.watchlist, b.watchlist, preferA),
             podcasts = mergePods(a.podcasts, b.podcasts),
             alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
@@ -45,6 +48,35 @@ object BackupMerge {
 
     private fun stamp(item: LocalItem): Long =
         maxOf(item.createdAt, item.updatedAt, item.completedAt ?: 0L)
+
+    private fun mergePins(
+        aPins: List<String>,
+        bPins: List<String>,
+        aChanges: List<PinChange>,
+        bChanges: List<PinChange>,
+    ): Pair<List<String>, List<PinChange>> {
+        val latest = LinkedHashMap<String, PinChange>()
+        for (change in aChanges + bChanges) {
+            val prev = latest[change.packageName]
+            latest[change.packageName] = when {
+                prev == null -> change
+                change.at > prev.at -> change
+                change.at < prev.at -> prev
+                !change.pinned -> change
+                !prev.pinned -> prev
+                else -> change
+            }
+        }
+        val pinned = LinkedHashSet<String>()
+        for (pkg in aPins + bPins) {
+            val change = latest[pkg]
+            if (change == null || change.pinned) pinned.add(pkg)
+        }
+        for ((pkg, change) in latest) {
+            if (change.pinned) pinned.add(pkg)
+        }
+        return pinned.toList() to latest.values.toList()
+    }
 
     private fun mergeItems(a: List<LocalItem>, b: List<LocalItem>): List<LocalItem> {
         val map = LinkedHashMap<String, LocalItem>()

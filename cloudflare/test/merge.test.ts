@@ -60,3 +60,64 @@ test('a dismissed episode stays dismissed against the synced play', () => {
 		assert.equal(merged.podcasts.progress[0].skipped, true);
 	}
 });
+
+test('an unpinned app stays unpinned in either merge order', () => {
+	const phone = {
+		exportedAt: 20,
+		pins: ['keep'],
+		pinChanges: [{ packageName: 'gone', pinned: false, at: 20 }],
+	};
+	const cloud = { exportedAt: 10, pins: ['keep', 'gone'] };
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.deepEqual(merged.pins, ['keep']);
+		const change = merged.pinChanges.find((row) => row.packageName === 'gone');
+		assert.equal(change.pinned, false);
+		assert.equal(change.at, 20);
+	}
+});
+
+test('a later pin beats an older unpin', () => {
+	const phone = {
+		exportedAt: 30,
+		pins: ['keep', 'back'],
+		pinChanges: [{ packageName: 'back', pinned: true, at: 30 }],
+	};
+	const cloud = {
+		exportedAt: 20,
+		pins: ['keep'],
+		pinChanges: [{ packageName: 'back', pinned: false, at: 10 }],
+	};
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.deepEqual(merged.pins, ['keep', 'back']);
+		assert.equal(merged.pinChanges.find((row) => row.packageName === 'back').pinned, true);
+	}
+});
+
+test('an equal stamp prefers the unpin', () => {
+	const pinned = {
+		exportedAt: 10,
+		pins: ['app'],
+		pinChanges: [{ packageName: 'app', pinned: true, at: 5 }],
+	};
+	const unpinned = {
+		exportedAt: 10,
+		pins: [],
+		pinChanges: [{ packageName: 'app', pinned: false, at: 5 }],
+	};
+	for (const merged of [mergeDocs(pinned, unpinned), mergeDocs(unpinned, pinned)]) {
+		assert.equal(merged.pins.includes('app'), false);
+		assert.equal(merged.pinChanges.find((row) => row.packageName === 'app').pinned, false);
+	}
+});
+
+test('a pin recorded only in pinChanges comes back', () => {
+	const phone = {
+		exportedAt: 12,
+		pins: ['keep'],
+		pinChanges: [{ packageName: 'back', pinned: true, at: 12 }],
+	};
+	const cloud = { exportedAt: 10, pins: ['keep'] };
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.deepEqual(merged.pins, ['keep', 'back']);
+	}
+});

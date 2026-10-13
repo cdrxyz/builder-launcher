@@ -13,6 +13,7 @@ import org.junit.Test
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.data.LocalItem
+import xyz.cdr.builderlauncher.data.PinChange
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
@@ -766,6 +767,71 @@ class BackupMergeTest {
             assertFalse(merged.podcasts.progress.single().skipped)
             assertEquals(80L, merged.podcasts.progress.single().lastPlayedAt)
         }
+    }
+
+    @Test
+    fun mergeDropsAPinUnpinnedOnEitherSide() {
+        val phone = BackupDocument(
+            exportedAt = 20,
+            pins = listOf("keep"),
+            pinChanges = listOf(PinChange("gone", pinned = false, at = 20)),
+        )
+        val cloud = BackupDocument(
+            exportedAt = 10,
+            pins = listOf("keep", "gone"),
+        )
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            assertEquals(listOf("keep"), merged.pins)
+            val change = merged.pinChanges.single { it.packageName == "gone" }
+            assertFalse(change.pinned)
+            assertEquals(20L, change.at)
+        }
+    }
+
+    @Test
+    fun mergeKeepsAPinWhenThatPinIsNewerThanTheUnpin() {
+        val phone = BackupDocument(
+            exportedAt = 30,
+            pins = listOf("keep", "back"),
+            pinChanges = listOf(PinChange("back", pinned = true, at = 30)),
+        )
+        val cloud = BackupDocument(
+            exportedAt = 20,
+            pins = listOf("keep"),
+            pinChanges = listOf(PinChange("back", pinned = false, at = 10)),
+        )
+        for (merged in listOf(BackupMerge.merge(phone, cloud), BackupMerge.merge(cloud, phone))) {
+            assertEquals(listOf("keep", "back"), merged.pins)
+            val change = merged.pinChanges.single { it.packageName == "back" }
+            assertTrue(change.pinned)
+            assertEquals(30L, change.at)
+        }
+    }
+
+    @Test
+    fun mergeDropsAPinWhenTheUnpinStampMatchesThePin() {
+        val pinned = BackupDocument(
+            exportedAt = 10,
+            pins = listOf("app"),
+            pinChanges = listOf(PinChange("app", pinned = true, at = 5)),
+        )
+        val unpinned = BackupDocument(
+            exportedAt = 10,
+            pins = emptyList(),
+            pinChanges = listOf(PinChange("app", pinned = false, at = 5)),
+        )
+        for (merged in listOf(BackupMerge.merge(pinned, unpinned), BackupMerge.merge(unpinned, pinned))) {
+            assertFalse(merged.pins.contains("app"))
+            assertFalse(merged.pinChanges.single { it.packageName == "app" }.pinned)
+        }
+    }
+
+    @Test
+    fun mergeStillUnionsPinsThatHaveNoRecordedChange() {
+        val phone = BackupDocument(exportedAt = 2, pins = listOf("a", "b"))
+        val cloud = BackupDocument(exportedAt = 1, pins = listOf("b", "c"))
+        assertEquals(listOf("a", "b", "c"), BackupMerge.merge(phone, cloud).pins)
+        assertEquals(listOf("b", "c", "a"), BackupMerge.merge(cloud, phone).pins)
     }
 
     @Test

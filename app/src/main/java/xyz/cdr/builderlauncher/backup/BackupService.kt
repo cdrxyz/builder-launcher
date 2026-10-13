@@ -59,6 +59,7 @@ class BackupService(
             deletedIds = lists.deletedIds.value,
             chats = chats.threads.value,
             pins = pins.packages.value,
+            pinChanges = pins.changes.value,
             watchlist = stocks.watch.value,
             podcasts = podcasts.exportBackup(),
             alarms = snap.alarms.filterNot { it.id in snap.deletedAlarmIds.toSet() },
@@ -142,7 +143,7 @@ class BackupService(
             val dropItems = doc.deletedIds.toSet()
             lists.replaceAll(doc.items.filterNot { it.id in dropItems }, doc.deletedIds)
             chats.replaceAll(doc.chats)
-            pins.replaceAll(doc.pins)
+            pins.replaceAll(doc.pins, doc.pinChanges)
             stocks.replaceAll(doc.watchlist)
             podcasts.importBackup(doc.podcasts)
             val drop = doc.deletedAlarmIds.toSet()
@@ -168,6 +169,7 @@ class BackupService(
         lists.deletedIds.map { },
         chats.threads.map { },
         pins.packages.map { },
+        pins.changes.map { },
         stocks.watch.map { },
         podcasts.shows.map { },
         podcasts.progress.map { },
