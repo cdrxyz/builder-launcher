@@ -19,6 +19,32 @@ class PinnedAppsTest {
     }
 
     @Test
+    fun unpinRecordsAChangeNewerThanThePreviousPin() {
+        val (pins, changes) = PinnedApps.record(
+            pins = listOf("keep", "gone"),
+            changes = listOf(PinChange("gone", pinned = true, at = 5)),
+            packageName = "gone",
+            pinned = false,
+            at = 9,
+        )
+        assertEquals(listOf("keep"), pins)
+        assertEquals(PinChange("gone", pinned = false, at = 9), changes.single())
+    }
+
+    @Test
+    fun pinAfterUnpinPutsThePackageBackWithANewerStamp() {
+        val (pins, changes) = PinnedApps.record(
+            pins = listOf("keep"),
+            changes = listOf(PinChange("gone", pinned = false, at = 9)),
+            packageName = "gone",
+            pinned = true,
+            at = 12,
+        )
+        assertEquals(listOf("keep", "gone"), pins)
+        assertEquals(PinChange("gone", pinned = true, at = 12), changes.single())
+    }
+
+    @Test
     fun visibleMoveKeepsMissingPinsAndDoesNotShiftThem() {
         val stored = listOf("a", "gone", "b", "c")
         val visible = listOf("a", "b", "c")

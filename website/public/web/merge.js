@@ -235,6 +235,43 @@ function unique(list) {
 	return out;
 }
 
+function pickPinChange(prev, change) {
+	if (!prev) return change;
+	const at = change.at || 0;
+	const prevAt = prev.at || 0;
+	if (at > prevAt) return change;
+	if (at < prevAt) return prev;
+	if (change.pinned === false) return change;
+	if (prev.pinned === false) return prev;
+	return change;
+}
+
+function mergePins(aPins, bPins, aChanges, bChanges) {
+	const latest = new Map();
+	for (const change of [...(aChanges || []), ...(bChanges || [])]) {
+		if (!change || change.packageName == null || change.packageName === '') continue;
+		const key = String(change.packageName);
+		latest.set(key, pickPinChange(latest.get(key), change));
+	}
+	const pins = [];
+	const seen = new Set();
+	for (const pkg of [...(aPins || []), ...(bPins || [])]) {
+		const key = String(pkg);
+		const change = latest.get(key);
+		if (change && change.pinned === false) continue;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		pins.push(pkg);
+	}
+	for (const [key, change] of latest) {
+		if (change.pinned && !seen.has(key)) {
+			seen.add(key);
+			pins.push(change.packageName);
+		}
+	}
+	return { pins, pinChanges: [...latest.values()] };
+}
+
 export function joinDocs(local, remote) {
 	if (!remote) return local || emptyDoc();
 	if (!local) return remote;
@@ -253,6 +290,7 @@ export function mergeDocs(a, b) {
 	const items = alignOpenOrder(a.items, b.items, mergedItems);
 	const deletedAlarmIds = unique([...(a.deletedAlarmIds || []), ...(b.deletedAlarmIds || [])]);
 	const dropAlarms = new Set(deletedAlarmIds.map(String));
+	const pinMerge = mergePins(a.pins, b.pins, a.pinChanges, b.pinChanges);
 	return {
 		...older,
 		...newer,
@@ -261,7 +299,8 @@ export function mergeDocs(a, b) {
 		items,
 		deletedIds,
 		chats: mergeById(a.chats, b.chats),
-		pins: unique([...(a.pins || []), ...(b.pins || [])]),
+		pins: pinMerge.pins,
+		pinChanges: pinMerge.pinChanges,
 		watchlist: mergeWatch(a.watchlist, b.watchlist, preferA),
 		podcasts: mergePods(a.podcasts, b.podcasts),
 		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),

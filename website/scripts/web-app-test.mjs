@@ -352,6 +352,40 @@ test('mergeDocs unions items and honors deletedIds', async () => {
 	assert.equal(merged.items.some((i) => i.id === '9'), false);
 });
 
+test('mergeDocs drops a pin unpinned on either side', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const phone = {
+		exportedAt: 20,
+		pins: ['keep'],
+		pinChanges: [{ packageName: 'gone', pinned: false, at: 20 }],
+	};
+	const cloud = { exportedAt: 10, pins: ['keep', 'gone'] };
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.deepEqual(merged.pins, ['keep']);
+		const change = merged.pinChanges.find((row) => row.packageName === 'gone');
+		assert.equal(change.pinned, false);
+		assert.equal(change.at, 20);
+	}
+});
+
+test('mergeDocs prefers an unpin when the stamp matches', async () => {
+	const { mergeDocs } = await import('../public/web/merge.js');
+	const pinned = {
+		exportedAt: 10,
+		pins: ['app'],
+		pinChanges: [{ packageName: 'app', pinned: true, at: 5 }],
+	};
+	const unpinned = {
+		exportedAt: 10,
+		pins: [],
+		pinChanges: [{ packageName: 'app', pinned: false, at: 5 }],
+	};
+	for (const merged of [mergeDocs(pinned, unpinned), mergeDocs(unpinned, pinned)]) {
+		assert.equal(merged.pins.includes('app'), false);
+		assert.equal(merged.pinChanges.find((row) => row.packageName === 'app').pinned, false);
+	}
+});
+
 test('mergeDocs drops an alarm deleted on either side', async () => {
 	const { mergeDocs } = await import('../public/web/merge.js');
 	const gone = { id: 'a-gone', hour: 7, minute: 30 };
