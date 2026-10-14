@@ -114,6 +114,7 @@ import {
 	parseAqi,
 	parseForecast,
 	parseGeocode,
+	playPauseSvg,
 	podcastMarkSvg,
 	precipChance,
 	pressure,
@@ -262,6 +263,7 @@ function pinVisualViewport() {
 		root.style.setProperty('--vv-height', `${Math.round(height)}px`);
 		root.style.setProperty('--vv-top', `${Math.round(top)}px`);
 		if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+		if (state.speedMenu) placeSpeedMenu(document.querySelector('.speed-menu'), document.querySelector('.speed-trigger'));
 	};
 	apply();
 	window.visualViewport?.addEventListener('resize', apply);
@@ -561,18 +563,20 @@ function render() {
 	const next = app.querySelector('main');
 	if (next) next.scrollTop = restore;
 	listTab = state.tab;
-	if (focus) {
+	if (focus && !state.speedMenu) {
 		const input = app.querySelector('.command-input');
 		if (input) {
 			input.focus({ preventScroll: true });
 			input.value = draft;
 		}
 	}
+	mountSpeedMenu();
 }
 
 function header() {
 	const el = document.createElement('header');
 	el.className = 'app-bar';
+	if (state.tab === 'note' || state.tab === 'chat') el.classList.add('wide-end');
 	if (state.tab === 'note') {
 		el.append(button('<', () => go('notes'), 'ghost'));
 		el.append(title('note'));
@@ -642,7 +646,7 @@ function gearButton() {
 	el.type = 'button';
 	el.className = 'ghost gear';
 	el.setAttribute('aria-label', 'settings');
-	el.innerHTML = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M7.2 1.6h3.6l.55 2.05 1.85-.5 1.8 1.8-.5 1.85 2.05.55v3.6l-2.05.55.5 1.85-1.8 1.8-1.85-.5-.55 2.05H7.2l-.55-2.05-1.85.5-1.8-1.8.5-1.85L1.6 10.8V7.2l2.05-.55-.5-1.85 1.8-1.8 1.85.5.55-2.05z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="9" r="2.15" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+	el.innerHTML = '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M7.2 1.6h3.6l.55 2.05 1.85-.5 1.8 1.8-.5 1.85 2.05.55v3.6l-2.05.55.5 1.85-1.8 1.8-1.85-.5-.55 2.05H7.2l-.55-2.05-1.85.5-1.8-1.8.5-1.85L1.6 10.8V7.2l2.05-.55-.5-1.85 1.8-1.8 1.85.5.55-2.05z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="9" r="2.15" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 	el.addEventListener('click', () => go('settings'));
 	return el;
 }
@@ -698,6 +702,7 @@ function go(tab, prompt) {
 		state.stockSymbol = tab === 'stocks' ? state.stockSymbol : null;
 		state.stockScrub = null;
 	}
+	if (changingPage) state.speedMenu = false;
 	if (changingPage && (tab === 'pods' || tab === 'show')) {
 		refreshPodcastFeeds({ rerender: true }).catch(() => {});
 	}
@@ -744,6 +749,7 @@ function podcastMark() {
 	btn.type = 'button';
 	btn.className = 'home-mark podcast-mark';
 	btn.title = mark === 'PAUSE' ? 'pause' : mark === 'PLAY' ? 'play' : 'podcasts';
+	btn.setAttribute('aria-label', btn.title);
 	btn.innerHTML = podcastMarkSvg(mark);
 	btn.addEventListener('click', () => {
 		if (mark === 'HEADPHONES') go('pods');
@@ -771,6 +777,7 @@ function weatherMark() {
 	temp.textContent = homeTemperature(snap.temperatureC, units);
 	btn.append(icon, temp);
 	btn.title = `${homeTemperature(snap.temperatureC, units)} ${weatherLabel(snap.code)}`;
+	btn.setAttribute('aria-label', btn.title);
 	btn.addEventListener('click', () => go('weather'));
 	return btn;
 }
@@ -1464,18 +1471,15 @@ function episodeScreen() {
 		pos.textContent = formatPosition(posMs, durMs);
 		const speedWrap = document.createElement('div');
 		speedWrap.className = 'speed-wrap';
-		speedWrap.append(button(formatSpeed(state.speed), () => {
+		const speedTrigger = button(formatSpeed(state.speed), () => {
 			state.speedMenu = !state.speedMenu;
 			render();
-		}, 'ghost'));
-		if (state.speedMenu) {
-			const menu = document.createElement('div');
-			menu.className = 'speed-menu';
-			for (const step of SPEED_STEPS) {
-				menu.append(button(formatSpeed(step), () => setSpeed(step), step === state.speed ? 'primary' : 'ghost'));
-			}
-			speedWrap.append(menu);
-		}
+		}, 'ghost speed-trigger');
+		speedTrigger.setAttribute('aria-label', `playback speed ${formatSpeed(state.speed)}`);
+		speedTrigger.setAttribute('aria-haspopup', 'listbox');
+		speedTrigger.setAttribute('aria-expanded', state.speedMenu ? 'true' : 'false');
+		speedTrigger.setAttribute('aria-controls', 'speed-menu');
+		speedWrap.append(speedTrigger);
 		posRow.append(pos, speedWrap);
 		const scrub = document.createElement('div');
 		scrub.className = 'scrub';
@@ -1493,7 +1497,7 @@ function episodeScreen() {
 		controls.className = 'player-controls';
 		controls.append(
 			button('−15', () => skipBy(-15_000), 'ghost'),
-			button(audio.paused ? 'play' : 'pause', () => togglePlay(episode), 'primary'),
+			playPauseButton(audio.paused, () => togglePlay(episode)),
 			button('+15', () => skipBy(15_000), 'ghost'),
 		);
 		wrap.append(posRow, scrub, controls);
@@ -2420,9 +2424,7 @@ function nowPlayingBar() {
 	play.type = 'button';
 	play.className = 'ghost play';
 	play.setAttribute('aria-label', audio.paused ? 'play' : 'pause');
-	play.innerHTML = audio.paused
-		? '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M5 3.5l11 5.5L5 14.5z" fill="currentColor"/></svg>'
-		: '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path d="M5 3.5h3v11H5zM10 3.5h3v11h-3z" fill="currentColor"/></svg>';
+	play.innerHTML = playPauseSvg(!audio.paused);
 	play.addEventListener('click', () => togglePlay(episode));
 	wrap.append(copy, play);
 	return wrap;
@@ -2804,6 +2806,114 @@ function loadSpeed() {
 		return 1;
 	}
 }
+
+function playPauseButton(paused, onClick) {
+	const el = document.createElement('button');
+	el.type = 'button';
+	el.className = 'play-toggle';
+	el.setAttribute('aria-label', paused ? 'play' : 'pause');
+	el.innerHTML = playPauseSvg(!paused);
+	el.addEventListener('click', onClick);
+	return el;
+}
+
+function clearSpeedMenu() {
+	document.querySelectorAll('.speed-menu').forEach((el) => el.remove());
+}
+
+function mountSpeedMenu() {
+	clearSpeedMenu();
+	if (!state.speedMenu) return;
+	const anchor = document.querySelector('.speed-trigger');
+	if (!anchor) {
+		state.speedMenu = false;
+		return;
+	}
+	const menu = document.createElement('div');
+	menu.id = 'speed-menu';
+	menu.className = 'speed-menu';
+	menu.setAttribute('role', 'listbox');
+	menu.setAttribute('aria-label', 'playback speed');
+	for (const step of SPEED_STEPS) {
+		const selected = step === state.speed;
+		const item = button(formatSpeed(step), () => setSpeed(step), selected ? 'primary' : 'ghost');
+		item.setAttribute('role', 'option');
+		item.setAttribute('aria-selected', selected ? 'true' : 'false');
+		menu.append(item);
+	}
+	document.body.append(menu);
+	placeSpeedMenu(menu, anchor, { focus: true });
+}
+
+function placeSpeedMenu(menu, anchor, opts = {}) {
+	if (!menu || !anchor) return;
+	const rect = anchor.getBoundingClientRect();
+	const vv = window.visualViewport;
+	const vh = vv ? vv.height : window.innerHeight;
+	const vw = vv ? vv.width : window.innerWidth;
+	const originTop = vv ? vv.offsetTop : 0;
+	const originLeft = vv ? vv.offsetLeft : 0;
+	const margin = 8;
+	const dock = document.querySelector('.command-dock');
+	const dockTop = dock ? dock.getBoundingClientRect().top : originTop + vh;
+	const spaceAbove = Math.max(0, rect.top - originTop - margin);
+	const spaceBelow = Math.max(0, Math.min(dockTop, originTop + vh) - rect.bottom - margin);
+	const openDown = spaceBelow >= spaceAbove;
+	const available = Math.max(44, Math.floor(openDown ? spaceBelow : spaceAbove));
+	menu.style.maxHeight = `${available}px`;
+	menu.style.minWidth = `${Math.max(88, Math.ceil(rect.width))}px`;
+	menu.style.right = `${Math.round(Math.max(margin, originLeft + vw - rect.right))}px`;
+	menu.style.left = 'auto';
+	if (openDown) {
+		menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+		menu.style.bottom = 'auto';
+	} else {
+		menu.style.top = 'auto';
+		menu.style.bottom = `${Math.round(originTop + vh - rect.top + 4)}px`;
+	}
+	const selected = menu.querySelector('[aria-selected="true"]');
+	if (selected) {
+		const top = selected.offsetTop - (menu.clientHeight - selected.offsetHeight) / 2;
+		menu.scrollTop = Math.max(0, top);
+		if (opts.focus) selected.focus({ preventScroll: true });
+	}
+}
+
+function onSpeedMenuKey(event) {
+	if (!state.speedMenu) return;
+	const menu = document.querySelector('.speed-menu');
+	if (!menu) return;
+	if (event.key === 'Escape') {
+		event.preventDefault();
+		state.speedMenu = false;
+		render();
+		document.querySelector('.speed-trigger')?.focus({ preventScroll: true });
+		return;
+	}
+	if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
+	const items = [...menu.querySelectorAll('[role="option"]')];
+	if (!items.length) return;
+	event.preventDefault();
+	const index = items.indexOf(document.activeElement);
+	let next = 0;
+	if (event.key === 'ArrowDown') next = index < 0 ? 0 : Math.min(items.length - 1, index + 1);
+	else if (event.key === 'ArrowUp') next = index < 0 ? items.length - 1 : Math.max(0, index - 1);
+	else if (event.key === 'End') next = items.length - 1;
+	items[next].focus({ preventScroll: true });
+	const top = items[next].offsetTop - (menu.clientHeight - items[next].offsetHeight) / 2;
+	menu.scrollTop = Math.max(0, top);
+}
+
+function onSpeedMenuPointer(event) {
+	if (!state.speedMenu) return;
+	const target = event.target;
+	if (target?.closest?.('.speed-menu') || target?.closest?.('.speed-trigger')) return;
+	state.speedMenu = false;
+	render();
+}
+
+document.addEventListener('keydown', onSpeedMenuKey);
+document.addEventListener('pointerdown', onSpeedMenuPointer);
 
 function setSpeed(speed) {
 	state.speed = snapOr(speed);
