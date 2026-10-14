@@ -296,11 +296,12 @@ test('rss itunes and opml parse', () => {
 test('prefix typeMode and slash match the phone', () => {
 	assert.deepEqual(typeMode('>', '-milk'), { prompt: '-', input: 'milk' });
 	assert.deepEqual(typeMode('-', 'milk'), { prompt: '-', input: 'milk' });
-	assert.equal(pagePrompt('home'), '>');
+	assert.equal(pagePrompt('home'), '-');
 	assert.equal(pagePrompt('tasks'), '-');
-	assert.equal(pagePrompt('settings'), '>');
-	assert.equal(pagePrompt('help'), '>');
-	assert.equal(pagePrompt('weather'), '>');
+	assert.equal(pagePrompt('settings'), '-');
+	assert.equal(pagePrompt('help'), '-');
+	assert.equal(pagePrompt('weather'), '-');
+	assert.equal(pagePrompt('pods'), '>');
 	assert.equal(pagePrompt('chat'), '?');
 	assert.equal(pagePrompt('chats'), '?');
 	assert.equal(slashResolve('set').name, 'settings');
@@ -852,7 +853,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v30/);
+	assert.match(sw, /builder-launcher-web-v31/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {

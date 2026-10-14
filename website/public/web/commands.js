@@ -1,4 +1,4 @@
-export const DEFAULT_PROMPT = '>';
+export const DEFAULT_PROMPT = '-';
 
 export const PREFIXES = [
 	{ glyph: '@', label: 'text', web: false },
