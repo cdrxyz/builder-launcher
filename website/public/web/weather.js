@@ -447,13 +447,17 @@ export function weatherGlyphSvg(kind, isDay = true) {
 	return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16.2h12.4a3.2 3.2 0 0 0 .2-6.4 4.6 4.6 0 0 0-8.8 1.3A3.4 3.4 0 0 0 5 16.2z" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
 }
 
+// Android PlayIcon / PauseIcon on a 24 box: 18% inset triangle, two bars at 22% width.
+export function playPauseSvg(playing) {
+	if (playing) {
+		return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.8" y="3.84" width="5.28" height="16.32" fill="currentColor"/><rect x="13.92" y="3.84" width="5.28" height="16.32" fill="currentColor"/></svg>';
+	}
+	return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.32 4.32L19.68 12 4.32 19.68Z" fill="currentColor"/></svg>';
+}
+
 export function podcastMarkSvg(mark) {
 	const stroke = 'currentColor';
-	if (mark === 'PAUSE') {
-		return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.2" height="14" rx="0.6" fill="${stroke}"/><rect x="13.8" y="5" width="3.2" height="14" rx="0.6" fill="${stroke}"/></svg>`;
-	}
-	if (mark === 'PLAY') {
-		return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="${stroke}"/></svg>`;
-	}
+	if (mark === 'PAUSE') return playPauseSvg(true);
+	if (mark === 'PLAY') return playPauseSvg(false);
 	return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 13.2V12a5.5 5.5 0 0 1 11 0v1.2" fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round"/><rect x="4.6" y="12.4" width="4.2" height="7" rx="1.2" fill="none" stroke="${stroke}" stroke-width="1.7"/><rect x="15.2" y="12.4" width="4.2" height="7" rx="1.2" fill="none" stroke="${stroke}" stroke-width="1.7"/></svg>`;
 }

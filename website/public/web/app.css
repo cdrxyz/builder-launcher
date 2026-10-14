@@ -6,6 +6,10 @@
 	--line: #2a2a2a;
 	--accent: #b7c9a8;
 	--danger: #c47c7c;
+	--chrome-icon: 1.5rem;
+	--chrome-hit: 2.75rem;
+	--chrome-bar: 3.5rem;
+	--chrome-inset: 1rem;
 	--font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
 		monospace;
 }
@@ -45,24 +49,52 @@ body {
 }
 
 header.app-bar {
-	display: flex;
+	display: grid;
+	grid-template-columns: var(--chrome-hit) minmax(0, 1fr) var(--chrome-hit);
 	align-items: center;
-	gap: 0.5rem;
-	padding: 0.85rem 1rem;
+	height: var(--chrome-bar);
+	min-height: var(--chrome-bar);
+	padding: 0 var(--chrome-inset);
+	gap: 0.25rem;
+	flex: none;
+}
+
+header.app-bar.wide-end {
+	grid-template-columns: var(--chrome-hit) minmax(0, 1fr) auto;
 }
 
 header.app-bar h1,
 .screen-title {
-	flex: 1;
 	margin: 0;
+	min-width: 0;
 	font-size: 1rem;
 	font-weight: 500;
 	text-align: center;
 	letter-spacing: 0.02em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
-.app-bar-slot,
-.ghost.gear,
+header.app-bar > .ghost,
+header.app-bar > .app-bar-slot,
+header.app-bar > .ghost.gear {
+	width: var(--chrome-hit);
+	height: var(--chrome-bar);
+	min-width: 0;
+	min-height: 0;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+header.app-bar.wide-end > :last-child {
+	width: auto;
+	min-width: var(--chrome-hit);
+	padding: 0 0.15rem;
+}
+
 .row-icon {
 	min-width: 2.4rem;
 	min-height: 2.2rem;
@@ -71,9 +103,16 @@ header.app-bar h1,
 	justify-content: center;
 }
 
+.row-icon svg {
+	display: block;
+}
+
 .ghost.gear svg,
-.row-icon svg,
-.now-playing .play svg {
+.now-playing .play svg,
+.play-toggle svg,
+.podcast-mark svg {
+	width: var(--chrome-icon);
+	height: var(--chrome-icon);
 	display: block;
 }
 
@@ -112,20 +151,21 @@ main {
 	flex: 1;
 	min-height: 0;
 	overflow: auto;
-	padding: 0.5rem 1.1rem 1rem;
+	padding: 0.5rem var(--chrome-inset) 1rem;
 	display: flex;
 	flex-direction: column;
 }
 
 main.home-main {
-	padding-top: 0.25rem;
+	/* Icon top matches the centered gear in the app bar. */
+	padding-top: calc((var(--chrome-bar) - var(--chrome-icon)) / 2);
 }
 
 .status {
 	color: var(--muted);
 	font-size: 0.8rem;
 	min-height: 1.1em;
-	margin: 0 1.1rem;
+	margin: 0 var(--chrome-inset);
 }
 
 .clock-status {
@@ -179,10 +219,15 @@ main.home-main {
 
 .home-side .ghost.gear {
 	color: var(--fg);
-	padding: 0.2rem 0.35rem;
-	min-width: 2.4rem;
-	min-height: 2.4rem;
+	display: inline-flex;
+	align-items: center;
+	width: var(--chrome-hit);
+	height: var(--chrome-icon);
+	min-width: var(--chrome-hit);
+	min-height: var(--chrome-icon);
+	padding: 0;
 	align-self: flex-start;
+	justify-content: center;
 }
 
 .home-mark {
@@ -190,14 +235,14 @@ main.home-main {
 	border: 0;
 	color: inherit;
 	font: inherit;
-	padding: 0.2rem 0.35rem;
-	min-width: 2.6rem;
-	min-height: 2.8rem;
+	padding: 0 0.35rem 0.45rem;
+	min-width: 0;
+	min-height: 0;
 	cursor: pointer;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-start;
 	gap: 0.1rem;
 }
 
@@ -206,8 +251,8 @@ main.home-main {
 }
 
 .weather-glyph {
-	width: 1.5rem;
-	height: 1.5rem;
+	width: var(--chrome-icon);
+	height: var(--chrome-icon);
 	color: var(--muted);
 	display: block;
 }
@@ -219,15 +264,10 @@ main.home-main {
 
 .podcast-mark {
 	color: var(--fg);
-	min-width: 2.4rem;
-	min-height: 2.4rem;
-	padding: 0.2rem 0.35rem;
-}
-
-.podcast-mark svg {
-	width: 18px;
-	height: 18px;
-	display: block;
+	min-width: var(--chrome-hit);
+	min-height: var(--chrome-icon);
+	padding: 0 0.35rem 0.45rem 0;
+	justify-content: flex-start;
 }
 
 .weather-glyph svg {
@@ -809,15 +849,51 @@ details.s3-secondary summary {
 }
 
 .speed-menu {
-	position: absolute;
-	right: 0;
-	bottom: 2.2rem;
+	position: fixed;
+	z-index: 40;
 	background: #161616;
 	border: 1px solid var(--line);
-	padding: 0.35rem;
-	display: grid;
-	gap: 0.2rem;
-	z-index: 2;
+	padding: 0.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	max-height: min(70dvh, 22rem);
+}
+
+.speed-menu button {
+	min-height: 2.75rem;
+	padding: 0.35rem 0.85rem;
+	text-align: right;
+	border: 0;
+	color: var(--fg);
+}
+
+.speed-menu button.primary,
+.speed-menu button[aria-selected='true'] {
+	color: var(--accent);
+	border: 0;
+	padding: 0.35rem 0.85rem;
+}
+
+.speed-menu button:focus-visible,
+.play-toggle:focus-visible,
+.speed-trigger:focus-visible {
+	outline: 1px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.play-toggle,
+.now-playing .play {
+	color: var(--accent);
+	min-width: var(--chrome-hit);
+	min-height: var(--chrome-hit);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
 }
 
 .player-controls {

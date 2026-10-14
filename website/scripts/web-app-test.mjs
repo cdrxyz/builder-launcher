@@ -852,7 +852,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v29/);
+	assert.match(sw, /builder-launcher-web-v30/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {
@@ -898,7 +898,13 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(js, /cluster\.append\(analogClock\(\), statusLine\('clock-status'\)\)/);
 	assert.match(js, /right\.append\(gearButton\(\)\)/);
 	assert.match(css, /\.clock-status \{/);
-	assert.match(css, /\.podcast-mark svg \{[^}]*width:\s*18px/s);
+	assert.match(css, /\.podcast-mark svg[\s\S]{0,80}width:\s*var\(--chrome-icon\)/);
+	assert.match(css, /--chrome-icon:\s*1\.5rem/);
+	assert.match(css, /--chrome-bar:\s*3\.5rem/);
+	assert.match(css, /header\.app-bar \{[^}]*height:\s*var\(--chrome-bar\)/s);
+	assert.match(css, /main\.home-main \{[^}]*padding-top:\s*calc\(\(var\(--chrome-bar\) - var\(--chrome-icon\)\) \/ 2\)/s);
+	assert.match(css, /\.speed-menu \{[^}]*position:\s*fixed/s);
+	assert.match(css, /\.speed-menu \{[^}]*overflow-y:\s*auto/s);
 	assert.match(css, /main\.home-main \{/);
 	assert.match(js, /innerHTML = '<svg[^>]*><path d="M7\.2 1\.6/);
 });
@@ -1070,4 +1076,20 @@ test('reopening a task stamps updatedAt so sync keeps it open', async () => {
 	assert.equal(marked.updatedAt, 5000);
 	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
 	assert.match(js, /toggledTodo\(entry, now\)/);
+});
+
+test('episode player uses a scrollable speed list and Android play/pause marks', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const weather = await readFile(new URL('../public/web/weather.js', import.meta.url), 'utf8');
+	assert.match(js, /function mountSpeedMenu\(/);
+	assert.match(js, /function placeSpeedMenu\(/);
+	assert.match(js, /role', 'listbox'/);
+	assert.match(js, /aria-label', `playback speed/);
+	assert.match(js, /playPauseButton\(audio\.paused/);
+	assert.doesNotMatch(js, /button\(audio\.paused \? 'play' : 'pause'/);
+	assert.match(weather, /export function playPauseSvg\(/);
+	assert.match(weather, /M4\.32 4\.32L19\.68 12 4\.32 19\.68Z/);
+	assert.match(weather, /x="4\.8" y="3\.84" width="5\.28" height="16\.32"/);
+	assert.match(weather, /mark === 'PLAY'\) return playPauseSvg\(false\)/);
+	assert.match(weather, /mark === 'PAUSE'\) return playPauseSvg\(true\)/);
 });
