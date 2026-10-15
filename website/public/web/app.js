@@ -835,7 +835,6 @@ function helpScreen() {
 	wrap.className = 'help';
 	const pre = document.createElement('pre');
 	pre.textContent = [
-		'>  type, then Enter',
 		'-  todo',
 		'+  note',
 		'$  stock',
@@ -843,7 +842,8 @@ function helpScreen() {
 		'/  slash (notes stocks podcasts weather settings tasks pull push)',
 		'',
 		'Tap the prompt glyph for the prefix menu.',
-		'Back on home resets to >.',
+		'Back on home resets to -.',
+		'On podcasts, > searches shows.',
 	].join('\n');
 	wrap.append(pre);
 	return wrap;
@@ -1032,7 +1032,7 @@ function submitCommand() {
 		state.draft = '';
 		return;
 	}
-	setStatus('Unknown command. Tap > or type /help.');
+	setStatus('Unknown command. Type /help.');
 }
 
 function runSlash(name) {
