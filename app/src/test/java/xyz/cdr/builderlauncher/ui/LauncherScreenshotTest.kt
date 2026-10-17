@@ -1,5 +1,11 @@
 package xyz.cdr.builderlauncher.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalDensity
@@ -16,11 +22,15 @@ import xyz.cdr.builderlauncher.podcasts.HomePodcastMark
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.podcasts.Podcasts
+import xyz.cdr.builderlauncher.read.ReadArticle
+import xyz.cdr.builderlauncher.read.ReadProgress
+import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.stocks.StockCagr
 import xyz.cdr.builderlauncher.stocks.StockPoint
 import xyz.cdr.builderlauncher.stocks.StockQuote
 import xyz.cdr.builderlauncher.stocks.Stocks
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
+import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.usage.PinUsageMark
 import xyz.cdr.builderlauncher.data.UiTheme
@@ -498,6 +508,70 @@ class LauncherScreenshotTest {
                     todos = listOf("buy milk", "ship builder-launcher CI"),
                     apps = listOf("… all podcasts >"),
                 )
+            }
+        }
+    }
+
+    @Test
+    fun readList() {
+        val body = (1..800).joinToString(" ") { "word" }
+        paparazzi.snapshot {
+            BuilderTheme {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Ink)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                ReadListChrome(
+                    articles = listOf(
+                        ReadArticle(
+                            id = "1",
+                            url = "https://www.theatlantic.com/story",
+                            title = "The Real Title",
+                            publication = "The Atlantic",
+                            text = body,
+                            addedAt = 2,
+                        ),
+                        ReadArticle(
+                            id = "2",
+                            url = "https://www.nytimes.com/story",
+                            title = "A dispatch from the city desk",
+                            publication = "nytimes.com",
+                            text = body,
+                            addedAt = 1,
+                        ),
+                    ),
+                    progress = mapOf("1" to ReadProgress("1", 90_000L, 1)),
+                )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun readPlayer() {
+        val text = "First sentence of the article. Second sentence follows with the rest of the piece."
+        paparazzi.snapshot {
+            BuilderTheme {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Ink)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                ReadPlayerChrome(
+                    publication = "The Atlantic",
+                    title = "The Real Title",
+                    position = Reads.positionLabel(90_000L, 5 * 60 * 1000L),
+                    playing = true,
+                    progress = 0.3f,
+                    text = text,
+                    highlightStart = 0,
+                    highlightEnd = text.indexOf('.'),
+                    speed = { ReadSpeedLabel(1.4f) },
+                )
+                }
             }
         }
     }

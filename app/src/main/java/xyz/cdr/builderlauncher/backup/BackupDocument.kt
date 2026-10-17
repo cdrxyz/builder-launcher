@@ -20,6 +20,7 @@ import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.read.ReadBackup
 import xyz.cdr.builderlauncher.stocks.WatchItem
 
 @Serializable
@@ -33,6 +34,7 @@ data class BackupDocument(
     val pinChanges: List<PinChange> = emptyList(),
     val watchlist: List<WatchItem> = emptyList(),
     val podcasts: PodcastBackup = PodcastBackup(),
+    val reads: ReadBackup = ReadBackup(),
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
@@ -47,6 +49,7 @@ data class BackupDocument(
             cacheBytes = 0L,
             progress = podcasts.progress.filter { it.lastPlayedAt > 0L || it.savedAt > 0L || it.skipped },
         ),
+        reads = reads,
     )
 }
 

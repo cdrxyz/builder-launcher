@@ -1,4 +1,4 @@
-const CACHE = 'builder-launcher-web-v31';
+const CACHE = 'builder-launcher-web-v32';
 const SHELL = [
 	'./',
 	'./index.html',
@@ -11,6 +11,7 @@ const SHELL = [
 	'./ai.js',
 	'./media.js',
 	'./commands.js',
+	'./reads.js',
 	'./account.js',
 	'./merge.js',
 	'./weather.js',

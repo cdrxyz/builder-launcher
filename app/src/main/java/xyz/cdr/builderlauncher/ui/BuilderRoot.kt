@@ -2,6 +2,7 @@
 
 package xyz.cdr.builderlauncher.ui
 
+import android.content.Intent
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
@@ -202,6 +203,9 @@ import xyz.cdr.builderlauncher.podcasts.PodcastOpml
 import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.read.ReadSpeaker
+import xyz.cdr.builderlauncher.read.Reads
+import xyz.cdr.builderlauncher.read.ReadsRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
@@ -243,6 +247,8 @@ fun BuilderRoot(
     weather: WeatherRepository,
     stocks: StocksRepository,
     podcasts: PodcastsRepository,
+    reads: ReadsRepository,
+    speaker: ReadSpeaker,
     calendar: CalendarRepository,
     clock: ClockStore,
     backup: BackupService,
@@ -267,6 +273,10 @@ fun BuilderRoot(
     val podcastCache by podcasts.cacheBytes.collectAsState()
     val podcastSpeed by podcasts.playbackSpeed.collectAsState()
     val podcastSkipSilence by podcasts.skipSilence.collectAsState()
+    val readArticles by reads.articles.collectAsState()
+    val readProgress by reads.progress.collectAsState()
+    val readSpeed by reads.speed.collectAsState()
+    val readPlayback by speaker.state.collectAsState()
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()
     val homePressCount by homePresses.collectAsState()
@@ -314,6 +324,8 @@ fun BuilderRoot(
     var podcastBusy by remember { mutableStateOf(false) }
     var podcastShowUrl by remember { mutableStateOf<String?>(null) }
     var podcastEpisodeId by remember { mutableStateOf<String?>(null) }
+    var readArticleId by remember { mutableStateOf<String?>(null) }
+    var readBusy by remember { mutableStateOf(false) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
@@ -467,6 +479,10 @@ fun BuilderRoot(
         PodcastPlayer.attach(ctx)
         PodcastPlayer.setSpeed(podcasts.playbackSpeed.value)
         PodcastPlayer.setSkipSilence(podcasts.skipSilence.value)
+        speaker.onCheckpoint = { id, pos -> reads.saveProgress(id, pos) }
+    }
+    LaunchedEffect(page) {
+        if (page != Page.Read && page != Page.ReadPlayer) speaker.pause()
     }
     BuilderLoops(
         lifecycleOwner = lifecycleOwner,
@@ -675,7 +691,67 @@ fun BuilderRoot(
         page = Page.PodcastEpisode
     }
 
+    fun openReadList() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Read
+    }
+
+    fun openReadArticle(id: String) {
+        readArticleId = id
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.ReadPlayer
+    }
+
+    fun submitRead(line: String) {
+        val text = line.trim()
+        if (text.isEmpty()) {
+            input = ""
+            return
+        }
+        val index = Reads.indexFromInput(text, readArticles.size)
+        if (index != null) {
+            openReadArticle(readArticles[index].id)
+            return
+        }
+        if (Reads.normalizeUrl(text) == null) {
+            Toast.makeText(ctx, Reads.NOT_A_URL, Toast.LENGTH_SHORT).show()
+            return
+        }
+        input = ""
+        scope.launch {
+            readBusy = true
+            val article = runCatching { reads.fetch(text) }.getOrNull()
+            readBusy = false
+            if (article == null) {
+                Toast.makeText(ctx, Reads.FAILED, Toast.LENGTH_SHORT).show()
+            } else {
+                reads.remember(article)
+                if (page == Page.ReadPlayer) openReadArticle(article.id)
+            }
+        }
+    }
+
+    fun openArticleInBrowser(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            ctx.startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(ctx, "Cannot open browser", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun playEpisode(episode: PodcastEpisode) {
+        speaker.pause()
         podcasts.setSkipped(episode.id, false, episode.durationMs)
         val start = podcasts.progress.value[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
@@ -1158,6 +1234,12 @@ fun BuilderRoot(
             addTicker(q)
             return
         }
+        if (PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) &&
+            (page == Page.Read || page == Page.ReadPlayer)
+        ) {
+            submitRead(line)
+            return
+        }
         if (PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && page == Page.Podcasts) {
             val q = line.trim()
             if (q.isEmpty()) {
@@ -1244,6 +1326,7 @@ fun BuilderRoot(
             ExecResult.NavigateApps -> openAppsList(keepQuery = false)
             ExecResult.NavigateStocks -> openStocksList()
             ExecResult.NavigatePodcasts -> openPodcastsList()
+            ExecResult.NavigateRead -> openReadList()
             ExecResult.NavigateClock -> openClock()
             ExecResult.NavigateWeather -> openWeather()
             ExecResult.NavigateUsage -> openUsage()
@@ -3319,6 +3402,33 @@ fun BuilderRoot(
                     )
                 }
             }
+            Page.Read, Page.ReadPlayer -> ReadHost(
+                player = page == Page.ReadPlayer,
+                articles = readArticles,
+                progress = readProgress,
+                busy = readBusy,
+                articleId = readArticleId,
+                playback = readPlayback,
+                speed = readSpeed,
+                prompt = prompt,
+                input = input,
+                hardware = hardware,
+                reads = reads,
+                speaker = speaker,
+                onEvent = { event ->
+                    when (event) {
+                        ReadEvent.Home -> page = Page.Home
+                        ReadEvent.List -> page = Page.Read
+                        is ReadEvent.Open -> openReadArticle(event.id)
+                        is ReadEvent.Value -> applyMode(PrefixCommands.type(mode(), event.text))
+                        is ReadEvent.Pick -> applyMode(PrefixCommands.pick(mode(), event.glyph))
+                        ReadEvent.Clear -> applyMode(PrefixCommands.clearMode(mode()))
+                        ReadEvent.Submit -> runCommand()
+                        is ReadEvent.Slash -> pickSlash(event.cmd)
+                        is ReadEvent.Browser -> openArticleInBrowser(event.url)
+                    }
+                },
+            )
                 else -> Unit
             }
             }

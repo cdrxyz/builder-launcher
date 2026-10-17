@@ -9,6 +9,7 @@ import xyz.cdr.builderlauncher.data.PinChange
 import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.stocks.WatchItem
 
 object BackupMerge {
@@ -39,6 +40,7 @@ object BackupMerge {
             pinChanges = pinChanges,
             watchlist = mergeWatch(a.watchlist, b.watchlist, preferA),
             podcasts = mergePods(a.podcasts, b.podcasts),
+            reads = Reads.mergeBackup(a.reads, b.reads),
             alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
             zones = mergeZones(a.zones, b.zones),
             settings = newer.settings,

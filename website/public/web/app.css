@@ -638,6 +638,30 @@ label span {
 	color: var(--danger);
 }
 
+.read-title {
+	font-size: 1.7rem;
+	font-weight: 600;
+	line-height: 1.2;
+	margin: 0.2rem 0 0.8rem;
+	overflow-wrap: break-word;
+}
+
+.read-index {
+	color: var(--accent);
+	width: 1.4rem;
+	flex: none;
+}
+
+.read-text {
+	white-space: pre-wrap;
+	line-height: 1.5;
+	margin-top: 0.6rem;
+}
+
+.read-current {
+	color: var(--accent);
+}
+
 .player h2 {
 	font-size: 1rem;
 	font-weight: 600;
