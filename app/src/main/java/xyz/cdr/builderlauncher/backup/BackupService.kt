@@ -20,6 +20,7 @@ import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
+import xyz.cdr.builderlauncher.read.ReadsRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import java.io.File
 import java.text.SimpleDateFormat
@@ -35,6 +36,7 @@ class BackupService(
     private val pins: PinnedApps,
     private val stocks: StocksRepository,
     private val podcasts: PodcastsRepository,
+    private val reads: ReadsRepository,
     private val clock: ClockStore,
     private val s3: S3Client = S3Client(),
     private val account: AccountClient = AccountClient(),
@@ -62,6 +64,7 @@ class BackupService(
             pinChanges = pins.changes.value,
             watchlist = stocks.watch.value,
             podcasts = podcasts.exportBackup(),
+            reads = reads.exportBackup(),
             alarms = snap.alarms.filterNot { it.id in snap.deletedAlarmIds.toSet() },
             zones = snap.zones,
             settings = BackupSettings.from(current, includeApiKey = current.backupIncludeAiCredentials),
@@ -146,6 +149,7 @@ class BackupService(
             pins.replaceAll(doc.pins, doc.pinChanges)
             stocks.replaceAll(doc.watchlist)
             podcasts.importBackup(doc.podcasts)
+            reads.importBackup(doc.reads)
             val drop = doc.deletedAlarmIds.toSet()
             clock.replaceFromBackup(
                 Clock.keepLocalTimers(
@@ -173,6 +177,8 @@ class BackupService(
         stocks.watch.map { },
         podcasts.shows.map { },
         podcasts.progress.map { },
+        reads.articles.map { },
+        reads.progress.map { },
         clock.state.map { it.alarms to it.zones }.distinctUntilChanged().map { },
         settings.settings.map { },
     ).drop(1)
@@ -328,7 +334,7 @@ class BackupService(
 
     companion object {
         const val OVERWRITE_WARNING =
-            "This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?"
+            "This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, articles, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?"
 
         fun lastBackupLabel(epochMs: Long): String {
             if (epochMs <= 0L) return "never"
@@ -349,6 +355,7 @@ class BackupService(
             if (doc.pins.isNotEmpty()) parts += "${doc.pins.size} pins"
             if (doc.watchlist.isNotEmpty()) parts += "${doc.watchlist.size} tickers"
             if (doc.podcasts.shows.isNotEmpty()) parts += "${doc.podcasts.shows.size} podcasts"
+            if (doc.reads.articles.isNotEmpty()) parts += "${doc.reads.articles.size} articles"
             if (doc.alarms.isNotEmpty()) parts += "${doc.alarms.size} alarms"
             if (parts.isEmpty()) return "settings"
             return parts.joinToString(", ")

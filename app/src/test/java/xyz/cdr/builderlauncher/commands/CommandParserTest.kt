@@ -93,6 +93,8 @@ class CommandParserTest {
         assertEquals(Command.OpenPodcasts, CommandParser.parse("podcasts"))
         assertEquals(Command.OpenPodcasts, CommandParser.parse("/podcasts"))
         assertEquals(Command.OpenPodcasts, CommandParser.parse("podcast"))
+        assertEquals(Command.OpenRead, CommandParser.parse("read"))
+        assertEquals(Command.OpenRead, CommandParser.parse("/read"))
         assertEquals(Command.OpenClock, CommandParser.parse("clock"))
         assertEquals(Command.OpenClock, CommandParser.parse("/clock"))
         assertEquals(Command.OpenWeather, CommandParser.parse("weather"))

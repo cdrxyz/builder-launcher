@@ -15,6 +15,7 @@ import {
 	USER_AGENT,
 } from './safe';
 import { fyydToItunes } from './podcasts';
+import { extractArticle, normalizeUrl as articleUrl, publicUrl } from '../../website/public/web/reads.js';
 import { handleAi } from './ai';
 import { handleVault } from './vault';
 
@@ -80,6 +81,9 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 		}
 		if (url.pathname === '/api/feed' && request.method === 'GET') {
 			return fetchFeed(url.searchParams.get('url') || '');
+		}
+		if (url.pathname === '/api/read' && request.method === 'GET') {
+			return fetchArticle(url.searchParams.get('url') || '');
 		}
 		if (url.pathname === '/api/weather/search' && request.method === 'GET') {
 			return weatherSearch(url.searchParams.get('q') || '');
@@ -243,6 +247,45 @@ async function proxyJson(target: string, expectedHost: string): Promise<Response
 		status: res.ok ? 200 : res.status,
 		headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
 	});
+}
+
+async function fetchArticle(raw: string): Promise<Response> {
+	const start = publicUrl(raw);
+	if (!start) return jsonError('Article URL must be http or https on a public host');
+	let current = articleUrl(raw) || start.toString();
+	try {
+		for (let hop = 0; hop < 5; hop++) {
+			const res = await fetch(current, {
+				headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml' },
+				redirect: 'manual',
+				signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+			});
+			if (res.status >= 300 && res.status < 400) {
+				const loc = res.headers.get('location');
+				if (!loc) return jsonError('Article redirect had no location', 502);
+				const next = new URL(loc, current).toString();
+				const safe = articleUrl(next);
+				if (!safe) return jsonError('Article redirect left the public web');
+				current = safe;
+				continue;
+			}
+			if (!res.ok) return jsonError(`Article HTTP ${res.status}`, 502);
+			const type = res.headers.get('content-type') || '';
+			if (/pdf|image\//i.test(type)) return jsonError('That link is not an article');
+			const buf = await res.arrayBuffer();
+			if (buf.byteLength > 1_500_000) return jsonError('Article too large', 413);
+			const html = new TextDecoder().decode(buf);
+			const article = extractArticle(html, current);
+			if (!article) return jsonError('Could not read that page', 422);
+			return Response.json(
+				{ url: current, title: article.title, publication: article.publication, text: article.text },
+				{ headers: { 'cache-control': 'no-store' } },
+			);
+		}
+		return jsonError('Too many redirects', 502);
+	} catch {
+		return jsonError('Article timed out', 504);
+	}
 }
 
 async function fetchFeed(raw: string): Promise<Response> {

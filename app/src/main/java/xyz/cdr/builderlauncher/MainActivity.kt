@@ -39,6 +39,8 @@ import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
+import xyz.cdr.builderlauncher.read.ReadSpeaker
+import xyz.cdr.builderlauncher.read.ReadsRepository
 
 class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private val homePresses = MutableStateFlow(0)
     private val nowPlayingRequests = MutableStateFlow(0)
     private var stopped = true
+    private var speaker: ReadSpeaker? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,9 +73,12 @@ class MainActivity : ComponentActivity() {
         val weather = WeatherRepository(this, settings)
         val stocks = StocksRepository(this)
         val podcasts = PodcastsRepository(this)
+        val reads = ReadsRepository(this)
+        val reader = ReadSpeaker(this)
+        speaker = reader
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
-        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, clock)
+        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, clock)
         ClockScheduler.reconcile(this, clock)
         applyAlertWindow()
         PodcastPlayer.attach(this)
@@ -93,6 +99,8 @@ class MainActivity : ComponentActivity() {
                     weather = weather,
                     stocks = stocks,
                     podcasts = podcasts,
+                    reads = reads,
+                    speaker = reader,
                     calendar = calendar,
                     clock = clock,
                     backup = backup,
@@ -109,6 +117,12 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         stopped = true
         PodcastPlayer.persist()
+        speaker?.pause()
+    }
+
+    override fun onDestroy() {
+        speaker?.shutdown()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

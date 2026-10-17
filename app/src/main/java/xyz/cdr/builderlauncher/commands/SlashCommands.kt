@@ -13,6 +13,7 @@ object SlashCommands {
         SlashCommand("hub", "hub", Command.OpenHub),
         SlashCommand("notes", "all notes", Command.OpenNotes),
         SlashCommand("podcasts", "all podcasts", Command.OpenPodcasts),
+        SlashCommand("read", "articles", Command.OpenRead),
         SlashCommand("settings", "settings", Command.OpenSettings),
         SlashCommand("stocks", "watchlist", Command.OpenStocks),
         SlashCommand("usage", "screen time", Command.OpenUsage),
