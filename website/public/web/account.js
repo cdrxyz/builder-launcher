@@ -1,5 +1,5 @@
 export const OVERWRITE_WARNING =
-	'This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?';
+	'This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, articles, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?';
 
 /** Vault and auth calls. Longer than RSS/Yahoo so a large snapshot can finish. */
 export const API_TIMEOUT_MS = 20_000;

@@ -1,4 +1,5 @@
 import { alignOpenOrder } from './items.js';
+import { mergeReads } from './reads.js';
 
 function stamp(item) {
 	if (!item || typeof item !== 'object') return 0;
@@ -189,6 +190,7 @@ function slimWatch(list) {
 export function slimDoc(doc) {
 	if (!doc || typeof doc !== 'object') return doc;
 	const pods = doc.podcasts || {};
+	const reads = doc.reads || {};
 	return {
 		...doc,
 		watchlist: slimWatch(doc.watchlist),
@@ -196,6 +198,11 @@ export function slimDoc(doc) {
 			shows: pods.shows || [],
 			episodes: [],
 			progress: (pods.progress || []).filter((row) => (row?.lastPlayedAt || 0) > 0 || (row?.savedAt || 0) > 0 || row?.skipped === true),
+		},
+		reads: {
+			articles: reads.articles || [],
+			progress: reads.progress || [],
+			deletedIds: reads.deletedIds || [],
 		},
 	};
 }
@@ -303,6 +310,7 @@ export function mergeDocs(a, b) {
 		pinChanges: pinMerge.pinChanges,
 		watchlist: mergeWatch(a.watchlist, b.watchlist, preferA),
 		podcasts: mergePods(a.podcasts, b.podcasts),
+		reads: mergeReads(a.reads, b.reads),
 		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
 		settings: newer.settings || older.settings,
@@ -318,5 +326,6 @@ export function emptyDoc(now = Date.now()) {
 		deletedIds: [],
 		watchlist: [],
 		podcasts: { shows: [], episodes: [], progress: [] },
+		reads: { articles: [], progress: [], deletedIds: [] },
 	};
 }

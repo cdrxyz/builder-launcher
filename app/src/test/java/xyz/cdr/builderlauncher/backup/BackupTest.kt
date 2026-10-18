@@ -19,6 +19,9 @@ import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastHomeRow
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.podcasts.Podcasts
+import xyz.cdr.builderlauncher.read.ReadArticle
+import xyz.cdr.builderlauncher.read.ReadBackup
+import xyz.cdr.builderlauncher.read.ReadProgress
 import xyz.cdr.builderlauncher.stocks.WatchItem
 import java.security.SecureRandom
 
@@ -280,6 +283,35 @@ class BackupDocumentTest {
         assertEquals("AAPL", slimDoc.watchlist.single().symbol)
         assertEquals(null, slimDoc.watchlist.single().price)
         assertEquals(0L, slimDoc.podcasts.cacheBytes)
+    }
+
+    @Test
+    fun accountSnapshotKeepsArticleTextAndPosition() {
+        val body = "The full article body that must survive sync. ".repeat(8)
+        val doc = BackupDocument(
+            exportedAt = 20,
+            reads = ReadBackup(
+                articles = listOf(
+                    ReadArticle(
+                        id = "r1",
+                        url = "https://example.com/a",
+                        title = "Title",
+                        publication = "Example",
+                        text = body,
+                        addedAt = 9,
+                    ),
+                ),
+                progress = listOf(ReadProgress("r1", 90_000, 12)),
+            ),
+        )
+        val slim = doc.slimForAccount()
+        assertEquals(body, slim.reads.articles.single().text)
+        assertEquals(90_000L, slim.reads.progress.single().positionMs)
+        val encoded = kotlinx.serialization.json.Json { encodeDefaults = false }
+            .encodeToString(BackupDocument.serializer(), slim)
+        assertTrue(encoded.contains("\"reads\""))
+        assertTrue(encoded.contains(body.take(24)))
+        assertTrue(encoded.contains("90000"))
     }
 
     @Test

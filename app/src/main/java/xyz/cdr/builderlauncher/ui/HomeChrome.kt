@@ -857,6 +857,7 @@ internal fun HelpBlock() {
         "\$ticker         add a stock",
         "stocks          all stocks",
         "podcasts        all podcasts",
+        "articles        saved articles",
         "?               ask AI",
         "/ai             open chat",
         "/               slash commands",

@@ -1,0 +1,261 @@
+package xyz.cdr.builderlauncher.read
+
+import kotlinx.serialization.Serializable
+import xyz.cdr.builderlauncher.podcasts.Podcasts
+import java.net.URI
+
+@Serializable
+data class ReadArticle(
+    val id: String,
+    val url: String,
+    val title: String,
+    val publication: String,
+    val text: String,
+    val addedAt: Long = 0L,
+)
+
+@Serializable
+data class ReadProgress(
+    val articleId: String,
+    val positionMs: Long = 0L,
+    val updatedAt: Long = 0L,
+)
+
+@Serializable
+data class ReadBackup(
+    val articles: List<ReadArticle> = emptyList(),
+    val progress: List<ReadProgress> = emptyList(),
+    val deletedIds: List<String> = emptyList(),
+)
+
+data class ReadChunk(val start: Int, val end: Int, val startMs: Long, val endMs: Long)
+
+object Reads {
+    const val BACK = "<"
+    const val TITLE = "articles"
+    const val OPEN = "open in browser"
+    const val REMOVE = "remove"
+    const val EMPTY = "Paste a URL."
+    const val READING = "Reading…"
+    const val FAILED = "Could not read that page."
+    const val NOT_A_URL = "Paste a URL."
+    const val MAX_ARTICLES = 100
+    const val MAX_TEXT = 40_000
+    const val WPM = 160
+    const val SKIP_MS = 15_000L
+    private const val FNV_OFFSET = 0xcbf29ce484222325UL
+    private const val FNV_PRIME = 0x100000001b3UL
+    private val PRIVATE = Regex(
+        """^(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|169\.254\.\d+\.\d+|.*\.local|metadata\.google\.internal)$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    fun fnv1a64(text: String): String {
+        var hash = FNV_OFFSET
+        for (b in text.encodeToByteArray()) {
+            hash = hash xor b.toUByte().toULong()
+            hash *= FNV_PRIME
+        }
+        return hash.toString(16).padStart(16, '0')
+    }
+
+    fun publicUri(raw: String): URI? {
+        var text = raw.trim()
+        if (text.isEmpty() || text.any { it.isWhitespace() }) return null
+        if (!text.contains("://")) {
+            if (!text.contains('.') || text.startsWith("/") || text.startsWith(".")) return null
+            text = "https://$text"
+        }
+        val uri = runCatching { URI(text) }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase() ?: return null
+        if (scheme != "http" && scheme != "https") return null
+        if (!uri.userInfo.isNullOrEmpty()) return null
+        val host = uri.host?.lowercase() ?: return null
+        if (':' in host || PRIVATE.matches(host)) return null
+        return uri
+    }
+
+    fun normalizeUrl(raw: String): String? {
+        val uri = publicUri(raw) ?: return null
+        val scheme = uri.scheme.lowercase()
+        val host = uri.host.lowercase()
+        var path = uri.rawPath ?: ""
+        if (path.length > 1 && path.endsWith("/")) path = path.dropLast(1)
+        val port = uri.port
+        val portPart = when {
+            port <= 0 -> ""
+            scheme == "https" && port == 443 -> ""
+            scheme == "http" && port == 80 -> ""
+            else -> ":$port"
+        }
+        val query = uri.rawQuery?.let { "?$it" }.orEmpty()
+        return "$scheme://$host$portPart$path$query"
+    }
+
+    fun articleId(raw: String): String? {
+        val key = normalizeUrl(raw) ?: return null
+        return "r" + fnv1a64(key)
+    }
+
+    fun publicationFromUrl(raw: String): String {
+        val host = publicUri(raw)?.host?.lowercase()?.removePrefix("www.") ?: return ""
+        return host
+    }
+
+    fun indexFromInput(raw: String, count: Int): Int? {
+        val q = raw.trim()
+        if (q.isEmpty() || q.any { !it.isDigit() }) return null
+        val n = q.toIntOrNull() ?: return null
+        if (n < 1 || n > count) return null
+        return n - 1
+    }
+
+    fun wordCount(text: String): Int =
+        text.split(Regex("""\s+""")).count { word -> word.any { it.isLetterOrDigit() } }
+
+    fun durationMs(text: String): Long {
+        val words = wordCount(text)
+        if (words <= 0) return 0L
+        return words * 60_000L / WPM
+    }
+
+    fun positionLabel(positionMs: Long, durationMs: Long): String {
+        if (durationMs <= 0L) return ""
+        return Podcasts.formatPosition(positionMs.coerceIn(0L, durationMs), durationMs)
+    }
+
+    fun sorted(articles: List<ReadArticle>): List<ReadArticle> =
+        articles.sortedByDescending { it.addedAt }
+
+    fun add(
+        articles: List<ReadArticle>,
+        article: ReadArticle,
+        now: Long,
+    ): Pair<List<ReadArticle>, List<String>> {
+        val prev = articles.find { it.id == article.id }
+        val merged = if (prev == null) {
+            article.copy(addedAt = now)
+        } else {
+            article.copy(
+                addedAt = now,
+                title = article.title.ifBlank { prev.title },
+                publication = article.publication.ifBlank { prev.publication },
+                text = article.text.ifBlank { prev.text },
+            )
+        }
+        val next = sorted(listOf(merged) + articles.filterNot { it.id == merged.id })
+        if (next.size <= MAX_ARTICLES) return next to emptyList()
+        val kept = next.take(MAX_ARTICLES)
+        return kept to next.drop(MAX_ARTICLES).map { it.id }
+    }
+
+    fun remove(articles: List<ReadArticle>, id: String): List<ReadArticle> =
+        articles.filterNot { it.id == id }
+
+    fun chunks(text: String): List<ReadChunk> {
+        val spans = sentenceSpans(text)
+        if (spans.isEmpty()) return emptyList()
+        val words = spans.map { wordCount(text.substring(it.first, it.second)).coerceAtLeast(1) }
+        val total = words.sum().coerceAtLeast(1)
+        val dur = durationMs(text).coerceAtLeast(1L)
+        var cursor = 0L
+        return spans.mapIndexed { index, span ->
+            val slice = if (index == spans.lastIndex) dur - cursor else dur * words[index] / total
+            val chunk = ReadChunk(span.first, span.second, cursor, cursor + slice)
+            cursor += slice
+            chunk
+        }
+    }
+
+    fun chunkIndexAt(chunks: List<ReadChunk>, positionMs: Long): Int {
+        if (chunks.isEmpty()) return 0
+        val pos = positionMs.coerceAtLeast(0L)
+        val hit = chunks.indexOfFirst { pos < it.endMs }
+        return if (hit < 0) chunks.lastIndex else hit
+    }
+
+    fun skip(positionMs: Long, durationMs: Long, deltaMs: Long): Long =
+        Podcasts.skip(positionMs, durationMs, deltaMs)
+
+    fun fraction(positionMs: Long, durationMs: Long): Float =
+        Podcasts.fraction(positionMs, durationMs)
+
+    fun progressAt(fraction: Float, durationMs: Long): Long =
+        Podcasts.progressAt(fraction, 1f, durationMs)
+
+    fun mergeBackup(a: ReadBackup, b: ReadBackup): ReadBackup {
+        val deleted = (a.deletedIds + b.deletedIds).distinct()
+        val drop = deleted.toSet()
+        val articles = LinkedHashMap<String, ReadArticle>()
+        (a.articles + b.articles).forEach { item ->
+            if (item.id in drop) return@forEach
+            articles[item.id] = mergeArticle(articles[item.id], item)
+        }
+        val progress = LinkedHashMap<String, ReadProgress>()
+        (a.progress + b.progress).forEach { row ->
+            if (row.articleId in drop || row.articleId !in articles) return@forEach
+            progress[row.articleId] = mergeProgress(progress[row.articleId], row)
+        }
+        return ReadBackup(
+            articles = sorted(articles.values.toList()),
+            progress = progress.values.toList(),
+            deletedIds = deleted,
+        )
+    }
+
+    private fun mergeArticle(prev: ReadArticle?, item: ReadArticle): ReadArticle {
+        if (prev == null) return item
+        val text = if (item.text.length >= prev.text.length) item.text else prev.text
+        val newer = if (item.addedAt >= prev.addedAt) item else prev
+        val older = if (newer === item) prev else item
+        return newer.copy(
+            title = newer.title.ifBlank { older.title },
+            publication = newer.publication.ifBlank { older.publication },
+            text = text.ifBlank { older.text },
+        )
+    }
+
+    private fun mergeProgress(prev: ReadProgress?, row: ReadProgress): ReadProgress {
+        if (prev == null) return row
+        return when {
+            row.updatedAt > prev.updatedAt -> row
+            row.updatedAt < prev.updatedAt -> prev
+            row.positionMs >= prev.positionMs -> row
+            else -> prev
+        }
+    }
+
+    private fun sentenceSpans(text: String): List<Pair<Int, Int>> {
+        if (text.isBlank()) return emptyList()
+        val spans = mutableListOf<Pair<Int, Int>>()
+        var start = 0
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            val boundary = c == '\n' ||
+                ((c == '.' || c == '!' || c == '?') && (i + 1 >= text.length || text[i + 1].isWhitespace()))
+            if (boundary) {
+                val end = if (c == '\n') i else i + 1
+                if (text.substring(start, end).any { it.isLetterOrDigit() }) spans += start to end
+                var next = end
+                while (next < text.length && text[next].isWhitespace()) next++
+                start = next
+                i = next
+                continue
+            }
+            i++
+        }
+        if (start < text.length && text.substring(start).any { it.isLetterOrDigit() }) {
+            spans += start to text.length
+        }
+        return spans.flatMap { splitLong(text, it.first, it.second) }
+    }
+
+    private fun splitLong(text: String, start: Int, end: Int): List<Pair<Int, Int>> {
+        if (end - start <= 240) return listOf(start to end)
+        val window = text.substring(start, end)
+        val cut = window.lastIndexOf(' ', 240).takeIf { it > 40 } ?: 240
+        val mid = start + cut
+        return splitLong(text, start, mid) + splitLong(text, mid, end)
+    }
+}

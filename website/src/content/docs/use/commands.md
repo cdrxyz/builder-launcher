@@ -15,16 +15,17 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | `$` | `$AAPL` or `$ apple` | Search and add a ticker to the [stocks](stocks/) list |
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >`. Search, subscribe, stream, download. [Podcasts](podcasts/) |
+| | `articles` | Open saved articles. Paste a URL to add it. `1` opens the player. [Articles](articles/) |
 | `?` | `?` then write, Enter | Write on home (bar stays at the bottom, one line until it wraps). Submit opens [chat](ai/) with the same bar at the bottom. Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; long-press the mark to switch providers; history lists past chats with a date and delete |
-| `/` | `/` then pick `settings` | Slash commands listed above the bar (ai, apps, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). The list scrolls; on home it hides todos and pins. Also in the [command menu](command-bar/) |
+| `/` | `/` then pick `settings` | Slash commands listed above the bar (ai, apps, articles, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). The list scrolls; on home it hides todos and pins. Also in the [command menu](command-bar/) |
 | (none) | `Termux` | Search and launch apps. Tap a match to open it. Math stays calculator, including `5000*.05` typed as a number first. `AAPL` / `OBE.TO` switch to `$`. Else three more unmatched characters switch to `-` task mode |
 | | `pin Termux` / `unpin Termux` | Filter by the name after `pin` or `unpin`; tap a match to pin or unpin. Names on home; icons if settings says so |
-| | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `clock` / `weather` / `settings` / `help` / `ai` | Built-ins. Screen time is `/usage` |
+| | `hub` / `notes` / `apps` / `stocks` / `podcasts` / `articles` / `clock` / `weather` / `settings` / `help` / `ai` | Built-ins. Screen time is `/usage` |
 | | `timer` | Open the clock app's timer if no app named timer matches |
 
 `help` and `/help` show the on-screen cheat sheet. A lone `?` stays on the current screen. Submit a question to open [Ask AI](ai/). `/ai` opens that screen with no question.
 
-`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `podcasts`, `clock`, `weather`, and `ai`. Screen time is `/usage` only.
+`settings` and `/settings` open settings. Same for `hub`, `notes`, `apps`, `stocks`, `podcasts`, `articles`, `clock`, `weather`, and `ai`. Screen time is `/usage` only.
 
 ## Where each thing lives
 
@@ -33,6 +34,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 - Notes stay on [notes](notes/).
 - Stocks stay on [stocks](stocks/).
 - Podcasts stay on [podcasts](podcasts/).
+- Articles stay on [articles](articles/).
 - Clock stays on [clock](clock/).
 - Weather stays on [weather](weather/).
 - Usage stays on [usage](usage/).

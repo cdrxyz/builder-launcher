@@ -101,6 +101,19 @@ import {
 	watchlist,
 } from './media.js';
 import {
+	addArticle,
+	articleId,
+	chunks as readChunks,
+	chunkIndexAt,
+	durationMs as readDurationMs,
+	normalizeUrl,
+	indexFromInput,
+	positionLabel,
+	progressFor,
+	readsOf,
+	upsertReadProgress,
+} from './reads.js';
+import {
 	GEOCODE,
 	airUrl,
 	aqiLabel,
@@ -176,6 +189,7 @@ const state = {
 	marketPoints: null,
 	speed: loadSpeed(),
 	speedMenu: false,
+	articleId: null,
 	autoSync: loadAutoSync(),
 	editTodoId: null,
 	status: '',
@@ -495,7 +509,7 @@ async function push(opts = {}) {
 		!opts.skipConfirm &&
 		!opts.quiet &&
 		!window.confirm(
-			'Upload this snapshot? The last successful upload wins. The phone will see these tasks, notes, stocks, and podcasts on restore.',
+			'Upload this snapshot? The last successful upload wins. The phone will see these tasks, notes, stocks, podcasts, and articles on restore.',
 		)
 	) {
 		return;
@@ -549,7 +563,8 @@ function pulledLabel(doc) {
 	const notes = notesByEdited(doc.items).length;
 	const stocks = watchlist(doc).length;
 	const shows = podcastsOf(doc).shows.length;
-	return `Pulled ${when} · ${todos} tasks · ${notes} notes · ${stocks} stocks · ${shows} shows`;
+	const articles = (doc?.reads?.articles || []).length;
+	return `Pulled ${when} · ${todos} tasks · ${notes} notes · ${stocks} stocks · ${shows} shows · ${articles} articles`;
 }
 
 function render() {
@@ -613,6 +628,8 @@ function header() {
 	}
 	const back = state.tab === 'show' || state.tab === 'recent' || state.tab === 'next'
 		? () => go('pods')
+		: state.tab === 'article'
+			? () => go('read')
 		: state.tab === 'stock'
 			? () => go('stocks')
 			: state.tab === 'episode'
@@ -621,6 +638,8 @@ function header() {
 	el.append(button('<', back, 'ghost'));
 	const heading = state.tab === 'pods'
 		? 'podcasts'
+		: state.tab === 'read' || state.tab === 'article'
+			? 'articles'
 		: state.tab === 'tasks'
 			? 'tasks'
 			: state.tab === 'stock'
@@ -678,6 +697,8 @@ function main() {
 	else if (state.tab === 'next') el.append(podcastCatalogScreen('next'));
 	else if (state.tab === 'show') el.append(showScreen());
 	else if (state.tab === 'episode') el.append(episodeScreen());
+	else if (state.tab === 'read') el.append(readScreen());
+	else if (state.tab === 'article') el.append(articleScreen());
 	else if (state.tab === 'tasks') el.append(tasksScreen());
 	else if (state.tab === 'help') el.append(helpScreen());
 	else if (state.tab === 'weather') el.append(weatherScreen());
@@ -703,6 +724,8 @@ function go(tab, prompt) {
 		state.stockScrub = null;
 	}
 	if (changingPage) state.speedMenu = false;
+	if (changingPage && tab !== 'read' && tab !== 'article') readStop(true);
+	if (tab !== 'article') state.articleId = tab === 'read' ? state.articleId : null;
 	if (changingPage && (tab === 'pods' || tab === 'show')) {
 		refreshPodcastFeeds({ rerender: true }).catch(() => {});
 	}
@@ -839,11 +862,12 @@ function helpScreen() {
 		'+  note',
 		'$  stock',
 		'?  ask AI',
-		'/  slash (notes stocks podcasts weather settings tasks pull push)',
+		'/  slash (notes stocks podcasts articles weather settings tasks pull push)',
 		'',
 		'Tap the prompt glyph for the prefix menu.',
 		'Back on home resets to -.',
 		'On podcasts, > searches shows.',
+		'On articles, > takes a URL. 1 opens the first article.',
 	].join('\n');
 	wrap.append(pre);
 	return wrap;
@@ -1032,6 +1056,10 @@ function submitCommand() {
 		state.draft = '';
 		return;
 	}
+	if (state.tab === 'read' || state.tab === 'article') {
+		submitRead(text);
+		return;
+	}
 	setStatus('Unknown command. Type /help.');
 }
 
@@ -1064,6 +1092,10 @@ function runSlash(name) {
 	}
 	if (key === 'podcasts') {
 		go('pods');
+		return;
+	}
+	if (key === 'articles') {
+		go('read');
 		return;
 	}
 	if (key === 'settings') {
@@ -3266,3 +3298,309 @@ function fileInput() {
 	});
 	input.click();
 }
+
+const readSpeak = {
+	id: null,
+	chunks: [],
+	text: '',
+	index: 0,
+	positionMs: 0,
+	durationMs: 0,
+	playing: false,
+	timer: null,
+};
+
+function readStop(save) {
+	readSpeak.playing = false;
+	if (readSpeak.timer) clearInterval(readSpeak.timer);
+	readSpeak.timer = null;
+	if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+	if (save) readCheckpoint(true);
+}
+
+function readCheckpoint(force) {
+	if (!readSpeak.id || !state.doc) return;
+	const now = Date.now();
+	if (!force && now - (readSpeak.savedAt || 0) < 5000) return;
+	readSpeak.savedAt = now;
+	const bag = readsOf(state.doc);
+	const next = { articleId: readSpeak.id, positionMs: readSpeak.positionMs, updatedAt: now };
+	state.doc = { ...state.doc, reads: { ...bag, progress: upsertReadProgress(bag.progress, next) } };
+	state.dirty = true;
+	saveSnapshot(state.doc);
+	maybeSyncSave();
+	paintReadPos();
+}
+
+function paintReadPos() {
+	const el = document.getElementById('play-pos');
+	if (el) el.textContent = positionLabel(readSpeak.positionMs, readSpeak.durationMs);
+	const fill = document.getElementById('play-scrub-fill');
+	const knob = document.getElementById('play-scrub-knob');
+	if (fill && knob) setScrub(readSpeak.durationMs ? readSpeak.positionMs / readSpeak.durationMs : 0, fill, knob);
+	document.querySelectorAll('.read-sentence').forEach((node) => {
+		node.classList.toggle('read-current', Number(node.dataset.i) === readSpeak.index && readSpeak.playing);
+	});
+}
+
+function speakReadChunk() {
+	const row = readSpeak.chunks[readSpeak.index];
+	if (!row || !readSpeak.playing) {
+		readSpeak.playing = false;
+		readCheckpoint(true);
+		paintReadPos();
+		const toggle = document.querySelector('.play-toggle');
+		if (toggle) {
+			toggle.setAttribute('aria-label', 'play');
+			toggle.innerHTML = playPauseSvg(false);
+		}
+		return;
+	}
+	if (typeof speechSynthesis === 'undefined') {
+		setStatus('This browser has no speech.');
+		readSpeak.playing = false;
+		return;
+	}
+	const utter = new SpeechSynthesisUtterance(readSpeak.text.slice(row.start, row.end));
+	utter.rate = state.speed || 1;
+	utter.onstart = () => {
+		readSpeak.positionMs = row.startMs;
+		readCheckpoint(false);
+		paintReadPos();
+	};
+	utter.onend = () => {
+		if (!readSpeak.playing) return;
+		readSpeak.index += 1;
+		const next = readSpeak.chunks[readSpeak.index];
+		readSpeak.positionMs = next ? next.startMs : row.endMs;
+		speakReadChunk();
+	};
+	utter.onerror = () => {
+		readSpeak.playing = false;
+		readCheckpoint(true);
+	};
+	speechSynthesis.speak(utter);
+}
+
+function readPlay(article, startMs) {
+	if (typeof speechSynthesis === 'undefined') {
+		setStatus('This browser has no speech.');
+		return;
+	}
+	audio.pause();
+	speechSynthesis.cancel();
+	const rows = readChunks(article.text);
+	readSpeak.id = article.id;
+	readSpeak.chunks = rows;
+	readSpeak.text = article.text;
+	readSpeak.durationMs = readDurationMs(article.text);
+	readSpeak.index = chunkIndexAt(rows, startMs || 0);
+	readSpeak.positionMs = rows[readSpeak.index]?.startMs || 0;
+	readSpeak.playing = true;
+	if (readSpeak.timer) clearInterval(readSpeak.timer);
+	readSpeak.timer = setInterval(() => {
+		if (readSpeak.playing && speechSynthesis.speaking && !speechSynthesis.paused) {
+			speechSynthesis.pause();
+			speechSynthesis.resume();
+		}
+	}, 10_000);
+	speakReadChunk();
+	render();
+}
+
+function readToggle(article) {
+	if (readSpeak.playing && readSpeak.id === article.id) {
+		readStop(true);
+		render();
+		return;
+	}
+	const saved = progressFor(readsOf(state.doc).progress, article.id)?.positionMs || 0;
+	const start = readSpeak.id === article.id ? readSpeak.positionMs : saved;
+	readPlay(article, start);
+}
+
+function readSeek(article, ms) {
+	const playing = readSpeak.playing && readSpeak.id === article.id;
+	readSpeak.positionMs = Math.max(0, ms);
+	readSpeak.durationMs = readDurationMs(article.text);
+	readCheckpoint(true);
+	if (playing) readPlay(article, readSpeak.positionMs);
+	else paintReadPos();
+}
+
+async function submitRead(text) {
+	const articles = readsOf(state.doc).articles;
+	const index = indexFromInput(text, articles.length);
+	if (index != null) {
+		state.draft = '';
+		openArticle(articles[index].id);
+		return;
+	}
+	const url = normalizeUrl(text);
+	if (!url) {
+		setStatus('Paste a URL.');
+		return;
+	}
+	state.draft = '';
+	state.busy = true;
+	setStatus('Reading…');
+	try {
+		const res = await fetch(`/api/read?url=${encodeURIComponent(url)}`);
+		const body = await res.json().catch(() => ({}));
+		if (!res.ok) throw new Error(body.error || 'Could not read that page.');
+		const id = articleId(body.url || url);
+		if (!id || !body.text) throw new Error('Could not read that page.');
+		const bag = readsOf(state.doc);
+		const added = addArticle(bag.articles, {
+			id,
+			url: body.url || url,
+			title: body.title || url,
+			publication: body.publication || '',
+			text: body.text,
+		}, Date.now());
+		const deletedIds = [...new Set([...(bag.deletedIds || []), ...added.droppedIds])];
+		mutate({
+			reads: {
+				...bag,
+				articles: added.articles,
+				deletedIds,
+				progress: (bag.progress || []).filter((row) => !added.droppedIds.includes(row.articleId)),
+			},
+		});
+		if (state.tab === 'article') openArticle(id);
+		else setStatus('');
+	} catch (err) {
+		setStatus(err.message || 'Could not read that page.');
+	} finally {
+		state.busy = false;
+		if (state.tab === 'read' || state.tab === 'article') render();
+	}
+}
+
+function openArticle(id) {
+	state.articleId = id;
+	go('article');
+}
+
+function readScreen() {
+	const wrap = document.createElement('div');
+	const bag = readsOf(state.doc);
+	if (state.busy) wrap.append(empty('Reading…'));
+	if (!bag.articles.length && !state.busy) wrap.append(empty('Paste a URL.'));
+	bag.articles.forEach((article, index) => {
+		const row = document.createElement('button');
+		row.type = 'button';
+		row.className = 'row';
+		const mark = document.createElement('span');
+		mark.className = 'read-index';
+		mark.textContent = String(index + 1);
+		const copy = document.createElement('span');
+		copy.className = 'copy';
+		const title = document.createElement('span');
+		title.className = 'body';
+		title.textContent = article.title;
+		const sub = document.createElement('span');
+		sub.className = 'sub';
+		sub.textContent = article.publication || '';
+		copy.append(title, sub);
+		const meta = document.createElement('span');
+		meta.className = 'meta';
+		const saved = progressFor(bag.progress, article.id)?.positionMs || 0;
+		meta.textContent = positionLabel(saved, readDurationMs(article.text));
+		row.append(mark, copy, meta);
+		row.addEventListener('click', () => openArticle(article.id));
+		wrap.append(row);
+	});
+	return wrap;
+}
+
+function articleScreen() {
+	const wrap = document.createElement('div');
+	wrap.className = 'player';
+	const bag = readsOf(state.doc);
+	const article = bag.articles.find((item) => item.id === state.articleId);
+	if (!article) {
+		wrap.append(empty('Article gone.'));
+		return wrap;
+	}
+	const pub = document.createElement('p');
+	pub.className = 'hint';
+	pub.textContent = article.publication || '';
+	const h = document.createElement('h2');
+	h.className = 'read-title';
+	h.textContent = article.title;
+	wrap.append(pub, h);
+	const dur = readDurationMs(article.text);
+	const live = readSpeak.id === article.id;
+	const pos = live ? readSpeak.positionMs : (progressFor(bag.progress, article.id)?.positionMs || 0);
+	const posRow = document.createElement('div');
+	posRow.className = 'player-meta';
+	const posEl = document.createElement('p');
+	posEl.className = 'hint';
+	posEl.id = 'play-pos';
+	posEl.textContent = positionLabel(pos, dur);
+	const speedWrap = document.createElement('div');
+	speedWrap.className = 'speed-wrap';
+	const speedTrigger = button(formatSpeed(state.speed), () => {
+		state.speedMenu = !state.speedMenu;
+		render();
+	}, 'ghost speed-trigger');
+	speedTrigger.setAttribute('aria-label', `playback speed ${formatSpeed(state.speed)}`);
+	speedTrigger.setAttribute('aria-haspopup', 'listbox');
+	speedTrigger.setAttribute('aria-expanded', state.speedMenu ? 'true' : 'false');
+	speedWrap.append(speedTrigger);
+	posRow.append(posEl, speedWrap);
+	const scrub = document.createElement('div');
+	scrub.className = 'scrub';
+	scrub.id = 'play-scrub';
+	const fill = document.createElement('div');
+	fill.className = 'scrub-fill';
+	fill.id = 'play-scrub-fill';
+	const knob = document.createElement('div');
+	knob.className = 'scrub-knob';
+	knob.id = 'play-scrub-knob';
+	scrub.append(fill, knob);
+	bindScrub(scrub, (t) => readSeek(article, Math.floor(t * dur)));
+	setScrub(dur ? pos / dur : 0, fill, knob);
+	const controls = document.createElement('div');
+	controls.className = 'player-controls';
+	controls.append(
+		button('−15', () => readSeek(article, Math.max(0, (live ? readSpeak.positionMs : pos) - 15_000)), 'ghost'),
+		playPauseButton(!(live && readSpeak.playing), () => readToggle(article)),
+		button('+15', () => readSeek(article, Math.min(dur, (live ? readSpeak.positionMs : pos) + 15_000)), 'ghost'),
+	);
+	const actions = document.createElement('div');
+	actions.className = 'actions';
+	actions.append(
+		button('open in browser', () => window.open(article.url, '_blank', 'noopener'), 'ghost'),
+		button('remove', () => {
+			readStop(false);
+			const current = readsOf(state.doc);
+			mutate({
+				reads: {
+					...current,
+					articles: current.articles.filter((item) => item.id !== article.id),
+					progress: current.progress.filter((row) => row.articleId !== article.id),
+					deletedIds: [...new Set([...(current.deletedIds || []), article.id])],
+				},
+			});
+			go('read');
+		}, 'ghost'),
+	);
+	const text = document.createElement('div');
+	text.className = 'read-text';
+	const rows = readChunks(article.text);
+	if (!rows.length) text.textContent = article.text;
+	rows.forEach((row, index) => {
+		if (index) text.append(document.createTextNode(' '));
+		const span = document.createElement('span');
+		span.className = 'read-sentence';
+		span.dataset.i = String(index);
+		if (live && readSpeak.playing && index === readSpeak.index) span.classList.add('read-current');
+		span.textContent = article.text.slice(row.start, row.end);
+		text.append(span);
+	});
+	wrap.append(posRow, scrub, controls, actions, text);
+	return wrap;
+}
+

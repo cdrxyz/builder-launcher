@@ -121,3 +121,25 @@ test('a pin recorded only in pinChanges comes back', () => {
 		assert.deepEqual(merged.pins, ['keep', 'back']);
 	}
 });
+
+test('an article and its playback position survive either merge order', () => {
+	const body = 'The full article body that must survive sync. '.repeat(8);
+	const phone = {
+		exportedAt: 20,
+		reads: {
+			articles: [{ id: 'r1', url: 'https://example.com/a', title: 'Title', publication: 'Example', text: body, addedAt: 9 }],
+			progress: [{ articleId: 'r1', positionMs: 90000, updatedAt: 12 }],
+		},
+	};
+	const cloud = {
+		exportedAt: 10,
+		reads: {
+			articles: [{ id: 'r1', url: 'https://example.com/a', title: 'Old', publication: 'Example', text: 'short', addedAt: 1 }],
+			progress: [{ articleId: 'r1', positionMs: 1000, updatedAt: 4 }],
+		},
+	};
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.equal(merged.reads.articles[0].text, body);
+		assert.equal(merged.reads.progress[0].positionMs, 90000);
+	}
+});
