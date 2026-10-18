@@ -8,12 +8,12 @@ object SlashCommands {
     val all: List<SlashCommand> = listOf(
         SlashCommand("ai", "chat", Command.OpenChat),
         SlashCommand("apps", "all apps", Command.OpenApps),
+        SlashCommand("articles", "saved articles", Command.OpenRead),
         SlashCommand("clock", "timer alarm zones", Command.OpenClock),
         SlashCommand("help", "commands", Command.Help),
         SlashCommand("hub", "hub", Command.OpenHub),
         SlashCommand("notes", "all notes", Command.OpenNotes),
         SlashCommand("podcasts", "all podcasts", Command.OpenPodcasts),
-        SlashCommand("read", "articles", Command.OpenRead),
         SlashCommand("settings", "settings", Command.OpenSettings),
         SlashCommand("stocks", "watchlist", Command.OpenStocks),
         SlashCommand("usage", "screen time", Command.OpenUsage),

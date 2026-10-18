@@ -86,7 +86,7 @@ object CommandParser {
         when (lower) {
             "stock" -> return Command.OpenStocks
             "podcast" -> return Command.OpenPodcasts
-            "read" -> return Command.OpenRead
+            "article", "articles" -> return Command.OpenRead
         }
         val appPick = AppPickQuery.parse(trimmed)
         if (appPick.pick != AppPick.Launch) {

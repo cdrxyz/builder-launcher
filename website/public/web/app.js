@@ -509,7 +509,7 @@ async function push(opts = {}) {
 		!opts.skipConfirm &&
 		!opts.quiet &&
 		!window.confirm(
-			'Upload this snapshot? The last successful upload wins. The phone will see these tasks, notes, stocks, and podcasts on restore.',
+			'Upload this snapshot? The last successful upload wins. The phone will see these tasks, notes, stocks, podcasts, and articles on restore.',
 		)
 	) {
 		return;
@@ -563,7 +563,8 @@ function pulledLabel(doc) {
 	const notes = notesByEdited(doc.items).length;
 	const stocks = watchlist(doc).length;
 	const shows = podcastsOf(doc).shows.length;
-	return `Pulled ${when} · ${todos} tasks · ${notes} notes · ${stocks} stocks · ${shows} shows`;
+	const articles = (doc?.reads?.articles || []).length;
+	return `Pulled ${when} · ${todos} tasks · ${notes} notes · ${stocks} stocks · ${shows} shows · ${articles} articles`;
 }
 
 function render() {
@@ -638,7 +639,7 @@ function header() {
 	const heading = state.tab === 'pods'
 		? 'podcasts'
 		: state.tab === 'read' || state.tab === 'article'
-			? 'read'
+			? 'articles'
 		: state.tab === 'tasks'
 			? 'tasks'
 			: state.tab === 'stock'
@@ -861,12 +862,12 @@ function helpScreen() {
 		'+  note',
 		'$  stock',
 		'?  ask AI',
-		'/  slash (notes stocks podcasts read weather settings tasks pull push)',
+		'/  slash (notes stocks podcasts articles weather settings tasks pull push)',
 		'',
 		'Tap the prompt glyph for the prefix menu.',
 		'Back on home resets to -.',
 		'On podcasts, > searches shows.',
-		'On read, > takes a URL. 1 opens the first article.',
+		'On articles, > takes a URL. 1 opens the first article.',
 	].join('\n');
 	wrap.append(pre);
 	return wrap;
@@ -1093,7 +1094,7 @@ function runSlash(name) {
 		go('pods');
 		return;
 	}
-	if (key === 'read') {
+	if (key === 'articles') {
 		go('read');
 		return;
 	}

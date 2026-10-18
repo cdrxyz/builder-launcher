@@ -15,13 +15,13 @@ export function webPrefixes() {
 }
 
 export const SLASH = [
+	{ name: 'articles', label: 'saved articles' },
 	{ name: 'help', label: 'commands' },
 	{ name: 'home', label: 'home' },
 	{ name: 'notes', label: 'all notes' },
 	{ name: 'podcasts', label: 'all podcasts' },
 	{ name: 'pull', label: 'sync down' },
 	{ name: 'push', label: 'sync up' },
-	{ name: 'read', label: 'articles' },
 	{ name: 'settings', label: 'settings' },
 	{ name: 'stocks', label: 'watchlist' },
 	{ name: 'tasks', label: 'all tasks' },
@@ -69,7 +69,7 @@ export function builtinPage(query) {
 	if (q === 'notes' || q === 'note') return 'notes';
 	if (q === 'stocks' || q === 'stock') return 'stocks';
 	if (q === 'podcasts' || q === 'podcast' || q === 'pods') return 'pods';
-	if (q === 'read' || q === 'reads' || q === 'article' || q === 'articles') return 'read';
+	if (q === 'articles' || q === 'article') return 'read';
 	if (q === 'settings' || q === 'setting' || q === 'backup') return 'settings';
 	if (q === 'tasks' || q === 'todos' || q === 'todo') return 'tasks';
 	if (q === 'weather') return 'weather';
@@ -88,7 +88,7 @@ export function pagePrompt(tab) {
 	if (tab === 'notes' || tab === 'note') return '+';
 	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';
-	if (tab === 'read' || tab === 'article') return '>';
+	if (tab === 'read' || tab === 'articles' || tab === 'article') return '>';
 	if (tab === 'chat' || tab === 'chats') return '?';
 	return DEFAULT_PROMPT;
 }

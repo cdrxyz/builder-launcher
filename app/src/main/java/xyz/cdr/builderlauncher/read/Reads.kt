@@ -32,7 +32,7 @@ data class ReadChunk(val start: Int, val end: Int, val startMs: Long, val endMs:
 
 object Reads {
     const val BACK = "<"
-    const val TITLE = "read"
+    const val TITLE = "articles"
     const val OPEN = "open in browser"
     const val REMOVE = "remove"
     const val EMPTY = "Paste a URL."

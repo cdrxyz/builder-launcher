@@ -66,3 +66,33 @@ test('read articles extract, order, and match the phone hash', () => {
 	assert.equal(text.slice(rows[0].start, rows[0].end), 'First sentence here.');
 	assert.equal(rows.length, 2);
 });
+
+test('account and S3 slim copies keep the article and its position', async () => {
+	const { slimDoc, mergeDocs } = await import('../public/web/merge.js');
+	const body = 'The full article body that must survive sync. '.repeat(8);
+	const phone = {
+		exportedAt: 20,
+		reads: {
+			articles: [{ id: 'r1', url: 'https://example.com/a', title: 'Title', publication: 'Example', text: body, addedAt: 9 }],
+			progress: [{ articleId: 'r1', positionMs: 90_000, updatedAt: 12 }],
+			deletedIds: [],
+		},
+	};
+	const slim = slimDoc(phone);
+	assert.equal(slim.reads.articles[0].text, body);
+	assert.equal(slim.reads.progress[0].positionMs, 90_000);
+	const cloud = {
+		exportedAt: 10,
+		reads: {
+			articles: [{ id: 'r1', url: 'https://example.com/a', title: 'Old', publication: 'Example', text: 'short', addedAt: 1 }],
+			progress: [{ articleId: 'r1', positionMs: 1000, updatedAt: 4 }],
+		},
+	};
+	for (const merged of [mergeDocs(phone, cloud), mergeDocs(cloud, phone)]) {
+		assert.equal(merged.reads.articles[0].text, body);
+		assert.equal(merged.reads.progress[0].positionMs, 90_000);
+	}
+	const slimmed = slimDoc(mergeDocs(phone, cloud));
+	assert.equal(slimmed.reads.articles[0].text, body);
+	assert.equal(slimmed.reads.progress[0].positionMs, 90_000);
+});

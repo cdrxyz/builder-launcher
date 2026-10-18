@@ -302,17 +302,18 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.equal(pagePrompt('help'), '-');
 	assert.equal(pagePrompt('weather'), '-');
 	assert.equal(pagePrompt('pods'), '>');
-	assert.equal(pagePrompt('read'), '>');
+	assert.equal(pagePrompt('articles'), '>');
 	assert.equal(pagePrompt('article'), '>');
 	assert.equal(pagePrompt('chat'), '?');
 	assert.equal(pagePrompt('chats'), '?');
 	assert.equal(slashResolve('set').name, 'settings');
 	assert.deepEqual(
 		slashMatches('').map((row) => row.name),
-		['help', 'home', 'notes', 'podcasts', 'pull', 'push', 'read', 'settings', 'stocks', 'tasks', 'weather'],
+		['articles', 'help', 'home', 'notes', 'podcasts', 'pull', 'push', 'settings', 'stocks', 'tasks', 'weather'],
 	);
 	assert.equal(builtinPage('notes'), 'notes');
 	assert.equal(builtinPage('weather'), 'weather');
+	assert.equal(builtinPage('articles'), 'read');
 	assert.deepEqual(webPrefixes().map((row) => row.glyph), ['-', '+', '$', '?', '/']);
 	assert.equal(webPrefixes().some((row) => row.glyph === '*'), false);
 	assert.equal(homePreview([{ kind: 'todo', text: 'a' }, { kind: 'todo', text: 'b', completedAt: 1 }, { kind: 'note', text: 'n' }, { kind: 'todo', text: 'c' }]).map((i) => i.text).join(','), 'a,c');
