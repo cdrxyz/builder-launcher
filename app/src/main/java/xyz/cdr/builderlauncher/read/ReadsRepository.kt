@@ -88,13 +88,14 @@ class ReadsRepository(
     }
 
     suspend fun fetch(raw: String): ReadArticle? = withContext(Dispatchers.IO) {
-        val url = Reads.normalizeUrl(raw) ?: return@withContext null
-        val id = Reads.articleId(url) ?: return@withContext null
-        val html = download(url) ?: return@withContext null
-        val extracted = ArticleExtract.extract(html, url) ?: return@withContext null
+        val canonical = Reads.normalizeUrl(raw) ?: return@withContext null
+        val id = Reads.articleId(canonical) ?: return@withContext null
+        val start = Reads.fetchUrl(raw) ?: return@withContext null
+        val html = download(start) ?: return@withContext null
+        val extracted = ArticleExtract.extract(html, canonical) ?: return@withContext null
         ReadArticle(
             id = id,
-            url = url,
+            url = canonical,
             title = extracted.title,
             publication = extracted.publication,
             text = extracted.text,
@@ -103,7 +104,9 @@ class ReadsRepository(
 
     private fun download(start: String): String? {
         var current = start
-        repeat(5) {
+        val seen = mutableSetOf<String>()
+        repeat(8) {
+            if (!seen.add(current)) return null
             val request = Request.Builder()
                 .url(current)
                 .header("User-Agent", USER_AGENT)
@@ -113,8 +116,7 @@ class ReadsRepository(
             call.newCall(request).execute().use { response ->
                 if (response.code in 300..399) {
                     val loc = response.header("Location") ?: return null
-                    val next = response.request.url.resolve(loc)?.toString() ?: return null
-                    current = Reads.normalizeUrl(next) ?: return null
+                    current = Reads.nextFetchUrl(current, loc) ?: return null
                     return@use
                 }
                 if (!response.isSuccessful) return null

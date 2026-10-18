@@ -106,7 +106,7 @@ import {
 	chunks as readChunks,
 	chunkIndexAt,
 	durationMs as readDurationMs,
-	normalizeUrl,
+	fetchUrl,
 	indexFromInput,
 	positionLabel,
 	progressFor,
@@ -3436,7 +3436,7 @@ async function submitRead(text) {
 		openArticle(articles[index].id);
 		return;
 	}
-	const url = normalizeUrl(text);
+	const url = fetchUrl(text);
 	if (!url) {
 		setStatus('Paste a URL.');
 		return;

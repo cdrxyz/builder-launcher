@@ -10,6 +10,8 @@ import {
 	indexFromInput,
 	mergeReads,
 	normalizeUrl,
+	fetchUrl,
+	nextFetchUrl,
 	positionLabel,
 	publicationFromUrl,
 } from '../public/web/reads.js';
@@ -19,6 +21,12 @@ test('read articles extract, order, and match the phone hash', () => {
 	assert.equal(articleId('https://example.com/a'), 'r046a4934057f51cf');
 	assert.equal(articleId('HTTPS://Example.com/a/'), 'r046a4934057f51cf');
 	assert.equal(normalizeUrl('nytimes.com/story'), 'https://nytimes.com/story');
+	assert.equal(fetchUrl('https://solidstarts.com/articles/paced-bottle-feeding/'), 'https://solidstarts.com/articles/paced-bottle-feeding/');
+	assert.equal(normalizeUrl('https://solidstarts.com/articles/paced-bottle-feeding/'), 'https://solidstarts.com/articles/paced-bottle-feeding');
+	assert.equal(
+		nextFetchUrl('https://solidstarts.com/articles/paced-bottle-feeding', '/articles/paced-bottle-feeding/'),
+		'https://solidstarts.com/articles/paced-bottle-feeding/',
+	);
 	assert.equal(normalizeUrl('1'), null);
 	assert.equal(normalizeUrl('https://10.1.2.3/a'), null);
 	assert.equal(publicationFromUrl('https://www.nytimes.com/story'), 'nytimes.com');
