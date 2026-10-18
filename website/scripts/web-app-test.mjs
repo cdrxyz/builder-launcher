@@ -856,7 +856,13 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v32/);
+	assert.match(sw, /builder-launcher-web-v33/);
+});
+
+test('the web app fetches an article from /api/articles', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /fetch\(`\/api\/articles\?url=/);
+	assert.doesNotMatch(js, /\/api\/read/);
 });
 
 test('list rows stack title over subtitle so long show names cannot crush the title', async () => {

@@ -82,7 +82,7 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 		if (url.pathname === '/api/feed' && request.method === 'GET') {
 			return fetchFeed(url.searchParams.get('url') || '');
 		}
-		if (url.pathname === '/api/read' && request.method === 'GET') {
+		if ((url.pathname === '/api/articles' || url.pathname === '/api/read') && request.method === 'GET') {
 			return fetchArticle(url.searchParams.get('url') || '');
 		}
 		if (url.pathname === '/api/weather/search' && request.method === 'GET') {
