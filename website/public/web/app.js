@@ -3445,7 +3445,7 @@ async function submitRead(text) {
 	state.busy = true;
 	setStatus('Reading…');
 	try {
-		const res = await fetch(`/api/read?url=${encodeURIComponent(url)}`);
+		const res = await fetch(`/api/articles?url=${encodeURIComponent(url)}`);
 		const body = await res.json().catch(() => ({}));
 		if (!res.ok) throw new Error(body.error || 'Could not read that page.');
 		const id = articleId(body.url || url);
