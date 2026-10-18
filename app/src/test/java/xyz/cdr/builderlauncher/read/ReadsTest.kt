@@ -35,6 +35,25 @@ class ReadsTest {
     fun publicUrlRejectsPrivateAndBareNumbers() {
         assertEquals("https://example.com/a", Reads.normalizeUrl("https://example.com/a"))
         assertEquals("https://nytimes.com/story", Reads.normalizeUrl("nytimes.com/story"))
+        assertEquals(
+            "https://solidstarts.com/articles/paced-bottle-feeding/",
+            Reads.fetchUrl("https://solidstarts.com/articles/paced-bottle-feeding/"),
+        )
+        assertEquals(
+            "https://solidstarts.com/articles/paced-bottle-feeding",
+            Reads.normalizeUrl("https://solidstarts.com/articles/paced-bottle-feeding/"),
+        )
+        assertEquals(
+            "https://solidstarts.com/articles/paced-bottle-feeding/",
+            Reads.nextFetchUrl(
+                "https://solidstarts.com/articles/paced-bottle-feeding",
+                "/articles/paced-bottle-feeding/",
+            ),
+        )
+        assertEquals(
+            Reads.articleId("https://solidstarts.com/articles/paced-bottle-feeding/"),
+            Reads.articleId("https://solidstarts.com/articles/paced-bottle-feeding"),
+        )
         assertNull(Reads.normalizeUrl("1"))
         assertNull(Reads.normalizeUrl("ftp://example.com/a"))
         assertNull(Reads.normalizeUrl("https://localhost/a"))

@@ -75,12 +75,22 @@ object Reads {
         return uri
     }
 
-    fun normalizeUrl(raw: String): String? {
+    fun fetchUrl(raw: String): String? = assemble(raw, stripSlash = false)
+
+    fun nextFetchUrl(current: String, location: String): String? {
+        val base = runCatching { URI(current) }.getOrNull() ?: return null
+        val resolved = runCatching { base.resolve(location) }.getOrNull()?.toString() ?: return null
+        return fetchUrl(resolved)
+    }
+
+    fun normalizeUrl(raw: String): String? = assemble(raw, stripSlash = true)
+
+    private fun assemble(raw: String, stripSlash: Boolean): String? {
         val uri = publicUri(raw) ?: return null
         val scheme = uri.scheme.lowercase()
         val host = uri.host.lowercase()
         var path = uri.rawPath ?: ""
-        if (path.length > 1 && path.endsWith("/")) path = path.dropLast(1)
+        if (stripSlash && path.length > 1 && path.endsWith("/")) path = path.dropLast(1)
         val port = uri.port
         val portPart = when {
             port <= 0 -> ""

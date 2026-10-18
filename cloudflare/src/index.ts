@@ -15,7 +15,7 @@ import {
 	USER_AGENT,
 } from './safe';
 import { fyydToItunes } from './podcasts';
-import { extractArticle, normalizeUrl as articleUrl, publicUrl } from '../../website/public/web/reads.js';
+import { extractArticle, fetchUrl, nextFetchUrl } from '../../website/public/web/reads.js';
 import { handleAi } from './ai';
 import { handleVault } from './vault';
 
@@ -250,11 +250,14 @@ async function proxyJson(target: string, expectedHost: string): Promise<Response
 }
 
 async function fetchArticle(raw: string): Promise<Response> {
-	const start = publicUrl(raw);
+	const start = fetchUrl(raw);
 	if (!start) return jsonError('Article URL must be http or https on a public host');
-	let current = articleUrl(raw) || start.toString();
+	let current = start;
+	const seen = new Set<string>();
 	try {
-		for (let hop = 0; hop < 5; hop++) {
+		for (let hop = 0; hop < 8; hop++) {
+			if (seen.has(current)) return jsonError('Too many redirects', 502);
+			seen.add(current);
 			const res = await fetch(current, {
 				headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml' },
 				redirect: 'manual',
@@ -263,10 +266,9 @@ async function fetchArticle(raw: string): Promise<Response> {
 			if (res.status >= 300 && res.status < 400) {
 				const loc = res.headers.get('location');
 				if (!loc) return jsonError('Article redirect had no location', 502);
-				const next = new URL(loc, current).toString();
-				const safe = articleUrl(next);
-				if (!safe) return jsonError('Article redirect left the public web');
-				current = safe;
+				const next = nextFetchUrl(current, loc);
+				if (!next) return jsonError('Article redirect left the public web');
+				current = next;
 				continue;
 			}
 			if (!res.ok) return jsonError(`Article HTTP ${res.status}`, 502);

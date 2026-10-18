@@ -39,7 +39,7 @@ export function publicUrl(raw) {
 	return url;
 }
 
-export function normalizeUrl(raw) {
+export function fetchUrl(raw) {
 	const url = publicUrl(raw);
 	if (!url) return null;
 	url.hash = '';
@@ -47,6 +47,23 @@ export function normalizeUrl(raw) {
 	if ((url.protocol === 'https:' && url.port === '443') || (url.protocol === 'http:' && url.port === '80')) {
 		url.port = '';
 	}
+	return url.toString();
+}
+
+export function nextFetchUrl(current, location) {
+	let next;
+	try {
+		next = new URL(location, current).toString();
+	} catch {
+		return null;
+	}
+	return fetchUrl(next);
+}
+
+export function normalizeUrl(raw) {
+	const text = fetchUrl(raw);
+	if (!text) return null;
+	const url = new URL(text);
 	if (url.pathname.length > 1 && url.pathname.endsWith('/')) url.pathname = url.pathname.slice(0, -1);
 	return url.toString();
 }
