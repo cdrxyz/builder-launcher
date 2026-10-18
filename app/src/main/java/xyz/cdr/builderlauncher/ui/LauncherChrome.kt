@@ -2436,25 +2436,6 @@ fun MessagesIcon(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun UsageIcon(modifier: Modifier = Modifier) {
-    val color = Paper
-    Canvas(modifier.size(22.dp)) {
-        val w = size.width
-        val h = size.height
-        val gap = w * 0.14f
-        val bar = (w - gap * 2f) / 3f
-        val heights = listOf(h * 0.95f, h * 0.62f, h * 0.34f)
-        heights.forEachIndexed { i, barH ->
-            drawRect(
-                color = color,
-                topLeft = Offset(i * (bar + gap), h - barH),
-                size = Size(bar, barH),
-            )
-        }
-    }
-}
-
-@Composable
 fun HomePodcastMarkIcon(mark: HomePodcastMark, modifier: Modifier = Modifier) {
     when (mark) {
         HomePodcastMark.PAUSE -> PlayPauseIcon(playing = true, modifier = modifier, color = Paper)
@@ -2959,52 +2940,6 @@ fun DownloadIcon(filled: Boolean, modifier: Modifier = Modifier) {
         } else {
             drawPath(tray, color = color, style = stroke)
         }
-    }
-}
-
-@Composable
-fun EditIcon(modifier: Modifier = Modifier) {
-    val dim = Dim
-    Canvas(modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val s = size.minDimension
-        val body = Path().apply {
-            moveTo(s * 0.18f, s * 0.82f)
-            lineTo(s * 0.24f, s * 0.60f)
-            lineTo(s * 0.60f, s * 0.24f)
-            lineTo(s * 0.76f, s * 0.40f)
-            lineTo(s * 0.40f, s * 0.76f)
-            close()
-        }
-        drawPath(path = body, color = dim, style = stroke)
-        drawLine(
-            color = dim,
-            start = Offset(s * 0.30f, s * 0.66f),
-            end = Offset(s * 0.38f, s * 0.74f),
-            strokeWidth = stroke.width,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = dim,
-            start = Offset(s * 0.56f, s * 0.18f),
-            end = Offset(s * 0.82f, s * 0.44f),
-            strokeWidth = stroke.width,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = dim,
-            start = Offset(s * 0.56f, s * 0.18f),
-            end = Offset(s * 0.60f, s * 0.24f),
-            strokeWidth = stroke.width,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = dim,
-            start = Offset(s * 0.82f, s * 0.44f),
-            end = Offset(s * 0.76f, s * 0.40f),
-            strokeWidth = stroke.width,
-            cap = StrokeCap.Round,
-        )
     }
 }
 

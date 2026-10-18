@@ -3,7 +3,6 @@ import { formatPosition } from './media.js';
 export const MAX_ARTICLES = 100;
 export const MAX_TEXT = 40_000;
 export const WPM = 160;
-export const SKIP_MS = 15_000;
 const FNV_OFFSET = 0xcbf29ce484222325n;
 const FNV_PRIME = 0x100000001b3n;
 const FNV_MASK = 0xffffffffffffffffn;
@@ -107,10 +106,6 @@ export function addArticle(articles, article, now) {
 	return { articles: next.slice(0, MAX_ARTICLES), droppedIds: next.slice(MAX_ARTICLES).map((item) => item.id) };
 }
 
-export function removeArticle(articles, id) {
-	return (articles || []).filter((item) => item.id !== id);
-}
-
 export function chunks(text) {
 	const spans = sentenceSpans(text);
 	if (!spans.length) return [];
@@ -131,22 +126,6 @@ export function chunkIndexAt(rows, positionMs) {
 	const pos = Math.max(0, positionMs || 0);
 	const hit = rows.findIndex((row) => pos < row.endMs);
 	return hit < 0 ? rows.length - 1 : hit;
-}
-
-export function skipMs(positionMs, totalMs, deltaMs) {
-	const cap = Math.max(0, totalMs || 0);
-	return Math.min(cap, Math.max(0, (positionMs || 0) + deltaMs));
-}
-
-export function playFraction(positionMs, totalMs) {
-	if (!totalMs || totalMs <= 0) return 0;
-	return Math.min(1, Math.max(0, (positionMs || 0) / totalMs));
-}
-
-export function msAt(frac, totalMs) {
-	if (!totalMs || totalMs <= 0) return 0;
-	const t = Math.min(1, Math.max(0, frac || 0));
-	return Math.floor(t * totalMs);
 }
 
 export function readsOf(doc) {
