@@ -38,6 +38,20 @@ export function nextSpeechIndex(total, ready, prefer) {
 	return -1;
 }
 
+export function audioByteRange(header) {
+	const match = /^bytes=(\d+)-(\d*)$/i.exec(String(header || '').trim());
+	if (!match) return null;
+	const offset = Number(match[1]);
+	const end = match[2] === '' ? null : Number(match[2]);
+	if (!Number.isInteger(offset) || offset < 0) return null;
+	if (end != null && (!Number.isInteger(end) || end < offset)) return null;
+	return end == null ? { offset } : { offset, length: end - offset + 1 };
+}
+
+export function mediaErrorStopsPlayback(code) {
+	return code === 2 || code === 3 || code === 4;
+}
+
 export function storedRows(text) {
 	let cursor = 0;
 	return storedPieces(text).map((piece, index) => {

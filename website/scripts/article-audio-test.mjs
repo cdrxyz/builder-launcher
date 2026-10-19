@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { audioProgressLabel, nextSpeechIndex, speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
+import { audioByteRange, audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -47,4 +47,14 @@ test('the clip being played is generated before the rest', () => {
 	assert.equal(nextSpeechIndex(17, [0, 1, 2, 5], 5), 3);
 	assert.equal(nextSpeechIndex(17, [0, 1, 2], 2), 3);
 	assert.equal(nextSpeechIndex(3, [0, 1, 2], null), -1);
+});
+
+test('a stored article can be streamed from a byte range, and a source switch is not a failure', () => {
+	assert.equal(audioByteRange(''), null);
+	assert.deepEqual(audioByteRange('bytes=0-1'), { offset: 0, length: 2 });
+	assert.deepEqual(audioByteRange('bytes=100-'), { offset: 100 });
+	assert.equal(audioByteRange('bytes=9-1'), null);
+	assert.equal(mediaErrorStopsPlayback(1), false);
+	assert.equal(mediaErrorStopsPlayback(4), true);
+	assert.equal(mediaErrorStopsPlayback(null), false);
 });

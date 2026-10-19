@@ -2,7 +2,7 @@ import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
 import { voiceId } from '../../website/public/web/ai.js';
-import { speechHash, storedPieces } from '../../website/public/web/article-audio.js';
+import { audioByteRange, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
 
 export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket };
 
@@ -18,7 +18,7 @@ export async function handleArticleAudio(request: Request, url: URL, env: AudioE
 	const user = await currentUser(request, env);
 	if (!user) return jsonError('Not signed in', 401);
 	if (!env.VAULT) return jsonError('Audio storage is not configured', 503);
-	if (request.method === 'GET') return getAudio(url, env.VAULT, user.id);
+	if (request.method === 'GET') return getAudio(request, url, env.VAULT, user.id);
 	if (request.method === 'POST') {
 		const type = request.headers.get('content-type') || '';
 		if (type.includes('audio/') || type.includes('octet-stream')) return storeAudio(request, url, env.VAULT, user.id);
@@ -27,7 +27,7 @@ export async function handleArticleAudio(request: Request, url: URL, env: AudioE
 	return jsonError('Method not allowed', 405);
 }
 
-async function getAudio(url: URL, vault: R2Bucket, userId: string): Promise<Response> {
+async function getAudio(request: Request, url: URL, vault: R2Bucket, userId: string): Promise<Response> {
 	const articleId = url.searchParams.get('id') || '';
 	const hash = url.searchParams.get('hash') || '';
 	const voice = voiceId(url.searchParams.get('voice') || '');
@@ -39,11 +39,24 @@ async function getAudio(url: URL, vault: R2Bucket, userId: string): Promise<Resp
 	}
 	const n = Number(index);
 	if (!Number.isInteger(n) || n < 0 || n > 80) return jsonError('Article not found', 404);
-	const obj = await vault.get(speechObjectKey(userId, articleId, voice, hash, n));
+	const range = audioByteRange(request.headers.get('Range'));
+	const obj = await vault.get(speechObjectKey(userId, articleId, voice, hash, n), range ? { range } : undefined);
 	if (!obj) return jsonError('Not ready', 404);
-	return new Response(await obj.arrayBuffer(), {
-		headers: { 'content-type': 'audio/mpeg', 'cache-control': 'private, max-age=86400' },
+	const headers = new Headers({
+		'content-type': 'audio/mpeg',
+		'accept-ranges': 'bytes',
+		'cache-control': 'private, max-age=86400',
 	});
+	const spanned = obj.range;
+	if (spanned && obj.size) {
+		const start = spanned.offset ?? 0;
+		const length = spanned.length ?? obj.size - start;
+		headers.set('content-range', `bytes ${start}-${start + length - 1}/${obj.size}`);
+		headers.set('content-length', String(length));
+		return new Response(obj.body, { status: 206, headers });
+	}
+	if (obj.size) headers.set('content-length', String(obj.size));
+	return new Response(obj.body, { status: 200, headers });
 }
 
 const SPEECH_MAX_BYTES = 32_000_000;

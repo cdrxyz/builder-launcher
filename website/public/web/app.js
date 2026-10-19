@@ -23,7 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { audioProgressLabel, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
+import { audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -3744,6 +3744,11 @@ function speakStoredChunk(row) {
 		playStoredUrl(cached, row, token);
 		return;
 	}
+	const job = audioJob(article);
+	if (job && (job.status === 'ready' || (job.status !== 'failed' && job.done > row.index))) {
+		playStoredUrl(storedFileUrl(article, row.index), row, token);
+		return;
+	}
 	storedClip(article, row.index, readSpeak.plan)
 		.then((url) => {
 			if (!readSpeak.playing || readSpeak.token !== token) return;
@@ -3752,13 +3757,46 @@ function speakStoredChunk(row) {
 		.catch((err) => {
 			if (readSpeak.token !== token) return;
 			readSpeak.playing = false;
-			setStatus(err.message || 'Could not play saved audio.');
+			const message = err.message || 'Could not play saved audio.';
+			failStoredPlay(article, message);
+			setStatus(message);
 			readCheckpoint(true);
 			paintReadPos();
 		});
 }
 
-function playStoredUrl(url, row, token) {
+function storedFileUrl(article, index) {
+	const voice = voiceId(state.voice);
+	const hash = speechHash(article.text);
+	return `/api/articles/audio?${new URLSearchParams({ id: article.id, voice, hash, index: String(index) })}`;
+}
+
+function sameMediaSrc(clip, url) {
+	try {
+		return new URL(clip.src).href === new URL(url, location.href).href;
+	} catch {
+		return clip.src === url;
+	}
+}
+
+function audibleClip() {
+	const clip = readSpeak.audio;
+	return Boolean(clip && !clip.paused && clip.volume > 0 && clip.src && !sameMediaSrc(clip, CLIP_HOLD));
+}
+
+function failStoredPlay(article, message) {
+	const key = audioJobKey(article);
+	const current = audioJobs.get(key) || {};
+	setAudioJob(key, {
+		status: 'failed',
+		done: current.done || 0,
+		total: current.total || storedPieces(article.text).length,
+		error: message,
+		articleId: article.id,
+	});
+}
+
+function playStoredUrl(url, row, token, viaBlob) {
 	const clip = readSpeak.audio || new Audio();
 	readSpeak.audio = clip;
 	clip.loop = false;
@@ -3769,11 +3807,39 @@ function playStoredUrl(url, row, token) {
 		advanceRead(row);
 	};
 	clip.onerror = () => {
+		if (!readSpeak.playing || readSpeak.token !== token) return;
+		if (!mediaErrorStopsPlayback(clip.error && clip.error.code)) return;
+		if (!viaBlob && String(url).startsWith('/api/')) {
+			fetch(url, { credentials: 'include' })
+				.then((res) => {
+					if (!res.ok) throw new Error('Could not load saved audio.');
+					return res.blob();
+				})
+				.then((blob) => {
+					if (!readSpeak.playing || readSpeak.token !== token) return;
+					playStoredUrl(URL.createObjectURL(blob), row, token, true);
+				})
+				.catch((err) => {
+					if (readSpeak.token !== token) return;
+					readSpeak.playing = false;
+					const message = err.message || 'Could not play saved audio.';
+					failStoredPlay(readSpeak.article, message);
+					setStatus(message);
+					readCheckpoint(true);
+					paintReadPos();
+				});
+			return;
+		}
 		readSpeak.playing = false;
-		setStatus('Could not play saved audio.');
+		const message = 'Could not play saved audio.';
+		failStoredPlay(readSpeak.article, message);
+		setStatus(message);
 		readCheckpoint(true);
+		paintReadPos();
 	};
-	if (!clip.src || clip.src !== url) clip.src = url;
+	if (!sameMediaSrc(clip, url)) clip.src = url;
+	const offset = Math.max(0, (readSpeak.positionMs - row.startMs) / 1000);
+	if (offset > 0.25 && Number.isFinite(clip.duration) && offset < clip.duration) clip.currentTime = offset;
 	const pending = clip.play();
 	if (pending && pending.catch) {
 		pending.catch(() => {
@@ -3897,7 +3963,7 @@ async function readPlay(article, startMs) {
 }
 
 function readToggle(article) {
-	if (readSpeak.playing && readSpeak.id === article.id) {
+	if (readSpeak.playing && readSpeak.id === article.id && audibleClip()) {
 		readStop(true);
 		render();
 		return;
