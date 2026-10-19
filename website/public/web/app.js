@@ -23,7 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { audioProgressLabel, speechHash, storedPieces, storedRows } from './article-audio.js';
+import { audioProgressLabel, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -3435,8 +3435,6 @@ async function fetchSpeech(plan, text) {
 }
 
 const clipUrls = new Map();
-const clipJobs = new Map();
-const preparingAudio = new Set();
 const audioJobs = new Map();
 const audioProbes = new Set();
 
@@ -3452,7 +3450,7 @@ function setAudioJob(key, job) {
 	audioJobs.set(key, job);
 	paintAudio(job.articleId);
 	if (job.status === 'preparing' || job.status === 'failed') noteStatus(audioProgressLabel(job));
-	else if (String(state.status || '').startsWith('preparing audio') || String(state.status || '').startsWith('audio failed')) noteStatus('');
+	else if (/^(preparing audio|ready to play|audio failed)/.test(String(state.status || ''))) noteStatus('');
 }
 
 function paintAudio(articleId) {
@@ -3495,20 +3493,104 @@ function probeAudio(article) {
 			if (!body || audioJobs.get(key)?.status === 'preparing' || audioJobs.get(key)?.status === 'failed') return;
 			const done = Array.isArray(body.ready) ? body.ready.length : 0;
 			if (total && done >= total) setAudioJob(key, { status: 'ready', done: total, total, articleId: article.id });
-			else if (done > 0) setAudioJob(key, { status: 'partial', done, total, articleId: article.id });
+			else if (done > 0) setAudioJob(key, { status: 'preparing', done, total, articleId: article.id });
 		})
 		.catch(() => {});
 }
 
+const speechRuns = new Map();
+const CLIP_HOLD = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+function clipKey(article, index) {
+	return `${article.id}:${voiceId(state.voice)}:${speechHash(article.text)}:${index}`;
+}
+
+function cachedClip(article, index) {
+	return clipUrls.get(clipKey(article, index)) || '';
+}
+
+function cachedIndexes(article, total) {
+	const ready = [];
+	for (let i = 0; i < total; i += 1) if (clipUrls.has(clipKey(article, i))) ready.push(i);
+	return ready;
+}
+
+function speechRun(article, plan) {
+	const key = audioJobKey(article);
+	let run = speechRuns.get(key);
+	if (!run) {
+		run = { key, plan, prefer: null, waiters: new Map(), pumping: false };
+		speechRuns.set(key, run);
+	}
+	if (plan) run.plan = plan;
+	return run;
+}
+
+function requestClip(article, index, plan) {
+	const cached = cachedClip(article, index);
+	if (cached) return Promise.resolve(cached);
+	const run = speechRun(article, plan);
+	run.prefer = index;
+	return new Promise((resolve, reject) => {
+		const waiters = run.waiters.get(index) || [];
+		waiters.push({ resolve, reject });
+		run.waiters.set(index, waiters);
+		pumpSpeech(article, run);
+	});
+}
+
+function pumpSpeech(article, run) {
+	if (run.pumping) return;
+	run.pumping = true;
+	drainSpeech(article, run);
+}
+
+async function drainSpeech(article, run) {
+	const pieces = storedRows(article.text);
+	try {
+		while (true) {
+			const ready = cachedIndexes(article, pieces.length);
+			const index = nextSpeechIndex(pieces.length, ready, run.prefer);
+			if (index < 0) {
+				setAudioJob(run.key, { status: 'ready', done: pieces.length, total: pieces.length, articleId: article.id });
+				break;
+			}
+			if (run.prefer === index) run.prefer = null;
+			setAudioJob(run.key, { status: 'preparing', done: ready.length, total: pieces.length, articleId: article.id });
+			const url = await loadStoredClip(article, index, run.plan, voiceId(state.voice), speechHash(article.text));
+			const waiters = run.waiters.get(index) || [];
+			run.waiters.delete(index);
+			waiters.forEach((waiter) => waiter.resolve(url));
+			setAudioJob(run.key, {
+				status: 'preparing',
+				done: cachedIndexes(article, pieces.length).length,
+				total: pieces.length,
+				articleId: article.id,
+			});
+		}
+	} catch (err) {
+		const message = err.message || 'Could not prepare audio.';
+		const done = cachedIndexes(article, storedRows(article.text).length).length;
+		setAudioJob(run.key, {
+			status: 'failed',
+			done,
+			total: storedRows(article.text).length,
+			error: message,
+			articleId: article.id,
+		});
+		for (const waiters of run.waiters.values()) waiters.forEach((waiter) => waiter.reject(err));
+		run.waiters.clear();
+	} finally {
+		run.pumping = false;
+		const pieces = storedRows(article.text);
+		if (nextSpeechIndex(pieces.length, cachedIndexes(article, pieces.length), run.prefer) >= 0 && run.waiters.size) {
+			pumpSpeech(article, run);
+		}
+	}
+}
+
 async function storedClip(article, index, plan) {
-	const voice = voiceId(state.voice);
-	const hash = speechHash(article.text);
-	const key = `${article.id}:${voice}:${hash}:${index}`;
-	if (clipUrls.has(key)) return clipUrls.get(key);
-	if (clipJobs.has(key)) return clipJobs.get(key);
-	const job = loadStoredClip(article, index, plan, voice, hash).finally(() => clipJobs.delete(key));
-	clipJobs.set(key, job);
-	return job;
+	return requestClip(article, index, plan);
 }
 
 async function loadStoredClip(article, index, plan, voice, hash) {
@@ -3530,45 +3612,35 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 
 function prepareArticleAudio(article) {
 	if (!signedIn() || !article?.text) return;
-	const voice = voiceId(state.voice);
-	const hash = speechHash(article.text);
-	const key = `${article.id}:${voice}:${hash}`;
-	if (preparingAudio.has(key) || audioJobs.get(key)?.status === 'ready') return;
-	preparingAudio.add(key);
+	const key = audioJobKey(article);
+	if (audioJobs.get(key)?.status === 'ready' || speechRuns.get(key)?.pumping) return;
 	const pieces = storedRows(article.text);
-	const prior = audioJobs.get(key);
 	setAudioJob(key, {
 		status: 'preparing',
-		done: prior?.done || 0,
+		done: cachedIndexes(article, pieces.length).length,
 		total: pieces.length,
 		articleId: article.id,
 	});
 	ensureSpeech()
-		.then(async (plan) => {
+		.then((plan) => {
 			if (plan.engine !== 'xai') {
 				audioJobs.delete(key);
 				paintAudio(article.id);
-				if (String(state.status || '').startsWith('preparing audio')) noteStatus('');
+				if (/^(preparing audio|ready to play)/.test(String(state.status || ''))) noteStatus('');
 				return;
 			}
-			for (let i = 0; i < pieces.length; i++) {
-				await storedClip(article, i, plan);
-				setAudioJob(key, { status: 'preparing', done: i + 1, total: pieces.length, articleId: article.id });
-			}
-			setAudioJob(key, { status: 'ready', done: pieces.length, total: pieces.length, articleId: article.id });
+			pumpSpeech(article, speechRun(article, plan));
 		})
 		.catch((err) => {
 			const message = err.message || 'Could not prepare audio.';
-			const current = audioJobs.get(key) || {};
 			setAudioJob(key, {
 				status: 'failed',
-				done: current.done || 0,
+				done: cachedIndexes(article, pieces.length).length,
 				total: pieces.length,
 				error: message,
 				articleId: article.id,
 			});
-		})
-		.finally(() => preparingAudio.delete(key));
+		});
 }
 
 function speakReadChunk() {
@@ -3618,26 +3690,15 @@ function speakStoredChunk(row) {
 	const article = readSpeak.article;
 	readSpeak.positionMs = row.startMs;
 	paintReadPos();
+	const cached = cachedClip(article, row.index);
+	if (cached) {
+		playStoredUrl(cached, row, token);
+		return;
+	}
 	storedClip(article, row.index, readSpeak.plan)
 		.then((url) => {
 			if (!readSpeak.playing || readSpeak.token !== token) return;
-			const clip = new Audio(url);
-			clip.playbackRate = ttsSpeed(state.speed);
-			readSpeak.audio = clip;
-			clip.onended = () => {
-				if (!readSpeak.playing || readSpeak.token !== token) return;
-				advanceRead(row);
-			};
-			clip.onerror = () => {
-				readSpeak.playing = false;
-				setStatus('Could not play saved audio.');
-				readCheckpoint(true);
-			};
-			clip.play().catch(() => {
-				readSpeak.playing = false;
-				setStatus('Could not play saved audio.');
-			});
-			readCheckpoint(false);
+			playStoredUrl(url, row, token);
 		})
 		.catch((err) => {
 			if (readSpeak.token !== token) return;
@@ -3646,6 +3707,46 @@ function speakStoredChunk(row) {
 			readCheckpoint(true);
 			paintReadPos();
 		});
+}
+
+function playStoredUrl(url, row, token) {
+	const clip = readSpeak.audio || new Audio();
+	readSpeak.audio = clip;
+	clip.loop = false;
+	clip.volume = 1;
+	clip.playbackRate = ttsSpeed(state.speed);
+	clip.onended = () => {
+		if (!readSpeak.playing || readSpeak.token !== token) return;
+		advanceRead(row);
+	};
+	clip.onerror = () => {
+		readSpeak.playing = false;
+		setStatus('Could not play saved audio.');
+		readCheckpoint(true);
+	};
+	if (!clip.src || clip.src !== url) clip.src = url;
+	const pending = clip.play();
+	if (pending && pending.catch) {
+		pending.catch(() => {
+			if (readSpeak.token !== token) return;
+			readSpeak.playing = false;
+			setStatus('Press play');
+			paintReadPos();
+		});
+	}
+	readCheckpoint(false);
+}
+
+function holdPlayback() {
+	const clip = readSpeak.audio || new Audio();
+	readSpeak.audio = clip;
+	if (!clip.paused && clip.src && clip.src !== CLIP_HOLD) return clip;
+	clip.loop = true;
+	clip.volume = 0;
+	if (clip.src !== CLIP_HOLD) clip.src = CLIP_HOLD;
+	const pending = clip.play();
+	if (pending && pending.catch) pending.catch(() => {});
+	return clip;
 }
 
 function speakRemoteChunk(row) {
@@ -3696,17 +3797,31 @@ function advanceRead(row) {
 
 async function readPlay(article, startMs) {
 	audio.pause();
-	readStop(false);
+	const held = readSpeak.audio;
+	readSpeak.token += 1;
+	if (readSpeak.timer) clearInterval(readSpeak.timer);
+	readSpeak.timer = null;
+	if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+	readSpeak.audio = held;
+	readSpeak.playing = true;
+	readSpeak.id = article.id;
 	let plan;
 	try {
 		plan = await ensureSpeech();
 	} catch (err) {
+		readSpeak.playing = false;
+		if (held) held.pause();
 		setStatus(err.message || 'Could not speak that article.');
 		return;
 	}
 	const stored = plan.engine === 'xai' && signedIn();
+	if (!stored && held) {
+		held.pause();
+		readSpeak.audio = null;
+	}
 	const rows = stored ? storedRows(article.text) : readChunks(article.text);
 	if (!rows.length) {
+		readSpeak.playing = false;
 		setStatus('Nothing to read.');
 		return;
 	}
@@ -3740,6 +3855,7 @@ function readToggle(article) {
 	}
 	const saved = progressFor(readsOf(state.doc).progress, article.id)?.positionMs || 0;
 	const start = readSpeak.id === article.id ? readSpeak.positionMs : saved;
+	holdPlayback();
 	readPlay(article, start);
 }
 
@@ -3748,8 +3864,10 @@ function readSeek(article, ms) {
 	readSpeak.positionMs = Math.max(0, ms);
 	readSpeak.durationMs = readDurationMs(article.text);
 	readCheckpoint(true);
-	if (playing) readPlay(article, readSpeak.positionMs);
-	else paintReadPos();
+	if (playing) {
+		holdPlayback();
+		readPlay(article, readSpeak.positionMs);
+	} else paintReadPos();
 }
 
 async function submitRead(text) {

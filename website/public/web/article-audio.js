@@ -22,10 +22,19 @@ export function audioProgressLabel(job) {
 		const short = reason.length > 80 ? `${reason.slice(0, 77)}…` : reason;
 		return short ? `audio failed · ${short}` : 'audio failed';
 	}
-	if (job.status === 'ready' || (total > 0 && shown >= total && job.status !== 'preparing')) return 'audio ready';
+	if (total > 0 && shown >= total) return 'audio ready';
+	if ((job.status === 'preparing' || job.status === 'partial') && shown > 0) return `ready to play · ${shown} of ${total}`;
 	if (job.status === 'preparing') return total ? `preparing audio ${shown} of ${total}` : 'preparing audio';
 	if (total && shown > 0 && shown < total) return `audio ${shown} of ${total}`;
 	return '';
+}
+
+export function nextSpeechIndex(total, ready, prefer) {
+	const done = new Set((ready || []).map(Number));
+	const wanted = Number(prefer);
+	if (Number.isInteger(wanted) && wanted >= 0 && wanted < total && !done.has(wanted)) return wanted;
+	for (let i = 0; i < total; i += 1) if (!done.has(i)) return i;
+	return -1;
 }
 
 export function storedRows(text) {
