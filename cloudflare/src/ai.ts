@@ -25,6 +25,8 @@ import {
 	hostOf,
 	stripHtml,
 	toolStep,
+	speakPieces,
+	ttsSpeed,
 } from '../../website/public/web/ai.js';
 import { jsonError } from './safe';
 
@@ -51,7 +53,55 @@ export function planChat(body: Record<string, unknown>): Plan {
 export async function handleAi(request: Request, url: URL): Promise<Response | null> {
 	if (url.pathname === '/api/ai/chat' && request.method === 'POST') return aiChat(request);
 	if (url.pathname === '/api/ai/refresh' && request.method === 'POST') return aiRefresh(request);
+	if (url.pathname === '/api/ai/speech' && request.method === 'POST') return aiSpeech(request);
 	return null;
+}
+
+async function aiSpeech(request: Request): Promise<Response> {
+	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+	if (!body) return jsonError('Invalid JSON');
+	const provider = String(body.provider || '').toUpperCase();
+	const bearer = String(body.bearer || '').trim();
+	const text = speakPieces(String(body.text || ''), 1500)[0] || '';
+	if (!text) return jsonError('Nothing to speak');
+	if (!bearer) return jsonError('Sign in or paste an API key in settings.');
+	const speed = ttsSpeed(body.speed);
+	try {
+		if (provider === 'XAI') {
+			const res = await fetch('https://api.x.ai/v1/tts', {
+				method: 'POST',
+				headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json', accept: 'audio/mpeg' },
+				body: JSON.stringify({
+					text,
+					voice_id: 'eve',
+					language: 'en',
+					speed,
+					text_normalization: true,
+					output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 64000 },
+				}),
+				signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+			});
+			if (!res.ok) return jsonError(`Speech HTTP ${res.status}`, 502);
+			const audio = await res.arrayBuffer();
+			if (audio.byteLength < 64 || audio.byteLength > 4_000_000) return jsonError('Speech reply was empty', 502);
+			return new Response(audio, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' } });
+		}
+		if (provider === 'GROQ') {
+			const res = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+				method: 'POST',
+				headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json', accept: 'audio/wav' },
+				body: JSON.stringify({ model: 'playai-tts', input: text, voice: 'Celeste-PlayAI', response_format: 'wav' }),
+				signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+			});
+			if (!res.ok) return jsonError(`Speech HTTP ${res.status}`, 502);
+			const audio = await res.arrayBuffer();
+			if (audio.byteLength < 64 || audio.byteLength > 8_000_000) return jsonError('Speech reply was empty', 502);
+			return new Response(audio, { headers: { 'content-type': 'audio/wav', 'cache-control': 'no-store' } });
+		}
+		return jsonError('This provider has no speech.');
+	} catch {
+		return jsonError('Speech timed out', 504);
+	}
 }
 
 async function aiChat(request: Request): Promise<Response> {

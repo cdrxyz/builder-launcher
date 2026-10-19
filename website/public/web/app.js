@@ -36,6 +36,7 @@ import {
 	providerLabel,
 	questionFromInput,
 	refreshPlan,
+	speechPlan,
 	threadsOf,
 	upsertThread,
 } from './ai.js';
@@ -3308,39 +3309,65 @@ const readSpeak = {
 	durationMs: 0,
 	playing: false,
 	timer: null,
+	token: 0,
+	engine: null,
 };
 
 function readStop(save) {
 	readSpeak.playing = false;
+	readSpeak.token += 1;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = null;
 	if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+	if (readSpeak.audio) {
+		readSpeak.audio.pause();
+		readSpeak.audio = null;
+	}
 	if (save) readCheckpoint(true);
 }
 
-function readCheckpoint(force) {
-	if (!readSpeak.id || !state.doc) return;
-	const now = Date.now();
-	if (!force && now - (readSpeak.savedAt || 0) < 5000) return;
-	readSpeak.savedAt = now;
-	const bag = readsOf(state.doc);
-	const next = { articleId: readSpeak.id, positionMs: readSpeak.positionMs, updatedAt: now };
-	state.doc = { ...state.doc, reads: { ...bag, progress: upsertReadProgress(bag.progress, next) } };
-	state.dirty = true;
-	saveSnapshot(state.doc);
-	maybeSyncSave();
-	paintReadPos();
+async function ensureSpeech() {
+	let settings = aiView();
+	if (needsRefresh(settings)) {
+		const plan = refreshPlan(settings);
+		if (plan) {
+			try {
+				const tokens = await apiJson('/api/ai/refresh', { method: 'POST', body: plan, timeout: 20_000 });
+				settings = applyRefresh(settings, tokens);
+				writeAiSettings(settings);
+			} catch (err) {
+				if (!String(settings.apiKey || '').trim()) throw err;
+			}
+		}
+	}
+	const plan = speechPlan(settings);
+	if (plan.error) throw new Error(plan.error);
+	if (plan.engine === 'browser') return plan;
+	const bearer = bearerForSpeech(settings, plan);
+	if (!bearer) throw new Error(plan.error || 'Sign in to xAI in settings, then sync.');
+	return { ...plan, bearer };
 }
 
-function paintReadPos() {
-	const el = document.getElementById('play-pos');
-	if (el) el.textContent = positionLabel(readSpeak.positionMs, readSpeak.durationMs);
-	const fill = document.getElementById('play-scrub-fill');
-	const knob = document.getElementById('play-scrub-knob');
-	if (fill && knob) setScrub(readSpeak.durationMs ? readSpeak.positionMs / readSpeak.durationMs : 0, fill, knob);
-	document.querySelectorAll('.read-sentence').forEach((node) => {
-		node.classList.toggle('read-current', Number(node.dataset.i) === readSpeak.index && readSpeak.playing);
+function bearerForSpeech(settings, plan) {
+	if (plan.engine === 'groq') return String(settings.apiKey || '').trim();
+	if (String(settings?.provider || '').toUpperCase() === 'XAI') return String(settings.oauthAccess || settings.apiKey || '').trim();
+	return String(settings.oauthAccess || '').trim();
+}
+
+async function fetchSpeech(plan, text) {
+	const res = await fetch('/api/ai/speech', {
+		method: 'POST',
+		headers: { accept: 'audio/mpeg, audio/wav, application/json', 'content-type': 'application/json' },
+		body: JSON.stringify({ provider: plan.provider, bearer: plan.bearer, text, speed: state.speed || 1 }),
+		credentials: 'include',
+		cache: 'no-store',
+		signal: AbortSignal.timeout(AI_TIMEOUT_MS),
 	});
+	if (!res.ok) {
+		const body = await res.json().catch(() => ({}));
+		throw new Error(body.error || 'Could not speak that paragraph.');
+	}
+	return URL.createObjectURL(await res.blob());
 }
 
 function speakReadChunk() {
@@ -3356,6 +3383,11 @@ function speakReadChunk() {
 		}
 		return;
 	}
+	if (readSpeak.engine === 'browser') speakBrowserChunk(row);
+	else speakRemoteChunk(row);
+}
+
+function speakBrowserChunk(row) {
 	if (typeof speechSynthesis === 'undefined') {
 		setStatus('This browser has no speech.');
 		readSpeak.playing = false;
@@ -3370,10 +3402,7 @@ function speakReadChunk() {
 	};
 	utter.onend = () => {
 		if (!readSpeak.playing) return;
-		readSpeak.index += 1;
-		const next = readSpeak.chunks[readSpeak.index];
-		readSpeak.positionMs = next ? next.startMs : row.endMs;
-		speakReadChunk();
+		advanceRead(row);
 	};
 	utter.onerror = () => {
 		readSpeak.playing = false;
@@ -3382,14 +3411,67 @@ function speakReadChunk() {
 	speechSynthesis.speak(utter);
 }
 
-function readPlay(article, startMs) {
-	if (typeof speechSynthesis === 'undefined') {
-		setStatus('This browser has no speech.');
+function speakRemoteChunk(row) {
+	const token = readSpeak.token;
+	const text = readSpeak.text.slice(row.start, row.end);
+	readSpeak.positionMs = row.startMs;
+	paintReadPos();
+	fetchSpeech(readSpeak.plan, text)
+		.then((url) => {
+			if (!readSpeak.playing || readSpeak.token !== token) {
+				URL.revokeObjectURL(url);
+				return;
+			}
+			const clip = new Audio(url);
+			readSpeak.audio = clip;
+			clip.onended = () => {
+				URL.revokeObjectURL(url);
+				if (!readSpeak.playing || readSpeak.token !== token) return;
+				advanceRead(row);
+			};
+			clip.onerror = () => {
+				URL.revokeObjectURL(url);
+				readSpeak.playing = false;
+				setStatus('Could not play that paragraph.');
+				readCheckpoint(true);
+			};
+			clip.play().catch(() => {
+				readSpeak.playing = false;
+				setStatus('Could not play that paragraph.');
+			});
+			readCheckpoint(false);
+		})
+		.catch((err) => {
+			if (readSpeak.token !== token) return;
+			readSpeak.playing = false;
+			setStatus(err.message || 'Could not speak that paragraph.');
+			readCheckpoint(true);
+			paintReadPos();
+		});
+}
+
+function advanceRead(row) {
+	readSpeak.index += 1;
+	const next = readSpeak.chunks[readSpeak.index];
+	readSpeak.positionMs = next ? next.startMs : row.endMs;
+	speakReadChunk();
+}
+
+async function readPlay(article, startMs) {
+	audio.pause();
+	readStop(false);
+	const rows = readChunks(article.text);
+	if (!rows.length) {
+		setStatus('Nothing to read.');
 		return;
 	}
-	audio.pause();
-	speechSynthesis.cancel();
-	const rows = readChunks(article.text);
+	let plan;
+	try {
+		plan = await ensureSpeech();
+	} catch (err) {
+		setStatus(err.message || 'Could not speak that article.');
+		return;
+	}
 	readSpeak.id = article.id;
 	readSpeak.chunks = rows;
 	readSpeak.text = article.text;
@@ -3397,9 +3479,11 @@ function readPlay(article, startMs) {
 	readSpeak.index = chunkIndexAt(rows, startMs || 0);
 	readSpeak.positionMs = rows[readSpeak.index]?.startMs || 0;
 	readSpeak.playing = true;
+	readSpeak.engine = plan.engine;
+	readSpeak.plan = plan;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = setInterval(() => {
-		if (readSpeak.playing && speechSynthesis.speaking && !speechSynthesis.paused) {
+		if (readSpeak.playing && readSpeak.engine === 'browser' && typeof speechSynthesis !== 'undefined' && speechSynthesis.speaking && !speechSynthesis.paused) {
 			speechSynthesis.pause();
 			speechSynthesis.resume();
 		}
