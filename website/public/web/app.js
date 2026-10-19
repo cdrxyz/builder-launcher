@@ -40,6 +40,8 @@ import {
 	speechPlan,
 	ttsSpeed,
 	voiceId,
+	xaiSpeechPayload,
+	SPEECH_WAIT_MS,
 	XAI_VOICES,
 	DEFAULT_VOICE,
 	threadsOf,
@@ -3593,16 +3595,63 @@ async function storedClip(article, index, plan) {
 	return requestClip(article, index, plan);
 }
 
+async function fetchXaiSpeech(bearer, text, voice) {
+	let res;
+	try {
+		res = await fetch('https://api.x.ai/v1/tts', {
+			method: 'POST',
+			headers: {
+				authorization: `Bearer ${bearer}`,
+				accept: 'audio/mpeg',
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify(xaiSpeechPayload(text, voice, 1)),
+			signal: AbortSignal.timeout(SPEECH_WAIT_MS),
+		});
+	} catch (err) {
+		if (err?.name === 'TimeoutError' || err?.name === 'AbortError') throw new Error('Audio timed out. Try again.');
+		throw new Error('Could not reach speech.');
+	}
+	if (!res.ok) {
+		const body = await res.json().catch(() => ({}));
+		throw new Error(body.error || `Speech HTTP ${res.status}`);
+	}
+	const blob = await res.blob();
+	if (blob.size < 64) throw new Error('Speech reply was empty.');
+	return blob;
+}
+
+async function storeArticleAudio(article, voice, hash, index, blob) {
+	const query = new URLSearchParams({ id: article.id, voice, hash, index: String(index) });
+	const res = await fetch(`/api/articles/audio?${query}`, {
+		method: 'POST',
+		headers: { accept: 'application/json', 'content-type': 'audio/mpeg' },
+		body: blob,
+		credentials: 'include',
+		cache: 'no-store',
+		signal: AbortSignal.timeout(60_000),
+	});
+	if (!res.ok) {
+		const body = await res.json().catch(() => ({}));
+		throw new Error(body.error || 'Could not save audio.');
+	}
+}
+
 async function loadStoredClip(article, index, plan, voice, hash) {
 	const query = new URLSearchParams({ id: article.id, voice, hash, index: String(index) });
 	let res = await fetch(`/api/articles/audio?${query}`, { credentials: 'include', cache: 'no-store' });
 	if (res.status === 404) {
-		await apiJson('/api/articles/audio', {
-			method: 'POST',
-			body: { id: article.id, text: article.text, voice, bearer: plan.bearer, index },
-			timeout: 300_000,
-		});
-		res = await fetch(`/api/articles/audio?${query}`, { credentials: 'include', cache: 'no-store' });
+		const piece = storedPieces(article.text)[index];
+		if (!piece) throw new Error('Nothing to speak.');
+		const blob = await fetchXaiSpeech(plan.bearer, piece, voice);
+		const url = URL.createObjectURL(blob);
+		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
+		try {
+			await storeArticleAudio(article, voice, hash, index, blob);
+		} catch {
+			/* this device can still play the file */
+		}
+		return url;
 	}
 	if (!res.ok) throw new Error('Could not load saved audio.');
 	const url = URL.createObjectURL(await res.blob());

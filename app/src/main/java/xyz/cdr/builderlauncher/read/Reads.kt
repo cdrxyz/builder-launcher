@@ -59,6 +59,8 @@ object Reads {
         return hash.toString(16).padStart(16, '0')
     }
 
+    fun speechHash(text: String): String = fnv1a64("60000\n$text")
+
     fun publicUri(raw: String): URI? {
         var text = raw.trim()
         if (text.isEmpty() || text.any { it.isWhitespace() }) return null

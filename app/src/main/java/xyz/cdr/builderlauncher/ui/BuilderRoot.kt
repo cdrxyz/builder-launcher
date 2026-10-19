@@ -721,16 +721,13 @@ fun BuilderRoot(
         scope.launch(Dispatchers.IO) {
             val client = AccountClient()
             runCatching {
-                repeat(80) {
-                    val status = client.prepareArticleAudio(token, article.id, article.text, "leo", bearer)
-                    val done = if (status.ready) status.total else status.index + 1
-                    val label = if (status.ready) {
-                        Reads.audioProgressLabel("ready", status.total, status.total)
-                    } else {
-                        Reads.audioProgressLabel("preparing", done, status.total)
-                    }
-                    withContext(Dispatchers.Main) { articleAudio = articleAudio + (article.id to label) }
-                    if (status.ready) return@runCatching
+                withContext(Dispatchers.Main) {
+                    articleAudio = articleAudio + (article.id to Reads.audioProgressLabel("preparing", 0, 1))
+                }
+                val audio = client.fetchXaiSpeech(bearer, article.text, "leo")
+                client.storeArticleAudio(token, article.id, "leo", Reads.speechHash(article.text), 0, audio)
+                withContext(Dispatchers.Main) {
+                    articleAudio = articleAudio + (article.id to Reads.audioProgressLabel("ready", 1, 1))
                 }
             }.onFailure { err ->
                 if (err is CancellationException) throw err

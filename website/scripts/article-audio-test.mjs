@@ -13,7 +13,20 @@ test('saved article audio is keyed per account, article, and voice', () => {
 	);
 	assert.equal(speechObjectKey('user', 'nope', 'leo', hash, 0), '');
 	assert.equal(storedPieces(text).length, 1);
-	assert.ok(storedPieces(`${text} `.repeat(40)).every((piece) => piece.length <= 60_000));
+	assert.equal(storedPieces(`${text} `.repeat(40)).every((piece) => piece.length <= 60_000), true);
+});
+
+test('speech asks xAI directly and saves the finished file', async () => {
+	const { xaiSpeechPayload, SPEECH_WAIT_MS } = await import('../public/web/ai.js');
+	const payload = xaiSpeechPayload('Hello there.', 'Leo', 1);
+	assert.equal(payload.voice_id, 'leo');
+	assert.equal(payload.text, 'Hello there.');
+	assert.equal(payload.output_format.codec, 'mp3');
+	assert.equal(SPEECH_WAIT_MS > 120_000, true);
+	const app = await import('node:fs').then((fs) => fs.readFileSync(new URL('../public/web/app.js', import.meta.url), 'utf8'));
+	assert.match(app, /https:\/\/api\.x\.ai\/v1\/tts/);
+	assert.match(app, /content-type': 'audio\/mpeg'/);
+	assert.doesNotMatch(app, /timeout: 300_000/);
 });
 
 test('article audio progress says how far, when ready, and when it failed', () => {
