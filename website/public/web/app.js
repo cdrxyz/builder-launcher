@@ -23,6 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
+import { speechHash, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -37,6 +38,7 @@ import {
 	questionFromInput,
 	refreshPlan,
 	speechPlan,
+	ttsSpeed,
 	voiceId,
 	XAI_VOICES,
 	DEFAULT_VOICE,
@@ -2853,6 +2855,8 @@ function setVoice(id) {
 		/* private mode */
 	}
 	render();
+	const open = readsOf(state.doc).articles.find((item) => item.id === state.articleId);
+	if (open) prepareArticleAudio(open);
 }
 
 function loadSpeed() {
@@ -3420,6 +3424,61 @@ async function fetchSpeech(plan, text) {
 	return URL.createObjectURL(await res.blob());
 }
 
+const clipUrls = new Map();
+const clipJobs = new Map();
+const preparingAudio = new Set();
+
+async function storedClip(article, index, plan) {
+	const voice = voiceId(state.voice);
+	const hash = speechHash(article.text);
+	const key = `${article.id}:${voice}:${hash}:${index}`;
+	if (clipUrls.has(key)) return clipUrls.get(key);
+	if (clipJobs.has(key)) return clipJobs.get(key);
+	const job = loadStoredClip(article, index, plan, voice, hash).finally(() => clipJobs.delete(key));
+	clipJobs.set(key, job);
+	return job;
+}
+
+async function loadStoredClip(article, index, plan, voice, hash) {
+	const query = new URLSearchParams({ id: article.id, voice, hash, index: String(index) });
+	let res = await fetch(`/api/articles/audio?${query}`, { credentials: 'include', cache: 'no-store' });
+	if (res.status === 404) {
+		await apiJson('/api/articles/audio', {
+			method: 'POST',
+			body: { id: article.id, text: article.text, voice, bearer: plan.bearer, index },
+			timeout: 60_000,
+		});
+		res = await fetch(`/api/articles/audio?${query}`, { credentials: 'include', cache: 'no-store' });
+	}
+	if (!res.ok) throw new Error('Could not load saved audio.');
+	const url = URL.createObjectURL(await res.blob());
+	clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
+	return url;
+}
+
+function prepareArticleAudio(article) {
+	if (!signedIn() || !article?.text) return;
+	const voice = voiceId(state.voice);
+	const key = `${article.id}:${voice}`;
+	if (preparingAudio.has(key)) return;
+	preparingAudio.add(key);
+	const pieces = storedRows(article.text);
+	if (!state.status) setStatus('Preparing audio…');
+	ensureSpeech()
+		.then(async (plan) => {
+			if (plan.engine !== 'xai') {
+				if (state.status === 'Preparing audio…') setStatus('');
+				return;
+			}
+			for (let i = 0; i < pieces.length; i++) await storedClip(article, i, plan);
+			if (state.status === 'Preparing audio…') setStatus('');
+		})
+		.catch((err) => {
+			if (!readSpeak.playing) setStatus(err.message || 'Could not prepare audio.');
+		})
+		.finally(() => preparingAudio.delete(key));
+}
+
 function speakReadChunk() {
 	const row = readSpeak.chunks[readSpeak.index];
 	if (!row || !readSpeak.playing) {
@@ -3433,7 +3492,8 @@ function speakReadChunk() {
 		}
 		return;
 	}
-	if (readSpeak.engine === 'browser') speakBrowserChunk(row);
+	if (readSpeak.stored) speakStoredChunk(row);
+	else if (readSpeak.engine === 'browser') speakBrowserChunk(row);
 	else speakRemoteChunk(row);
 }
 
@@ -3459,6 +3519,41 @@ function speakBrowserChunk(row) {
 		readCheckpoint(true);
 	};
 	speechSynthesis.speak(utter);
+}
+
+function speakStoredChunk(row) {
+	const token = readSpeak.token;
+	const article = readSpeak.article;
+	readSpeak.positionMs = row.startMs;
+	paintReadPos();
+	storedClip(article, row.index, readSpeak.plan)
+		.then((url) => {
+			if (!readSpeak.playing || readSpeak.token !== token) return;
+			const clip = new Audio(url);
+			clip.playbackRate = ttsSpeed(state.speed);
+			readSpeak.audio = clip;
+			clip.onended = () => {
+				if (!readSpeak.playing || readSpeak.token !== token) return;
+				advanceRead(row);
+			};
+			clip.onerror = () => {
+				readSpeak.playing = false;
+				setStatus('Could not play saved audio.');
+				readCheckpoint(true);
+			};
+			clip.play().catch(() => {
+				readSpeak.playing = false;
+				setStatus('Could not play saved audio.');
+			});
+			readCheckpoint(false);
+		})
+		.catch((err) => {
+			if (readSpeak.token !== token) return;
+			readSpeak.playing = false;
+			setStatus(err.message || 'Could not play saved audio.');
+			readCheckpoint(true);
+			paintReadPos();
+		});
 }
 
 function speakRemoteChunk(row) {
@@ -3510,11 +3605,6 @@ function advanceRead(row) {
 async function readPlay(article, startMs) {
 	audio.pause();
 	readStop(false);
-	const rows = readChunks(article.text);
-	if (!rows.length) {
-		setStatus('Nothing to read.');
-		return;
-	}
 	let plan;
 	try {
 		plan = await ensureSpeech();
@@ -3522,10 +3612,18 @@ async function readPlay(article, startMs) {
 		setStatus(err.message || 'Could not speak that article.');
 		return;
 	}
+	const stored = plan.engine === 'xai' && signedIn();
+	const rows = stored ? storedRows(article.text) : readChunks(article.text);
+	if (!rows.length) {
+		setStatus('Nothing to read.');
+		return;
+	}
 	readSpeak.id = article.id;
+	readSpeak.article = article;
+	readSpeak.stored = stored;
 	readSpeak.chunks = rows;
 	readSpeak.text = article.text;
-	readSpeak.durationMs = readDurationMs(article.text);
+	readSpeak.durationMs = stored && rows.length ? rows[rows.length - 1].endMs : readDurationMs(article.text);
 	readSpeak.index = chunkIndexAt(rows, startMs || 0);
 	readSpeak.positionMs = rows[readSpeak.index]?.startMs || 0;
 	readSpeak.playing = true;
@@ -3603,6 +3701,8 @@ async function submitRead(text) {
 		});
 		if (state.tab === 'article') openArticle(id);
 		else setStatus('');
+		const saved = added.articles.find((item) => item.id === id);
+		if (saved) prepareArticleAudio(saved);
 	} catch (err) {
 		setStatus(err.message || 'Could not read that page.');
 	} finally {
@@ -3614,6 +3714,8 @@ async function submitRead(text) {
 function openArticle(id) {
 	state.articleId = id;
 	go('article');
+	const article = readsOf(state.doc).articles.find((item) => item.id === id);
+	if (article) prepareArticleAudio(article);
 }
 
 function readScreen() {

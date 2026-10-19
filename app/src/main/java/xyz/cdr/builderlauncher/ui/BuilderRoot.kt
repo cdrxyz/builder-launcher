@@ -117,10 +117,12 @@ import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.OAuthSpec
 import xyz.cdr.builderlauncher.ai.ProviderAccess
 import xyz.cdr.builderlauncher.ai.ProviderHandoff
+import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.ai.oauth.DevicePending
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.AppList
+import xyz.cdr.builderlauncher.backup.AccountClient
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.backup.S3Access
@@ -712,6 +714,19 @@ fun BuilderRoot(
         page = Page.ReadPlayer
     }
 
+    fun prepareArticleSpeech(token: String, current: xyz.cdr.builderlauncher.data.BuilderSettings, article: xyz.cdr.builderlauncher.read.ReadArticle) {
+        if (token.isBlank() || current.provider != LlmProvider.XAI) return
+        val bearer = CredentialResolver.bearer(current) ?: return
+        scope.launch(Dispatchers.IO) {
+            val client = AccountClient()
+            runCatching {
+                repeat(80) {
+                    if (client.prepareArticleAudio(token, article.id, article.text, "leo", bearer)) return@runCatching
+                }
+            }
+        }
+    }
+
     fun submitRead(line: String) {
         val text = line.trim()
         if (text.isEmpty()) {
@@ -736,6 +751,7 @@ fun BuilderRoot(
                 Toast.makeText(ctx, Reads.FAILED, Toast.LENGTH_SHORT).show()
             } else {
                 reads.remember(article)
+                prepareArticleSpeech(settings.accountToken, settings, article)
                 if (page == Page.ReadPlayer) openReadArticle(article.id)
             }
         }

@@ -58,6 +58,26 @@ export async function handleAi(request: Request, url: URL): Promise<Response | n
 	return null;
 }
 
+export async function xaiSpeechBytes(text: string, voice: string, bearer: string, speed = 1): Promise<ArrayBuffer> {
+	const res = await fetch('https://api.x.ai/v1/tts', {
+		method: 'POST',
+		headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json', accept: 'audio/mpeg' },
+		body: JSON.stringify({
+			text,
+			voice_id: voiceId(voice),
+			language: 'en',
+			speed: ttsSpeed(speed),
+			text_normalization: true,
+			output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 64000 },
+		}),
+		signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+	});
+	if (!res.ok) throw new Error(`Speech HTTP ${res.status}`);
+	const audio = await res.arrayBuffer();
+	if (audio.byteLength < 64 || audio.byteLength > 4_000_000) throw new Error('Speech reply was empty');
+	return audio;
+}
+
 async function aiSpeech(request: Request): Promise<Response> {
 	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 	if (!body) return jsonError('Invalid JSON');
@@ -69,23 +89,13 @@ async function aiSpeech(request: Request): Promise<Response> {
 	const speed = ttsSpeed(body.speed);
 	try {
 		if (provider === 'XAI') {
-			const res = await fetch('https://api.x.ai/v1/tts', {
-				method: 'POST',
-				headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json', accept: 'audio/mpeg' },
-				body: JSON.stringify({
-					text,
-					voice_id: voiceId(body.voice),
-					language: 'en',
-					speed,
-					text_normalization: true,
-					output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 64000 },
-				}),
-				signal: AbortSignal.timeout(AI_TIMEOUT_MS),
-			});
-			if (!res.ok) return jsonError(`Speech HTTP ${res.status}`, 502);
-			const audio = await res.arrayBuffer();
-			if (audio.byteLength < 64 || audio.byteLength > 4_000_000) return jsonError('Speech reply was empty', 502);
-			return new Response(audio, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' } });
+			try {
+				const audio = await xaiSpeechBytes(text, voiceId(body.voice), bearer, speed);
+				return new Response(audio, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' } });
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Speech timed out';
+				return jsonError(message, message.includes('timed') ? 504 : 502);
+			}
 		}
 		if (provider === 'GROQ') {
 			const res = await fetch('https://api.groq.com/openai/v1/audio/speech', {
