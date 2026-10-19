@@ -58,6 +58,9 @@ export async function handleAi(request: Request, url: URL): Promise<Response | n
 	return null;
 }
 
+const SPEECH_TIMEOUT_MS = 5 * 60 * 1000;
+const SPEECH_MAX_BYTES = 32_000_000;
+
 export async function xaiSpeechBytes(text: string, voice: string, bearer: string, speed = 1): Promise<ArrayBuffer> {
 	const res = await fetch('https://api.x.ai/v1/tts', {
 		method: 'POST',
@@ -70,11 +73,11 @@ export async function xaiSpeechBytes(text: string, voice: string, bearer: string
 			text_normalization: true,
 			output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 64000 },
 		}),
-		signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+		signal: AbortSignal.timeout(SPEECH_TIMEOUT_MS),
 	});
 	if (!res.ok) throw new Error(`Speech HTTP ${res.status}`);
 	const audio = await res.arrayBuffer();
-	if (audio.byteLength < 64 || audio.byteLength > 4_000_000) throw new Error('Speech reply was empty');
+	if (audio.byteLength < 64 || audio.byteLength > SPEECH_MAX_BYTES) throw new Error('Speech reply was empty');
 	return audio;
 }
 

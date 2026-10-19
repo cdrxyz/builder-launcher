@@ -153,7 +153,7 @@ export const XAI_VOICES = [
 	{ id: 'atlas', label: 'Atlas' },
 ];
 export const SPEAK_CHARS = 700;
-export const SPEAK_STORE = 1500;
+export const SPEAK_STORE = 60_000;
 export const DEFAULT_VOICE = 'leo';
 
 export function voiceId(raw) {

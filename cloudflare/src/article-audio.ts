@@ -1,8 +1,8 @@
 import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
-import { SPEAK_STORE, speakPieces, voiceId } from '../../website/public/web/ai.js';
-import { fnv1a64 } from '../../website/public/web/reads.js';
+import { voiceId } from '../../website/public/web/ai.js';
+import { speechHash, storedPieces } from '../../website/public/web/article-audio.js';
 
 export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket };
 
@@ -52,8 +52,8 @@ async function putAudio(request: Request, vault: R2Bucket, userId: string): Prom
 	if (!ARTICLE_ID.test(articleId)) return jsonError('Article not found', 404);
 	if (!text || text.length > 40_000) return jsonError('Nothing to speak');
 	if (!bearer) return jsonError('Sign in to xAI in settings, then sync.');
-	const pieces = speakPieces(text, SPEAK_STORE);
-	const hash = fnv1a64(text);
+	const pieces = storedPieces(text);
+	const hash = speechHash(text);
 	if (!pieces.length) return Response.json({ ready: true, total: 0, hash, voice });
 	const ready = await readyIndexes(vault, userId, articleId, voice, hash);
 	let index = Number(body.index);
