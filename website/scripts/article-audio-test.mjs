@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
+import { audioProgressLabel, speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -13,4 +13,14 @@ test('saved article audio is keyed per account, article, and voice', () => {
 	assert.equal(speechObjectKey('user', 'nope', 'leo', hash, 0), '');
 	assert.ok(storedPieces(text).length > 1);
 	assert.ok(storedPieces(text).every((piece) => piece.length <= 1500));
+});
+
+test('article audio progress says how far, when ready, and when it failed', () => {
+	assert.equal(audioProgressLabel(null), '');
+	assert.equal(audioProgressLabel({ status: 'preparing', done: 0, total: 17 }), 'preparing audio 0 of 17');
+	assert.equal(audioProgressLabel({ status: 'preparing', done: 3, total: 17 }), 'preparing audio 3 of 17');
+	assert.equal(audioProgressLabel({ status: 'partial', done: 3, total: 17 }), 'audio 3 of 17');
+	assert.equal(audioProgressLabel({ status: 'ready', done: 17, total: 17 }), 'audio ready');
+	assert.equal(audioProgressLabel({ status: 'failed', done: 3, total: 17, error: 'Speech HTTP 429' }), 'audio failed · Speech HTTP 429');
+	assert.equal(audioProgressLabel({ status: 'failed' }), 'audio failed');
 });

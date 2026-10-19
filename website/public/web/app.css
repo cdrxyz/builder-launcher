@@ -652,6 +652,26 @@ label span {
 	flex: none;
 }
 
+.audio-state,
+.row .audio-state {
+	display: block;
+	margin-top: 0.15rem;
+	color: var(--muted);
+	font-size: 0.8rem;
+	white-space: normal;
+	overflow: visible;
+	text-overflow: unset;
+	overflow-wrap: anywhere;
+}
+
+.audio-state.down {
+	color: var(--danger);
+}
+
+.audio-state[hidden] {
+	display: none;
+}
+
 .read-text {
 	white-space: pre-wrap;
 	line-height: 1.5;

@@ -23,7 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { speechHash, storedRows } from './article-audio.js';
+import { audioProgressLabel, speechHash, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -458,6 +458,13 @@ function setItems(next) {
 function setStatus(message) {
 	state.status = message;
 	render();
+}
+
+function noteStatus(message) {
+	state.status = message;
+	document.querySelectorAll('p.status').forEach((el) => {
+		el.textContent = message;
+	});
 }
 
 async function pull(opts = {}) {
@@ -3430,6 +3437,68 @@ async function fetchSpeech(plan, text) {
 const clipUrls = new Map();
 const clipJobs = new Map();
 const preparingAudio = new Set();
+const audioJobs = new Map();
+const audioProbes = new Set();
+
+function audioJobKey(article, voice = state.voice) {
+	return `${article.id}:${voiceId(voice)}:${speechHash(article.text)}`;
+}
+
+function audioJob(article) {
+	return audioJobs.get(audioJobKey(article)) || null;
+}
+
+function setAudioJob(key, job) {
+	audioJobs.set(key, job);
+	paintAudio(job.articleId);
+	if (job.status === 'preparing' || job.status === 'failed') noteStatus(audioProgressLabel(job));
+	else if (String(state.status || '').startsWith('preparing audio') || String(state.status || '').startsWith('audio failed')) noteStatus('');
+}
+
+function paintAudio(articleId) {
+	if (!articleId) return;
+	const article = readsOf(state.doc).articles.find((item) => item.id === articleId);
+	const job = article ? audioJob(article) : null;
+	const label = audioProgressLabel(job);
+	const selector = `[data-audio-for="${CSS.escape(articleId)}"]`;
+	document.querySelectorAll(selector).forEach((el) => {
+		el.textContent = label;
+		el.hidden = !label;
+		el.classList.toggle('down', job?.status === 'failed');
+	});
+}
+
+function audioState(article) {
+	const el = document.createElement('span');
+	el.className = 'sub audio-state';
+	el.dataset.audioFor = article.id;
+	const job = audioJob(article);
+	const label = audioProgressLabel(job);
+	el.textContent = label;
+	el.hidden = !label;
+	if (job?.status === 'failed') el.classList.add('down');
+	return el;
+}
+
+function probeAudio(article) {
+	if (!signedIn() || !article?.text) return;
+	const key = audioJobKey(article);
+	const current = audioJobs.get(key);
+	if (audioProbes.has(key) || current?.status === 'preparing' || current?.status === 'failed' || current?.status === 'ready') return;
+	audioProbes.add(key);
+	const voice = voiceId(state.voice);
+	const hash = speechHash(article.text);
+	const total = storedPieces(article.text).length;
+	fetch(`/api/articles/audio?${new URLSearchParams({ id: article.id, voice, hash })}`, { credentials: 'include', cache: 'no-store' })
+		.then((res) => (res.ok ? res.json() : null))
+		.then((body) => {
+			if (!body || audioJobs.get(key)?.status === 'preparing' || audioJobs.get(key)?.status === 'failed') return;
+			const done = Array.isArray(body.ready) ? body.ready.length : 0;
+			if (total && done >= total) setAudioJob(key, { status: 'ready', done: total, total, articleId: article.id });
+			else if (done > 0) setAudioJob(key, { status: 'partial', done, total, articleId: article.id });
+		})
+		.catch(() => {});
+}
 
 async function storedClip(article, index, plan) {
 	const voice = voiceId(state.voice);
@@ -3462,22 +3531,42 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 function prepareArticleAudio(article) {
 	if (!signedIn() || !article?.text) return;
 	const voice = voiceId(state.voice);
-	const key = `${article.id}:${voice}`;
-	if (preparingAudio.has(key)) return;
+	const hash = speechHash(article.text);
+	const key = `${article.id}:${voice}:${hash}`;
+	if (preparingAudio.has(key) || audioJobs.get(key)?.status === 'ready') return;
 	preparingAudio.add(key);
 	const pieces = storedRows(article.text);
-	if (!state.status) setStatus('Preparing audio…');
+	const prior = audioJobs.get(key);
+	setAudioJob(key, {
+		status: 'preparing',
+		done: prior?.done || 0,
+		total: pieces.length,
+		articleId: article.id,
+	});
 	ensureSpeech()
 		.then(async (plan) => {
 			if (plan.engine !== 'xai') {
-				if (state.status === 'Preparing audio…') setStatus('');
+				audioJobs.delete(key);
+				paintAudio(article.id);
+				if (String(state.status || '').startsWith('preparing audio')) noteStatus('');
 				return;
 			}
-			for (let i = 0; i < pieces.length; i++) await storedClip(article, i, plan);
-			if (state.status === 'Preparing audio…') setStatus('');
+			for (let i = 0; i < pieces.length; i++) {
+				await storedClip(article, i, plan);
+				setAudioJob(key, { status: 'preparing', done: i + 1, total: pieces.length, articleId: article.id });
+			}
+			setAudioJob(key, { status: 'ready', done: pieces.length, total: pieces.length, articleId: article.id });
 		})
 		.catch((err) => {
-			if (!readSpeak.playing) setStatus(err.message || 'Could not prepare audio.');
+			const message = err.message || 'Could not prepare audio.';
+			const current = audioJobs.get(key) || {};
+			setAudioJob(key, {
+				status: 'failed',
+				done: current.done || 0,
+				total: pieces.length,
+				error: message,
+				articleId: article.id,
+			});
 		})
 		.finally(() => preparingAudio.delete(key));
 }
@@ -3742,7 +3831,7 @@ function readScreen() {
 		const sub = document.createElement('span');
 		sub.className = 'sub';
 		sub.textContent = article.publication || '';
-		copy.append(title, sub);
+		copy.append(title, sub, audioState(article));
 		const meta = document.createElement('span');
 		meta.className = 'meta';
 		const saved = progressFor(bag.progress, article.id)?.positionMs || 0;
@@ -3750,6 +3839,7 @@ function readScreen() {
 		row.append(mark, copy, meta);
 		row.addEventListener('click', () => openArticle(article.id));
 		wrap.append(row);
+		probeAudio(article);
 	});
 	return wrap;
 }
@@ -3769,7 +3859,7 @@ function articleScreen() {
 	const h = document.createElement('h2');
 	h.className = 'read-title';
 	h.textContent = article.title;
-	wrap.append(pub, h);
+	wrap.append(pub, h, audioState(article));
 	const dur = readDurationMs(article.text);
 	const live = readSpeak.id === article.id;
 	const pos = live ? readSpeak.positionMs : (progressFor(bag.progress, article.id)?.positionMs || 0);

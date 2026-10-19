@@ -12,6 +12,22 @@ export function storedPieces(text) {
 	return speakPieces(text, SPEAK_STORE);
 }
 
+export function audioProgressLabel(job) {
+	if (!job?.status) return '';
+	const total = Math.max(0, Number(job.total) || 0);
+	const done = Math.max(0, Number(job.done) || 0);
+	const shown = total ? Math.min(done, total) : done;
+	if (job.status === 'failed') {
+		const reason = String(job.error || '').replace(/\s+/g, ' ').trim();
+		const short = reason.length > 80 ? `${reason.slice(0, 77)}…` : reason;
+		return short ? `audio failed · ${short}` : 'audio failed';
+	}
+	if (job.status === 'ready' || (total > 0 && shown >= total && job.status !== 'preparing')) return 'audio ready';
+	if (job.status === 'preparing') return total ? `preparing audio ${shown} of ${total}` : 'preparing audio';
+	if (total && shown > 0 && shown < total) return `audio ${shown} of ${total}`;
+	return '';
+}
+
 export function storedRows(text) {
 	let cursor = 0;
 	return storedPieces(text).map((piece, index) => {

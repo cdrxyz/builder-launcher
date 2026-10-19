@@ -134,6 +134,20 @@ object Reads {
         return Podcasts.formatPosition(positionMs.coerceIn(0L, durationMs), durationMs)
     }
 
+    fun audioProgressLabel(status: String, done: Int = 0, total: Int = 0, error: String = ""): String {
+        val capped = if (total > 0) done.coerceIn(0, total) else done.coerceAtLeast(0)
+        return when (status) {
+            "failed" -> {
+                val reason = error.replace(Regex("\\s+"), " ").trim().let { if (it.length > 80) it.take(77) + "…" else it }
+                if (reason.isEmpty()) "audio failed" else "audio failed · $reason"
+            }
+            "ready" -> "audio ready"
+            "preparing" -> if (total > 0) "preparing audio $capped of $total" else "preparing audio"
+            "partial" -> if (total > 0 && capped in 1 until total) "audio $capped of $total" else ""
+            else -> ""
+        }
+    }
+
     fun sorted(articles: List<ReadArticle>): List<ReadArticle> =
         articles.sortedByDescending { it.addedAt }
 

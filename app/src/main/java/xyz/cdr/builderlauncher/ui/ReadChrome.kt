@@ -42,6 +42,7 @@ import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.ReadsRepository
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Paper
 
 @Composable
@@ -51,6 +52,7 @@ fun ReadListChrome(
     busy: Boolean = false,
     onBack: () -> Unit = {},
     onOpen: (ReadArticle) -> Unit = {},
+    audio: Map<String, String> = emptyMap(),
 ) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(
@@ -94,6 +96,14 @@ fun ReadListChrome(
                         if (label.isNotBlank()) {
                             Text(label, color = Dim, style = MaterialTheme.typography.bodyMedium)
                         }
+                        val speech = audio[article.id].orEmpty()
+                        if (speech.isNotBlank()) {
+                            Text(
+                                speech,
+                                color = if (speech.startsWith("audio failed")) Loss else Dim,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
             }
@@ -118,6 +128,7 @@ fun ReadPlayerChrome(
     onSeek: (Float) -> Unit = {},
     onOpen: () -> Unit = {},
     onRemove: () -> Unit = {},
+    audioLabel: String = "",
     speed: @Composable () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -133,6 +144,14 @@ fun ReadPlayerChrome(
                 Text(publication, color = Dim, style = MaterialTheme.typography.bodyMedium)
             }
             Text(title, color = Paper, style = MaterialTheme.typography.headlineLarge)
+            if (audioLabel.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    audioLabel,
+                    color = if (audioLabel.startsWith("audio failed")) Loss else Dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Row(
                 Modifier.fillMaxWidth(),
@@ -229,6 +248,7 @@ fun ColumnScope.ReadHost(
     reads: ReadsRepository,
     speaker: ReadSpeaker,
     onEvent: (ReadEvent) -> Unit,
+    audio: Map<String, String> = emptyMap(),
 ) {
     val article = articles.find { it.id == articleId }
     val playingThis = playback.articleId == article?.id
@@ -291,6 +311,7 @@ fun ColumnScope.ReadHost(
         onClearMode = { onEvent(ReadEvent.Clear) },
         onSubmit = { onEvent(ReadEvent.Submit) },
         onSlash = { onEvent(ReadEvent.Slash(it)) },
+        audio = audio,
     )
 }
 
@@ -325,11 +346,12 @@ fun ColumnScope.ReadOverlay(
     onClearMode: () -> Unit,
     onSubmit: () -> Unit,
     onSlash: (SlashCommand) -> Unit,
+    audio: Map<String, String> = emptyMap(),
 ) {
     var speedMenu by remember(article?.id) { mutableStateOf(false) }
     Column(Modifier.weight(1f)) {
         if (!player) {
-            ReadListChrome(articles, progress, busy, onBackHome, onOpen)
+            ReadListChrome(articles, progress, busy, onBackHome, onOpen, audio)
         } else if (article == null) {
             ScreenBack(Reads.BACK, onBack = onBackList)
             Text("Article gone", color = Dim)
@@ -350,6 +372,7 @@ fun ColumnScope.ReadOverlay(
                 onSeek = onSeek,
                 onOpen = onOpenBrowser,
                 onRemove = onRemove,
+                audioLabel = article?.id?.let { audio[it] }.orEmpty(),
                 speed = {
                     PodcastSpeedMenu(
                         speed = speed,

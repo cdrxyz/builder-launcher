@@ -149,6 +149,14 @@ class ReadsTest {
         assertEquals(15_000L, Reads.skip(0, 60_000L, Reads.SKIP_MS))
     }
 
+    @Test
+    fun audioProgressNamesPreparingReadyAndFailed() {
+        assertEquals("preparing audio 3 of 17", Reads.audioProgressLabel("preparing", 3, 17))
+        assertEquals("audio ready", Reads.audioProgressLabel("ready", 17, 17))
+        assertEquals("audio failed · Speech HTTP 429", Reads.audioProgressLabel("failed", 3, 17, "Speech HTTP 429"))
+        assertEquals("audio failed", Reads.audioProgressLabel("failed"))
+    }
+
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =
         ReadArticle(id = id, url = "https://example.com/$id", title = title, publication = "Example", text = text, addedAt = addedAt)
 }
