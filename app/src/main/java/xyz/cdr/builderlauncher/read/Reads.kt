@@ -142,7 +142,7 @@ object Reads {
                 if (reason.isEmpty()) "audio failed" else "audio failed · $reason"
             }
             "ready" -> "audio ready"
-            "preparing" -> if (total > 0) "preparing audio $capped of $total" else "preparing audio"
+            "preparing" -> if (total <= 1) "preparing audio" else "preparing audio $capped of $total"
             "partial" -> if (total > 0 && capped in 1 until total) "audio $capped of $total" else ""
             else -> ""
         }

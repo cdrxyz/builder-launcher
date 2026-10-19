@@ -151,7 +151,7 @@ class ReadsTest {
 
     @Test
     fun audioProgressNamesPreparingReadyAndFailed() {
-        assertEquals("preparing audio 3 of 17", Reads.audioProgressLabel("preparing", 3, 17))
+        assertEquals("preparing audio", Reads.audioProgressLabel("preparing", 0, 1))
         assertEquals("audio ready", Reads.audioProgressLabel("ready", 17, 17))
         assertEquals("audio failed · Speech HTTP 429", Reads.audioProgressLabel("failed", 3, 17, "Speech HTTP 429"))
         assertEquals("audio failed", Reads.audioProgressLabel("failed"))

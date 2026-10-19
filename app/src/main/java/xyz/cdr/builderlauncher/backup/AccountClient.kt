@@ -11,6 +11,7 @@ import xyz.cdr.builderlauncher.net.HttpClients
 
 class AccountClient(
     private val http: OkHttpClient = HttpClients.derived(connectSec = 20, readSec = 60, writeSec = 60),
+    private val speech: OkHttpClient = HttpClients.derived(connectSec = 20, readSec = 300, writeSec = 60),
     private val origin: String = ORIGIN,
     private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = false },
 ) {
@@ -43,7 +44,7 @@ class AccountClient(
             ArticleAudioBody.serializer(),
             ArticleAudioBody(articleId, text, voice, bearer),
         )
-        val raw = post("/api/articles/audio", body, token)
+        val raw = post("/api/articles/audio", body, token, speech)
         return json.decodeFromString(ArticleAudioStatus.serializer(), raw)
     }
 
@@ -59,10 +60,10 @@ class AccountClient(
         return execute(req.build())
     }
 
-    private fun post(path: String, body: String, token: String): String {
+    private fun post(path: String, body: String, token: String, client: OkHttpClient = http): String {
         val req = Request.Builder().url("$origin$path").post(body.toRequestBody(JSON))
         if (token.isNotBlank()) req.header("Authorization", "Bearer $token")
-        return execute(req.build())
+        return execute(req.build(), client)
     }
 
     private fun put(path: String, body: String, token: String): String {
@@ -71,8 +72,8 @@ class AccountClient(
         return execute(req.build())
     }
 
-    private fun execute(req: Request): String {
-        http.newCall(req).execute().use { resp ->
+    private fun execute(req: Request, client: OkHttpClient = http): String {
+        client.newCall(req).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
                 val err = runCatching { json.decodeFromString(ErrorBody.serializer(), text).error }.getOrNull()

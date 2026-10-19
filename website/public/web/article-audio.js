@@ -5,7 +5,7 @@ const ARTICLE_ID = /^r[0-9a-f]{16}$/;
 const HASH = /^[0-9a-f]{16}$/;
 
 export function speechHash(text) {
-	return fnv1a64(String(text || ''));
+	return fnv1a64(`${SPEAK_STORE}\n${String(text || '')}`);
 }
 
 export function storedPieces(text) {
@@ -24,7 +24,8 @@ export function audioProgressLabel(job) {
 	}
 	if (total > 0 && shown >= total) return 'audio ready';
 	if ((job.status === 'preparing' || job.status === 'partial') && shown > 0) return `ready to play · ${shown} of ${total}`;
-	if (job.status === 'preparing') return total ? `preparing audio ${shown} of ${total}` : 'preparing audio';
+	if (job.status === 'preparing' && total <= 1) return 'preparing audio';
+	if (job.status === 'preparing') return `preparing audio ${shown} of ${total}`;
 	if (total && shown > 0 && shown < total) return `audio ${shown} of ${total}`;
 	return '';
 }

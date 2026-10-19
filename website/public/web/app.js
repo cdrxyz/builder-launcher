@@ -3600,7 +3600,7 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 		await apiJson('/api/articles/audio', {
 			method: 'POST',
 			body: { id: article.id, text: article.text, voice, bearer: plan.bearer, index },
-			timeout: 60_000,
+			timeout: 300_000,
 		});
 		res = await fetch(`/api/articles/audio?${query}`, { credentials: 'include', cache: 'no-store' });
 	}
