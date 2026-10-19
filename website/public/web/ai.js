@@ -142,6 +142,48 @@ function baseOf(settings) {
 	return String(settings?.hermesBaseUrl || '').trim();
 }
 
+export const SPEAK_CHARS = 700;
+
+export function ttsSpeed(rate) {
+	const n = Number(rate);
+	if (!Number.isFinite(n)) return 1;
+	return Math.min(1.5, Math.max(0.7, Math.round(n * 10) / 10));
+}
+
+export function speakPieces(text, maxChars = SPEAK_CHARS) {
+	const source = String(text || '').trim();
+	if (!source) return [];
+	const rows = [];
+	let start = 0;
+	while (start < source.length) {
+		let end = Math.min(source.length, start + maxChars);
+		if (end < source.length) {
+			const window = source.slice(start, end);
+			const dot = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '), window.lastIndexOf('\n'));
+			if (dot > 80) end = start + dot + 1;
+		}
+		const slice = source.slice(start, end).trim();
+		if (slice) rows.push(slice);
+		start = end;
+		while (start < source.length && /\s/.test(source[start])) start += 1;
+	}
+	return rows;
+}
+
+export function speechPlan(settings, now = Date.now()) {
+	const provider = String(settings?.provider || '').toUpperCase();
+	const xai = platformOf('XAI');
+	const xaiToken = provider === 'XAI' ? settings : { provider: 'XAI', oauthAccess: settings?.oauthAccess, oauthRefresh: settings?.oauthRefresh, oauthExpiresAtEpochMs: settings?.oauthExpiresAtEpochMs };
+	if (bearerOf(xaiToken, now) || needsRefresh(xaiToken, now)) {
+		return { engine: 'xai', provider: 'XAI', base: xai.apiBase };
+	}
+	if (provider === 'GROQ' && bearerOf(settings, now)) {
+		return { engine: 'groq', provider: 'GROQ', base: platformOf('GROQ').apiBase, model: 'playai-tts' };
+	}
+	if (typeof speechSynthesis !== 'undefined') return { engine: 'browser' };
+	return { error: 'Sign in to xAI in settings, then sync. This browser has no speech.' };
+}
+
 export function missingCreds(settings) {
 	const provider = String(settings?.provider || 'HERMES').toUpperCase();
 	const platform = platformOf(provider);
