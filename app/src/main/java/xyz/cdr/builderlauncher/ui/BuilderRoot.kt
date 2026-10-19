@@ -328,6 +328,7 @@ fun BuilderRoot(
     var podcastEpisodeId by remember { mutableStateOf<String?>(null) }
     var readArticleId by remember { mutableStateOf<String?>(null) }
     var readBusy by remember { mutableStateOf(false) }
+    var articleAudio by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
     var zoneHits by remember { mutableStateOf<List<WeatherPlace>>(emptyList()) }
     var tickerIndex by remember { mutableIntStateOf(0) }
@@ -721,8 +722,20 @@ fun BuilderRoot(
             val client = AccountClient()
             runCatching {
                 repeat(80) {
-                    if (client.prepareArticleAudio(token, article.id, article.text, "leo", bearer)) return@runCatching
+                    val status = client.prepareArticleAudio(token, article.id, article.text, "leo", bearer)
+                    val done = if (status.ready) status.total else status.index + 1
+                    val label = if (status.ready) {
+                        Reads.audioProgressLabel("ready", status.total, status.total)
+                    } else {
+                        Reads.audioProgressLabel("preparing", done, status.total)
+                    }
+                    withContext(Dispatchers.Main) { articleAudio = articleAudio + (article.id to label) }
+                    if (status.ready) return@runCatching
                 }
+            }.onFailure { err ->
+                if (err is CancellationException) throw err
+                val label = Reads.audioProgressLabel("failed", error = err.message ?: "Could not prepare audio.")
+                withContext(Dispatchers.Main) { articleAudio = articleAudio + (article.id to label) }
             }
         }
     }
@@ -3431,6 +3444,7 @@ fun BuilderRoot(
                 hardware = hardware,
                 reads = reads,
                 speaker = speaker,
+                audio = articleAudio,
                 onEvent = { event ->
                     when (event) {
                         ReadEvent.Home -> page = Page.Home

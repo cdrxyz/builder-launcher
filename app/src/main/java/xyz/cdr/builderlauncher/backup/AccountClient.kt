@@ -38,13 +38,13 @@ class AccountClient(
         return json.decodeFromString(VaultEnvelope.serializer(), raw)
     }
 
-    fun prepareArticleAudio(token: String, articleId: String, text: String, voice: String, bearer: String): Boolean {
+    fun prepareArticleAudio(token: String, articleId: String, text: String, voice: String, bearer: String): ArticleAudioStatus {
         val body = json.encodeToString(
             ArticleAudioBody.serializer(),
             ArticleAudioBody(articleId, text, voice, bearer),
         )
         val raw = post("/api/articles/audio", body, token)
-        return json.decodeFromString(ArticleAudioStatus.serializer(), raw).ready
+        return json.decodeFromString(ArticleAudioStatus.serializer(), raw)
     }
 
     private fun auth(path: String, email: String, password: String): AccountSession {
