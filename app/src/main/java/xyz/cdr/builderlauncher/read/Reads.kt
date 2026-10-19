@@ -193,8 +193,16 @@ object Reads {
     fun progressAt(fraction: Float, durationMs: Long): Long =
         Podcasts.progressAt(fraction, 1f, durationMs)
 
-    fun mergeBackup(a: ReadBackup, b: ReadBackup): ReadBackup {
-        val deleted = (a.deletedIds + b.deletedIds).distinct()
+    fun deletedIdsAfterAdd(deletedIds: List<String>, articleId: String, dropped: List<String> = emptyList()): List<String> =
+        (deletedIds + dropped).distinct().filter { it != articleId }
+
+    fun restoredIds(backup: ReadBackup): Set<String> {
+        val deleted = backup.deletedIds.toSet()
+        return backup.articles.map { it.id }.filter { it.isNotBlank() && it !in deleted }.toSet()
+    }
+
+    fun mergeBackup(a: ReadBackup, b: ReadBackup, restoredIds: Set<String> = emptySet()): ReadBackup {
+        val deleted = (a.deletedIds + b.deletedIds).distinct().filter { it !in restoredIds }
         val drop = deleted.toSet()
         val articles = LinkedHashMap<String, ReadArticle>()
         (a.articles + b.articles).forEach { item ->

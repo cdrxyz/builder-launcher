@@ -867,6 +867,30 @@ class BackupMergeTest {
     }
 
     @Test
+    fun mergeKeepsAReAddedArticleAndStillHonorsANewerDelete() {
+        val article = ReadArticle(
+            id = "r1",
+            url = "https://example.com/a",
+            title = "Title",
+            publication = "Example",
+            text = "The article body.",
+            addedAt = 50,
+        )
+        val restored = BackupDocument(exportedAt = 50, reads = ReadBackup(articles = listOf(article)))
+        val deleted = BackupDocument(exportedAt = 10, reads = ReadBackup(deletedIds = listOf("r1")))
+        for (merged in listOf(BackupMerge.merge(restored, deleted), BackupMerge.merge(deleted, restored))) {
+            assertEquals(listOf("r1"), merged.reads.articles.map { it.id })
+            assertFalse(merged.reads.deletedIds.contains("r1"))
+        }
+        val newerDelete = BackupDocument(exportedAt = 60, reads = ReadBackup(deletedIds = listOf("r1")))
+        val stale = BackupDocument(exportedAt = 40, reads = ReadBackup(articles = listOf(article)))
+        for (merged in listOf(BackupMerge.merge(newerDelete, stale), BackupMerge.merge(stale, newerDelete))) {
+            assertTrue(merged.reads.articles.isEmpty())
+            assertTrue(merged.reads.deletedIds.contains("r1"))
+        }
+    }
+
+    @Test
     fun overwriteWarningNamesLocalData() {
         assertTrue(BackupService.OVERWRITE_WARNING.contains("overwrite any local data"))
         assertTrue(BackupService.OVERWRITE_WARNING.contains("unless the snapshot includes them"))

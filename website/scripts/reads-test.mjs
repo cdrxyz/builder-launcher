@@ -104,3 +104,36 @@ test('account and S3 slim copies keep the article and its position', async () =>
 	assert.equal(slimmed.reads.articles[0].text, body);
 	assert.equal(slimmed.reads.progress[0].positionMs, 90_000);
 });
+
+test('a re-added article survives an older delete, and a newer delete still wins', async () => {
+	const { mergeDocs, keepFreshArticles } = await import('../public/web/merge.js');
+	const { deletedIdsAfterAdd } = await import('../public/web/reads.js');
+	const article = {
+		id: 'r1',
+		url: 'https://example.com/a',
+		title: 'Title',
+		publication: 'Example',
+		text: 'The article body.',
+		addedAt: 50,
+	};
+	assert.deepEqual(deletedIdsAfterAdd(['r1', 'other'], 'r1', ['old']), ['other', 'old']);
+	const restored = { exportedAt: 50, reads: { articles: [article], progress: [], deletedIds: [] } };
+	const deleted = { exportedAt: 10, reads: { articles: [], progress: [], deletedIds: ['r1'] } };
+	for (const merged of [mergeDocs(restored, deleted), mergeDocs(deleted, restored)]) {
+		assert.equal(merged.reads.articles.some((item) => item.id === 'r1'), true);
+		assert.equal(merged.reads.deletedIds.includes('r1'), false);
+	}
+	const newerDelete = { exportedAt: 60, reads: { articles: [], deletedIds: ['r1'] } };
+	const stale = { exportedAt: 40, reads: { articles: [article], deletedIds: [] } };
+	for (const merged of [mergeDocs(newerDelete, stale), mergeDocs(stale, newerDelete)]) {
+		assert.equal(merged.reads.articles.some((item) => item.id === 'r1'), false);
+		assert.equal(merged.reads.deletedIds.includes('r1'), true);
+	}
+	const during = keepFreshArticles(
+		{ exportedAt: 80, reads: { articles: [], deletedIds: ['r1'] } },
+		{ exportedAt: 10, reads: { articles: [{ ...article, addedAt: 90 }], deletedIds: [] } },
+		80,
+	);
+	assert.equal(during.reads.articles.some((item) => item.id === 'r1'), true);
+	assert.equal(during.reads.deletedIds.includes('r1'), false);
+});

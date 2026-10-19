@@ -1,6 +1,32 @@
 import { alignOpenOrder } from './items.js';
 import { mergeReads } from './reads.js';
 
+function restoredArticleIds(doc) {
+	const bag = doc?.reads || {};
+	const deleted = new Set((bag.deletedIds || []).map(String));
+	return (bag.articles || [])
+		.map((item) => String(item?.id || ''))
+		.filter((id) => id && !deleted.has(id));
+}
+
+export function keepFreshArticles(merged, local, since) {
+	const bag = local?.reads || {};
+	const deleted = new Set((bag.deletedIds || []).map(String));
+	const fresh = (bag.articles || []).filter((item) => {
+		const id = String(item?.id || '');
+		return id && !deleted.has(id) && (item.addedAt || 0) >= since;
+	});
+	if (!fresh.length) return merged || local;
+	return {
+		...(merged || local),
+		reads: mergeReads(
+			{ articles: fresh, progress: bag.progress || [], deletedIds: [] },
+			merged?.reads,
+			{ restoredIds: fresh.map((item) => String(item.id)) },
+		),
+	};
+}
+
 function stamp(item) {
 	if (!item || typeof item !== 'object') return 0;
 	return Math.max(item.updatedAt || 0, item.completedAt || 0, item.createdAt || 0, item.lastPlayedAt || 0);
@@ -310,7 +336,7 @@ export function mergeDocs(a, b) {
 		pinChanges: pinMerge.pinChanges,
 		watchlist: mergeWatch(a.watchlist, b.watchlist, preferA),
 		podcasts: mergePods(a.podcasts, b.podcasts),
-		reads: mergeReads(a.reads, b.reads),
+		reads: mergeReads(a.reads, b.reads, { restoredIds: restoredArticleIds(newer) }),
 		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
 		settings: newer.settings || older.settings,

@@ -184,10 +184,19 @@ export function upsertReadProgress(progress, row) {
 	return [...rest, row];
 }
 
-export function mergeReads(a, b) {
+export function deletedIdsAfterAdd(deletedIds, articleId, droppedIds = []) {
+	const id = String(articleId || '');
+	const out = new Set([...(deletedIds || []), ...(droppedIds || [])].map(String));
+	if (id) out.delete(id);
+	return [...out];
+}
+
+export function mergeReads(a, b, opts = {}) {
 	const left = a || {};
 	const right = b || {};
-	const deletedIds = [...new Set([...(left.deletedIds || []), ...(right.deletedIds || [])].map(String))];
+	const restored = new Set((opts.restoredIds || []).map(String));
+	const deletedIds = [...new Set([...(left.deletedIds || []), ...(right.deletedIds || [])].map(String))]
+		.filter((id) => !restored.has(id));
 	const drop = new Set(deletedIds);
 	const articles = new Map();
 	for (const item of [...(left.articles || []), ...(right.articles || [])]) {
