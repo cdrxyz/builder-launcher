@@ -17,6 +17,7 @@ import {
 import { fyydToItunes } from './podcasts';
 import { extractArticle, fetchUrl, nextFetchUrl } from '../../website/public/web/reads.js';
 import { handleAi } from './ai';
+import { handleArticleAudio } from './article-audio';
 import { handleVault } from './vault';
 
 export interface Env {
@@ -84,6 +85,11 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 		}
 		if ((url.pathname === '/api/articles' || url.pathname === '/api/read') && request.method === 'GET') {
 			return fetchArticle(url.searchParams.get('url') || '');
+		}
+		if (url.pathname === '/api/articles/audio') {
+			if (!env.DB) return jsonError('Account sync is not configured on this Worker', 503);
+			const audio = await handleArticleAudio(request, url, { DB: env.DB, VAULT: env.VAULT });
+			if (audio) return audio;
 		}
 		if (url.pathname === '/api/weather/search' && request.method === 'GET') {
 			return weatherSearch(url.searchParams.get('q') || '');

@@ -38,6 +38,15 @@ class AccountClient(
         return json.decodeFromString(VaultEnvelope.serializer(), raw)
     }
 
+    fun prepareArticleAudio(token: String, articleId: String, text: String, voice: String, bearer: String): Boolean {
+        val body = json.encodeToString(
+            ArticleAudioBody.serializer(),
+            ArticleAudioBody(articleId, text, voice, bearer),
+        )
+        val raw = post("/api/articles/audio", body, token)
+        return json.decodeFromString(ArticleAudioStatus.serializer(), raw).ready
+    }
+
     private fun auth(path: String, email: String, password: String): AccountSession {
         val body = json.encodeToString(AuthBody.serializer(), AuthBody(email.trim(), password))
         val raw = post(path, body, token = "")
@@ -98,3 +107,9 @@ data class VaultEnvelope(
 
 @Serializable
 private data class ErrorBody(val error: String = "")
+
+@Serializable
+data class ArticleAudioBody(val id: String, val text: String, val voice: String, val bearer: String)
+
+@Serializable
+data class ArticleAudioStatus(val ready: Boolean = false, val total: Int = 0, val index: Int = 0)
