@@ -155,6 +155,7 @@ class ReadsTest {
         assertEquals("audio ready", Reads.audioProgressLabel("ready", 17, 17))
         assertEquals("audio failed · Speech HTTP 429", Reads.audioProgressLabel("failed", 3, 17, "Speech HTTP 429"))
         assertEquals("audio failed", Reads.audioProgressLabel("failed"))
+        assertEquals("281fcf45454ff909", Reads.speechHash("Hello there."))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =

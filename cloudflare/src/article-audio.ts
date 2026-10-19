@@ -19,7 +19,11 @@ export async function handleArticleAudio(request: Request, url: URL, env: AudioE
 	if (!user) return jsonError('Not signed in', 401);
 	if (!env.VAULT) return jsonError('Audio storage is not configured', 503);
 	if (request.method === 'GET') return getAudio(url, env.VAULT, user.id);
-	if (request.method === 'POST') return putAudio(request, env.VAULT, user.id);
+	if (request.method === 'POST') {
+		const type = request.headers.get('content-type') || '';
+		if (type.includes('audio/') || type.includes('octet-stream')) return storeAudio(request, url, env.VAULT, user.id);
+		return putAudio(request, env.VAULT, user.id);
+	}
 	return jsonError('Method not allowed', 405);
 }
 
@@ -40,6 +44,23 @@ async function getAudio(url: URL, vault: R2Bucket, userId: string): Promise<Resp
 	return new Response(await obj.arrayBuffer(), {
 		headers: { 'content-type': 'audio/mpeg', 'cache-control': 'private, max-age=86400' },
 	});
+}
+
+const SPEECH_MAX_BYTES = 32_000_000;
+
+async function storeAudio(request: Request, url: URL, vault: R2Bucket, userId: string): Promise<Response> {
+	const articleId = url.searchParams.get('id') || '';
+	const hash = url.searchParams.get('hash') || '';
+	const voice = voiceId(url.searchParams.get('voice') || '');
+	const index = Number(url.searchParams.get('index') || '');
+	if (!ARTICLE_ID.test(articleId) || !HASH.test(hash)) return jsonError('Article not found', 404);
+	if (!Number.isInteger(index) || index < 0 || index > 80) return jsonError('Article not found', 404);
+	const audio = await request.arrayBuffer();
+	if (audio.byteLength < 64 || audio.byteLength > SPEECH_MAX_BYTES) return jsonError('Speech reply was empty');
+	await vault.put(speechObjectKey(userId, articleId, voice, hash, index), audio, {
+		httpMetadata: { contentType: 'audio/mpeg' },
+	});
+	return Response.json({ ready: true, hash, voice, index }, { headers: { 'cache-control': 'no-store' } });
 }
 
 async function putAudio(request: Request, vault: R2Bucket, userId: string): Promise<Response> {

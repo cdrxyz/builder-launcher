@@ -1,5 +1,6 @@
 package xyz.cdr.builderlauncher.backup
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -11,7 +12,7 @@ import xyz.cdr.builderlauncher.net.HttpClients
 
 class AccountClient(
     private val http: OkHttpClient = HttpClients.derived(connectSec = 20, readSec = 60, writeSec = 60),
-    private val speech: OkHttpClient = HttpClients.derived(connectSec = 20, readSec = 300, writeSec = 60),
+    private val speech: OkHttpClient = HttpClients.derived(connectSec = 20, readSec = 360, writeSec = 60),
     private val origin: String = ORIGIN,
     private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = false },
 ) {
@@ -46,6 +47,37 @@ class AccountClient(
         )
         val raw = post("/api/articles/audio", body, token, speech)
         return json.decodeFromString(ArticleAudioStatus.serializer(), raw)
+    }
+
+    fun fetchXaiSpeech(bearer: String, text: String, voice: String): ByteArray {
+        val body = Json { encodeDefaults = true }.encodeToString(
+            XaiSpeechRequest.serializer(),
+            XaiSpeechRequest(text, voice),
+        )
+        val req = Request.Builder()
+            .url("https://api.x.ai/v1/tts")
+            .header("Authorization", "Bearer $bearer")
+            .header("Accept", "audio/mpeg")
+            .post(body.toRequestBody(JSON))
+            .build()
+        speech.newCall(req).execute().use { resp ->
+            val bytes = resp.body?.bytes() ?: ByteArray(0)
+            if (!resp.isSuccessful || bytes.size < 64) throw IllegalStateException("Speech HTTP ${resp.code}")
+            return bytes
+        }
+    }
+
+    fun storeArticleAudio(token: String, articleId: String, voice: String, hash: String, index: Int, audio: ByteArray) {
+        val url = "$origin/api/articles/audio?id=$articleId&voice=$voice&hash=$hash&index=$index"
+        val req = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .header("Accept", "application/json")
+            .post(audio.toRequestBody("audio/mpeg".toMediaType()))
+            .build()
+        speech.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) throw IllegalStateException("Could not save audio.")
+        }
     }
 
     private fun auth(path: String, email: String, password: String): AccountSession {
@@ -114,3 +146,20 @@ data class ArticleAudioBody(val id: String, val text: String, val voice: String,
 
 @Serializable
 data class ArticleAudioStatus(val ready: Boolean = false, val total: Int = 0, val index: Int = 0)
+
+@Serializable
+data class XaiSpeechFormat(
+    val codec: String = "mp3",
+    val sample_rate: Int = 24000,
+    val bit_rate: Int = 64000,
+)
+
+@Serializable
+data class XaiSpeechRequest(
+    val text: String,
+    @SerialName("voice_id") val voiceId: String,
+    val language: String = "en",
+    val speed: Double = 1.0,
+    val text_normalization: Boolean = true,
+    val output_format: XaiSpeechFormat = XaiSpeechFormat(),
+)

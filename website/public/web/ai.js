@@ -167,6 +167,19 @@ export function ttsSpeed(rate) {
 	return Math.min(1.5, Math.max(0.7, Math.round(n * 10) / 10));
 }
 
+export const SPEECH_WAIT_MS = 6 * 60 * 1000;
+
+export function xaiSpeechPayload(text, voice, speed = 1) {
+	return {
+		text: String(text || ''),
+		voice_id: voiceId(voice),
+		language: 'en',
+		speed: ttsSpeed(speed),
+		text_normalization: true,
+		output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 64000 },
+	};
+}
+
 export function speakPieces(text, maxChars = SPEAK_CHARS) {
 	const source = String(text || '').trim();
 	if (!source) return [];
