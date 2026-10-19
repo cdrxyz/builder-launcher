@@ -37,6 +37,9 @@ import {
 	questionFromInput,
 	refreshPlan,
 	speechPlan,
+	voiceId,
+	XAI_VOICES,
+	DEFAULT_VOICE,
 	threadsOf,
 	upsertThread,
 } from './ai.js';
@@ -190,6 +193,8 @@ const state = {
 	marketPoints: null,
 	speed: loadSpeed(),
 	speedMenu: false,
+	voice: loadVoice(),
+	voiceMenu: false,
 	articleId: null,
 	autoSync: loadAutoSync(),
 	editTodoId: null,
@@ -2831,6 +2836,25 @@ function checkpoint(force, ended = false) {
 	updatePlayerChrome();
 }
 
+function loadVoice() {
+	try {
+		return voiceId(localStorage.getItem('builder-launcher-web-voice'));
+	} catch {
+		return DEFAULT_VOICE;
+	}
+}
+
+function setVoice(id) {
+	state.voice = voiceId(id);
+	state.voiceMenu = false;
+	try {
+		localStorage.setItem('builder-launcher-web-voice', state.voice);
+	} catch {
+		/* private mode */
+	}
+	render();
+}
+
 function loadSpeed() {
 	try {
 		const n = Number(localStorage.getItem('builder-launcher-web-speed'));
@@ -2854,8 +2878,34 @@ function clearSpeedMenu() {
 	document.querySelectorAll('.speed-menu').forEach((el) => el.remove());
 }
 
+function mountChoiceMenu(anchorSelector, labels, selectedId, onPick) {
+	const anchor = document.querySelector(anchorSelector);
+	if (!anchor) {
+		state.voiceMenu = false;
+		return;
+	}
+	const menu = document.createElement('div');
+	menu.className = 'speed-menu';
+	menu.setAttribute('role', 'listbox');
+	menu.setAttribute('aria-label', 'voice');
+	for (const label of labels) {
+		const row = XAI_VOICES.find((item) => item.label === label);
+		const selected = row?.id === selectedId;
+		const item = button(label, () => onPick(label), selected ? 'primary' : 'ghost');
+		item.setAttribute('role', 'option');
+		item.setAttribute('aria-selected', selected ? 'true' : 'false');
+		menu.append(item);
+	}
+	document.body.append(menu);
+	placeSpeedMenu(menu, anchor, { focus: true });
+}
+
 function mountSpeedMenu() {
 	clearSpeedMenu();
+	if (state.voiceMenu) mountChoiceMenu('.voice-trigger', XAI_VOICES.map((row) => row.label), voiceId(state.voice), (label) => {
+		const row = XAI_VOICES.find((item) => item.label === label);
+		if (row) setVoice(row.id);
+	});
 	if (!state.speedMenu) return;
 	const anchor = document.querySelector('.speed-trigger');
 	if (!anchor) {
@@ -3358,7 +3408,7 @@ async function fetchSpeech(plan, text) {
 	const res = await fetch('/api/ai/speech', {
 		method: 'POST',
 		headers: { accept: 'audio/mpeg, audio/wav, application/json', 'content-type': 'application/json' },
-		body: JSON.stringify({ provider: plan.provider, bearer: plan.bearer, text, speed: state.speed || 1 }),
+		body: JSON.stringify({ provider: plan.provider, bearer: plan.bearer, text, speed: state.speed || 1, voice: voiceId(state.voice) }),
 		credentials: 'include',
 		cache: 'no-store',
 		signal: AbortSignal.timeout(AI_TIMEOUT_MS),
@@ -3623,17 +3673,33 @@ function articleScreen() {
 	posEl.className = 'hint';
 	posEl.id = 'play-pos';
 	posEl.textContent = positionLabel(pos, dur);
+	const voiceWrap = document.createElement('div');
+	voiceWrap.className = 'speed-wrap';
+	const currentVoice = XAI_VOICES.find((row) => row.id === voiceId(state.voice)) || XAI_VOICES[0];
+	const voiceTrigger = button(currentVoice.label, () => {
+		state.voiceMenu = !state.voiceMenu;
+		state.speedMenu = false;
+		render();
+	}, 'ghost speed-trigger voice-trigger');
+	voiceTrigger.setAttribute('aria-label', `voice ${currentVoice.label}`);
+	voiceTrigger.setAttribute('aria-haspopup', 'listbox');
+	voiceTrigger.setAttribute('aria-expanded', state.voiceMenu ? 'true' : 'false');
+	voiceWrap.append(voiceTrigger);
 	const speedWrap = document.createElement('div');
 	speedWrap.className = 'speed-wrap';
 	const speedTrigger = button(formatSpeed(state.speed), () => {
 		state.speedMenu = !state.speedMenu;
+		state.voiceMenu = false;
 		render();
 	}, 'ghost speed-trigger');
 	speedTrigger.setAttribute('aria-label', `playback speed ${formatSpeed(state.speed)}`);
 	speedTrigger.setAttribute('aria-haspopup', 'listbox');
 	speedTrigger.setAttribute('aria-expanded', state.speedMenu ? 'true' : 'false');
 	speedWrap.append(speedTrigger);
-	posRow.append(posEl, speedWrap);
+	const tools = document.createElement('div');
+	tools.className = 'player-tools';
+	tools.append(voiceWrap, speedWrap);
+	posRow.append(posEl, tools);
 	const scrub = document.createElement('div');
 	scrub.className = 'scrub';
 	scrub.id = 'play-scrub';

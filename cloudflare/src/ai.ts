@@ -27,6 +27,7 @@ import {
 	toolStep,
 	speakPieces,
 	ttsSpeed,
+	voiceId,
 } from '../../website/public/web/ai.js';
 import { jsonError } from './safe';
 
@@ -73,7 +74,7 @@ async function aiSpeech(request: Request): Promise<Response> {
 				headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json', accept: 'audio/mpeg' },
 				body: JSON.stringify({
 					text,
-					voice_id: 'eve',
+					voice_id: voiceId(body.voice),
 					language: 'en',
 					speed,
 					text_normalization: true,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { speakPieces, speechPlan, ttsSpeed } from '../public/web/ai.js';
+import { speakPieces, speechPlan, ttsSpeed, voiceId } from '../public/web/ai.js';
 
 test('article speech prefers a signed-in xAI account', () => {
 	const signed = speechPlan({ provider: 'XAI', oauthAccess: 'tok', oauthExpiresAtEpochMs: Date.now() + 600_000 }, Date.now());
@@ -24,4 +24,7 @@ test('speech pieces stay under the request cap and speed stays in range', () => 
 	assert.equal(ttsSpeed(2), 1.5);
 	assert.equal(ttsSpeed(0.2), 0.7);
 	assert.equal(ttsSpeed(1.24), 1.2);
+	assert.equal(voiceId(''), 'leo');
+	assert.equal(voiceId('Eve'), 'eve');
+	assert.equal(voiceId('nope'), 'leo');
 });

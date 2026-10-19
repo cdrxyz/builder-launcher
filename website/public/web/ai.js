@@ -142,7 +142,23 @@ function baseOf(settings) {
 	return String(settings?.hermesBaseUrl || '').trim();
 }
 
+export const XAI_VOICES = [
+	{ id: 'leo', label: 'Leo' },
+	{ id: 'eve', label: 'Eve' },
+	{ id: 'ara', label: 'Ara' },
+	{ id: 'rex', label: 'Rex' },
+	{ id: 'sal', label: 'Sal' },
+	{ id: 'orion', label: 'Orion' },
+	{ id: 'luna', label: 'Luna' },
+	{ id: 'atlas', label: 'Atlas' },
+];
 export const SPEAK_CHARS = 700;
+export const DEFAULT_VOICE = 'leo';
+
+export function voiceId(raw) {
+	const id = String(raw || '').trim().toLowerCase();
+	return XAI_VOICES.some((row) => row.id === id) ? id : DEFAULT_VOICE;
+}
 
 export function ttsSpeed(rate) {
 	const n = Number(rate);
