@@ -868,6 +868,12 @@ details.s3-secondary summary {
 	gap: 0.75rem;
 }
 
+.player-tools {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
 .speed-wrap {
 	position: relative;
 }
