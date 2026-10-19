@@ -40,7 +40,7 @@ object BackupMerge {
             pinChanges = pinChanges,
             watchlist = mergeWatch(a.watchlist, b.watchlist, preferA),
             podcasts = mergePods(a.podcasts, b.podcasts),
-            reads = Reads.mergeBackup(a.reads, b.reads),
+            reads = Reads.mergeBackup(a.reads, b.reads, Reads.restoredIds(newer.reads)),
             alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
             zones = mergeZones(a.zones, b.zones),
             settings = newer.settings,

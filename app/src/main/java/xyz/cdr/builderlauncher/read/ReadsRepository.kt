@@ -64,8 +64,8 @@ class ReadsRepository(
         _articles.value = next
         if (dropped.isNotEmpty()) {
             _progress.update { map -> map.filterKeys { it !in dropped.toSet() } }
-            deletedIds = (deletedIds + dropped).distinct()
         }
+        deletedIds = Reads.deletedIdsAfterAdd(deletedIds, article.id, dropped)
         persist()
     }
 

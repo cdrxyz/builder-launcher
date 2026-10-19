@@ -120,12 +120,12 @@ class BackupService(
 
     private fun syncUp(nowMs: Long): String {
         val s = settings.settings.value
-        val local = document(nowMs = nowMs)
         val remote = account.getVault(s.accountToken)
-        val merged = BackupMerge.join(local, remote.document).copy(exportedAt = nowMs)
+        val local = document(nowMs = System.currentTimeMillis())
+        val merged = BackupMerge.join(local, remote.document).copy(exportedAt = maxOf(nowMs, local.exportedAt))
         account.putVault(s.accountToken, merged)
-        apply(merged)
-        settings.markBackup(nowMs)
+        apply(BackupMerge.join(document(nowMs = System.currentTimeMillis()), merged))
+        settings.markBackup(System.currentTimeMillis())
         rememberSynced()
         return "Synced to builder.cdr.xyz"
     }

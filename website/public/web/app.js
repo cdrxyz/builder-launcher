@@ -8,7 +8,7 @@ import {
 	requestAccountCredential,
 	storeAccountCredential,
 } from './account.js';
-import { emptyDoc, joinDocs, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
+import { emptyDoc, joinDocs, keepFreshArticles, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
 import {
 	TASK_COMPLETE_FADE_MS,
 	TASK_COMPLETE_HOLD_MS,
@@ -109,6 +109,7 @@ import {
 import {
 	addArticle,
 	articleId,
+	deletedIdsAfterAdd,
 	chunks as readChunks,
 	chunkIndexAt,
 	durationMs as readDurationMs,
@@ -486,13 +487,14 @@ async function pull(opts = {}) {
 }
 
 async function pullAccount(opts = {}) {
+	const startedAt = Date.now();
 	state.busy = true;
 	if (!opts.quiet) setStatus('Syncing…');
 	try {
 		const remote = await apiJson('/api/vault', { token: state.account.token });
 		state.revision = remote.revision || 0;
 		if (opts.overwrite && remote.document) state.doc = remote.document;
-		else state.doc = joinDocs(state.doc, remote.document);
+		else state.doc = keepFreshArticles(joinDocs(state.doc, remote.document), state.doc, startedAt);
 		const saved = saveSnapshot(state.doc);
 		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true, skipHydrate: true });
 		state.dirty = false;
@@ -545,13 +547,14 @@ async function pushAccount(opts = {}) {
 	state.busy = true;
 	if (!opts.quiet) setStatus('Syncing…');
 	try {
-		const next = { ...state.doc, exportedAt: Date.now() };
+		const startedAt = Date.now();
+		const next = { ...state.doc, exportedAt: startedAt };
 		const remote = await apiJson('/api/vault', {
 			method: 'PUT',
 			token: state.account.token,
 			body: { document: slimDoc(next) },
 		});
-		state.doc = joinDocs(next, remote.document || next);
+		state.doc = keepFreshArticles(joinDocs(next, remote.document || next), state.doc, startedAt);
 		state.revision = remote.revision || state.revision;
 		state.dirty = false;
 		saveSnapshot(state.doc);
@@ -3690,8 +3693,9 @@ async function submitRead(text) {
 			publication: body.publication || '',
 			text: body.text,
 		}, Date.now());
-		const deletedIds = [...new Set([...(bag.deletedIds || []), ...added.droppedIds])];
+		const deletedIds = deletedIdsAfterAdd(bag.deletedIds, id, added.droppedIds);
 		mutate({
+			exportedAt: Date.now(),
 			reads: {
 				...bag,
 				articles: added.articles,
@@ -3702,7 +3706,7 @@ async function submitRead(text) {
 		if (state.tab === 'article') openArticle(id);
 		else setStatus('');
 		const saved = added.articles.find((item) => item.id === id);
-		if (saved) prepareArticleAudio(saved);
+		if (saved) void prepareArticleAudio(saved);
 	} catch (err) {
 		setStatus(err.message || 'Could not read that page.');
 	} finally {

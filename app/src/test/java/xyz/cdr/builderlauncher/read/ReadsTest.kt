@@ -114,6 +114,11 @@ class ReadsTest {
     }
 
     @Test
+    fun reAddClearsTheDeletedId() {
+        assertEquals(listOf("other", "old"), Reads.deletedIdsAfterAdd(listOf("r1", "other"), "r1", listOf("old")))
+    }
+
+    @Test
     fun mergeKeepsNewerTextAndLaterPosition() {
         val left = ReadBackup(
             articles = listOf(article("r1", title = "Old", text = "short text that is still long enough to keep", addedAt = 1)),
