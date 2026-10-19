@@ -22,7 +22,17 @@ test('speech asks xAI directly and saves the finished file', async () => {
 	assert.equal(payload.voice_id, 'leo');
 	assert.equal(payload.text, 'Hello there.');
 	assert.equal(payload.output_format.codec, 'mp3');
+	assert.equal(payload.optimize_streaming_latency, 1);
 	assert.equal(SPEECH_WAIT_MS > 120_000, true);
+	const { speechStreamQuery, speechTextFrames } = await import('../public/web/ai.js');
+	const query = speechStreamQuery('Leo', 1);
+	assert.equal(query.get('voice'), 'leo');
+	assert.equal(query.get('codec'), 'mp3');
+	assert.equal(query.get('optimize_streaming_latency'), '1');
+	const frames = speechTextFrames('a'.repeat(9_000));
+	assert.equal(frames.at(-1).type, 'text.done');
+	assert.equal(frames.filter((row) => row.type === 'text.delta').length, 3);
+	assert.equal(frames.slice(0, -1).map((row) => row.delta).join(''), 'a'.repeat(9_000));
 	const app = await import('node:fs').then((fs) => fs.readFileSync(new URL('../public/web/app.js', import.meta.url), 'utf8'));
 	assert.match(app, /https:\/\/api\.x\.ai\/v1\/tts/);
 	assert.match(app, /content-type': 'audio\/mpeg'/);

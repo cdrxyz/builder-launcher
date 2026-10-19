@@ -176,8 +176,33 @@ export function xaiSpeechPayload(text, voice, speed = 1) {
 		language: 'en',
 		speed: ttsSpeed(speed),
 		text_normalization: true,
+		optimize_streaming_latency: 1,
 		output_format: { codec: 'mp3', sample_rate: 24000, bit_rate: 64000 },
 	};
+}
+
+export function speechStreamQuery(voice, speed = 1) {
+	return new URLSearchParams({
+		language: 'en',
+		voice: voiceId(voice),
+		codec: 'mp3',
+		sample_rate: '24000',
+		bit_rate: '64000',
+		speed: String(ttsSpeed(speed)),
+		text_normalization: 'true',
+		optimize_streaming_latency: '1',
+	});
+}
+
+export function speechTextFrames(text) {
+	const source = String(text || '');
+	const frames = [];
+	for (let start = 0; start < source.length; start += 4_000) {
+		frames.push({ type: 'text.delta', delta: source.slice(start, start + 4_000) });
+	}
+	if (!frames.length) frames.push({ type: 'text.delta', delta: source });
+	frames.push({ type: 'text.done' });
+	return frames;
 }
 
 export function speakPieces(text, maxChars = SPEAK_CHARS) {

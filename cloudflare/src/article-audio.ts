@@ -48,9 +48,16 @@ async function getAudio(request: Request, url: URL, vault: R2Bucket, userId: str
 		'cache-control': 'private, max-age=86400',
 	});
 	const spanned = obj.range;
-	if (spanned && obj.size) {
-		const start = spanned.offset ?? 0;
-		const length = spanned.length ?? obj.size - start;
+	if (spanned && obj.size && 'suffix' in spanned) {
+		const length = Math.min(spanned.suffix, obj.size);
+		const start = obj.size - length;
+		headers.set('content-range', `bytes ${start}-${obj.size - 1}/${obj.size}`);
+		headers.set('content-length', String(length));
+		return new Response(obj.body, { status: 206, headers });
+	}
+	if (spanned && obj.size && ('offset' in spanned || 'length' in spanned)) {
+		const start = 'offset' in spanned ? spanned.offset ?? 0 : Math.max(0, obj.size - (spanned.length ?? 0));
+		const length = 'length' in spanned && spanned.length != null ? spanned.length : obj.size - start;
 		headers.set('content-range', `bytes ${start}-${start + length - 1}/${obj.size}`);
 		headers.set('content-length', String(length));
 		return new Response(obj.body, { status: 206, headers });
