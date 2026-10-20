@@ -258,25 +258,29 @@ internal fun PodcastEpisodeRowActions(
     dismissDescription: String,
     onDismiss: () -> Unit,
 ) {
-    if (percent.isNotBlank()) {
-        Text(
-            percent,
-            color = Dim,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(end = 4.dp),
-        )
+    Column(horizontalAlignment = Alignment.End) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            DownloadIcon(
+                filled = downloaded,
+                modifier = Modifier
+                    .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
+                    .clickable(onClick = onDownload)
+                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+            DeleteIcon(
+                Modifier
+                    .semantics { contentDescription = dismissDescription }
+                    .clickable(onClick = onDismiss)
+                    .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
+        if (percent.isNotBlank()) {
+            Text(
+                percent,
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 2.dp, end = 30.dp),
+            )
+        }
     }
-    DownloadIcon(
-        filled = downloaded,
-        modifier = Modifier
-            .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
-            .clickable(onClick = onDownload)
-            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-    )
-    DeleteIcon(
-        Modifier
-            .semantics { contentDescription = dismissDescription }
-            .clickable(onClick = onDismiss)
-            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-    )
 }
