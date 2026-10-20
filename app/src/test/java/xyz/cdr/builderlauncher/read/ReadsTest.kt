@@ -176,6 +176,16 @@ class ReadsTest {
         assertEquals("YQ==", Reads.speechEvent("""{"type":"audio.delta","delta":"YQ=="}""").second)
         assertEquals(false, Reads.shouldStartSpeech(100))
         assertEquals(true, Reads.shouldStartSpeech(Reads.SPEECH_START_BYTES))
+        assertEquals("generating…", Reads.articleDownloadLabel(""))
+        assertEquals("generating…", Reads.articleDownloadLabel("preparing audio"))
+        assertEquals("generating…", Reads.articleDownloadLabel("preparing audio", 0, 0))
+        assertEquals("", Reads.articleDownloadLabel("audio ready"))
+        assertEquals("downloading…", Reads.articleDownloadLabel("audio ready", 0, 0))
+        assertEquals("downloading…", Reads.articleDownloadLabel("audio ready", 10, 0))
+        assertEquals("37%", Reads.articleDownloadLabel("audio ready", 37, 100))
+        assertEquals("", Reads.articleDownloadLabel("audio failed"))
+        assertEquals("The Real Title.mp3", Reads.articleFileName("The Real Title"))
+        assertEquals("article.mp3", Reads.articleFileName(""))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =

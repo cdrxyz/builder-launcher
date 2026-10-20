@@ -22,7 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -54,6 +56,9 @@ fun ReadListChrome(
     onBack: () -> Unit = {},
     onOpen: (ReadArticle) -> Unit = {},
     audio: Map<String, String> = emptyMap(),
+    onDownload: (ReadArticle) -> Unit = {},
+    downloadLabel: (ReadArticle) -> String = { "" },
+    downloaded: (ReadArticle) -> Boolean = { false },
 ) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(
@@ -106,6 +111,11 @@ fun ReadListChrome(
                             )
                         }
                     }
+                    ArticleDownloadMark(
+                        downloaded = downloaded(article),
+                        label = downloadLabel(article),
+                        onDownload = { onDownload(article) },
+                    )
                 }
             }
         }
@@ -130,10 +140,20 @@ fun ReadPlayerChrome(
     onOpen: () -> Unit = {},
     onRemove: () -> Unit = {},
     audioLabel: String = "",
+    onDownload: () -> Unit = {},
+    downloadLabel: String = "",
+    downloaded: Boolean = false,
     speed: @Composable () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
-        ScreenBack(Reads.BACK, onBack = onBack)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ScreenBack(Reads.BACK, onBack = onBack)
+            ArticleDownloadMark(downloaded = downloaded, label = downloadLabel, onDownload = onDownload)
+        }
         Spacer(Modifier.height(8.dp))
         Column(
             Modifier
@@ -250,8 +270,20 @@ fun ColumnScope.ReadHost(
     speaker: ArticleControls,
     onEvent: (ReadEvent) -> Unit,
     audio: Map<String, String> = emptyMap(),
+    setAudio: (Map<String, String>) -> Unit = {},
+    prepareSpeech: (ReadArticle) -> Unit = {},
+    settings: () -> xyz.cdr.builderlauncher.data.BuilderSettings = { xyz.cdr.builderlauncher.data.BuilderSettings() },
 ) {
     val article = articles.find { it.id == articleId }
+    val downloads = rememberArticleDownloads(
+        articles = articles,
+        audio = audio,
+        setAudio = setAudio,
+        prepare = prepareSpeech,
+        context = LocalContext.current,
+        scope = rememberCoroutineScope(),
+        settings = settings,
+    )
     val playingThis = playback.articleId == article?.id
     val saved = article?.let { progress[it.id]?.positionMs } ?: 0L
     val pos = if (playingThis) playback.positionMs else saved
@@ -313,6 +345,9 @@ fun ColumnScope.ReadHost(
         onSubmit = { onEvent(ReadEvent.Submit) },
         onSlash = { onEvent(ReadEvent.Slash(it)) },
         audio = audio,
+        onDownload = { downloads.queue(it) },
+        downloadLabel = { downloads.label(it.id) },
+        downloaded = { downloads.isDownloaded(it.id) },
     )
 }
 
@@ -348,11 +383,24 @@ fun ColumnScope.ReadOverlay(
     onSubmit: () -> Unit,
     onSlash: (SlashCommand) -> Unit,
     audio: Map<String, String> = emptyMap(),
+    onDownload: (ReadArticle) -> Unit = {},
+    downloadLabel: (ReadArticle) -> String = { "" },
+    downloaded: (ReadArticle) -> Boolean = { false },
 ) {
     var speedMenu by remember(article?.id) { mutableStateOf(false) }
     Column(Modifier.weight(1f)) {
         if (!player) {
-            ReadListChrome(articles, progress, busy, onBackHome, onOpen, audio)
+            ReadListChrome(
+                articles,
+                progress,
+                busy,
+                onBackHome,
+                onOpen,
+                audio,
+                onDownload,
+                downloadLabel,
+                downloaded,
+            )
         } else if (article == null) {
             ScreenBack(Reads.BACK, onBack = onBackList)
             Text("Article gone", color = Dim)
@@ -373,7 +421,10 @@ fun ColumnScope.ReadOverlay(
                 onSeek = onSeek,
                 onOpen = onOpenBrowser,
                 onRemove = onRemove,
-                audioLabel = article?.id?.let { audio[it] }.orEmpty(),
+                audioLabel = article.id.let { audio[it] }.orEmpty(),
+                onDownload = { onDownload(article) },
+                downloadLabel = downloadLabel(article),
+                downloaded = downloaded(article),
                 speed = {
                     PodcastSpeedMenu(
                         speed = speed,
@@ -397,6 +448,31 @@ fun ColumnScope.ReadOverlay(
         onSlash = onSlash,
         onHub = onBackHome,
     )
+}
+
+@Composable
+private fun ArticleDownloadMark(
+    downloaded: Boolean,
+    label: String,
+    onDownload: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.End) {
+        DownloadIcon(
+            filled = downloaded,
+            modifier = Modifier
+                .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
+                .clickable(onClick = onDownload)
+                .padding(start = 12.dp, top = 6.dp, bottom = 2.dp),
+        )
+        if (label.isNotBlank()) {
+            Text(
+                label,
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
 }
 
 @Composable

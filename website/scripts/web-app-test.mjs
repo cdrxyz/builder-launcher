@@ -285,6 +285,17 @@ test('all recent episode rows offer a download', async () => {
 	assert.match(js, /function downloadEpisode/);
 });
 
+test('article rows and the player offer a download', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const list = js.slice(js.indexOf('function readScreen'), js.indexOf('function articleScreen'));
+	const playerStart = js.indexOf('function articleScreen');
+	const player = js.slice(playerStart, js.indexOf('\nfunction ', playerStart + 10));
+	assert.match(list, /articleDownloadControl\(article\)/);
+	assert.match(player, /articleDownloadControl\(article\)/);
+	assert.match(js, /function downloadArticle/);
+	assert.match(js, /articleDownloadLabel/);
+});
+
 test('rss itunes and opml parse', () => {
 	const rss = parseRss(
 		`<rss><channel><title>Show</title><itunes:author>Ada</itunes:author>
@@ -866,7 +877,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v45/);
+	assert.match(sw, /builder-launcher-web-v46/);
 });
 
 test('the web app fetches an article from /api/articles', async () => {

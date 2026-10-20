@@ -3498,6 +3498,9 @@ fun BuilderRoot(
                 reads = reads,
                 speaker = articleControls,
                 audio = articleAudio,
+                setAudio = { articleAudio = it },
+                prepareSpeech = { prepareArticleSpeech(settings.accountToken, settings, it) },
+                settings = { settings },
                 onEvent = { event ->
                     when (event) {
                         ReadEvent.Home -> page = Page.Home
