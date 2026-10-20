@@ -1441,10 +1441,17 @@ function podcastCatalogScreen(kind) {
 			plus.setAttribute('aria-label', 'add to recent');
 			plus.addEventListener('click', (event) => event.stopPropagation());
 		}
+		const download = kind === 'recent' && episode.enclosureUrl
+			? iconButton('download', 'M9 3v7M6.2 7.2 9 10l2.8-2.8M4 12.2V15h10v-2.8', () => downloadEpisode(episode))
+			: null;
+		const trail = document.createElement('span');
+		trail.className = 'trail';
+		if (download) trail.append(download);
+		if (plus) trail.append(plus);
 		wrap.append(listRow({
 			title: episode.title,
 			subtitle: shows.get(episode.showId)?.title || '',
-			trail: plus,
+			trail: trail.childElementCount ? trail : null,
 			dim: finished(progress) || skipped(progress),
 			onClick: () => {
 				state.tab = 'episode';
@@ -1462,6 +1469,19 @@ function saveEpisodeToRecent(episode) {
 	const prev = progressMap(bag.progress).get(episode.id);
 	const next = savedProgress(prev, episode.id, episode.durationMs || 0, Date.now());
 	mutate({ podcasts: { ...bag, progress: upsertProgress(bag.progress, next) } });
+}
+
+function downloadEpisode(episode) {
+	const url = episode.enclosureUrl;
+	if (!url) return;
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = '';
+	link.rel = 'noopener';
+	link.target = '_blank';
+	document.body.append(link);
+	link.click();
+	link.remove();
 }
 
 function showScreen() {

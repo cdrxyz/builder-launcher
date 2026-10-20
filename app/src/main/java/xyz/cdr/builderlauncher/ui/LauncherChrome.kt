@@ -2876,6 +2876,9 @@ fun PodcastListPage(
     progress: Map<String, EpisodeProgress>,
     onOpen: (PodcastEpisode) -> Unit,
     onSave: ((PodcastEpisode) -> Unit)? = null,
+    onDownload: ((PodcastEpisode) -> Unit)? = null,
+    downloaded: (PodcastEpisode) -> Boolean = { false },
+    downloadPercent: (PodcastEpisode) -> String = { "" },
 ) {
     val showById = shows.associateBy { it.feedUrl }
     Column(Modifier.fillMaxSize()) {
@@ -2908,6 +2911,24 @@ fun PodcastListPage(
                         if (show != null) {
                             Text(show.title, color = Dim, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                    }
+                    if (onDownload != null) {
+                        val percent = downloadPercent(ep)
+                        if (percent.isNotBlank()) {
+                            Text(
+                                percent,
+                                color = Dim,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                        DownloadIcon(
+                            filled = downloaded(ep),
+                            modifier = Modifier
+                                .semantics { contentDescription = if (downloaded(ep)) "downloaded" else "download" }
+                                .clickable { onDownload(ep) }
+                                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                        )
                     }
                     if (onSave != null && !Podcasts.inRecent(prog)) {
                         PlusIcon(

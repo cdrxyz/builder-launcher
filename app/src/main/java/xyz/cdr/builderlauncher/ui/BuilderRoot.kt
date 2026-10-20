@@ -3097,6 +3097,9 @@ fun BuilderRoot(
                     shows = podcastShows,
                     progress = podcastProgress,
                     onOpen = { openPodcastEpisode(it.id) },
+                    onDownload = { queueDownload(it) },
+                    downloaded = { podcastDownloads.containsKey(it.id) },
+                    downloadPercent = { episodeDownloadPercent(it.id, podcastTransfer) },
                 )
             }
             Page.PodcastNext -> {

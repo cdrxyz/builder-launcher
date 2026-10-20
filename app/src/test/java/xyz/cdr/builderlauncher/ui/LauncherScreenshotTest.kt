@@ -1233,6 +1233,27 @@ class LauncherScreenshotTest {
     fun podcastsThemeIos() { snap(UiTheme.IOS) { samplePodcasts() } }
 
     @Test
+    fun podcastRecent() {
+        paparazzi.snapshot {
+            BuilderTheme {
+                PodcastListPage(
+                    title = "recent",
+                    onBack = {},
+                    episodes = listOf(
+                        PodcastEpisode("a", "https://atp.fm/rss", "Kept episode", enclosureUrl = "https://cdn.example/a.mp3"),
+                        PodcastEpisode("b", "https://atp.fm/rss", "Saved episode", enclosureUrl = "https://cdn.example/b.mp3"),
+                    ),
+                    shows = listOf(PodcastShow("https://atp.fm/rss", "Accidental Tech Podcast")),
+                    progress = emptyMap(),
+                    onOpen = {},
+                    onDownload = {},
+                    downloaded = { it.id == "a" },
+                )
+            }
+        }
+    }
+
+    @Test
     fun podcastNext() {
         paparazzi.snapshot {
             BuilderTheme {
