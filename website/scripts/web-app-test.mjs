@@ -275,6 +275,16 @@ test('podcast home rows match phone sections', () => {
 	assert.equal(podcastsOf({}).shows.length, 0);
 });
 
+test('all recent episode rows offer a download', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const start = js.indexOf('function podcastCatalogScreen');
+	const end = js.indexOf('function saveEpisodeToRecent');
+	const body = js.slice(start, end);
+	assert.match(body, /kind === 'recent' && episode\.enclosureUrl/);
+	assert.match(body, /iconButton\('download'/);
+	assert.match(js, /function downloadEpisode/);
+});
+
 test('rss itunes and opml parse', () => {
 	const rss = parseRss(
 		`<rss><channel><title>Show</title><itunes:author>Ada</itunes:author>
