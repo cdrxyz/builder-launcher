@@ -148,6 +148,21 @@ object Reads {
         return if (index == null) base else "$base&index=$index"
     }
 
+    fun articleDownloadLabel(audioLabel: String, received: Long = -1, total: Long = 0): String {
+        if (audioLabel.startsWith("audio failed")) return ""
+        if (audioLabel != "audio ready") return "generating…"
+        if (received < 0L) return ""
+        if (total <= 0L || received <= 0L) return "downloading…"
+        if (received >= total) return ""
+        val pct = ((received * 100) / total).toInt().coerceIn(0, 100)
+        return if (pct > 0) "$pct%" else "downloading…"
+    }
+
+    fun articleFileName(title: String): String {
+        val clean = title.replace(Regex("[^A-Za-z0-9._ -]"), "").replace(Regex("\\s+"), " ").trim().take(80)
+        return "${clean.ifBlank { "article" }}.mp3"
+    }
+
     fun wordMsFromAudio(audioPos: Long, audioDur: Long, textDur: Long): Long {
         if (audioDur <= 0L || textDur <= 0L) return audioPos.coerceAtLeast(0L)
         return (textDur * audioPos.coerceAtLeast(0L) / audioDur).coerceIn(0L, textDur)

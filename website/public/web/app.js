@@ -23,7 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
+import { articleDownloadLabel, articleFileName, audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -3486,6 +3486,7 @@ function paintAudio(articleId) {
 		el.hidden = !label;
 		el.classList.toggle('down', job?.status === 'failed');
 	});
+	paintArticleDownload(articleId);
 }
 
 function audioState(article) {
@@ -4112,6 +4113,82 @@ function openArticle(id) {
 	if (article) prepareArticleAudio(article);
 }
 
+const articleTransfers = new Map();
+const DOWNLOAD_ICON = 'M9 3v7M6.2 7.2 9 10l2.8-2.8M4 12.2V15h10v-2.8';
+
+function articleDownloadControl(article) {
+	const trail = document.createElement('span');
+	trail.className = 'trail article-download';
+	const label = document.createElement('span');
+	label.className = 'sub article-download-label';
+	label.dataset.downloadFor = article.id;
+	const text = articleDownloadLabel(audioJob(article)?.status || '', articleTransfers.get(article.id));
+	label.textContent = text;
+	label.hidden = !text;
+	trail.append(iconButton('download', DOWNLOAD_ICON, () => { void downloadArticle(article); }), label);
+	return trail;
+}
+
+function paintArticleDownload(articleId) {
+	const article = readsOf(state.doc).articles.find((item) => item.id === articleId);
+	if (!article) return;
+	const text = articleDownloadLabel(audioJob(article)?.status || '', articleTransfers.get(articleId));
+	document.querySelectorAll(`[data-download-for="${CSS.escape(articleId)}"]`).forEach((el) => {
+		el.textContent = text;
+		el.hidden = !text;
+	});
+}
+
+async function downloadArticle(article) {
+	const job = audioJob(article);
+	if (!job || job.status !== 'ready') {
+		if (job?.status !== 'failed') prepareArticleAudio(article);
+		paintArticleDownload(article.id);
+		return;
+	}
+	if (articleTransfers.has(article.id)) return;
+	articleTransfers.set(article.id, { received: 0, total: 0 });
+	paintArticleDownload(article.id);
+	try {
+		const res = await fetch(storedFileUrl(article, 0), { credentials: 'include' });
+		if (!res.ok) throw new Error('Could not download audio.');
+		const total = Number(res.headers.get('content-length')) || 0;
+		const reader = res.body?.getReader();
+		const chunks = [];
+		let received = 0;
+		if (!reader) {
+			const blob = await res.blob();
+			saveArticleFile(article, blob);
+			return;
+		}
+		while (true) {
+			const step = await reader.read();
+			if (step.done) break;
+			chunks.push(step.value);
+			received += step.value.byteLength;
+			articleTransfers.set(article.id, { received, total });
+			paintArticleDownload(article.id);
+		}
+		saveArticleFile(article, new Blob(chunks, { type: 'audio/mpeg' }));
+	} catch (err) {
+		setStatus(err.message || 'Could not download audio.');
+	} finally {
+		articleTransfers.delete(article.id);
+		paintArticleDownload(article.id);
+	}
+}
+
+function saveArticleFile(article, blob) {
+	const objectUrl = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = objectUrl;
+	link.download = articleFileName(article.title);
+	document.body.append(link);
+	link.click();
+	link.remove();
+	setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+}
+
 function readScreen() {
 	const wrap = document.createElement('div');
 	const bag = readsOf(state.doc);
@@ -4137,7 +4214,10 @@ function readScreen() {
 		meta.className = 'meta';
 		const saved = progressFor(bag.progress, article.id)?.positionMs || 0;
 		meta.textContent = positionLabel(saved, readDurationMs(article.text));
-		row.append(mark, copy, meta);
+		const side = document.createElement('span');
+		side.className = 'article-side';
+		side.append(meta, articleDownloadControl(article));
+		row.append(mark, copy, side);
 		row.addEventListener('click', () => openArticle(article.id));
 		wrap.append(row);
 		probeAudio(article);
@@ -4160,7 +4240,10 @@ function articleScreen() {
 	const h = document.createElement('h2');
 	h.className = 'read-title';
 	h.textContent = article.title;
-	wrap.append(pub, h, audioState(article));
+	const downloadRow = document.createElement('div');
+	downloadRow.className = 'article-download-row';
+	downloadRow.append(articleDownloadControl(article));
+	wrap.append(downloadRow, pub, h, audioState(article));
 	const dur = readDurationMs(article.text);
 	const live = readSpeak.id === article.id;
 	const pos = live ? readSpeak.positionMs : (progressFor(bag.progress, article.id)?.positionMs || 0);

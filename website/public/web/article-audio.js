@@ -38,6 +38,23 @@ export function nextSpeechIndex(total, ready, prefer) {
 	return -1;
 }
 
+export function articleDownloadLabel(status, transfer) {
+	if (status === 'failed') return '';
+	if (status !== 'ready') return 'generating…';
+	if (!transfer) return '';
+	const received = Number(transfer.received) || 0;
+	const total = Number(transfer.total) || 0;
+	if (total <= 0 || received <= 0) return 'downloading…';
+	if (received >= total) return '';
+	const pct = Math.floor((received * 100) / total);
+	return pct > 0 ? `${pct}%` : 'downloading…';
+}
+
+export function articleFileName(title) {
+	const clean = String(title || '').replace(/[^\w. -]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+	return `${clean || 'article'}.mp3`;
+}
+
 export function audioByteRange(header) {
 	const match = /^bytes=(\d+)-(\d*)$/i.exec(String(header || '').trim());
 	if (!match) return null;

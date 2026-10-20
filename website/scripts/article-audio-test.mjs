@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { audioByteRange, audioContentRange, audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
+import { articleDownloadLabel, articleFileName, audioByteRange, audioContentRange, audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -72,4 +72,18 @@ test('a stored article can be streamed from a byte range, and a source switch is
 	assert.deepEqual(audioContentRange({ offset: 0, length: 1024 }, 16748), { start: 0, end: 1023, size: 16748 });
 	assert.equal(audioContentRange({ offset: 0, length: 16748 }, 16748), null);
 	assert.deepEqual(audioContentRange({ suffix: 100 }, 1000), { start: 900, end: 999, size: 1000 });
+});
+
+test('an article download says generating until the file exists, never 0%', () => {
+	assert.equal(articleDownloadLabel(''), 'generating…');
+	assert.equal(articleDownloadLabel('preparing'), 'generating…');
+	assert.equal(articleDownloadLabel('preparing', { received: 0, total: 0 }), 'generating…');
+	assert.equal(articleDownloadLabel('ready'), '');
+	assert.equal(articleDownloadLabel('ready', { received: 0, total: 0 }), 'downloading…');
+	assert.equal(articleDownloadLabel('ready', { received: 10, total: 0 }), 'downloading…');
+	assert.equal(articleDownloadLabel('ready', { received: 37, total: 100 }), '37%');
+	assert.equal(articleDownloadLabel('failed'), '');
+	assert.equal(articleFileName('The Real Title'), 'The Real Title.mp3');
+	assert.equal(articleFileName('a/b?'), 'ab.mp3');
+	assert.equal(articleFileName(''), 'article.mp3');
 });
