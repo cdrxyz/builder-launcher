@@ -23,7 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { audioProgressLabel, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
+import { audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -3595,7 +3595,7 @@ async function storedClip(article, index, plan) {
 	return requestClip(article, index, plan);
 }
 
-async function fetchXaiSpeech(bearer, text, voice) {
+async function fetchXaiSpeech(bearer, text, voice, onStart) {
 	let res;
 	try {
 		res = await fetch('https://api.x.ai/v1/tts', {
@@ -3616,9 +3616,52 @@ async function fetchXaiSpeech(bearer, text, voice) {
 		const body = await res.json().catch(() => ({}));
 		throw new Error(body.error || `Speech HTTP ${res.status}`);
 	}
-	const blob = await res.blob();
-	if (blob.size < 64) throw new Error('Speech reply was empty.');
-	return blob;
+	if (!res.body || typeof MediaSource === 'undefined' || !MediaSource.isTypeSupported('audio/mpeg')) {
+		const blob = await res.blob();
+		if (blob.size < 64) throw new Error('Speech reply was empty.');
+		return blob;
+	}
+	return readSpeechStream(res.body, onStart);
+}
+
+function readSpeechStream(body, onStart) {
+	const reader = body.getReader();
+	const parts = [];
+	const queue = [];
+	let received = 0;
+	let started = false;
+	let source = null;
+	const media = new MediaSource();
+	const url = URL.createObjectURL(media);
+	const pump = () => {
+		if (!source || source.updating || !queue.length) return;
+		try { source.appendBuffer(queue.shift()); } catch { /* the finished blob still plays */ }
+	};
+	media.addEventListener('sourceopen', () => {
+		try { source = media.addSourceBuffer('audio/mpeg'); } catch { return; }
+		source.addEventListener('updateend', pump);
+		pump();
+	}, { once: true });
+	const take = () => reader.read().then(({ done, value }) => {
+		if (done) {
+			const close = () => { try { if (media.readyState === 'open') media.endOfStream(); } catch { /* already ended */ } };
+			if (source && source.updating) source.addEventListener('updateend', close, { once: true });
+			else close();
+			const blob = new Blob(parts, { type: 'audio/mpeg' });
+			if (blob.size < 64) throw new Error('Speech reply was empty.');
+			return blob;
+		}
+		parts.push(value);
+		queue.push(value);
+		received += value.byteLength;
+		pump();
+		if (!started && received > 16_000 && onStart) {
+			started = true;
+			onStart(url);
+		}
+		return take();
+	});
+	return take().finally(() => reader.releaseLock());
 }
 
 async function storeArticleAudio(article, voice, hash, index, blob) {
@@ -3643,7 +3686,12 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 	if (res.status === 404) {
 		const piece = storedPieces(article.text)[index];
 		if (!piece) throw new Error('Nothing to speak.');
-		const blob = await fetchXaiSpeech(plan.bearer, piece, voice);
+		const blob = await fetchXaiSpeech(plan.bearer, piece, voice, (liveUrl) => {
+			if (!readSpeak.playing || readSpeak.id !== article.id) return;
+			const row = storedRows(article.text)[index];
+			if (!row) return;
+			playStoredUrl(liveUrl, row, readSpeak.token);
+		});
 		const url = URL.createObjectURL(blob);
 		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
 		try {
@@ -3744,6 +3792,11 @@ function speakStoredChunk(row) {
 		playStoredUrl(cached, row, token);
 		return;
 	}
+	const job = audioJob(article);
+	if (job && (job.status === 'ready' || (job.status !== 'failed' && job.done > row.index))) {
+		playStoredUrl(storedFileUrl(article, row.index), row, token);
+		return;
+	}
 	storedClip(article, row.index, readSpeak.plan)
 		.then((url) => {
 			if (!readSpeak.playing || readSpeak.token !== token) return;
@@ -3752,13 +3805,46 @@ function speakStoredChunk(row) {
 		.catch((err) => {
 			if (readSpeak.token !== token) return;
 			readSpeak.playing = false;
-			setStatus(err.message || 'Could not play saved audio.');
+			const message = err.message || 'Could not play saved audio.';
+			failStoredPlay(article, message);
+			setStatus(message);
 			readCheckpoint(true);
 			paintReadPos();
 		});
 }
 
-function playStoredUrl(url, row, token) {
+function storedFileUrl(article, index) {
+	const voice = voiceId(state.voice);
+	const hash = speechHash(article.text);
+	return `/api/articles/audio?${new URLSearchParams({ id: article.id, voice, hash, index: String(index) })}`;
+}
+
+function sameMediaSrc(clip, url) {
+	try {
+		return new URL(clip.src).href === new URL(url, location.href).href;
+	} catch {
+		return clip.src === url;
+	}
+}
+
+function audibleClip() {
+	const clip = readSpeak.audio;
+	return Boolean(clip && !clip.paused && clip.volume > 0 && clip.src && !sameMediaSrc(clip, CLIP_HOLD));
+}
+
+function failStoredPlay(article, message) {
+	const key = audioJobKey(article);
+	const current = audioJobs.get(key) || {};
+	setAudioJob(key, {
+		status: 'failed',
+		done: current.done || 0,
+		total: current.total || storedPieces(article.text).length,
+		error: message,
+		articleId: article.id,
+	});
+}
+
+function playStoredUrl(url, row, token, viaBlob) {
 	const clip = readSpeak.audio || new Audio();
 	readSpeak.audio = clip;
 	clip.loop = false;
@@ -3769,11 +3855,39 @@ function playStoredUrl(url, row, token) {
 		advanceRead(row);
 	};
 	clip.onerror = () => {
+		if (!readSpeak.playing || readSpeak.token !== token) return;
+		if (!mediaErrorStopsPlayback(clip.error && clip.error.code)) return;
+		if (!viaBlob && String(url).startsWith('/api/')) {
+			fetch(url, { credentials: 'include' })
+				.then((res) => {
+					if (!res.ok) throw new Error('Could not load saved audio.');
+					return res.blob();
+				})
+				.then((blob) => {
+					if (!readSpeak.playing || readSpeak.token !== token) return;
+					playStoredUrl(URL.createObjectURL(blob), row, token, true);
+				})
+				.catch((err) => {
+					if (readSpeak.token !== token) return;
+					readSpeak.playing = false;
+					const message = err.message || 'Could not play saved audio.';
+					failStoredPlay(readSpeak.article, message);
+					setStatus(message);
+					readCheckpoint(true);
+					paintReadPos();
+				});
+			return;
+		}
 		readSpeak.playing = false;
-		setStatus('Could not play saved audio.');
+		const message = 'Could not play saved audio.';
+		failStoredPlay(readSpeak.article, message);
+		setStatus(message);
 		readCheckpoint(true);
+		paintReadPos();
 	};
-	if (!clip.src || clip.src !== url) clip.src = url;
+	if (!sameMediaSrc(clip, url)) clip.src = url;
+	const offset = Math.max(0, (readSpeak.positionMs - row.startMs) / 1000);
+	if (offset > 0.25 && Number.isFinite(clip.duration) && offset < clip.duration) clip.currentTime = offset;
 	const pending = clip.play();
 	if (pending && pending.catch) {
 		pending.catch(() => {
@@ -3897,7 +4011,7 @@ async function readPlay(article, startMs) {
 }
 
 function readToggle(article) {
-	if (readSpeak.playing && readSpeak.id === article.id) {
+	if (readSpeak.playing && readSpeak.id === article.id && audibleClip()) {
 		readStop(true);
 		render();
 		return;
