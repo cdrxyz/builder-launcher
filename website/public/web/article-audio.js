@@ -48,6 +48,24 @@ export function audioByteRange(header) {
 	return end == null ? { offset } : { offset, length: end - offset + 1 };
 }
 
+export function audioContentRange(range, size) {
+	if (!range || !Number.isFinite(size) || size <= 0) return null;
+	if (Number.isFinite(range.suffix) && range.suffix > 0) {
+		const length = Math.min(range.suffix, size);
+		const start = size - length;
+		if (start === 0 && length === size) return null;
+		return { start, end: start + length - 1, size };
+	}
+	const offset = Number.isFinite(range.offset) ? range.offset : null;
+	const length = Number.isFinite(range.length) ? range.length : null;
+	if (offset == null && length == null) return null;
+	const start = offset ?? Math.max(0, size - (length ?? 0));
+	const span = length ?? size - start;
+	if (!Number.isFinite(start) || !Number.isFinite(span) || span <= 0 || start < 0 || start + span > size) return null;
+	if (start === 0 && span === size) return null;
+	return { start, end: start + span - 1, size };
+}
+
 export function mediaErrorStopsPlayback(code) {
 	return code === 2 || code === 3 || code === 4;
 }
