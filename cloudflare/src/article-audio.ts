@@ -2,7 +2,7 @@ import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
 import { voiceId } from '../../website/public/web/ai.js';
-import { audioByteRange, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
+import { audioByteRange, audioContentRange, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
 
 export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket };
 
@@ -47,19 +47,10 @@ async function getAudio(request: Request, url: URL, vault: R2Bucket, userId: str
 		'accept-ranges': 'bytes',
 		'cache-control': 'private, max-age=86400',
 	});
-	const spanned = obj.range;
-	if (spanned && obj.size && 'suffix' in spanned) {
-		const length = Math.min(spanned.suffix, obj.size);
-		const start = obj.size - length;
-		headers.set('content-range', `bytes ${start}-${obj.size - 1}/${obj.size}`);
-		headers.set('content-length', String(length));
-		return new Response(obj.body, { status: 206, headers });
-	}
-	if (spanned && obj.size && ('offset' in spanned || 'length' in spanned)) {
-		const start = 'offset' in spanned ? spanned.offset ?? 0 : Math.max(0, obj.size - (spanned.length ?? 0));
-		const length = 'length' in spanned && spanned.length != null ? spanned.length : obj.size - start;
-		headers.set('content-range', `bytes ${start}-${start + length - 1}/${obj.size}`);
-		headers.set('content-length', String(length));
+	const part = audioContentRange(obj.range, obj.size);
+	if (part) {
+		headers.set('content-range', `bytes ${part.start}-${part.end}/${part.size}`);
+		headers.set('content-length', String(part.end - part.start + 1));
 		return new Response(obj.body, { status: 206, headers });
 	}
 	if (obj.size) headers.set('content-length', String(obj.size));
