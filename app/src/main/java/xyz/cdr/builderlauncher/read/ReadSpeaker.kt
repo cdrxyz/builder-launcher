@@ -20,7 +20,7 @@ data class ReadPlayback(
     val speed: Float = 1f,
 )
 
-class ReadSpeaker(context: Context) {
+class ReadSpeaker(context: Context) : ArticleControls {
     private val main = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
     private var ready = false
@@ -77,7 +77,7 @@ class ReadSpeaker(context: Context) {
         }
     }
 
-    fun toggle(article: ReadArticle, startMs: Long, speed: Float) {
+    override fun toggle(article: ReadArticle, startMs: Long, speed: Float) {
         val current = _state.value
         if (current.articleId == article.id && current.playing) {
             pause()
@@ -110,13 +110,13 @@ class ReadSpeaker(context: Context) {
         }
     }
 
-    fun pause() {
+    override fun pause() {
         engine?.stop()
         val current = _state.value
         if (current.articleId != null) publish(current.positionMs, playing = false, force = true)
     }
 
-    fun seek(article: ReadArticle, positionMs: Long, speed: Float) {
+    override fun seek(article: ReadArticle, positionMs: Long, speed: Float) {
         val playing = _state.value.playing && _state.value.articleId == article.id
         val duration = Reads.durationMs(article.text)
         val next = positionMs.coerceIn(0L, duration)
@@ -126,12 +126,12 @@ class ReadSpeaker(context: Context) {
         }
     }
 
-    fun skip(article: ReadArticle, deltaMs: Long, speed: Float) {
+    override fun skip(article: ReadArticle, deltaMs: Long, speed: Float) {
         val base = if (_state.value.articleId == article.id) _state.value.positionMs else 0L
         seek(article, Reads.skip(base, Reads.durationMs(article.text), deltaMs), speed)
     }
 
-    fun setSpeed(article: ReadArticle?, speed: Float) {
+    override fun setSpeed(article: ReadArticle?, speed: Float) {
         val rate = Podcasts.snapSpeed(speed)
         _state.value = _state.value.copy(speed = rate)
         val current = article ?: return

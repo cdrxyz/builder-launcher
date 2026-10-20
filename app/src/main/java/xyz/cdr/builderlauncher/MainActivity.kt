@@ -39,6 +39,7 @@ import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
+import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ReadSpeaker
 import xyz.cdr.builderlauncher.read.ReadsRepository
 
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
     private val nowPlayingRequests = MutableStateFlow(0)
     private var stopped = true
     private var speaker: ReadSpeaker? = null
+    private var articlePlayer: ArticlePlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,7 +77,9 @@ class MainActivity : ComponentActivity() {
         val podcasts = PodcastsRepository(this)
         val reads = ReadsRepository(this)
         val reader = ReadSpeaker(this)
+        val grok = ArticlePlayer(this)
         speaker = reader
+        articlePlayer = grok
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
         val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, clock)
@@ -101,6 +105,7 @@ class MainActivity : ComponentActivity() {
                     podcasts = podcasts,
                     reads = reads,
                     speaker = reader,
+                    articlePlayer = grok,
                     calendar = calendar,
                     clock = clock,
                     backup = backup,
@@ -118,10 +123,12 @@ class MainActivity : ComponentActivity() {
         stopped = true
         PodcastPlayer.persist()
         speaker?.pause()
+        articlePlayer?.pause()
     }
 
     override fun onDestroy() {
         speaker?.shutdown()
+        articlePlayer?.release()
         super.onDestroy()
     }
 

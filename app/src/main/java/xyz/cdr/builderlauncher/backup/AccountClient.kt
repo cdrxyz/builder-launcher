@@ -80,6 +80,12 @@ class AccountClient(
         }
     }
 
+    fun storedArticleIndexes(token: String, articleId: String, voice: String, hash: String): List<Int> {
+        if (token.isBlank()) return emptyList()
+        val raw = get(xyz.cdr.builderlauncher.read.Reads.storedAudioQuery(articleId, voice, hash), token)
+        return json.decodeFromString(StoredAudioStatus.serializer(), raw).ready
+    }
+
     private fun auth(path: String, email: String, password: String): AccountSession {
         val body = json.encodeToString(AuthBody.serializer(), AuthBody(email.trim(), password))
         val raw = post(path, body, token = "")
@@ -140,6 +146,9 @@ data class VaultEnvelope(
 
 @Serializable
 private data class ErrorBody(val error: String = "")
+
+@Serializable
+data class StoredAudioStatus(val ready: List<Int> = emptyList())
 
 @Serializable
 data class ArticleAudioBody(val id: String, val text: String, val voice: String, val bearer: String)

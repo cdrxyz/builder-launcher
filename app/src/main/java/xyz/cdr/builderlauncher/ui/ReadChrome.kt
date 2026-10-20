@@ -37,6 +37,7 @@ import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.read.ReadArticle
 import xyz.cdr.builderlauncher.read.ReadPlayback
 import xyz.cdr.builderlauncher.read.ReadProgress
+import xyz.cdr.builderlauncher.read.ArticleControls
 import xyz.cdr.builderlauncher.read.ReadSpeaker
 import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.ReadsRepository
@@ -246,7 +247,7 @@ fun ColumnScope.ReadHost(
     input: String,
     hardware: Boolean,
     reads: ReadsRepository,
-    speaker: ReadSpeaker,
+    speaker: ArticleControls,
     onEvent: (ReadEvent) -> Unit,
     audio: Map<String, String> = emptyMap(),
 ) {
