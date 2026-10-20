@@ -39,6 +39,7 @@ object Reads {
     const val READING = "Reading…"
     const val FAILED = "Could not read that page."
     const val GROK_VOICE = "leo"
+    const val SPEECH_START_BYTES = 16_000
     const val NOT_A_URL = "Paste a URL."
     const val MAX_ARTICLES = 100
     const val MAX_TEXT = 40_000
@@ -155,6 +156,74 @@ object Reads {
     fun audioMsFromWord(wordPos: Long, audioDur: Long, textDur: Long): Long {
         if (audioDur <= 0L || textDur <= 0L) return wordPos.coerceAtLeast(0L)
         return (audioDur * wordPos.coerceIn(0L, textDur) / textDur).coerceIn(0L, audioDur)
+    }
+
+    fun speechSocketUrl(voice: String = GROK_VOICE): String =
+        "wss://api.x.ai/v1/tts?language=en&voice=$voice&codec=mp3&sample_rate=24000&bit_rate=64000&speed=1.0&text_normalization=true&optimize_streaming_latency=1"
+
+    fun speechTextFrames(text: String): List<String> {
+        val frames = mutableListOf<String>()
+        var start = 0
+        val source = text
+        if (source.isEmpty()) frames += """{"type":"text.delta","delta":""}"""
+        while (start < source.length) {
+            val end = minOf(start + 4_000, source.length)
+            val delta = jsonEscape(source.substring(start, end))
+            frames += """{"type":"text.delta","delta":"$delta"}"""
+            start = end
+        }
+        frames += """{"type":"text.done"}"""
+        return frames
+    }
+
+    fun speechEvent(raw: String): Pair<String, String> {
+        val type = jsonField(raw, "type")
+        val payload = when (type) {
+            "audio.delta" -> jsonField(raw, "delta")
+            "error" -> jsonField(raw, "message")
+            else -> ""
+        }
+        return type to payload
+    }
+
+    fun shouldStartSpeech(bytes: Int): Boolean = bytes >= SPEECH_START_BYTES
+
+    private fun jsonField(raw: String, name: String): String {
+        val key = "\"$name\""
+        val at = raw.indexOf(key)
+        if (at < 0) return ""
+        val colon = raw.indexOf(':', at + key.length)
+        if (colon < 0) return ""
+        var i = colon + 1
+        while (i < raw.length && raw[i].isWhitespace()) i += 1
+        if (i >= raw.length || raw[i] != '"') return ""
+        val out = StringBuilder()
+        i += 1
+        while (i < raw.length) {
+            val ch = raw[i]
+            if (ch == '\\' && i + 1 < raw.length) {
+                out.append(raw[i + 1])
+                i += 2
+                continue
+            }
+            if (ch == '"') break
+            out.append(ch)
+            i += 1
+        }
+        return out.toString()
+    }
+
+    private fun jsonEscape(text: String): String = buildString(text.length) {
+        for (ch in text) {
+            when (ch) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> append(ch)
+            }
+        }
     }
 
     fun audioProgressLabel(status: String, done: Int = 0, total: Int = 0, error: String = ""): String {

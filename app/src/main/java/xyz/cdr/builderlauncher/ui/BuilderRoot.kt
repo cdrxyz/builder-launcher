@@ -729,43 +729,11 @@ fun BuilderRoot(
     }
 
     val grokToken = remember { intArrayOf(0) }
-    val audioLoads = remember { mutableMapOf<String, kotlinx.coroutines.Deferred<PreparedGrok>>() }
-    val audioReady = remember { mutableMapOf<String, PreparedGrok>() }
+    val articleSpeech = remember { ArticleSpeech(scope, ctx) { settings } }
 
     fun cancelGrokLoad() {
         grokToken[0] += 1
-    }
-
-    fun loadGrok(article: ReadArticle): kotlinx.coroutines.Deferred<PreparedGrok> {
-        audioReady[article.id]?.let { ready -> return scope.async { ready } }
-        audioLoads[article.id]?.takeIf { it.isActive }?.let { return it }
-        val job = scope.async(Dispatchers.IO) {
-            val account = settings.accountToken
-            val bearer = CredentialResolver.bearer(settings) ?: error("Sign in to xAI in settings.")
-            val hash = Reads.speechHash(article.text)
-            val client = AccountClient()
-            val ready = if (account.isBlank()) {
-                emptyList()
-            } else {
-                runCatching { client.storedArticleIndexes(account, article.id, Reads.GROK_VOICE, hash) }.getOrDefault(emptyList())
-            }
-            if (Reads.storedAudioReady(ready)) {
-                PreparedGrok(
-                    Uri.parse("${AccountClient.ORIGIN}${Reads.storedAudioQuery(article.id, hash = hash, index = 0)}"),
-                    mapOf("Authorization" to "Bearer $account"),
-                )
-            } else {
-                val audio = client.fetchXaiSpeech(bearer, article.text, Reads.GROK_VOICE)
-                if (account.isNotBlank()) {
-                    runCatching { client.storeArticleAudio(account, article.id, Reads.GROK_VOICE, hash, 0, audio) }
-                }
-                val file = java.io.File(ctx.cacheDir, "article-${article.id}-$hash.mp3")
-                file.writeBytes(audio)
-                PreparedGrok(Uri.fromFile(file), emptyMap())
-            }.also { audioReady[article.id] = it }
-        }
-        audioLoads[article.id] = job
-        return job
+        articleSpeech.cancel()
     }
 
     fun startGrok(article: ReadArticle, startMs: Long, speed: Float) {
@@ -774,11 +742,24 @@ fun BuilderRoot(
         speaker.pause()
         articlePlayer.arm(article, startMs, speed, playing = true)
         scope.launch {
-            val prepared = runCatching { loadGrok(article).await() }
+            var live = false
+            var fileUri = false
+            val prepared = runCatching {
+                articleSpeech.load(article) { first ->
+                    if (mine != grokToken[0]) return@load
+                    scope.launch(Dispatchers.Main) {
+                        if (mine != grokToken[0]) return@launch
+                        live = true
+                        fileUri = first.uri.scheme == "file"
+                        articlePlayer.play(article, first.uri, first.headers, startMs, speed)
+                    }
+                }.await()
+            }
             if (mine != grokToken[0]) return@launch
             prepared.onSuccess { ready ->
                 withContext(Dispatchers.Main) {
-                    articlePlayer.play(article, ready.uri, ready.headers, startMs, speed)
+                    if (!live) articlePlayer.play(article, ready.uri, ready.headers, startMs, speed)
+                    else if (fileUri) articlePlayer.appendGrowing(java.io.File(ready.uri.path.orEmpty()))
                     articleAudio = articleAudio + (article.id to Reads.audioProgressLabel("ready", 1, 1))
                 }
             }.onFailure { err ->
@@ -801,16 +782,8 @@ fun BuilderRoot(
     )
 
     fun prepareArticleSpeech(token: String, current: xyz.cdr.builderlauncher.data.BuilderSettings, article: ReadArticle) {
-        if (!Reads.usesGrokVoice(current.provider == LlmProvider.XAI, CredentialResolver.bearer(current))) return
         scope.launch {
-            articleAudio = articleAudio + (article.id to Reads.audioProgressLabel("preparing", 0, 1))
-            runCatching { loadGrok(article).await() }.onSuccess {
-                articleAudio = articleAudio + (article.id to Reads.audioProgressLabel("ready", 1, 1))
-            }.onFailure { err ->
-                if (err is CancellationException) throw err
-                val label = Reads.audioProgressLabel("failed", error = err.message ?: "Could not prepare audio.")
-                articleAudio = articleAudio + (article.id to label)
-            }
+            articleSpeech.prepare(article) { label -> articleAudio = articleAudio + (article.id to label) }
         }
     }
 
