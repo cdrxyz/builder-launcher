@@ -186,6 +186,12 @@ class ReadsTest {
         assertEquals("", Reads.articleDownloadLabel("audio failed"))
         assertEquals("The Real Title.mp3", Reads.articleFileName("The Real Title"))
         assertEquals("article.mp3", Reads.articleFileName(""))
+        assertEquals(false, Reads.shouldProbeStoredAudio("audio ready"))
+        assertEquals(false, Reads.shouldProbeStoredAudio("audio failed"))
+        assertEquals(false, Reads.shouldProbeStoredAudio("audio failed · Speech HTTP 429"))
+        assertEquals(true, Reads.shouldProbeStoredAudio(""))
+        assertEquals(true, Reads.shouldProbeStoredAudio("preparing audio"))
+        assertEquals(true, Reads.shouldProbeStoredAudio("generating…"))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =

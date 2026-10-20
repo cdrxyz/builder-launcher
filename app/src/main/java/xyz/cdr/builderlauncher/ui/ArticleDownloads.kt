@@ -39,7 +39,7 @@ internal class ArticleDownloads(
 
     fun probe(article: ReadArticle) {
         val current = audio()[article.id].orEmpty()
-        if (current == "audio ready" || current.startsWith("audio failed") || current.startsWith("preparing")) return
+        if (!Reads.shouldProbeStoredAudio(current)) return
         scope.launch(Dispatchers.IO) {
             val hash = Reads.speechHash(article.text)
             val local = ArticleDownload(context).localFile(article.id, hash)
@@ -51,8 +51,7 @@ internal class ArticleDownloads(
             }.getOrDefault(false)
             if (!ready) return@launch
             withContext(Dispatchers.Main) {
-                val latest = audio()[article.id].orEmpty()
-                if (latest.startsWith("preparing") || latest.startsWith("audio failed")) return@withContext
+                if (!Reads.shouldProbeStoredAudio(audio()[article.id].orEmpty())) return@withContext
                 setAudio(audio() + (article.id to Reads.audioProgressLabel("ready", 1, 1)))
             }
         }
@@ -60,28 +59,34 @@ internal class ArticleDownloads(
 
     fun queue(article: ReadArticle) {
         if (article.id in transfers() || article.id in downloaded()) return
-        if (audio()[article.id] != "audio ready") {
-            prepare(article)
-            return
-        }
         setTransfers(transfers() + (article.id to (0L to 0L)))
         scope.launch(Dispatchers.IO) {
             val hash = Reads.speechHash(article.text)
             val saver = ArticleDownload(context)
             val local = saver.localFile(article.id, hash)
-            val bytes = if (local.length() >= 64L) {
-                local.readBytes()
-            } else {
-                saver.fetch(settings().accountToken, article.id, hash) { received, total ->
-                    scope.launch(Dispatchers.Main) {
-                        setTransfers(transfers() + (article.id to (received to total)))
-                    }
+            val stored = runCatching {
+                val token = settings().accountToken
+                token.isNotBlank() && Reads.storedAudioReady(
+                    AccountClient().storedArticleIndexes(token, article.id, Reads.GROK_VOICE, hash),
+                )
+            }.getOrDefault(false)
+            if (local.length() < 64L && !stored) {
+                withContext(Dispatchers.Main) {
+                    setTransfers(transfers() - article.id)
+                    prepare(article)
+                }
+                return@launch
+            }
+            val bytes = if (local.length() >= 64L) local.readBytes() else saver.fetch(settings().accountToken, article.id, hash) { received, total ->
+                scope.launch(Dispatchers.Main) {
+                    setTransfers(transfers() + (article.id to (received to total)))
                 }
             }
             val saved = bytes != null && saver.save(Reads.articleFileName(article.title), bytes)
             withContext(Dispatchers.Main) {
                 setTransfers(transfers() - article.id)
                 if (saved) {
+                    setAudio(audio() + (article.id to Reads.audioProgressLabel("ready", 1, 1)))
                     setDownloaded(downloaded() + article.id)
                     Toast.makeText(context, "Downloaded", Toast.LENGTH_SHORT).show()
                 } else {
