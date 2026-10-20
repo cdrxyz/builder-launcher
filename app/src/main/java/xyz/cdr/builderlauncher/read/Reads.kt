@@ -38,6 +38,7 @@ object Reads {
     const val EMPTY = "Paste a URL."
     const val READING = "Reading…"
     const val FAILED = "Could not read that page."
+    const val GROK_VOICE = "leo"
     const val NOT_A_URL = "Paste a URL."
     const val MAX_ARTICLES = 100
     const val MAX_TEXT = 40_000
@@ -134,6 +135,26 @@ object Reads {
     fun positionLabel(positionMs: Long, durationMs: Long): String {
         if (durationMs <= 0L) return ""
         return Podcasts.formatPosition(positionMs.coerceIn(0L, durationMs), durationMs)
+    }
+
+    fun usesGrokVoice(providerIsXai: Boolean, bearer: String?): Boolean =
+        providerIsXai && !bearer.isNullOrBlank()
+
+    fun storedAudioReady(indexes: List<Int>, index: Int = 0): Boolean = index in indexes
+
+    fun storedAudioQuery(articleId: String, voice: String = GROK_VOICE, hash: String, index: Int? = null): String {
+        val base = "/api/articles/audio?id=$articleId&voice=$voice&hash=$hash"
+        return if (index == null) base else "$base&index=$index"
+    }
+
+    fun wordMsFromAudio(audioPos: Long, audioDur: Long, textDur: Long): Long {
+        if (audioDur <= 0L || textDur <= 0L) return audioPos.coerceAtLeast(0L)
+        return (textDur * audioPos.coerceAtLeast(0L) / audioDur).coerceIn(0L, textDur)
+    }
+
+    fun audioMsFromWord(wordPos: Long, audioDur: Long, textDur: Long): Long {
+        if (audioDur <= 0L || textDur <= 0L) return wordPos.coerceAtLeast(0L)
+        return (audioDur * wordPos.coerceIn(0L, textDur) / textDur).coerceIn(0L, audioDur)
     }
 
     fun audioProgressLabel(status: String, done: Int = 0, total: Int = 0, error: String = ""): String {

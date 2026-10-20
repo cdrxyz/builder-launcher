@@ -156,6 +156,17 @@ class ReadsTest {
         assertEquals("audio failed · Speech HTTP 429", Reads.audioProgressLabel("failed", 3, 17, "Speech HTTP 429"))
         assertEquals("audio failed", Reads.audioProgressLabel("failed"))
         assertEquals("281fcf45454ff909", Reads.speechHash("Hello there."))
+        assertEquals(true, Reads.usesGrokVoice(true, "token"))
+        assertEquals(false, Reads.usesGrokVoice(true, " "))
+        assertEquals(false, Reads.usesGrokVoice(false, "token"))
+        assertEquals(true, Reads.storedAudioReady(listOf(0)))
+        assertEquals(false, Reads.storedAudioReady(emptyList()))
+        assertEquals(
+            "/api/articles/audio?id=r046a4934057f51cf&voice=leo&hash=281fcf45454ff909",
+            Reads.storedAudioQuery("r046a4934057f51cf", hash = "281fcf45454ff909"),
+        )
+        assertEquals(30_000L, Reads.wordMsFromAudio(15_000L, 30_000L, 60_000L))
+        assertEquals(15_000L, Reads.audioMsFromWord(30_000L, 30_000L, 60_000L))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =
