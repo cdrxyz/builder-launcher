@@ -949,24 +949,38 @@ private fun PodcastRowChrome(row: PodcastListRow, last: Boolean = false) {
             }
         }
         if (!row.metaBelow && row.meta.isNotBlank()) {
-            Text(row.meta, color = Dim, style = MaterialTheme.typography.bodyMedium)
-        }
-        if (row.downloadable) {
-            if (row.downloadPercent.isNotBlank()) {
-                Text(
-                    row.downloadPercent,
-                    color = Dim,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(end = 4.dp),
-                )
-            }
-            DownloadIcon(
-                filled = row.downloaded,
-                modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+            Text(
+                row.meta,
+                color = Dim,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.align(Alignment.Top).padding(start = 8.dp),
             )
         }
-        if (row.deletable) {
-            DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+        if (row.downloadable || row.deletable) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (row.downloadable) {
+                        DownloadIcon(
+                            filled = row.downloaded,
+                            modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                        )
+                    }
+                    if (row.deletable) {
+                        DeleteIcon(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                    }
+                }
+                if (row.downloadPercent.isNotBlank()) {
+                    Text(
+                        row.downloadPercent,
+                        color = Dim,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 2.dp, end = 30.dp),
+                    )
+                }
+            }
         }
     }
 }

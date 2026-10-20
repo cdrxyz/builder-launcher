@@ -2056,6 +2056,7 @@ fun BuilderRoot(
                                             Podcasts.formatPosition(row.progress.positionMs, row.progress.durationMs.takeIf { it > 0 } ?: ep.durationMs),
                                             color = Dim,
                                             style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.align(Alignment.Top).padding(start = 8.dp),
                                         )
                                         PodcastEpisodeRowActions(
                                             downloaded = podcastDownloads.containsKey(ep.id),
@@ -2098,6 +2099,7 @@ fun BuilderRoot(
                                                 Podcasts.formatDuration(ep.durationMs),
                                                 color = Dim,
                                                 style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier.align(Alignment.Top).padding(start = 8.dp),
                                             )
                                         }
                                         PodcastEpisodeRowActions(
