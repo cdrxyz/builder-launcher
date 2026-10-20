@@ -163,6 +163,9 @@ object Reads {
         return "${clean.ifBlank { "article" }}.mp3"
     }
 
+    fun shouldProbeStoredAudio(audioLabel: String): Boolean =
+        audioLabel != "audio ready" && !audioLabel.startsWith("audio failed")
+
     fun wordMsFromAudio(audioPos: Long, audioDur: Long, textDur: Long): Long {
         if (audioDur <= 0L || textDur <= 0L) return audioPos.coerceAtLeast(0L)
         return (textDur * audioPos.coerceAtLeast(0L) / audioDur).coerceIn(0L, textDur)
