@@ -167,6 +167,15 @@ class ReadsTest {
         )
         assertEquals(30_000L, Reads.wordMsFromAudio(15_000L, 30_000L, 60_000L))
         assertEquals(15_000L, Reads.audioMsFromWord(30_000L, 30_000L, 60_000L))
+        assertEquals(true, Reads.speechSocketUrl().startsWith("wss://api.x.ai/v1/tts?"))
+        assertEquals(true, Reads.speechSocketUrl().contains("optimize_streaming_latency=1"))
+        val frames = Reads.speechTextFrames("a".repeat(9_000))
+        assertEquals("text.done", Reads.speechEvent(frames.last()).first)
+        assertEquals(3, frames.count { Reads.speechEvent(it).first == "text.delta" })
+        assertEquals("audio.delta", Reads.speechEvent("""{"type":"audio.delta","delta":"YQ=="}""").first)
+        assertEquals("YQ==", Reads.speechEvent("""{"type":"audio.delta","delta":"YQ=="}""").second)
+        assertEquals(false, Reads.shouldStartSpeech(100))
+        assertEquals(true, Reads.shouldStartSpeech(Reads.SPEECH_START_BYTES))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =

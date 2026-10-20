@@ -14,6 +14,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,6 +73,31 @@ class ArticlePlayer(context: Context) : ArticleControls {
         _state.value = ReadPlayback(article.id, pendingWordMs, textDuration, playing = true, speed = rate)
         main.removeCallbacks(tick)
         main.post(tick)
+    }
+
+    fun playGrowing(article: ReadArticle, file: File, startMs: Long, speed: Float) {
+        val rate = Podcasts.snapSpeed(speed)
+        textDuration = Reads.durationMs(article.text)
+        pendingWordMs = startMs.coerceIn(0L, textDuration)
+        val exo = obtain() ?: return
+        val source = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(app))
+            .createMediaSource(MediaItem.fromUri(Uri.fromFile(file)))
+        exo.setMediaSource(source)
+        exo.prepare()
+        exo.playWhenReady = true
+        applySpeed(exo, rate)
+        _state.value = ReadPlayback(article.id, pendingWordMs, textDuration, playing = true, speed = rate)
+        main.removeCallbacks(tick)
+        main.post(tick)
+    }
+
+    fun appendGrowing(file: File) {
+        val exo = player ?: return
+        val pos = exo.currentPosition
+        exo.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+        exo.prepare()
+        if (pos > 0L) exo.seekTo(pos)
+        exo.playWhenReady = true
     }
 
     override fun toggle(article: ReadArticle, startMs: Long, speed: Float) {
