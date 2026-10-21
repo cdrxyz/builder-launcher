@@ -50,6 +50,25 @@ export function articleDownloadLabel(status, transfer) {
 	return pct > 0 ? `${pct}%` : 'downloading…';
 }
 
+export function articleDownloadVisible(status) {
+	return status === 'ready';
+}
+
+export function expectedSpeechBytes(durationMs) {
+	const ms = Number(durationMs) || 0;
+	if (ms <= 0) return 0;
+	return Math.round(ms * 8);
+}
+
+export function articleGenerationLabel(status, received, expected) {
+	if (status === 'ready' || status === 'failed') return '';
+	const got = Number(received) || 0;
+	const total = Number(expected) || 0;
+	if (total <= 0 || got <= 0) return 'generating…';
+	const pct = Math.min(99, Math.floor((got * 100) / total));
+	return pct > 0 ? `generating… ${pct}%` : 'generating…';
+}
+
 export function articleFileName(title) {
 	const clean = String(title || '').replace(/[^\w. -]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
 	return `${clean || 'article'}.mp3`;

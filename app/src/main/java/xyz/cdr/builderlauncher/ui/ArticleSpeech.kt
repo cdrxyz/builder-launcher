@@ -2,12 +2,17 @@ package xyz.cdr.builderlauncher.ui
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import okhttp3.WebSocket
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.backup.AccountClient
@@ -18,6 +23,17 @@ import xyz.cdr.builderlauncher.read.ReadArticle
 import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.SpeechStream
 import java.io.File
+
+internal object ArticleSpeechProgress {
+    var bytes by mutableStateOf<Map<String, Long>>(emptyMap())
+
+    fun note(id: String, received: Int) {
+        val next = received.toLong()
+        Handler(Looper.getMainLooper()).post {
+            bytes = bytes + (id to next)
+        }
+    }
+}
 
 internal class ArticleSpeech(
     private val scope: CoroutineScope,
@@ -62,7 +78,12 @@ internal class ArticleSpeech(
                 val file = File(context.cacheDir, "article-${article.id}-$hash.mp3")
                 val done = CompletableDeferred<Throwable?>()
                 var started = false
+                var reported = 0
                 val socket = SpeechStream().open(bearer, article.text, file, Reads.GROK_VOICE, onBytes = { bytes ->
+                    if (bytes - reported >= 32_000) {
+                        reported = bytes
+                        ArticleSpeechProgress.note(article.id, bytes)
+                    }
                     if (!started && Reads.shouldStartSpeech(bytes)) {
                         started = true
                         onFirst?.invoke(PreparedGrok(Uri.fromFile(file), emptyMap()))

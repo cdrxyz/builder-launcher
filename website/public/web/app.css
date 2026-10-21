@@ -673,7 +673,8 @@ label span {
 .article-download-label {
 	color: var(--muted);
 	font-size: 0.75rem;
-	white-space: nowrap;
+	text-align: right;
+	max-width: 5.6rem;
 }
 
 .audio-state,

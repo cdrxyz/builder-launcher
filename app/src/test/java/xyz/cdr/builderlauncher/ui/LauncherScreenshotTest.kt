@@ -543,7 +543,8 @@ class LauncherScreenshotTest {
                         ),
                     ),
                     progress = mapOf("1" to ReadProgress("1", 90_000L, 1)),
-                    downloadLabel = { if (it.id == "1") "generating…" else "" },
+                    downloadLabel = { if (it.id == "1") "generating… 37%" else "" },
+                    downloadVisible = { it.id == "2" },
                 )
                 }
             }
@@ -570,7 +571,7 @@ class LauncherScreenshotTest {
                     text = text,
                     highlightStart = 0,
                     highlightEnd = text.indexOf('.'),
-                    downloadLabel = "generating…",
+                    downloadLabel = "generating… 37%",
                     speed = { ReadSpeedLabel(1.4f) },
                 )
                 }
