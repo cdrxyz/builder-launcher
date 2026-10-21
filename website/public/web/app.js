@@ -23,7 +23,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { articleDownloadLabel, articleFileName, audioProgressLabel, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -3616,7 +3616,7 @@ async function storedClip(article, index, plan) {
 	return requestClip(article, index, plan);
 }
 
-async function fetchXaiSpeech(bearer, text, voice, onStart) {
+async function fetchXaiSpeech(bearer, text, voice, onStart, onProgress) {
 	let res;
 	try {
 		res = await fetch('https://api.x.ai/v1/tts', {
@@ -3642,10 +3642,10 @@ async function fetchXaiSpeech(bearer, text, voice, onStart) {
 		if (blob.size < 64) throw new Error('Speech reply was empty.');
 		return blob;
 	}
-	return readSpeechStream(res.body, onStart);
+	return readSpeechStream(res.body, onStart, onProgress);
 }
 
-function readSpeechStream(body, onStart) {
+function readSpeechStream(body, onStart, onProgress) {
 	const reader = body.getReader();
 	const parts = [];
 	const queue = [];
@@ -3675,6 +3675,7 @@ function readSpeechStream(body, onStart) {
 		parts.push(value);
 		queue.push(value);
 		received += value.byteLength;
+		if (onProgress) onProgress(received);
 		pump();
 		if (!started && received > 16_000 && onStart) {
 			started = true;
@@ -3712,7 +3713,7 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 			const row = storedRows(article.text)[index];
 			if (!row) return;
 			playStoredUrl(liveUrl, row, readSpeak.token);
-		});
+		}, (received) => noteGeneration(article, received));
 		const url = URL.createObjectURL(blob);
 		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
 		try {
@@ -4114,29 +4115,43 @@ function openArticle(id) {
 }
 
 const articleTransfers = new Map();
+const articleGeneration = new Map();
 const DOWNLOAD_ICON = 'M9 3v7M6.2 7.2 9 10l2.8-2.8M4 12.2V15h10v-2.8';
+
+function noteGeneration(article, received) {
+	articleGeneration.set(article.id, { received, expected: expectedSpeechBytes(readDurationMs(article.text)) });
+	paintArticleDownload(article.id);
+}
+
+function fillArticleDownload(trail, article) {
+	const status = audioJob(article)?.status || '';
+	const visible = articleDownloadVisible(status);
+	const gen = articleGeneration.get(article.id);
+	const text = visible
+		? articleDownloadLabel(status, articleTransfers.get(article.id))
+		: articleGenerationLabel(status, gen?.received, gen?.expected || expectedSpeechBytes(readDurationMs(article.text)));
+	trail.replaceChildren();
+	if (visible) trail.append(iconButton('download', DOWNLOAD_ICON, () => { void downloadArticle(article); }));
+	if (text) {
+		const label = document.createElement('span');
+		label.className = 'sub article-download-label';
+		label.textContent = text;
+		trail.append(label);
+	}
+}
 
 function articleDownloadControl(article) {
 	const trail = document.createElement('span');
 	trail.className = 'trail article-download';
-	const label = document.createElement('span');
-	label.className = 'sub article-download-label';
-	label.dataset.downloadFor = article.id;
-	const text = articleDownloadLabel(audioJob(article)?.status || '', articleTransfers.get(article.id));
-	label.textContent = text;
-	label.hidden = !text;
-	trail.append(iconButton('download', DOWNLOAD_ICON, () => { void downloadArticle(article); }), label);
+	trail.dataset.downloadFor = article.id;
+	fillArticleDownload(trail, article);
 	return trail;
 }
 
 function paintArticleDownload(articleId) {
 	const article = readsOf(state.doc).articles.find((item) => item.id === articleId);
 	if (!article) return;
-	const text = articleDownloadLabel(audioJob(article)?.status || '', articleTransfers.get(articleId));
-	document.querySelectorAll(`[data-download-for="${CSS.escape(articleId)}"]`).forEach((el) => {
-		el.textContent = text;
-		el.hidden = !text;
-	});
+	document.querySelectorAll(`[data-download-for="${CSS.escape(articleId)}"]`).forEach((el) => fillArticleDownload(el, article));
 }
 
 async function downloadArticle(article) {

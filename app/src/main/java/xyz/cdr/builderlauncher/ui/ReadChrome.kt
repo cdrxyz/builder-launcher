@@ -58,6 +58,7 @@ fun ReadListChrome(
     audio: Map<String, String> = emptyMap(),
     onDownload: (ReadArticle) -> Unit = {},
     downloadLabel: (ReadArticle) -> String = { "" },
+    downloadVisible: (ReadArticle) -> Boolean = { false },
     downloaded: (ReadArticle) -> Boolean = { false },
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -112,6 +113,7 @@ fun ReadListChrome(
                         }
                     }
                     ArticleDownloadMark(
+                        showButton = downloadVisible(article),
                         downloaded = downloaded(article),
                         label = downloadLabel(article),
                         onDownload = { onDownload(article) },
@@ -142,6 +144,7 @@ fun ReadPlayerChrome(
     audioLabel: String = "",
     onDownload: () -> Unit = {},
     downloadLabel: String = "",
+    downloadVisible: Boolean = false,
     downloaded: Boolean = false,
     speed: @Composable () -> Unit = {},
 ) {
@@ -152,7 +155,7 @@ fun ReadPlayerChrome(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ScreenBack(Reads.BACK, onBack = onBack)
-            ArticleDownloadMark(downloaded = downloaded, label = downloadLabel, onDownload = onDownload)
+            ArticleDownloadMark(showButton = downloadVisible, downloaded = downloaded, label = downloadLabel, onDownload = onDownload)
         }
         Spacer(Modifier.height(8.dp))
         Column(
@@ -346,7 +349,19 @@ fun ColumnScope.ReadHost(
         onSlash = { onEvent(ReadEvent.Slash(it)) },
         audio = audio,
         onDownload = { downloads.queue(it) },
-        downloadLabel = { downloads.label(it.id) },
+        downloadLabel = { article ->
+            val audioLabel = audio[article.id].orEmpty()
+            if (!Reads.articleDownloadVisible(audioLabel)) {
+                Reads.articleGenerationLabel(
+                    audioLabel,
+                    ArticleSpeechProgress.bytes[article.id] ?: 0L,
+                    Reads.expectedSpeechBytes(Reads.durationMs(article.text)),
+                )
+            } else {
+                downloads.label(article.id)
+            }
+        },
+        downloadVisible = { Reads.articleDownloadVisible(audio[it.id].orEmpty()) },
         downloaded = { downloads.isDownloaded(it.id) },
     )
 }
@@ -385,6 +400,7 @@ fun ColumnScope.ReadOverlay(
     audio: Map<String, String> = emptyMap(),
     onDownload: (ReadArticle) -> Unit = {},
     downloadLabel: (ReadArticle) -> String = { "" },
+    downloadVisible: (ReadArticle) -> Boolean = { false },
     downloaded: (ReadArticle) -> Boolean = { false },
 ) {
     var speedMenu by remember(article?.id) { mutableStateOf(false) }
@@ -399,6 +415,7 @@ fun ColumnScope.ReadOverlay(
                 audio,
                 onDownload,
                 downloadLabel,
+                downloadVisible,
                 downloaded,
             )
         } else if (article == null) {
@@ -424,6 +441,7 @@ fun ColumnScope.ReadOverlay(
                 audioLabel = article.id.let { audio[it] }.orEmpty(),
                 onDownload = { onDownload(article) },
                 downloadLabel = downloadLabel(article),
+                downloadVisible = downloadVisible(article),
                 downloaded = downloaded(article),
                 speed = {
                     PodcastSpeedMenu(
@@ -452,18 +470,22 @@ fun ColumnScope.ReadOverlay(
 
 @Composable
 private fun ArticleDownloadMark(
+    showButton: Boolean,
     downloaded: Boolean,
     label: String,
     onDownload: () -> Unit,
 ) {
+    if (!showButton && label.isBlank()) return
     Column(horizontalAlignment = Alignment.End) {
-        DownloadIcon(
-            filled = downloaded,
-            modifier = Modifier
-                .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
-                .clickable(onClick = onDownload)
-                .padding(start = 12.dp, top = 6.dp, bottom = 2.dp),
-        )
+        if (showButton) {
+            DownloadIcon(
+                filled = downloaded,
+                modifier = Modifier
+                    .semantics { contentDescription = if (downloaded) "downloaded" else "download" }
+                    .clickable(onClick = onDownload)
+                    .padding(start = 12.dp, top = 6.dp, bottom = 2.dp),
+            )
+        }
         if (label.isNotBlank()) {
             Text(
                 label,

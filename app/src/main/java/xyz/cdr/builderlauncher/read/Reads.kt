@@ -166,6 +166,17 @@ object Reads {
     fun shouldProbeStoredAudio(audioLabel: String): Boolean =
         audioLabel != "audio ready" && !audioLabel.startsWith("audio failed")
 
+    fun articleDownloadVisible(audioLabel: String): Boolean = audioLabel == "audio ready"
+
+    fun expectedSpeechBytes(durationMs: Long): Long = if (durationMs <= 0L) 0L else durationMs * 8L
+
+    fun articleGenerationLabel(audioLabel: String, received: Long = 0, expected: Long = 0): String {
+        if (audioLabel == "audio ready" || audioLabel.startsWith("audio failed")) return ""
+        if (expected <= 0L || received <= 0L) return "generating…"
+        val pct = ((received * 100) / expected).toInt().coerceIn(0, 99)
+        return if (pct > 0) "generating… $pct%" else "generating…"
+    }
+
     fun wordMsFromAudio(audioPos: Long, audioDur: Long, textDur: Long): Long {
         if (audioDur <= 0L || textDur <= 0L) return audioPos.coerceAtLeast(0L)
         return (textDur * audioPos.coerceAtLeast(0L) / audioDur).coerceIn(0L, textDur)

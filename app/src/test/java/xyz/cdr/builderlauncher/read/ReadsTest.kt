@@ -192,6 +192,16 @@ class ReadsTest {
         assertEquals(true, Reads.shouldProbeStoredAudio(""))
         assertEquals(true, Reads.shouldProbeStoredAudio("preparing audio"))
         assertEquals(true, Reads.shouldProbeStoredAudio("generating…"))
+        assertEquals(false, Reads.articleDownloadVisible("preparing audio"))
+        assertEquals(false, Reads.articleDownloadVisible(""))
+        assertEquals(false, Reads.articleDownloadVisible("audio failed"))
+        assertEquals(true, Reads.articleDownloadVisible("audio ready"))
+        assertEquals(8000L, Reads.expectedSpeechBytes(1000L))
+        assertEquals("", Reads.articleGenerationLabel("audio ready", 8000, 8000))
+        assertEquals("", Reads.articleGenerationLabel("audio failed", 10, 8000))
+        assertEquals("generating…", Reads.articleGenerationLabel("preparing audio", 0, 8000))
+        assertEquals("generating… 37%", Reads.articleGenerationLabel("preparing audio", 2960, 8000))
+        assertEquals("generating… 99%", Reads.articleGenerationLabel("preparing audio", 9000, 8000))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =
