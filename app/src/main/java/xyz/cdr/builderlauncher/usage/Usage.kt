@@ -59,9 +59,7 @@ data class UsageSnapshot(
     val bars: List<UsageBar>,
     val apps: List<UsageApp>,
 ) {
-    val otherShare: Int get() = Usage.percent(otherMs, totalMs)
     val productiveShare: Int get() = Usage.percent(productiveMs, totalMs)
-    val distractingShare: Int get() = Usage.percent(distractingMs, totalMs)
 }
 
 data class UsageRawApp(

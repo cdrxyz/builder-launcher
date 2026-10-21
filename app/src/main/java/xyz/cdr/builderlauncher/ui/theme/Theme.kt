@@ -195,11 +195,6 @@ val Dim: Color
     @ReadOnlyComposable
     get() = LocalTokens.current.dim
 
-val Prompt: Color
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalTokens.current.prompt
-
 val Line: Color
     @Composable
     @ReadOnlyComposable
