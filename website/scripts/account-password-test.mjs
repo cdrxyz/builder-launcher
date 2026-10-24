@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
+	accountRecord,
 	applyPasswordManagerAttrs,
 	fieldAutocomplete,
 	fillAccountForm,
@@ -18,6 +19,12 @@ test('account login fields prompt the password manager', async () => {
 	assert.equal(fieldAutocomplete('secretKey', 'password'), 'off');
 	assert.equal(hideFromPasswordManagers('secretKey'), true);
 	assert.equal(hideFromPasswordManagers('password'), false);
+	assert.deepEqual(accountRecord({ email: 'a@b.co', token: 'access', refreshToken: 'refresh' }), {
+		email: 'a@b.co',
+		token: 'access',
+		refreshToken: 'refresh',
+	});
+	assert.equal(accountRecord({}).refreshToken, '');
 	const email = { setAttribute() {}, id: '' };
 	applyPasswordManagerAttrs(email, 'email', 'email');
 	assert.equal(email.autocomplete, 'username');

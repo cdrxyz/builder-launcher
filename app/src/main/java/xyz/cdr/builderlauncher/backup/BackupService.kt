@@ -101,29 +101,49 @@ class BackupService(
 
     fun signup(email: String, password: String): String {
         val session = account.signup(email, password)
-        settings.update { it.copy(accountEmail = session.email, accountToken = session.token) }
+        saveSession(session)
         return "Created ${session.email}"
     }
 
     fun login(email: String, password: String): String {
         val session = account.login(email, password)
-        settings.update { it.copy(accountEmail = session.email, accountToken = session.token) }
+        saveSession(session)
         return "Signed in as ${session.email}"
     }
 
     fun logout(): String {
-        val token = settings.settings.value.accountToken
-        if (token.isNotBlank()) account.logout(token)
-        settings.update { it.copy(accountEmail = "", accountToken = "") }
+        val s = settings.settings.value
+        if (s.accountToken.isNotBlank() || s.accountRefresh.isNotBlank()) account.logout(s.accountToken, s.accountRefresh)
+        settings.update { it.copy(accountEmail = "", accountToken = "", accountRefresh = "") }
         return "Signed out"
     }
 
+    private fun saveSession(session: AccountSession) {
+        settings.update {
+            it.copy(
+                accountEmail = session.email.ifBlank { it.accountEmail },
+                accountToken = session.token,
+                accountRefresh = session.refreshToken.ifBlank { it.accountRefresh },
+            )
+        }
+    }
+
+    private fun <T> withAccount(block: (String) -> T): T {
+        try {
+            return block(settings.settings.value.accountToken)
+        } catch (err: IllegalStateException) {
+            if (!AccountRefresh.shouldRetry(err.message, settings.settings.value.accountRefresh)) throw err
+            val next = account.refresh(settings.settings.value.accountRefresh)
+            saveSession(next)
+            return block(next.token)
+        }
+    }
+
     private fun syncUp(nowMs: Long): String {
-        val s = settings.settings.value
-        val remote = account.getVault(s.accountToken)
+        val remote = withAccount { account.getVault(it) }
         val local = document(nowMs = System.currentTimeMillis())
         val merged = BackupMerge.join(local, remote.document).copy(exportedAt = maxOf(nowMs, local.exportedAt))
-        account.putVault(s.accountToken, merged)
+        withAccount { account.putVault(it, merged) }
         apply(BackupMerge.join(document(nowMs = System.currentTimeMillis()), merged))
         settings.markBackup(System.currentTimeMillis())
         rememberSynced()
@@ -131,8 +151,7 @@ class BackupService(
     }
 
     private fun syncDown(): String {
-        val s = settings.settings.value
-        val remote = account.getVault(s.accountToken)
+        val remote = withAccount { account.getVault(it) }
         val remoteDoc = remote.document ?: return "No cloud snapshot yet. Sync now to upload this phone."
         apply(remoteDoc)
         settings.markBackup(System.currentTimeMillis())
@@ -259,7 +278,7 @@ class BackupService(
 
     private fun pullAccount(nowMs: Long): Boolean {
         val s = settings.settings.value
-        val remoteDoc = account.getVault(s.accountToken).document ?: return false
+        val remoteDoc = withAccount { account.getVault(it) }.document ?: return false
         val local = document(nowMs)
         val localKey = stampOf(local)
         val merged = BackupMerge.join(local, remoteDoc)
@@ -272,7 +291,7 @@ class BackupService(
         val stamped = merged.copy(exportedAt = maxOf(nowMs, remoteDoc.exportedAt, local.exportedAt))
         apply(stamped)
         if (mergedKey != stampOf(remoteDoc)) {
-            account.putVault(s.accountToken, stamped)
+            withAccount { account.putVault(it, stamped) }
         }
         settings.markBackup(stamped.exportedAt)
         rememberSynced()

@@ -1,11 +1,13 @@
 import { decrypt, encrypt, decodeUtf8, encodeUtf8 } from './crypto.js';
 import { credentialsReady, ready, s3Get, s3Put } from './s3.js';
 import {
+	accountRecord,
 	apiJson,
 	applyPasswordManagerAttrs,
 	confirmOverwriteLocal,
 	fillAccountForm,
 	requestAccountCredential,
+	setAccountRefresher,
 	storeAccountCredential,
 } from './account.js';
 import { emptyDoc, joinDocs, keepFreshArticles, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
@@ -249,6 +251,7 @@ audio.addEventListener('ended', () => {
 });
 
 boot();
+setAccountRefresher(refreshAccount);
 
 async function boot() {
 	pinVisualViewport();
@@ -257,10 +260,11 @@ async function boot() {
 	if (state.api) {
 		try {
 			const me = await apiJson('/api/auth/me');
-			state.account = { email: me.email };
+			state.account = accountRecord({ ...state.account, email: me.email });
 			saveAccount(state.account);
 		} catch {
-			if (state.account?.email && !state.account.token) state.account = { email: '', token: '' };
+			const next = await refreshAccount();
+			if (!next && state.account?.email && !state.account.token) state.account = accountRecord({});
 		}
 	}
 	if (!hasSync() && !state.doc) {
@@ -341,7 +345,28 @@ function loadAccount() {
 }
 
 function saveAccount(account) {
-	localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ email: account.email || '', token: account.token || '' }));
+	localStorage.setItem(ACCOUNT_KEY, JSON.stringify(accountRecord(account)));
+}
+
+async function refreshAccount() {
+	const refreshToken = state.account?.refreshToken;
+	if (!refreshToken) return '';
+	try {
+		const res = await apiJson('/api/auth/refresh', {
+			method: 'POST',
+			body: { refreshToken },
+			allowRefresh: false,
+		});
+		state.account = accountRecord({
+			email: res.email || state.account.email,
+			token: res.token,
+			refreshToken: res.refreshToken || refreshToken,
+		});
+		saveAccount(state.account);
+		return state.account.token;
+	} catch {
+		return '';
+	}
 }
 
 function loadIncludeAi() {
@@ -2306,7 +2331,7 @@ async function submitAccount(form, mode) {
 		const path = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
 		const res = await apiJson(path, { method: 'POST', body: { email, password } });
 		await storeAccountCredential(email, password);
-		state.account = { email: res.email, token: res.token || '' };
+		state.account = accountRecord(res);
 		saveAccount(state.account);
 		state.status = `Signed in as ${res.email}`;
 		await pull({ overwrite: mode === 'login' });
@@ -2319,12 +2344,17 @@ async function submitAccount(form, mode) {
 
 async function signOut() {
 	try {
-		await apiJson('/api/auth/logout', { method: 'POST', token: state.account.token, body: {} });
+		await apiJson('/api/auth/logout', {
+			method: 'POST',
+			token: state.account.token,
+			body: { refreshToken: state.account.refreshToken || '' },
+			allowRefresh: false,
+		});
 	} catch {
 		/* cookie may already be gone */
 	}
 	localStorage.removeItem(ACCOUNT_KEY);
-	state.account = { email: '', token: '' };
+	state.account = accountRecord({});
 	setStatus('Signed out. Local snapshot stays on this device.');
 }
 

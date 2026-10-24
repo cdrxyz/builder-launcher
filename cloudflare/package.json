@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"sync-assets": "rm -rf public && mkdir -p public && cp -R ../website/public/web/. public/",
-		"test": "npm run sync-assets && node --experimental-strip-types --test test/*.test.ts",
+		"test": "npm run sync-assets && node --experimental-strip-types --experimental-sqlite --test test/*.test.ts",
 		"typecheck": "tsc --noEmit",
 		"dev": "npm run sync-assets && wrangler dev",
 		"deploy": "npm run sync-assets && wrangler d1 execute builder-launcher --remote --file=./schema.sql && wrangler deploy"
