@@ -877,7 +877,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v48/);
+	assert.match(sw, /builder-launcher-web-v49/);
 });
 
 test('the web app fetches an article from /api/articles', async () => {
@@ -995,8 +995,8 @@ test('settings and help do not open the slash list by themselves', async () => {
 	assert.doesNotMatch(js, /state\.prompt === '\/' \|\| state\.menu === 'slash'/);
 	assert.match(js, /state\.prompt = DEFAULT_PROMPT/);
 	assert.doesNotMatch(js, /state\.tab = 'settings';\s*state\.prompt = '\/'/s);
-	assert.match(js, /await pull\(\{ overwrite: mode === 'login' \}\)/);
-	assert.doesNotMatch(js, /overwrite: mode === 'login', quiet: true/);
+	assert.match(js, /await pull\(\);/);
+	assert.doesNotMatch(js, /overwrite: mode === 'login'/);
 });
 
 test('account API calls abort after 20s', async () => {
@@ -1026,6 +1026,23 @@ test('mergeDocs keeps different tasks from both sides', async () => {
 	);
 	assert.equal(clash.items.length, 1);
 	assert.equal(clash.items[0].text, 'newer edit');
+	const newerEmpty = mergeDocs(
+		{
+			exportedAt: 100,
+			items: [{ id: 'server-task', text: 'keep me', updatedAt: 10 }],
+			chats: [{ id: 'server-chat', updatedAt: 10 }],
+			reads: { articles: [{ id: 'server-article', title: 'Solid', text: 'body', addedAt: 10 }], progress: [], deletedIds: [] },
+			podcasts: { shows: [{ feedUrl: 'https://example.com/feed', title: 'Show' }], episodes: [], progress: [] },
+			settings: { apiKey: 'stored-key', oauthRefresh: 'stored-refresh', provider: 'XAI' },
+		},
+		{ exportedAt: 200, items: [], chats: [], reads: { articles: [], deletedIds: [] }, podcasts: { shows: [], episodes: [], progress: [] }, settings: { provider: 'XAI' } },
+	);
+	assert.equal(newerEmpty.items.find((item) => item.id === 'server-task').text, 'keep me');
+	assert.equal(newerEmpty.chats.length, 1);
+	assert.equal(newerEmpty.reads.articles.length, 1);
+	assert.equal(newerEmpty.podcasts.shows.length, 1);
+	assert.equal(newerEmpty.settings.apiKey, 'stored-key');
+	assert.equal(newerEmpty.settings.oauthRefresh, 'stored-refresh');
 	assert.deepEqual(
 		mergeDocs(
 			{

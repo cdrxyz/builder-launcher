@@ -108,14 +108,25 @@ class BackupAutoTest {
     }
 
     @Test
-    fun writePushesBeforePull() {
+    fun writePushesAfterTheFirstPull() {
+        assertEquals(
+            BackupAuto.Action.PULL,
+            BackupAuto.action(
+                BackupFrequency.AUTO,
+                dirty = true,
+                lastBackupAtEpochMs = 5,
+                lastPullAtEpochMs = 0,
+                nowMs = 10,
+                ready = true,
+            ),
+        )
         assertEquals(
             BackupAuto.Action.PUSH,
             BackupAuto.action(
                 BackupFrequency.AUTO,
                 dirty = true,
                 lastBackupAtEpochMs = 5,
-                lastPullAtEpochMs = 0,
+                lastPullAtEpochMs = 5,
                 nowMs = 10,
                 ready = true,
             ),

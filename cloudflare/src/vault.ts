@@ -52,6 +52,7 @@ async function putVault(request: Request, env: VaultEnv, userId: string): Promis
 		.bind(userId)
 		.first<{ revision: number; document: string }>();
 	const previous = await loadDocument(env, userId, existing?.document);
+	if (existing && !previous) return jsonError('Could not read the saved snapshot. Nothing was replaced.', 409);
 	const merged = slimDoc(previous ? mergeDocs(previous, slimmed) : slimmed);
 	const next = JSON.stringify(merged);
 	if (next.length > MAX_DOC) return jsonError(tooLarge(next.length), 413);
