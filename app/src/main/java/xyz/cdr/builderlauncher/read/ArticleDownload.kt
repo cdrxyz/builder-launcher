@@ -11,12 +11,25 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 class ArticleDownload(private val context: Context) {
-    fun localFile(articleId: String, hash: String): File =
-        File(context.cacheDir, "article-$articleId-$hash.mp3")
+    fun localFile(articleId: String, hash: String, voice: String = Reads.GROK_VOICE): File =
+        File(context.cacheDir, Reads.cacheFileName(articleId, voice, hash))
 
-    fun fetch(token: String, articleId: String, hash: String, onProgress: (Long, Long) -> Unit): ByteArray? {
+    fun legacyFile(articleId: String, hash: String): File =
+        File(context.cacheDir, Reads.legacyCacheFileName(articleId, hash))
+
+    fun playableFile(articleId: String, voice: String, hash: String): File? {
+        val local = localFile(articleId, hash, voice)
+        if (Reads.localAudioPlayable(local.length())) return local
+        if (Reads.voiceId(voice) == Reads.GROK_VOICE) {
+            val old = legacyFile(articleId, hash)
+            if (Reads.localAudioPlayable(old.length())) return old
+        }
+        return null
+    }
+
+    fun fetch(token: String, articleId: String, hash: String, voice: String = Reads.GROK_VOICE, onProgress: (Long, Long) -> Unit): ByteArray? {
         if (token.isBlank()) return null
-        val url = "${AccountClient.ORIGIN}${Reads.storedAudioQuery(articleId, hash = hash, index = 0)}"
+        val url = "${AccountClient.ORIGIN}${Reads.storedAudioQuery(articleId, voice = voice, hash = hash, index = 0)}"
         val req = Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")

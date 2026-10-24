@@ -206,6 +206,7 @@ import xyz.cdr.builderlauncher.podcasts.PodcastOpml
 import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
+import xyz.cdr.builderlauncher.read.ArticleDownload
 import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ChosenSpeaker
 import xyz.cdr.builderlauncher.read.PreparedGrok
@@ -728,63 +729,16 @@ fun BuilderRoot(
         page = Page.ReadPlayer
     }
 
-    val grokToken = remember { intArrayOf(0) }
-    val articleSpeech = remember { ArticleSpeech(scope, ctx) { settings } }
-
-    fun cancelGrokLoad() {
-        grokToken[0] += 1
-        articleSpeech.cancel()
-    }
-
-    fun startGrok(article: ReadArticle, startMs: Long, speed: Float) {
-        val mine = grokToken[0]
-        PodcastPlayer.pause()
-        speaker.pause()
-        articlePlayer.arm(article, startMs, speed, playing = true)
-        scope.launch {
-            var live = false
-            var fileUri = false
-            val prepared = runCatching {
-                articleSpeech.load(article) { first ->
-                    if (mine != grokToken[0]) return@load
-                    scope.launch(Dispatchers.Main) {
-                        if (mine != grokToken[0]) return@launch
-                        live = true
-                        fileUri = first.uri.scheme == "file"
-                        articlePlayer.play(article, first.uri, first.headers, startMs, speed)
-                    }
-                }.await()
-            }
-            if (mine != grokToken[0]) return@launch
-            prepared.onSuccess { ready ->
-                withContext(Dispatchers.Main) {
-                    if (!live) articlePlayer.play(article, ready.uri, ready.headers, startMs, speed)
-                    else if (fileUri) articlePlayer.appendGrowing(java.io.File(ready.uri.path.orEmpty()))
-                    articleAudio = articleAudio + (article.id to Reads.audioProgressLabel("ready", 1, 1))
-                }
-            }.onFailure { err ->
-                if (err is CancellationException) throw err
-                withContext(Dispatchers.Main) {
-                    articlePlayer.pause()
-                    val label = Reads.audioProgressLabel("failed", error = err.message ?: "Could not prepare audio.")
-                    articleAudio = articleAudio + (article.id to label)
-                }
-            }
+    val articlePlayback = remember {
+        ArticlePlayback(scope, ctx, speaker, articlePlayer, reads, { settings }) { id, label ->
+            articleAudio = articleAudio + (id to label)
         }
     }
-
-    val articleControls = ChosenSpeaker(
-        speaker,
-        articlePlayer,
-        { Reads.usesGrokVoice(settings.provider == LlmProvider.XAI, CredentialResolver.bearer(settings)) },
-        { article, start, speed -> startGrok(article, start, speed) },
-        ::cancelGrokLoad,
-    )
+    val articleControls = articlePlayback.controls
+    LaunchedEffect(articlePlayback) { articlePlayback.bind() }
 
     fun prepareArticleSpeech(token: String, current: xyz.cdr.builderlauncher.data.BuilderSettings, article: ReadArticle) {
-        scope.launch {
-            articleSpeech.prepare(article) { label -> articleAudio = articleAudio + (article.id to label) }
-        }
+        articlePlayback.prepare(article)
     }
 
     fun submitRead(line: String) {

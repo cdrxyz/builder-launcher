@@ -39,6 +39,16 @@ object Reads {
     const val READING = "Reading…"
     const val FAILED = "Could not read that page."
     const val GROK_VOICE = "leo"
+    val VOICES = listOf(
+        "leo" to "Leo",
+        "eve" to "Eve",
+        "ara" to "Ara",
+        "rex" to "Rex",
+        "sal" to "Sal",
+        "orion" to "Orion",
+        "luna" to "Luna",
+        "atlas" to "Atlas",
+    )
     const val SPEECH_START_BYTES = 16_000
     const val NOT_A_URL = "Paste a URL."
     const val MAX_ARTICLES = 100
@@ -161,6 +171,29 @@ object Reads {
     fun articleFileName(title: String): String {
         val clean = title.replace(Regex("[^A-Za-z0-9._ -]"), "").replace(Regex("\\s+"), " ").trim().take(80)
         return "${clean.ifBlank { "article" }}.mp3"
+    }
+
+    fun voiceId(raw: String?): String {
+        val id = raw?.trim()?.lowercase().orEmpty()
+        return if (VOICES.any { it.first == id }) id else GROK_VOICE
+    }
+
+    fun voiceLabel(id: String): String = VOICES.find { it.first == voiceId(id) }?.second ?: "Leo"
+
+    fun shouldPausePlayback(playing: Boolean, audible: Boolean): Boolean = playing && audible
+
+    fun shouldSpeakStored(hasLocal: Boolean, useGrok: Boolean): Boolean = hasLocal || useGrok
+
+    fun cacheFileName(articleId: String, voice: String, hash: String): String =
+        "article-$articleId-${voiceId(voice)}-$hash.mp3"
+
+    fun legacyCacheFileName(articleId: String, hash: String): String = "article-$articleId-$hash.mp3"
+
+    fun mediaStoreName(title: String, voice: String): String {
+        val file = articleFileName(title)
+        val id = voiceId(voice)
+        if (id == GROK_VOICE) return file
+        return "${file.removeSuffix(".mp3")} - ${voiceLabel(id)}.mp3"
     }
 
     fun shouldProbeStoredAudio(audioLabel: String): Boolean =

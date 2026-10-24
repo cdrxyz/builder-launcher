@@ -573,6 +573,14 @@ class LauncherScreenshotTest {
                     highlightEnd = text.indexOf('.'),
                     downloadLabel = "generating… 37%",
                     speed = { ReadSpeedLabel(1.4f) },
+                    voice = {
+                        ArticleVoiceMenu(
+                            voice = "leo",
+                            expanded = false,
+                            onExpanded = {},
+                            onPick = {},
+                        )
+                    },
                 )
                 }
             }

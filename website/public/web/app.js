@@ -25,7 +25,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, storedPieces, storedRows } from './article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, speechStartReady, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -3667,12 +3667,35 @@ async function fetchXaiSpeech(bearer, text, voice, onStart, onProgress) {
 		const body = await res.json().catch(() => ({}));
 		throw new Error(body.error || `Speech HTTP ${res.status}`);
 	}
-	if (!res.body || typeof MediaSource === 'undefined' || !MediaSource.isTypeSupported('audio/mpeg')) {
+	if (!res.body) {
 		const blob = await res.blob();
 		if (blob.size < 64) throw new Error('Speech reply was empty.');
 		return blob;
 	}
-	return readSpeechStream(res.body, onStart, onProgress);
+	return readSpeechBlob(res.body, onStart, onProgress);
+}
+
+function readSpeechBlob(body, onStart, onProgress) {
+	const reader = body.getReader();
+	const parts = [];
+	let received = 0;
+	let started = false;
+	const take = () => reader.read().then(({ done, value }) => {
+		if (done) {
+			const blob = new Blob(parts, { type: 'audio/mpeg' });
+			if (blob.size < 64) throw new Error('Speech reply was empty.');
+			return blob;
+		}
+		parts.push(value);
+		received += value.byteLength;
+		if (onProgress) onProgress(received);
+		if (speechStartReady(received, started) && onStart) {
+			started = true;
+			onStart(URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' })), true);
+		}
+		return take();
+	});
+	return take().finally(() => reader.releaseLock());
 }
 
 function readSpeechStream(body, onStart, onProgress) {
@@ -3738,11 +3761,11 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 	if (res.status === 404) {
 		const piece = storedPieces(article.text)[index];
 		if (!piece) throw new Error('Nothing to speak.');
-		const blob = await fetchXaiSpeech(plan.bearer, piece, voice, (liveUrl) => {
+		const blob = await fetchXaiSpeech(plan.bearer, piece, voice, (liveUrl, partial) => {
 			if (!readSpeak.playing || readSpeak.id !== article.id) return;
 			const row = storedRows(article.text)[index];
 			if (!row) return;
-			playStoredUrl(liveUrl, row, readSpeak.token);
+			playStoredUrl(liveUrl, row, readSpeak.token, true, Boolean(partial));
 		}, (received) => noteGeneration(article, received));
 		const url = URL.createObjectURL(blob);
 		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
@@ -3846,13 +3869,37 @@ function speakStoredChunk(row) {
 	}
 	const job = audioJob(article);
 	if (job && (job.status === 'ready' || (job.status !== 'failed' && job.done > row.index))) {
-		playStoredUrl(storedFileUrl(article, row.index), row, token);
+		streamStoredFile(article, row, token);
 		return;
 	}
 	storedClip(article, row.index, readSpeak.plan)
 		.then((url) => {
 			if (!readSpeak.playing || readSpeak.token !== token) return;
 			playStoredUrl(url, row, token);
+		})
+		.catch((err) => {
+			if (readSpeak.token !== token) return;
+			readSpeak.playing = false;
+			const message = err.message || 'Could not play saved audio.';
+			failStoredPlay(article, message);
+			setStatus(message);
+			readCheckpoint(true);
+			paintReadPos();
+		});
+}
+
+function streamStoredFile(article, row, token) {
+	fetch(storedFileUrl(article, row.index), { credentials: 'include' })
+		.then((res) => {
+			if (!res.ok || !res.body) throw new Error('Could not load saved audio.');
+			return readSpeechBlob(res.body, (partialUrl) => {
+				if (!readSpeak.playing || readSpeak.token !== token) return;
+				playStoredUrl(partialUrl, row, token, true, true);
+			});
+		})
+		.then((blob) => {
+			if (!readSpeak.playing || readSpeak.token !== token) return;
+			playStoredUrl(URL.createObjectURL(blob), row, token, true, false);
 		})
 		.catch((err) => {
 			if (readSpeak.token !== token) return;
@@ -3896,28 +3943,33 @@ function failStoredPlay(article, message) {
 	});
 }
 
-function playStoredUrl(url, row, token, viaBlob) {
+function playStoredUrl(url, row, token, viaBlob, partial) {
 	const clip = readSpeak.audio || new Audio();
 	readSpeak.audio = clip;
+	const carried = partial ? 0 : (clip.currentTime || 0);
+	readSpeak.partial = Boolean(partial);
 	clip.loop = false;
 	clip.volume = 1;
 	clip.playbackRate = ttsSpeed(state.speed);
 	clip.onended = () => {
-		if (!readSpeak.playing || readSpeak.token !== token) return;
+		if (!readSpeak.playing || readSpeak.token !== token || readSpeak.partial) return;
 		advanceRead(row);
 	};
 	clip.onerror = () => {
 		if (!readSpeak.playing || readSpeak.token !== token) return;
-		if (!mediaErrorStopsPlayback(clip.error && clip.error.code)) return;
+		if (!mediaErrorStopsPlayback(clip.error && clip.error.code, readSpeak.partial)) return;
 		if (!viaBlob && String(url).startsWith('/api/')) {
 			fetch(url, { credentials: 'include' })
 				.then((res) => {
-					if (!res.ok) throw new Error('Could not load saved audio.');
-					return res.blob();
+					if (!res.ok || !res.body) throw new Error('Could not load saved audio.');
+					return readSpeechBlob(res.body, (partialUrl) => {
+						if (!readSpeak.playing || readSpeak.token !== token) return;
+						playStoredUrl(partialUrl, row, token, true, true);
+					});
 				})
 				.then((blob) => {
 					if (!readSpeak.playing || readSpeak.token !== token) return;
-					playStoredUrl(URL.createObjectURL(blob), row, token, true);
+					playStoredUrl(URL.createObjectURL(blob), row, token, true, false);
 				})
 				.catch((err) => {
 					if (readSpeak.token !== token) return;
@@ -3938,12 +3990,16 @@ function playStoredUrl(url, row, token, viaBlob) {
 		paintReadPos();
 	};
 	if (!sameMediaSrc(clip, url)) clip.src = url;
-	const offset = Math.max(0, (readSpeak.positionMs - row.startMs) / 1000);
-	if (offset > 0.25 && Number.isFinite(clip.duration) && offset < clip.duration) clip.currentTime = offset;
+	const offset = carried > 0.25 ? carried : Math.max(0, (readSpeak.positionMs - row.startMs) / 1000);
+	const applyOffset = () => {
+		if (offset > 0.25 && Number.isFinite(clip.duration) && offset < clip.duration) clip.currentTime = offset;
+	};
+	if (carried > 0.25) clip.addEventListener('loadedmetadata', applyOffset, { once: true });
+	else applyOffset();
 	const pending = clip.play();
 	if (pending && pending.catch) {
 		pending.catch(() => {
-			if (readSpeak.token !== token) return;
+			if (readSpeak.token !== token || readSpeak.partial) return;
 			readSpeak.playing = false;
 			setStatus('Press play');
 			paintReadPos();
@@ -4161,7 +4217,6 @@ function fillArticleDownload(trail, article) {
 		? articleDownloadLabel(status, articleTransfers.get(article.id))
 		: articleGenerationLabel(status, gen?.received, gen?.expected || expectedSpeechBytes(readDurationMs(article.text)));
 	trail.replaceChildren();
-	if (visible) trail.append(iconButton('download', DOWNLOAD_ICON, () => { void downloadArticle(article); }));
 	if (text) {
 		const label = document.createElement('span');
 		label.className = 'sub article-download-label';
