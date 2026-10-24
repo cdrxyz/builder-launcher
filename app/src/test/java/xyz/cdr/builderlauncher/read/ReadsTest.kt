@@ -207,6 +207,18 @@ class ReadsTest {
         assertEquals(false, Reads.localAudioPlayable(63L))
     }
 
+    @Test
+    fun aDownloadKeepsAPlayableCacheCopy() {
+        val dir = java.io.File(System.getProperty("java.io.tmpdir"), "article-play-" + System.nanoTime())
+        val file = java.io.File(dir, "cache.mp3")
+        val bytes = ByteArray(80) { 1 }
+        assertEquals(false, Reads.localAudioPlayable(file.length()))
+        file.parentFile?.mkdirs()
+        file.writeBytes(bytes)
+        assertEquals(true, Reads.localAudioPlayable(file.length()))
+        dir.deleteRecursively()
+    }
+
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =
         ReadArticle(id = id, url = "https://example.com/$id", title = title, publication = "Example", text = text, addedAt = addedAt)
 }
