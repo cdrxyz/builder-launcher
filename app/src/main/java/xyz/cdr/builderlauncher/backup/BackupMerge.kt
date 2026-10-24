@@ -43,8 +43,20 @@ object BackupMerge {
             reads = Reads.mergeBackup(a.reads, b.reads, Reads.restoredIds(newer.reads)),
             alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
             zones = mergeZones(a.zones, b.zones),
-            settings = newer.settings,
+            settings = mergeSettings(a.settings, b.settings, preferA),
             deletedAlarmIds = deletedAlarms,
+        )
+    }
+
+    private fun mergeSettings(a: BackupSettings, b: BackupSettings, preferA: Boolean): BackupSettings {
+        val newer = if (preferA) a else b
+        val older = if (preferA) b else a
+        return newer.copy(
+            apiKey = newer.apiKey ?: older.apiKey,
+            oauthAccess = newer.oauthAccess ?: older.oauthAccess,
+            oauthRefresh = newer.oauthRefresh ?: older.oauthRefresh,
+            oauthExpiresAtEpochMs = newer.oauthExpiresAtEpochMs ?: older.oauthExpiresAtEpochMs,
+            oauthAccount = newer.oauthAccount ?: older.oauthAccount,
         )
     }
 

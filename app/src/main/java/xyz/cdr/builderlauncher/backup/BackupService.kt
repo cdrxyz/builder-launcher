@@ -141,6 +141,9 @@ class BackupService(
 
     private fun syncUp(nowMs: Long): String {
         val remote = withAccount { account.getVault(it) }
+        if (remote.revision > 0 && remote.document == null) {
+            error("Could not read the account snapshot. Nothing was uploaded.")
+        }
         val local = document(nowMs = System.currentTimeMillis())
         val merged = BackupMerge.join(local, remote.document).copy(exportedAt = maxOf(nowMs, local.exportedAt))
         withAccount { account.putVault(it, merged) }
@@ -150,8 +153,16 @@ class BackupService(
         return "Synced to builder.cdr.xyz"
     }
 
+    fun mergeAccount(): String {
+        val changed = pullAccount(System.currentTimeMillis())
+        return if (changed) "Merged with builder.cdr.xyz" else "Already matched builder.cdr.xyz"
+    }
+
     private fun syncDown(): String {
         val remote = withAccount { account.getVault(it) }
+        if (remote.revision > 0 && remote.document == null) {
+            error("Could not read the account snapshot. Nothing was uploaded.")
+        }
         val remoteDoc = remote.document ?: return "No cloud snapshot yet. Sync now to upload this phone."
         apply(remoteDoc)
         settings.markBackup(System.currentTimeMillis())
