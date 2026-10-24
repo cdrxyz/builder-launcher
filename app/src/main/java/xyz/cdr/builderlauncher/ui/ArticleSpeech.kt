@@ -18,6 +18,7 @@ import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.backup.AccountClient
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.read.ArticleDownload
 import xyz.cdr.builderlauncher.read.PreparedGrok
 import xyz.cdr.builderlauncher.read.ReadArticle
 import xyz.cdr.builderlauncher.read.Reads
@@ -57,9 +58,16 @@ internal class ArticleSpeech(
         loads[article.id]?.takeIf { it.isActive }?.let { return it }
         val job = scope.async(Dispatchers.IO) {
             val current = settings()
+            val hash = Reads.speechHash(article.text)
+            val local = ArticleDownload(context).localFile(article.id, hash)
+            if (Reads.localAudioPlayable(local.length())) {
+                return@async PreparedGrok(Uri.fromFile(local), emptyMap()).also {
+                    ready[article.id] = it
+                    onFirst?.invoke(it)
+                }
+            }
             val account = current.accountToken
             val bearer = CredentialResolver.bearer(current) ?: error("Sign in to xAI in settings.")
-            val hash = Reads.speechHash(article.text)
             val client = AccountClient()
             val stored = if (account.isBlank()) {
                 emptyList()

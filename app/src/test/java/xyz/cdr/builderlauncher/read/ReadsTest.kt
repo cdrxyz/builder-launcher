@@ -202,6 +202,9 @@ class ReadsTest {
         assertEquals("generating…", Reads.articleGenerationLabel("preparing audio", 0, 8000))
         assertEquals("generating… 37%", Reads.articleGenerationLabel("preparing audio", 2960, 8000))
         assertEquals("generating… 99%", Reads.articleGenerationLabel("preparing audio", 9000, 8000))
+        assertEquals(true, Reads.localAudioPlayable(64L))
+        assertEquals(false, Reads.localAudioPlayable(0L))
+        assertEquals(false, Reads.localAudioPlayable(63L))
     }
 
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =
