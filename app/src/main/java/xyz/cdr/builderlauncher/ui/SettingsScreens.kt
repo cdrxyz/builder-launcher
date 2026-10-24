@@ -134,6 +134,7 @@ import xyz.cdr.builderlauncher.ai.oauth.PkceSession
 import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.AccountAutofill
+import xyz.cdr.builderlauncher.backup.AccountRefresh
 import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.backup.S3Access
 import xyz.cdr.builderlauncher.backup.S3Signer
@@ -883,7 +884,7 @@ internal fun BackupSettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
-        if (settings.accountToken.isNotBlank()) {
+        if (settings.accountEmail.isNotBlank()) {
             Text(
                 "Signed in as ${settings.accountEmail}",
                 color = Accent,
@@ -904,7 +905,8 @@ internal fun BackupSettingsPage(
                     }
                     .padding(vertical = 8.dp),
             )
-        } else {
+        }
+        if (AccountRefresh.showsSignIn(settings.accountEmail, settings.accountToken)) {
             val emailFocus = remember { FocusRequester() }
             LaunchedEffect(Unit) { emailFocus.requestFocus() }
             LabeledField(

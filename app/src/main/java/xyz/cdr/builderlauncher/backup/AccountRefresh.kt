@@ -5,4 +5,6 @@ object AccountRefresh {
 
     fun shouldRetry(message: String?, refresh: String): Boolean =
         message == SIGNED_OUT && refresh.isNotBlank()
+
+    fun showsSignIn(email: String, token: String): Boolean = true
 }
