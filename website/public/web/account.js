@@ -85,7 +85,21 @@ export async function requestAccountCredential(
 	}
 }
 
-export async function apiJson(path, { method = 'GET', body, token, timeout = API_TIMEOUT_MS } = {}) {
+let accountRefresher = null;
+
+export function setAccountRefresher(fn) {
+	accountRefresher = typeof fn === 'function' ? fn : null;
+}
+
+export function accountRecord(session) {
+	return {
+		email: session?.email || '',
+		token: session?.token || '',
+		refreshToken: session?.refreshToken || '',
+	};
+}
+
+export async function apiJson(path, { method = 'GET', body, token, timeout = API_TIMEOUT_MS, allowRefresh = true } = {}) {
 	const headers = { accept: 'application/json' };
 	if (body !== undefined) headers['content-type'] = 'application/json';
 	if (token) headers.authorization = `Bearer ${token}`;
@@ -110,6 +124,12 @@ export async function apiJson(path, { method = 'GET', body, token, timeout = API
 	} catch {
 		throw new Error(text.slice(0, 180) || `HTTP ${res.status}`);
 	}
-	if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+	if (!res.ok) {
+		if (res.status === 401 && allowRefresh && accountRefresher && path !== '/api/auth/refresh') {
+			const next = await accountRefresher();
+			if (next) return apiJson(path, { method, body, token: next, timeout, allowRefresh: false });
+		}
+		throw new Error(data?.error || `HTTP ${res.status}`);
+	}
 	return data;
 }

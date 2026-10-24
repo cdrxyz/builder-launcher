@@ -20,8 +20,15 @@ class AccountClient(
 
     fun login(email: String, password: String): AccountSession = auth("/api/auth/login", email, password)
 
-    fun logout(token: String) {
-        runCatching { post("/api/auth/logout", "{}", token) }
+    fun logout(token: String, refreshToken: String = "") {
+        val body = json.encodeToString(RefreshBody.serializer(), RefreshBody(refreshToken))
+        runCatching { post("/api/auth/logout", body, token) }
+    }
+
+    fun refresh(refreshToken: String): AccountSession {
+        val body = json.encodeToString(RefreshBody.serializer(), RefreshBody(refreshToken))
+        val raw = post("/api/auth/refresh", body, token = "")
+        return json.decodeFromString(AccountSession.serializer(), raw)
     }
 
     fun me(token: String): AccountSession {
@@ -131,7 +138,15 @@ class AccountClient(
 data class AuthBody(val email: String, val password: String)
 
 @Serializable
-data class AccountSession(val ok: Boolean = true, val email: String = "", val token: String = "")
+data class AccountSession(
+    val ok: Boolean = true,
+    val email: String = "",
+    val token: String = "",
+    val refreshToken: String = "",
+)
+
+@Serializable
+data class RefreshBody(val refreshToken: String = "")
 
 @Serializable
 data class VaultPut(val document: BackupDocument)

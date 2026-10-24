@@ -55,6 +55,7 @@ data class BuilderSettings(
     val s3EncryptionKey: String = "",
     val accountEmail: String = "",
     val accountToken: String = "",
+    val accountRefresh: String = "",
     val backupFrequency: BackupFrequency = BackupFrequency.AUTO,
     val lastBackupAtEpochMs: Long = 0L,
     val backupIncludeAiCredentials: Boolean = false,
@@ -243,6 +244,7 @@ class SettingsRepository(context: Context) {
             s3EncryptionKey = prefs.getString(KEY_S3_ENCRYPTION, "") ?: "",
             accountEmail = prefs.getString(KEY_ACCOUNT_EMAIL, "") ?: "",
             accountToken = prefs.getString(KEY_ACCOUNT_TOKEN, "") ?: "",
+            accountRefresh = prefs.getString(KEY_ACCOUNT_REFRESH, "") ?: "",
             backupFrequency = BackupFrequency.parse(prefs.getString(KEY_BACKUP_FREQ, BackupFrequency.AUTO.name)),
             lastBackupAtEpochMs = prefs.getString(KEY_BACKUP_LAST, "0")?.toLongOrNull() ?: 0L,
             backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
@@ -298,6 +300,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_S3_ENCRYPTION, next.s3EncryptionKey)
             .putString(KEY_ACCOUNT_EMAIL, next.accountEmail)
             .putString(KEY_ACCOUNT_TOKEN, next.accountToken)
+            .putString(KEY_ACCOUNT_REFRESH, next.accountRefresh)
             .putString(KEY_BACKUP_FREQ, next.backupFrequency.name)
             .putString(KEY_BACKUP_LAST, next.lastBackupAtEpochMs.toString())
             .putString(KEY_BACKUP_AI, if (next.backupIncludeAiCredentials) "true" else "false")
@@ -355,6 +358,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_S3_ENCRYPTION = "s3_encryption"
         private const val KEY_ACCOUNT_EMAIL = "account_email"
         private const val KEY_ACCOUNT_TOKEN = "account_token"
+        private const val KEY_ACCOUNT_REFRESH = "account_refresh"
         private const val KEY_BACKUP_FREQ = "backup_frequency"
         private const val KEY_BACKUP_LAST = "backup_last"
         private const val KEY_BACKUP_AI = "backup_include_ai"

@@ -1778,11 +1778,18 @@ fun BackupChrome(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "S3-compatible snapshot (R2, AWS, B2, MinIO). Encrypted on the phone before upload. Restore replaces local todos, notes, chats, pins, stocks, podcasts, alarms, and settings. Tokens stay off this file.",
+            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
         )
+        Text("Signed in as you@example.com", color = Accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+        Text("Sign out", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Field("Email", "you@example.com", "you@example.com")
+        Field("Password", "", "8+ characters")
+        Text("Create account", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Text("Sign in", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
+        Spacer(Modifier.height(12.dp))
         Field("Endpoint", endpoint, "https://ACCOUNT.r2.cloudflarestorage.com")
         Field("Bucket", bucket, "bucket")
         Field("Access key", accessKey, "access key id")

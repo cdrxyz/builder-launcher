@@ -7,12 +7,13 @@ import {
 	randomToken,
 	sha256Hex,
 	verifyPassword,
-} from './crypto';
-import { jsonError } from './safe';
+} from './crypto.ts';
+import { jsonError } from './safe.ts';
 
 export type AuthEnv = { DB: D1Database };
 
 const SESSION_DAYS = 30;
+const REFRESH_DAYS = 400;
 const COOKIE = 'bl_session';
 
 type UserRow = { id: string; email: string; password_hash: string };
@@ -20,6 +21,7 @@ type UserRow = { id: string; email: string; password_hash: string };
 export async function handleAuth(request: Request, url: URL, env: AuthEnv): Promise<Response | null> {
 	if (url.pathname === '/api/auth/signup' && request.method === 'POST') return signup(request, env);
 	if (url.pathname === '/api/auth/login' && request.method === 'POST') return login(request, env);
+	if (url.pathname === '/api/auth/refresh' && request.method === 'POST') return refresh(request, env);
 	if (url.pathname === '/api/auth/logout' && request.method === 'POST') return logout(request, env);
 	if (url.pathname === '/api/auth/me' && request.method === 'GET') return me(request, env);
 	return null;
@@ -82,9 +84,37 @@ async function logout(request: Request, env: AuthEnv): Promise<Response> {
 		const hash = await sha256Hex(token);
 		await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(hash).run();
 	}
+	const raw = await request.json().catch(() => null) as { refreshToken?: string } | null;
+	const refreshToken = String(raw?.refreshToken || '');
+	if (refreshToken) {
+		const hash = await sha256Hex(refreshToken);
+		await env.DB.prepare('DELETE FROM refresh_tokens WHERE token_hash = ?').bind(hash).run();
+	}
 	const res = jsonOk({ ok: true });
 	res.headers.append('Set-Cookie', clearCookie(request));
 	return res;
+}
+
+async function refresh(request: Request, env: AuthEnv): Promise<Response> {
+	const limited = await rateLimit(env.DB, `refresh:${clientIp(request)}`, 30, 15 * 60);
+	if (limited) return limited;
+	const raw = await request.json().catch(() => null) as { refreshToken?: string } | null;
+	const refreshToken = String(raw?.refreshToken || '');
+	if (!refreshToken) return jsonError('Not signed in', 401);
+	const hash = await sha256Hex(refreshToken);
+	const user = await env.DB.prepare(
+		`SELECT users.id AS id, users.email AS email
+		 FROM refresh_tokens JOIN users ON users.id = refresh_tokens.user_id
+		 WHERE refresh_tokens.token_hash = ? AND refresh_tokens.expires_at > datetime('now')`,
+	)
+		.bind(hash)
+		.first<{ id: string; email: string }>();
+	if (!user) return jsonError('Not signed in', 401);
+	await env.DB.prepare("UPDATE refresh_tokens SET expires_at = datetime('now', ?) WHERE token_hash = ?")
+		.bind(`+${REFRESH_DAYS} days`, hash)
+		.run();
+	await writeAudit(env.DB, { actorId: user.id, action: 'auth.refresh', ip: clientIp(request) });
+	return issueAccess(env, user, request, refreshToken);
 }
 
 async function me(request: Request, env: AuthEnv): Promise<Response> {
@@ -94,12 +124,26 @@ async function me(request: Request, env: AuthEnv): Promise<Response> {
 }
 
 async function issueSession(env: AuthEnv, user: { id: string; email: string }, request: Request): Promise<Response> {
+	const refreshToken = randomToken(32);
+	const refreshHash = await sha256Hex(refreshToken);
+	await env.DB.prepare("INSERT INTO refresh_tokens (token_hash, user_id, expires_at) VALUES (?, ?, datetime('now', ?))")
+		.bind(refreshHash, user.id, `+${REFRESH_DAYS} days`)
+		.run();
+	return issueAccess(env, user, request, refreshToken);
+}
+
+async function issueAccess(
+	env: AuthEnv,
+	user: { id: string; email: string },
+	request: Request,
+	refreshToken: string,
+): Promise<Response> {
 	const token = randomToken(32);
 	const hash = await sha256Hex(token);
-	await env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, datetime(\'now\', ?))')
+	await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, datetime('now', ?))")
 		.bind(hash, user.id, `+${SESSION_DAYS} days`)
 		.run();
-	const res = jsonOk({ ok: true, email: user.email, token });
+	const res = jsonOk({ ok: true, email: user.email, token, refreshToken });
 	res.headers.append('Set-Cookie', sessionCookie(token, request));
 	return res;
 }
