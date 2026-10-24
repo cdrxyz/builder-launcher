@@ -612,8 +612,10 @@ async function pullAccount(opts = {}) {
 	try {
 		const remote = await apiJson('/api/vault', { token: state.account.token });
 		state.revision = remote.revision || 0;
-		if (opts.overwrite && remote.document) state.doc = remote.document;
-		else state.doc = keepFreshArticles(joinDocs(state.doc, remote.document), state.doc, startedAt);
+		if (!remote.document && remote.revision > 0) {
+			throw new Error('Could not read the account snapshot. Nothing was uploaded.');
+		}
+		state.doc = keepFreshArticles(joinDocs(state.doc, remote.document), state.doc, startedAt);
 		state.doc = restoreCatalog(state.doc, await loadCatalog());
 		const saved = saveSnapshot(state.doc);
 		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true, skipHydrate: true });
@@ -1732,7 +1734,7 @@ function settingsScreen() {
 	wrap.append(accountCard(), autoSyncCard(), weatherCard(), includeAiCard(), aiAccessCard(), s3Card());
 	const note = document.createElement('p');
 	note.className = 'footer-note';
-	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in overwrites local data with the account snapshot. Sync now merges. Opt in below so the phone includes the API key and OAuth tokens for ?. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
+	note.innerHTML = `Preferred: a <strong>builder.cdr.xyz</strong> account. Sign-in merges this browser with the account. It does not replace either side. Opt in below so the phone includes the API key and OAuth tokens for ?. S3 is optional. <a href="${DOCS}">Manual</a>. Built by <a href="https://cdr.xyz">Cedar Labs</a>.`;
 	wrap.append(note);
 	return wrap;
 }
@@ -2449,7 +2451,7 @@ async function submitAccount(form, mode) {
 		state.account = accountRecord(res);
 		saveAccount(state.account);
 		state.status = `Signed in as ${res.email}`;
-		await pull({ overwrite: mode === 'login' });
+		await pull();
 	} catch (err) {
 		state.status = err.message || String(err);
 		state.busy = false;

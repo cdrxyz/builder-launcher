@@ -311,6 +311,16 @@ export function joinDocs(local, remote) {
 	return mergeDocs(local, remote);
 }
 
+function mergeSettings(older, newer) {
+	const previous = older || {};
+	const incoming = newer || {};
+	const merged = { ...previous, ...incoming };
+	for (const key of ['apiKey', 'oauthAccess', 'oauthRefresh', 'oauthAccount', 'oauthExpiresAtEpochMs']) {
+		if (incoming[key] == null || incoming[key] === '') merged[key] = previous[key] ?? incoming[key];
+	}
+	return merged;
+}
+
 export function mergeDocs(a, b) {
 	if (!a) return b || null;
 	if (!b) return a;
@@ -339,7 +349,7 @@ export function mergeDocs(a, b) {
 		reads: mergeReads(a.reads, b.reads, { restoredIds: restoredArticleIds(newer) }),
 		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
-		settings: newer.settings || older.settings,
+		settings: mergeSettings(older.settings, newer.settings),
 		deletedAlarmIds,
 	};
 }
