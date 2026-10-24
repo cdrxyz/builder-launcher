@@ -42,6 +42,13 @@ class ArticleDownload(private val context: Context) {
         }
     }
 
+    fun keepPlayable(file: File, bytes: ByteArray): Boolean {
+        if (!Reads.localAudioPlayable(bytes.size.toLong())) return false
+        file.parentFile?.mkdirs()
+        file.writeBytes(bytes)
+        return Reads.localAudioPlayable(file.length())
+    }
+
     fun save(name: String, bytes: ByteArray): Boolean {
         if (bytes.size < 64) return false
         if (Build.VERSION.SDK_INT >= 29) {

@@ -3,6 +3,7 @@ package xyz.cdr.builderlauncher.ui
 import android.content.Context
 import android.net.Uri
 import android.os.Handler
+import android.provider.MediaStore
 import android.os.Looper
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -60,6 +61,10 @@ internal class ArticleSpeech(
             val current = settings()
             val hash = Reads.speechHash(article.text)
             val local = ArticleDownload(context).localFile(article.id, hash)
+            val downloaded = findDownloaded(Reads.articleFileName(article.title))
+            if (!Reads.localAudioPlayable(local.length()) && downloaded != null) {
+                runCatching { context.contentResolver.openInputStream(downloaded)?.use { local.writeBytes(it.readBytes()) } }
+            }
             if (Reads.localAudioPlayable(local.length())) {
                 return@async PreparedGrok(Uri.fromFile(local), emptyMap()).also {
                     ready[article.id] = it
@@ -113,6 +118,27 @@ internal class ArticleSpeech(
         }
         loads[article.id] = job
         return job
+    }
+
+    private fun findDownloaded(name: String): Uri? {
+        if (name.isBlank()) return null
+        val uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.SIZE)
+        context.contentResolver.query(
+            uri,
+            projection,
+            "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+            arrayOf(name),
+            "${MediaStore.Downloads.DATE_ADDED} DESC",
+        )?.use { cursor ->
+            val id = cursor.getColumnIndex(MediaStore.Downloads._ID)
+            val size = cursor.getColumnIndex(MediaStore.Downloads.SIZE)
+            while (cursor.moveToNext()) {
+                if (cursor.getLong(size) < 64L) continue
+                return Uri.withAppendedPath(uri, cursor.getLong(id).toString())
+            }
+        }
+        return null
     }
 
     suspend fun prepare(article: ReadArticle, onLabel: (String) -> Unit) {
