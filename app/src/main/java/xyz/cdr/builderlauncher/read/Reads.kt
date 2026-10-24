@@ -177,6 +177,8 @@ object Reads {
         return if (pct > 0) "generating… $pct%" else "generating…"
     }
 
+    fun localAudioPlayable(bytes: Long): Boolean = bytes >= 64L
+
     fun wordMsFromAudio(audioPos: Long, audioDur: Long, textDur: Long): Long {
         if (audioDur <= 0L || textDur <= 0L) return audioPos.coerceAtLeast(0L)
         return (textDur * audioPos.coerceAtLeast(0L) / audioDur).coerceIn(0L, textDur)
