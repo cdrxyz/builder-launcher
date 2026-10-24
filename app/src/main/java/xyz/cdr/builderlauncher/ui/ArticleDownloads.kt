@@ -82,7 +82,7 @@ internal class ArticleDownloads(
                     setTransfers(transfers() + (article.id to (received to total)))
                 }
             }
-            val saved = bytes != null && saver.save(Reads.articleFileName(article.title), bytes)
+            val saved = bytes != null && saver.keepPlayable(local, bytes) && saver.save(Reads.articleFileName(article.title), bytes)
             withContext(Dispatchers.Main) {
                 setTransfers(transfers() - article.id)
                 if (saved) {
