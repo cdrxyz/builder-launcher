@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioByteRange, audioContentRange, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, speechObjectKey, storedPieces } from '../public/web/article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioByteRange, audioContentRange, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, showArticleDownload, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, storedPieces } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -90,6 +90,14 @@ test('an article download says generating until the file exists, never 0%', () =
 	assert.equal(articleDownloadVisible(''), false);
 	assert.equal(articleDownloadVisible('failed'), false);
 	assert.equal(articleDownloadVisible('ready'), true);
+	assert.equal(showArticleDownload(), false);
+	assert.equal(speechUsesMediaSource(false), false);
+	assert.equal(speechUsesMediaSource(true), true);
+	assert.equal(speechStartReady(16_001, false), true);
+	assert.equal(speechStartReady(16_000, false), false);
+	assert.equal(speechStartReady(20_000, true), false);
+	assert.equal(mediaErrorStopsPlayback(3, true), false);
+	assert.equal(mediaErrorStopsPlayback(3, false), true);
 	assert.equal(expectedSpeechBytes(1000), 8000);
 	assert.equal(articleGenerationLabel('ready', 8000, 8000), '');
 	assert.equal(articleGenerationLabel('failed', 10, 8000), '');

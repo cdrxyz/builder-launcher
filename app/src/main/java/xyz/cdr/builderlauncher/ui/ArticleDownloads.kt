@@ -29,6 +29,7 @@ internal class ArticleDownloads(
     private val downloaded: () -> Set<String>,
     private val setDownloaded: (Set<String>) -> Unit,
     private val prepare: (ReadArticle) -> Unit,
+    private val voice: () -> String = { Reads.GROK_VOICE },
 ) {
     fun label(id: String): String {
         val transfer = transfers()[id]
@@ -42,11 +43,12 @@ internal class ArticleDownloads(
         if (!Reads.shouldProbeStoredAudio(current)) return
         scope.launch(Dispatchers.IO) {
             val hash = Reads.speechHash(article.text)
-            val local = ArticleDownload(context).localFile(article.id, hash)
-            val ready = local.length() >= 64L || runCatching {
+            val spoken = Reads.voiceId(voice())
+            val local = ArticleDownload(context).playableFile(article.id, spoken, hash)
+            val ready = local != null || runCatching {
                 val token = settings().accountToken
                 token.isNotBlank() && Reads.storedAudioReady(
-                    AccountClient().storedArticleIndexes(token, article.id, Reads.GROK_VOICE, hash),
+                    AccountClient().storedArticleIndexes(token, article.id, spoken, hash),
                 )
             }.getOrDefault(false)
             if (!ready) return@launch
@@ -62,27 +64,30 @@ internal class ArticleDownloads(
         setTransfers(transfers() + (article.id to (0L to 0L)))
         scope.launch(Dispatchers.IO) {
             val hash = Reads.speechHash(article.text)
+            val spoken = Reads.voiceId(voice())
             val saver = ArticleDownload(context)
-            val local = saver.localFile(article.id, hash)
+            val local = saver.localFile(article.id, hash, spoken)
             val stored = runCatching {
                 val token = settings().accountToken
                 token.isNotBlank() && Reads.storedAudioReady(
-                    AccountClient().storedArticleIndexes(token, article.id, Reads.GROK_VOICE, hash),
+                    AccountClient().storedArticleIndexes(token, article.id, spoken, hash),
                 )
             }.getOrDefault(false)
-            if (local.length() < 64L && !stored) {
+            if (local.length() < 64L && saver.playableFile(article.id, spoken, hash) == null && !stored) {
                 withContext(Dispatchers.Main) {
                     setTransfers(transfers() - article.id)
                     prepare(article)
                 }
                 return@launch
             }
-            val bytes = if (local.length() >= 64L) local.readBytes() else saver.fetch(settings().accountToken, article.id, hash) { received, total ->
+            val bytes = if (saver.playableFile(article.id, spoken, hash) != null) {
+                (saver.playableFile(article.id, spoken, hash) ?: local).readBytes()
+            } else saver.fetch(settings().accountToken, article.id, hash, spoken) { received, total ->
                 scope.launch(Dispatchers.Main) {
                     setTransfers(transfers() + (article.id to (received to total)))
                 }
             }
-            val saved = bytes != null && saver.keepPlayable(local, bytes) && saver.save(Reads.articleFileName(article.title), bytes)
+            val saved = bytes != null && saver.keepPlayable(local, bytes) && saver.save(Reads.mediaStoreName(article.title, spoken), bytes)
             withContext(Dispatchers.Main) {
                 setTransfers(transfers() - article.id)
                 if (saved) {
@@ -106,6 +111,7 @@ internal fun rememberArticleDownloads(
     context: Context,
     scope: CoroutineScope,
     settings: () -> BuilderSettings,
+    voice: () -> String = { Reads.GROK_VOICE },
 ): ArticleDownloads {
     var transfers by remember { mutableStateOf<Map<String, Pair<Long, Long>>>(emptyMap()) }
     var saved by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -123,6 +129,7 @@ internal fun rememberArticleDownloads(
             downloaded = { saved },
             setDownloaded = { saved = it },
             prepare = prepare,
+            voice = voice,
         )
     }
     LaunchedEffect(articles, audio) {

@@ -208,6 +208,22 @@ class ReadsTest {
     }
 
     @Test
+    fun voiceMatchesTheWebListAndASilentPlayingRowStillLoads() {
+        assertEquals("leo", Reads.voiceId(null))
+        assertEquals("leo", Reads.voiceId("nope"))
+        assertEquals("eve", Reads.voiceId("Eve"))
+        assertEquals("Eve", Reads.voiceLabel("eve"))
+        assertEquals(false, Reads.shouldPausePlayback(playing = true, audible = false))
+        assertEquals(true, Reads.shouldPausePlayback(playing = true, audible = true))
+        assertEquals(true, Reads.shouldSpeakStored(hasLocal = true, useGrok = false))
+        assertEquals(false, Reads.shouldSpeakStored(hasLocal = false, useGrok = false))
+        assertEquals("article-r1-eve-abc.mp3", Reads.cacheFileName("r1", "Eve", "abc"))
+        assertEquals("article-r1-abc.mp3", Reads.legacyCacheFileName("r1", "abc"))
+        assertEquals("The Real Title.mp3", Reads.mediaStoreName("The Real Title", "leo"))
+        assertEquals("The Real Title - Eve.mp3", Reads.mediaStoreName("The Real Title", "eve"))
+    }
+
+    @Test
     fun aDownloadKeepsAPlayableCacheCopy() {
         val dir = java.io.File(System.getProperty("java.io.tmpdir"), "article-play-" + System.nanoTime())
         val file = java.io.File(dir, "cache.mp3")

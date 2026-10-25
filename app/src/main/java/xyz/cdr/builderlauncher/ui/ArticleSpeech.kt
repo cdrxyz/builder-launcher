@@ -24,7 +24,6 @@ import xyz.cdr.builderlauncher.read.PreparedGrok
 import xyz.cdr.builderlauncher.read.ReadArticle
 import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.SpeechStream
-import java.io.File
 
 internal object ArticleSpeechProgress {
     var bytes by mutableStateOf<Map<String, Long>>(emptyMap())
@@ -41,6 +40,7 @@ internal class ArticleSpeech(
     private val scope: CoroutineScope,
     private val context: Context,
     private val settings: () -> BuilderSettings,
+    private val voice: () -> String = { Reads.GROK_VOICE },
 ) {
     private val ready = mutableMapOf<String, PreparedGrok>()
     private val loads = mutableMapOf<String, Deferred<PreparedGrok>>()
@@ -59,14 +59,26 @@ internal class ArticleSpeech(
         loads[article.id]?.takeIf { it.isActive }?.let { return it }
         val job = scope.async(Dispatchers.IO) {
             val current = settings()
+            val spoken = Reads.voiceId(voice())
             val hash = Reads.speechHash(article.text)
-            val local = ArticleDownload(context).localFile(article.id, hash)
-            val downloaded = findDownloaded(Reads.articleFileName(article.title))
-            if (!Reads.localAudioPlayable(local.length()) && downloaded != null) {
-                runCatching { context.contentResolver.openInputStream(downloaded)?.use { local.writeBytes(it.readBytes()) } }
+            val saver = ArticleDownload(context)
+            val cached = saver.playableFile(article.id, spoken, hash)
+            val local = cached ?: saver.localFile(article.id, hash, spoken)
+            val downloaded = findDownloaded(Reads.mediaStoreName(article.title, spoken))
+            if (cached == null && downloaded != null) {
+                val copied = runCatching {
+                    context.contentResolver.openInputStream(downloaded)?.use { local.writeBytes(it.readBytes()) }
+                    Reads.localAudioPlayable(local.length())
+                }.getOrDefault(false)
+                if (!copied) {
+                    return@async PreparedGrok(downloaded, emptyMap(), complete = true).also {
+                        ready[article.id] = it
+                        onFirst?.invoke(it)
+                    }
+                }
             }
             if (Reads.localAudioPlayable(local.length())) {
-                return@async PreparedGrok(Uri.fromFile(local), emptyMap()).also {
+                return@async PreparedGrok(Uri.fromFile(local), emptyMap(), complete = true).also {
                     ready[article.id] = it
                     onFirst?.invoke(it)
                 }
@@ -77,41 +89,41 @@ internal class ArticleSpeech(
             val stored = if (account.isBlank()) {
                 emptyList()
             } else {
-                runCatching { client.storedArticleIndexes(account, article.id, Reads.GROK_VOICE, hash) }.getOrDefault(emptyList())
+                runCatching { client.storedArticleIndexes(account, article.id, spoken, hash) }.getOrDefault(emptyList())
             }
             if (Reads.storedAudioReady(stored)) {
                 PreparedGrok(
-                    Uri.parse("${AccountClient.ORIGIN}${Reads.storedAudioQuery(article.id, hash = hash, index = 0)}"),
+                    Uri.parse("${AccountClient.ORIGIN}${Reads.storedAudioQuery(article.id, voice = spoken, hash = hash, index = 0)}"),
                     mapOf("Authorization" to "Bearer $account"),
                 ).also {
                     ready[article.id] = it
                     onFirst?.invoke(it)
                 }
             } else {
-                val file = File(context.cacheDir, "article-${article.id}-$hash.mp3")
+                val file = saver.localFile(article.id, hash, spoken)
                 val done = CompletableDeferred<Throwable?>()
                 var started = false
                 var reported = 0
-                val socket = SpeechStream().open(bearer, article.text, file, Reads.GROK_VOICE, onBytes = { bytes ->
+                val socket = SpeechStream().open(bearer, article.text, file, spoken, onBytes = { bytes ->
                     if (bytes - reported >= 32_000) {
                         reported = bytes
                         ArticleSpeechProgress.note(article.id, bytes)
                     }
                     if (!started && Reads.shouldStartSpeech(bytes)) {
                         started = true
-                        onFirst?.invoke(PreparedGrok(Uri.fromFile(file), emptyMap()))
+                        onFirst?.invoke(PreparedGrok(Uri.fromFile(file), emptyMap(), complete = false))
                     }
                 }, onDone = { err -> done.complete(err) })
                 sockets[article.id] = socket
                 if (!SpeechStream.waitForFirstAudio(file)) {
                     socket.cancel()
-                    file.writeBytes(client.fetchXaiSpeech(bearer, article.text, Reads.GROK_VOICE))
+                    file.writeBytes(client.fetchXaiSpeech(bearer, article.text, spoken))
                 } else {
                     done.await()?.let { throw it }
                     if (file.length() < 64) error("Speech reply was empty.")
                 }
                 if (account.isNotBlank()) {
-                    runCatching { client.storeArticleAudio(account, article.id, Reads.GROK_VOICE, hash, 0, file.readBytes()) }
+                    runCatching { client.storeArticleAudio(account, article.id, spoken, hash, 0, file.readBytes()) }
                 }
                 PreparedGrok(Uri.fromFile(file), emptyMap()).also { ready[article.id] = it }
             }

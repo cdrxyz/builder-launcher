@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 
-data class PreparedGrok(val uri: Uri, val headers: Map<String, String>)
+data class PreparedGrok(val uri: Uri, val headers: Map<String, String>, val complete: Boolean = true)
 
 interface ArticleControls {
     fun toggle(article: ReadArticle, startMs: Long, speed: Float)
@@ -37,6 +37,7 @@ class ArticlePlayer(context: Context) : ArticleControls {
     private val _state = MutableStateFlow(ReadPlayback())
     val state: StateFlow<ReadPlayback> = _state.asStateFlow()
     var onCheckpoint: ((String, Long) -> Unit)? = null
+    var onError: ((String) -> Unit)? = null
     private var textDuration = 0L
     private var pendingWordMs = 0L
     private val tick = object : Runnable {
@@ -63,16 +64,27 @@ class ArticlePlayer(context: Context) : ArticleControls {
         textDuration = Reads.durationMs(article.text)
         pendingWordMs = startMs.coerceIn(0L, textDuration)
         val exo = obtain() ?: return
-        val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-        val source = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(app, http))
-            .createMediaSource(MediaItem.fromUri(uri))
-        exo.setMediaSource(source)
+        if (uri.scheme == "file" || uri.scheme == "content") {
+            exo.setMediaItem(
+                MediaItem.Builder().setUri(uri).setMimeType(androidx.media3.common.MimeTypes.AUDIO_MPEG).build(),
+            )
+        } else {
+            val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+            val source = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(app, http))
+                .createMediaSource(MediaItem.fromUri(uri))
+            exo.setMediaSource(source)
+        }
         exo.prepare()
         exo.playWhenReady = true
         applySpeed(exo, rate)
         _state.value = ReadPlayback(article.id, pendingWordMs, textDuration, playing = true, speed = rate)
         main.removeCallbacks(tick)
         main.post(tick)
+    }
+
+    fun isAudible(): Boolean {
+        val exo = player ?: return false
+        return exo.playbackState == Player.STATE_READY && exo.playWhenReady
     }
 
     fun playGrowing(article: ReadArticle, file: File, startMs: Long, speed: Float) {
@@ -192,6 +204,9 @@ class ArticlePlayer(context: Context) : ArticleControls {
             override fun onPlayerError(error: PlaybackException) {
                 if (player === created) {
                     _state.value = _state.value.copy(playing = false)
+                    val reason = error.message?.lineSequence()?.firstOrNull()?.take(80)?.ifBlank { null }
+                        ?: "Could not play audio."
+                    onError?.invoke(reason)
                 }
             }
         })
@@ -225,17 +240,19 @@ class ChosenSpeaker(
     private val useGrok: () -> Boolean,
     private val startGrok: (ReadArticle, Long, Float) -> Unit,
     private val cancelGrok: () -> Unit,
+    private val hasLocal: (ReadArticle) -> Boolean = { false },
 ) : ArticleControls {
     override fun toggle(article: ReadArticle, startMs: Long, speed: Float) {
-        if (useGrok()) {
+        if (Reads.shouldSpeakStored(hasLocal(article), useGrok())) {
             system.pause()
             val current = grok.state.value
-            if (current.articleId == article.id && current.playing) {
+            val same = current.articleId == article.id
+            if (Reads.shouldPausePlayback(same && current.playing, grok.isAudible())) {
                 cancelGrok()
                 grok.pause()
                 return
             }
-            val start = if (current.articleId == article.id) current.positionMs else startMs
+            val start = if (same) current.positionMs else startMs
             startGrok(article, start, speed)
         } else {
             cancelGrok()

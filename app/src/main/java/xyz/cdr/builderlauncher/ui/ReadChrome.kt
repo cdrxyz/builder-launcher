@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,8 +17,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +48,7 @@ import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.ReadsRepository
 import xyz.cdr.builderlauncher.ui.theme.Accent
 import xyz.cdr.builderlauncher.ui.theme.Dim
+import xyz.cdr.builderlauncher.ui.theme.Ink
 import xyz.cdr.builderlauncher.ui.theme.Loss
 import xyz.cdr.builderlauncher.ui.theme.Paper
 
@@ -147,6 +151,7 @@ fun ReadPlayerChrome(
     downloadVisible: Boolean = false,
     downloaded: Boolean = false,
     speed: @Composable () -> Unit = {},
+    voice: @Composable () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -183,7 +188,11 @@ fun ReadPlayerChrome(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(position, color = Dim)
-                speed()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    voice()
+                    Spacer(Modifier.width(12.dp))
+                    speed()
+                }
             }
             Spacer(Modifier.height(12.dp))
             PodcastScrubBar(progress = progress, onSeekFraction = onSeek)
@@ -278,6 +287,8 @@ fun ColumnScope.ReadHost(
     settings: () -> xyz.cdr.builderlauncher.data.BuilderSettings = { xyz.cdr.builderlauncher.data.BuilderSettings() },
 ) {
     val article = articles.find { it.id == articleId }
+    val voice by reads.voice.collectAsState()
+    var voiceMenu by remember { mutableStateOf(false) }
     val downloads = rememberArticleDownloads(
         articles = articles,
         audio = audio,
@@ -286,6 +297,7 @@ fun ColumnScope.ReadHost(
         context = LocalContext.current,
         scope = rememberCoroutineScope(),
         settings = settings,
+        voice = { reads.voice.value },
     )
     val playingThis = playback.articleId == article?.id
     val saved = article?.let { progress[it.id]?.positionMs } ?: 0L
@@ -363,6 +375,14 @@ fun ColumnScope.ReadHost(
         },
         downloadVisible = { Reads.articleDownloadVisible(audio[it.id].orEmpty()) },
         downloaded = { downloads.isDownloaded(it.id) },
+        voice = {
+            ArticleVoiceMenu(
+                voice = voice,
+                expanded = voiceMenu,
+                onExpanded = { voiceMenu = it },
+                onPick = { reads.setVoice(it) },
+            )
+        },
     )
 }
 
@@ -402,6 +422,7 @@ fun ColumnScope.ReadOverlay(
     downloadLabel: (ReadArticle) -> String = { "" },
     downloadVisible: (ReadArticle) -> Boolean = { false },
     downloaded: (ReadArticle) -> Boolean = { false },
+    voice: @Composable () -> Unit = {},
 ) {
     var speedMenu by remember(article?.id) { mutableStateOf(false) }
     Column(Modifier.weight(1f)) {
@@ -451,6 +472,7 @@ fun ColumnScope.ReadOverlay(
                         onPick = onSpeed,
                     )
                 },
+                voice = voice,
             )
         }
     }
@@ -493,6 +515,46 @@ private fun ArticleDownloadMark(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 2.dp),
             )
+        }
+    }
+}
+
+@Composable
+fun ArticleVoiceMenu(
+    voice: String,
+    expanded: Boolean,
+    onExpanded: (Boolean) -> Unit,
+    onPick: (String) -> Unit,
+) {
+    Box {
+        Text(
+            Reads.voiceLabel(voice),
+            color = Accent,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .clickable { onExpanded(!expanded) }
+                .padding(vertical = 8.dp)
+                .semantics { contentDescription = "voice" },
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpanded(false) },
+            containerColor = Ink,
+        ) {
+            Reads.VOICES.forEach { (id, label) ->
+                Text(
+                    label,
+                    color = if (Reads.voiceId(voice) == id) Accent else Paper,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onPick(id)
+                            onExpanded(false)
+                        }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }

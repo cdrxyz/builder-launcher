@@ -22,6 +22,7 @@ private data class ReadStore(
     val progress: List<ReadProgress> = emptyList(),
     val deletedIds: List<String> = emptyList(),
     val speed: Float = 1f,
+    val voice: String = "leo",
 )
 
 class ReadsRepository(
@@ -36,6 +37,8 @@ class ReadsRepository(
     val progress: StateFlow<Map<String, ReadProgress>> = _progress.asStateFlow()
     private val _speed = MutableStateFlow(1f)
     val speed: StateFlow<Float> = _speed.asStateFlow()
+    private val _voice = MutableStateFlow(Reads.GROK_VOICE)
+    val voice: StateFlow<String> = _voice.asStateFlow()
     private var deletedIds: List<String> = emptyList()
 
     init {
@@ -44,6 +47,7 @@ class ReadsRepository(
         _progress.value = stored.progress.associateBy { it.articleId }
         deletedIds = stored.deletedIds
         _speed.value = Podcasts.snapSpeed(stored.speed)
+        _voice.value = Reads.voiceId(stored.voice)
     }
 
     fun exportBackup(): ReadBackup = ReadBackup(
@@ -84,6 +88,11 @@ class ReadsRepository(
 
     fun setSpeed(speed: Float) {
         _speed.value = Podcasts.snapSpeed(speed)
+        persist()
+    }
+
+    fun setVoice(id: String) {
+        _voice.value = Reads.voiceId(id)
         persist()
     }
 
@@ -141,6 +150,7 @@ class ReadsRepository(
             progress = _progress.value.values.toList(),
             deletedIds = deletedIds,
             speed = _speed.value,
+            voice = _voice.value,
         )
         runCatching { file.writeText(json.encodeToString(store)) }
     }

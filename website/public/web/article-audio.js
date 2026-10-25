@@ -102,8 +102,23 @@ export function audioContentRange(range, size) {
 	return { start, end: start + span - 1, size };
 }
 
-export function mediaErrorStopsPlayback(code) {
+export function mediaErrorStopsPlayback(code, partial) {
+	if (partial) return false;
 	return code === 2 || code === 3 || code === 4;
+}
+
+export function showArticleDownload() {
+	return false;
+}
+
+export const SPEECH_START_BYTES = 16_000;
+
+export function speechUsesMediaSource(supported) {
+	return supported === true;
+}
+
+export function speechStartReady(received, started) {
+	return !started && Number(received) > SPEECH_START_BYTES;
 }
 
 export function storedRows(text) {
