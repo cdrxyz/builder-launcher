@@ -703,6 +703,51 @@ test('a failed feed does not discard shows that parsed', async () => {
 	assert.deepEqual(applied.episodes.map((episode) => episode.id), ['old-bad', 'new-ok']);
 });
 
+test('a saved catalog opens podcast screens without waiting on RSS', async () => {
+	const { compactCatalog, restoreCatalog, showsInFeedOrder, showsNeedingFeed, podcastsOf, FEED_CACHE_CONTROL } = await import('../public/web/media.js');
+	const html = '<p>Hello <b>notes</b></p>';
+	const episodes = Array.from({ length: 70 }, (_, i) => ({
+		id: `ep-${i}`,
+		showId: 'https://feeds.example/show',
+		title: `Ep ${i}`,
+		pubDate: i,
+		durationMs: 1000,
+		enclosureUrl: 'https://cdn.example/a.mp3',
+		description: html,
+	}));
+	episodes.push({ id: 'other', showId: 'https://feeds.example/gone', title: 'Gone', pubDate: 9, description: 'x' });
+	const compact = compactCatalog(episodes, 60);
+	assert.equal(compact.filter((row) => row.showId === 'https://feeds.example/show').length, 60);
+	assert.equal(compact[0].id, 'ep-69');
+	assert.equal(compact[0].description, 'Hello notes');
+	assert.equal(compact.some((row) => row.id === 'other'), true);
+	const slim = {
+		podcasts: {
+			shows: [{ feedUrl: 'https://feeds.example/show', title: 'Show', lastCheckedAt: Date.now() }],
+			episodes: [],
+			progress: [],
+		},
+	};
+	const restored = restoreCatalog(slim, compact);
+	assert.equal(restored.podcasts.episodes.length, 60);
+	assert.equal(showsNeedingFeed(podcastsOf(restored)).length, 0);
+	const ordered = showsInFeedOrder(
+		[
+			{ feedUrl: 'https://feeds.example/a' },
+			{ feedUrl: 'https://feeds.example/open' },
+		],
+		'https://feeds.example/open',
+	);
+	assert.equal(ordered[0].feedUrl, 'https://feeds.example/open');
+	assert.equal(FEED_CACHE_CONTROL, 'public, max-age=900');
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /restoreCatalog\(state\.doc, await loadCatalog\(\)\)/);
+	assert.match(js, /function readCheckpoint\(force\)/);
+	assert.match(js, /function paintReadPos\(\)/);
+	assert.match(js, /fetchOneShow\(open\)/);
+	assert.match(js, /appendWindow\(wrap, list/);
+});
+
 test('opening a show refreshes through go and paints the show screen', async () => {
 	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
 	assert.match(js, /state\.showId = show\.feedUrl;\s*go\('show'\)/);
@@ -872,13 +917,13 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 	const sw = await readFile(new URL('../public/web/sw.js', import.meta.url), 'utf8');
 	assert.match(
 		css,
-		/@media \(max-width: 48rem\) \{[\s\S]*?padding-bottom:\s*max\(2\.25rem, calc\(1\.1rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/,
+		/@media \(max-width: 48rem\) \{[\s\S]*?padding-bottom:\s*max\(3rem, calc\(1\.85rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/,
 	);
 	assert.match(
 		css,
-		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(2\.75rem, calc\(1\.5rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
+		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(3\.5rem, calc\(2\.25rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v49/);
+	assert.match(sw, /builder-launcher-web-v50/);
 });
 
 test('the web app fetches an article from /api/articles', async () => {
@@ -937,6 +982,9 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(css, /--chrome-bar:\s*3\.5rem/);
 	assert.match(css, /header\.app-bar \{[^}]*height:\s*var\(--chrome-bar\)/s);
 	assert.match(css, /main\.home-main \{[^}]*padding-top:\s*calc\(\(var\(--chrome-bar\) - var\(--chrome-icon\)\) \/ 2\)/s);
+	assert.match(css, /--screen-pad-top:\s*1\.5rem/);
+	assert.match(css, /--screen-pad-bottom:\s*2\.5rem/);
+	assert.match(css, /padding:\s*var\(--screen-pad-top\) var\(--chrome-inset\) var\(--screen-pad-bottom\)/);
 	assert.match(css, /\.speed-menu \{[^}]*position:\s*fixed/s);
 	assert.match(css, /\.speed-menu \{[^}]*overflow-y:\s*auto/s);
 	assert.match(css, /main\.home-main \{/);

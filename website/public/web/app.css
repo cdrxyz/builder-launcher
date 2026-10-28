@@ -10,6 +10,8 @@
 	--chrome-hit: 2.75rem;
 	--chrome-bar: 3.5rem;
 	--chrome-inset: 1rem;
+	--screen-pad-top: 1.5rem;
+	--screen-pad-bottom: 2.5rem;
 	--font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
 		monospace;
 }
@@ -34,7 +36,7 @@ body {
 }
 
 body {
-	padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+	padding: calc(env(safe-area-inset-top, 0px) + 1rem) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 #app {
@@ -151,7 +153,7 @@ main {
 	flex: 1;
 	min-height: 0;
 	overflow: auto;
-	padding: 0.5rem var(--chrome-inset) 1rem;
+	padding: var(--screen-pad-top) var(--chrome-inset) var(--screen-pad-bottom);
 	display: flex;
 	flex-direction: column;
 }
@@ -724,19 +726,19 @@ label span {
 .command-dock {
 	flex: none;
 	background: var(--bg);
-	padding: 0 0.6rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+	padding: 0 0.6rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-width: 48rem) {
 	.command-dock {
 		/* Floor when env(safe-area-inset-bottom) is 0 on iPhone Safari. */
-		padding-bottom: max(2.25rem, calc(1.1rem + env(safe-area-inset-bottom, 0px)));
+		padding-bottom: max(3rem, calc(1.85rem + env(safe-area-inset-bottom, 0px)));
 	}
 }
 
 @media (display-mode: standalone) {
 	.command-dock {
-		padding-bottom: max(2.75rem, calc(1.5rem + env(safe-area-inset-bottom, 0px)));
+		padding-bottom: max(3.5rem, calc(2.25rem + env(safe-area-inset-bottom, 0px)));
 	}
 }
 
@@ -900,6 +902,11 @@ details.s3-secondary summary {
 	color: var(--muted);
 	font: inherit;
 	font-size: 0.85rem;
+}
+
+.list-sentinel {
+	height: 1px;
+	flex: none;
 }
 
 .hidden {

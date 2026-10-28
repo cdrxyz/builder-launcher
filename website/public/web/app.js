@@ -98,6 +98,9 @@ import {
 	FEED_STALE_MS,
 	podcastsOf,
 	progressMap,
+	restoreCatalog,
+	compactCatalog,
+	showsInFeedOrder,
 	showsNeedingFeed,
 	quoteStats,
 	removeTicker,
@@ -171,11 +174,15 @@ const YAHOO_TIMESERIES = 'https://query1.finance.yahoo.com/ws/fundamentals-times
 const ITUNES = 'https://itunes.apple.com/search';
 
 const audio = new Audio();
+audio.preload = 'metadata';
 let lastSavedAt = 0;
 let lastSavedPos = 0;
 let listTab = null;
+let listScroll = 0;
 let feedInFlight = false;
 let feedQueued = false;
+let catalogTimer = 0;
+const feedFetching = new Set();
 const feedFailed = new Set();
 const pendingComplete = new Map();
 const leavingComplete = new Set();
@@ -255,6 +262,7 @@ setAccountRefresher(refreshAccount);
 
 async function boot() {
 	pinVisualViewport();
+	state.doc = restoreCatalog(state.doc, await loadCatalog());
 	state.api = await probeApi();
 	globalThis.__BL_PROXY = state.api;
 	if (state.api) {
@@ -277,8 +285,11 @@ async function boot() {
 	}, 5000);
 	armAutoSync();
 	render();
+	// Fill shows before the account round trip so Podcasts can open from the catalog.
+	refreshPodcastFeeds().catch(() => {});
 	(async () => {
-		if (hasSync() && (!state.doc || signedIn())) await pull({ quiet: true });
+		if (hasSync() && (!state.doc || signedIn())) await pull({ quiet: true, skipHydrate: true });
+		state.doc = restoreCatalog(state.doc, await loadCatalog());
 		await hydrateMedia();
 	})().catch(() => {});
 }
@@ -452,6 +463,62 @@ function saveSnapshot(doc) {
 	return writeSnapshot(localStorage, SNAP_KEY, doc);
 }
 
+const CATALOG_DB = 'builder-launcher-web';
+const CATALOG_STORE = 'podcast-catalog';
+
+function openCatalogDb() {
+	return new Promise((resolve, reject) => {
+		if (typeof indexedDB === 'undefined') {
+			reject(new Error('no indexedDB'));
+			return;
+		}
+		const req = indexedDB.open(CATALOG_DB, 1);
+		req.onupgradeneeded = () => {
+			if (!req.result.objectStoreNames.contains(CATALOG_STORE)) req.result.createObjectStore(CATALOG_STORE);
+		};
+		req.onsuccess = () => resolve(req.result);
+		req.onerror = () => reject(req.error);
+	});
+}
+
+async function loadCatalog() {
+	try {
+		const db = await openCatalogDb();
+		const episodes = await new Promise((resolve, reject) => {
+			const tx = db.transaction(CATALOG_STORE, 'readonly');
+			const req = tx.objectStore(CATALOG_STORE).get('episodes');
+			req.onsuccess = () => resolve(req.result || []);
+			req.onerror = () => reject(req.error);
+		});
+		db.close();
+		return Array.isArray(episodes) ? episodes : [];
+	} catch {
+		return [];
+	}
+}
+
+function rememberCatalog(doc) {
+	const episodes = compactCatalog(podcastsOf(doc).episodes);
+	clearTimeout(catalogTimer);
+	catalogTimer = setTimeout(() => {
+		writeCatalog(episodes).catch(() => {});
+	}, 300);
+}
+
+async function writeCatalog(episodes) {
+	const db = await openCatalogDb();
+	try {
+		await new Promise((resolve, reject) => {
+			const tx = db.transaction(CATALOG_STORE, 'readwrite');
+			tx.objectStore(CATALOG_STORE).put(episodes, 'episodes');
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+		});
+	} finally {
+		db.close();
+	}
+}
+
 function statusFromError(err) {
 	if (isQuotaError(err)) return 'This browser is out of storage for the snapshot. Hard-refresh, then sync again.';
 	return err?.message || String(err);
@@ -471,9 +538,11 @@ function ensureDoc() {
 
 function mutate(next) {
 	ensureDoc();
+	const prevEpisodes = state.doc?.podcasts?.episodes;
 	state.doc = { ...state.doc, ...next };
 	state.dirty = true;
 	saveSnapshot(state.doc);
+	if (next.podcasts && next.podcasts.episodes !== prevEpisodes) rememberCatalog(state.doc);
 	render();
 	maybeSyncSave();
 }
@@ -507,6 +576,7 @@ async function pull(opts = {}) {
 		const plain = await decrypt(blob, state.creds.encryptionKey);
 		const remote = JSON.parse(decodeUtf8(plain));
 		state.doc = opts.overwrite ? remote : joinDocs(state.doc, remote);
+		state.doc = restoreCatalog(state.doc, await loadCatalog());
 		state.dirty = false;
 		state.hits = [];
 		const saved = saveSnapshot(state.doc);
@@ -529,6 +599,7 @@ async function pullAccount(opts = {}) {
 		state.revision = remote.revision || 0;
 		if (opts.overwrite && remote.document) state.doc = remote.document;
 		else state.doc = keepFreshArticles(joinDocs(state.doc, remote.document), state.doc, startedAt);
+		state.doc = restoreCatalog(state.doc, await loadCatalog());
 		const saved = saveSnapshot(state.doc);
 		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true, skipHydrate: true });
 		state.dirty = false;
@@ -617,6 +688,7 @@ function render() {
 	const draft = state.draft;
 	const list = app.querySelector('main');
 	const restore = list && listTab === state.tab ? list.scrollTop : 0;
+	listScroll = restore;
 	app.replaceChildren();
 	if (state.tab === 'home') app.append(main(), commandDock());
 	else app.append(header(), statusLine(), main(), commandDock());
@@ -769,7 +841,13 @@ function go(tab, prompt) {
 		state.stockScrub = null;
 	}
 	if (changingPage) state.speedMenu = false;
-	if (changingPage && tab !== 'read' && tab !== 'article') readStop(true);
+	if (changingPage && tab !== 'read' && tab !== 'article') {
+		try {
+			readStop(true);
+		} catch {
+			/* A speech checkpoint must not block the next screen. */
+		}
+	}
 	if (tab !== 'article') state.articleId = tab === 'read' ? state.articleId : null;
 	if (changingPage && (tab === 'pods' || tab === 'show')) {
 		refreshPodcastFeeds({ rerender: true }).catch(() => {});
@@ -1457,7 +1535,7 @@ function podcastCatalogScreen(kind) {
 		: catalogEpisodes(bag.shows, bag.episodes);
 	const shows = new Map((bag.shows || []).map((show) => [show.feedUrl, show]));
 	if (!episodes.length) wrap.append(empty(kind === 'recent' ? 'No recent episodes.' : 'No episodes yet.'));
-	for (const episode of episodes) {
+	appendWindow(wrap, episodes, (episode) => {
 		const progress = byId.get(episode.id);
 		const plus = kind === 'next' && !inRecent(progress)
 			? button('+', () => saveEpisodeToRecent(episode), 'ghost')
@@ -1473,7 +1551,7 @@ function podcastCatalogScreen(kind) {
 		trail.className = 'trail';
 		if (download) trail.append(download);
 		if (plus) trail.append(plus);
-		wrap.append(listRow({
+		return listRow({
 			title: episode.title,
 			subtitle: shows.get(episode.showId)?.title || '',
 			trail: trail.childElementCount ? trail : null,
@@ -1484,9 +1562,31 @@ function podcastCatalogScreen(kind) {
 				state.episodeId = episode.id;
 				render();
 			},
-		}));
-	}
+		});
+	});
 	return wrap;
+}
+
+function appendWindow(wrap, rows, renderRow) {
+	if (!rows.length) return;
+	const page = 40;
+	const need = Math.max(page, Math.ceil((listScroll + 1400) / 72));
+	let shown = 0;
+	const sentinel = document.createElement('div');
+	sentinel.className = 'list-sentinel';
+	const fill = (count) => {
+		const batch = rows.slice(shown, shown + count);
+		for (const row of batch) wrap.insertBefore(renderRow(row), sentinel);
+		shown += batch.length;
+		if (shown >= rows.length) sentinel.remove();
+	};
+	wrap.append(sentinel);
+	fill(need);
+	if (shown >= rows.length || typeof IntersectionObserver !== 'function') return;
+	const io = new IntersectionObserver((entries) => {
+		if (entries.some((entry) => entry.isIntersecting)) fill(page);
+	}, { root: wrap.closest('main'), rootMargin: '640px' });
+	io.observe(sentinel);
 }
 
 function saveEpisodeToRecent(episode) {
@@ -1531,7 +1631,7 @@ function showScreen() {
 				: 'No episodes yet.',
 		));
 	}
-	for (const episode of list) wrap.append(episodeRow(episode, show, byId.get(episode.id)));
+	appendWindow(wrap, list, (episode) => episodeRow(episode, show, byId.get(episode.id)));
 	return wrap;
 }
 
@@ -2704,56 +2804,68 @@ function isLocalOrigin() {
 }
 
 async function refreshPodcastFeeds(opts = {}) {
-	// A navigation during a pass must not be dropped. The running pass paints
-	// the screen the user is on when it finishes, then runs one more pass if
-	// another refresh was requested while it was in flight.
+	// A navigation during a pass must not be dropped. The open show is fetched
+	// immediately so its screen does not wait for the rest of the library.
+	const open = openShow();
+	if (open && showsNeedingFeed({ shows: [open], episodes: podcastsOf(state.doc).episodes }).length) {
+		fetchOneShow(open).catch(() => {});
+	}
 	if (feedInFlight) {
 		feedQueued = true;
 		return;
 	}
 	feedInFlight = true;
+	let retryArmed = false;
 	try {
 		let pass = 0;
 		do {
 			feedQueued = false;
 			const bag = podcastsOf(state.doc);
-			const stale = showsNeedingFeed(bag, Date.now(), FEED_STALE_MS);
+			const stale = showsInFeedOrder(showsNeedingFeed(bag, Date.now(), FEED_STALE_MS), state.showId);
 			if (!stale.length) break;
-			await runFeedPass(stale, bag, opts);
+			const failed = await runFeedPass(stale);
 			pass += 1;
+			if (failed && !opts.retry && !retryArmed) {
+				retryArmed = true;
+				setTimeout(() => refreshPodcastFeeds({ retry: true }).catch(() => {}), 60_000);
+			}
 		} while (feedQueued && pass < 3);
 	} finally {
 		feedInFlight = false;
-		if (state.tab === 'pods' || state.tab === 'show') render();
+		if (onPodcastScreen()) render();
 	}
 }
 
-async function runFeedPass(stale, bag, opts) {
-	const feeds = new Array(stale.length);
-	let cursor = 0;
-	const worker = async () => {
-		while (cursor < stale.length) {
-			const index = cursor;
-			cursor += 1;
-			const show = stale[index];
-			try {
-				const xml = await fetchText(feedSource(show.feedUrl));
-				feeds[index] = parseRss(xml, show.feedUrl);
-			} catch {
-				feeds[index] = null;
-			}
-		}
+function openShow() {
+	const id = String(state.showId || '').toLowerCase();
+	if (!id) return null;
+	return podcastsOf(state.doc).shows.find((show) => String(show.feedUrl || '').toLowerCase() === id) || null;
+}
+
+function onPodcastScreen() {
+	return state.tab === 'pods' || state.tab === 'show' || state.tab === 'recent' || state.tab === 'next' || state.tab === 'episode';
+}
+
+let feedPaintQueued = false;
+function paintPodcastScreens() {
+	if (!onPodcastScreen() || feedPaintQueued) return;
+	feedPaintQueued = true;
+	const paint = () => {
+		feedPaintQueued = false;
+		if (onPodcastScreen()) render();
 	};
-	await Promise.all(Array.from({ length: Math.min(FEED_HYDRATE_LIMIT, stale.length) }, worker));
-	const checkedAt = Date.now();
-	const parsed = stale.map((show, index) => ({ feedUrl: show.feedUrl, feed: feeds[index] || null }));
-	for (const row of parsed) {
-		const key = String(row.feedUrl || '').toLowerCase();
-		if (!key) continue;
-		if (row.feed) feedFailed.delete(key);
+	if (typeof requestAnimationFrame === 'function') requestAnimationFrame(paint);
+	else setTimeout(paint, 0);
+}
+
+function applyOneFeed(feedUrl, feed) {
+	const bag = podcastsOf(state.doc);
+	const key = String(feedUrl || '').toLowerCase();
+	if (key) {
+		if (feed) feedFailed.delete(key);
 		else feedFailed.add(key);
 	}
-	const applied = applyCheckedFeeds(bag.shows, bag.episodes, parsed, checkedAt);
+	const applied = applyCheckedFeeds(bag.shows, bag.episodes, [{ feedUrl, feed: feed || null }], Date.now());
 	const prev = bag.shows || [];
 	const changed = applied.episodes !== bag.episodes
 		|| applied.shows.length !== prev.length
@@ -2761,12 +2873,41 @@ async function runFeedPass(stale, bag, opts) {
 	if (changed) {
 		state.doc = { ...state.doc, podcasts: { ...bag, shows: applied.shows, episodes: applied.episodes } };
 		saveSnapshot(state.doc);
+		rememberCatalog(state.doc);
+		paintPodcastScreens();
 	}
-	// One delayed retry for shows that failed. Successes are already saved, so
-	// a dead host does not hide the rest of the catalog or schedule another wave.
-	if (applied.failed.length && !opts.retry) {
-		setTimeout(() => refreshPodcastFeeds({ retry: true }).catch(() => {}), 60_000);
+	return applied.failed.length === 0;
+}
+
+async function fetchOneShow(show) {
+	const key = String(show?.feedUrl || '').toLowerCase();
+	if (!key || feedFetching.has(key)) return null;
+	feedFetching.add(key);
+	try {
+		const xml = await fetchText(feedSource(show.feedUrl));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		return applyOneFeed(show.feedUrl, parseRss(xml, show.feedUrl));
+	} catch {
+		applyOneFeed(show.feedUrl, null);
+		return false;
+	} finally {
+		feedFetching.delete(key);
 	}
+}
+
+async function runFeedPass(stale) {
+	let cursor = 0;
+	let failed = false;
+	const worker = async () => {
+		while (cursor < stale.length) {
+			const show = stale[cursor];
+			cursor += 1;
+			const ok = await fetchOneShow(show);
+			if (ok === false) failed = true;
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(FEED_HYDRATE_LIMIT, stale.length) }, worker));
+	return failed;
 }
 
 async function refreshQuotes() {
@@ -3440,6 +3581,31 @@ function readStop(save) {
 		readSpeak.audio = null;
 	}
 	if (save) readCheckpoint(true);
+}
+
+function readCheckpoint(force) {
+	if (!readSpeak.id || !state.doc) return;
+	const now = Date.now();
+	if (!force && now - (readSpeak.savedAt || 0) < 5000) return;
+	readSpeak.savedAt = now;
+	const bag = readsOf(state.doc);
+	const next = { articleId: readSpeak.id, positionMs: readSpeak.positionMs, updatedAt: now };
+	state.doc = { ...state.doc, reads: { ...bag, progress: upsertReadProgress(bag.progress, next) } };
+	state.dirty = true;
+	saveSnapshot(state.doc);
+	maybeSyncSave();
+	paintReadPos();
+}
+
+function paintReadPos() {
+	const el = document.getElementById('play-pos');
+	if (el) el.textContent = positionLabel(readSpeak.positionMs, readSpeak.durationMs);
+	const fill = document.getElementById('play-scrub-fill');
+	const knob = document.getElementById('play-scrub-knob');
+	if (fill && knob) setScrub(readSpeak.durationMs ? readSpeak.positionMs / readSpeak.durationMs : 0, fill, knob);
+	document.querySelectorAll('.read-sentence').forEach((node) => {
+		node.classList.toggle('read-current', Number(node.dataset.i) === readSpeak.index && readSpeak.playing);
+	});
 }
 
 async function ensureSpeech() {
