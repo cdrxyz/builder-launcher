@@ -14,6 +14,7 @@ import {
 	textError,
 	USER_AGENT,
 } from './safe';
+import { FEED_CACHE_CONTROL } from '../../website/public/web/media.js';
 import { fyydToItunes } from './podcasts';
 import { extractArticle, fetchUrl, nextFetchUrl } from '../../website/public/web/reads.js';
 import { handleAi } from './ai';
@@ -29,14 +30,14 @@ export interface Env {
 const STATIC = /\.(css|js|mjs|map|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|webmanifest)$/i;
 
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === '/api/up') {
 			return Response.json({ ok: true, service: 'builder-launcher' });
 		}
 		if (url.pathname.startsWith('/api/')) {
 			if (!apiAllowed(request)) return jsonError('Origin not allowed', 403);
-			return handleApi(request, url, env);
+			return handleApi(request, url, env, ctx);
 		}
 		if (STATIC.test(url.pathname) || url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest') {
 			const asset = await env.ASSETS.fetch(request);
@@ -53,7 +54,7 @@ export default {
 	},
 };
 
-async function handleApi(request: Request, url: URL, env: Env): Promise<Response> {
+async function handleApi(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
 	try {
 		if (url.pathname.startsWith('/api/auth/') || url.pathname === '/api/vault') {
 			if (!env.DB) return jsonError('Account sync is not configured on this Worker', 503);
@@ -81,7 +82,7 @@ async function handleApi(request: Request, url: URL, env: Env): Promise<Response
 			return itunesSearch(url.searchParams.get('q') || '');
 		}
 		if (url.pathname === '/api/feed' && request.method === 'GET') {
-			return fetchFeed(url.searchParams.get('url') || '');
+			return fetchFeed(url.searchParams.get('url') || '', request, ctx);
 		}
 		if ((url.pathname === '/api/articles' || url.pathname === '/api/read') && request.method === 'GET') {
 			return fetchArticle(url.searchParams.get('url') || '');
@@ -296,9 +297,15 @@ async function fetchArticle(raw: string): Promise<Response> {
 	}
 }
 
-async function fetchFeed(raw: string): Promise<Response> {
+async function fetchFeed(raw: string, request: Request, ctx: ExecutionContext): Promise<Response> {
 	const url = isSafeHttpsUrl(raw);
 	if (!url) return textError('Feed URL must be https on a public host');
+	const cache = workerCache();
+	const cacheKey = new Request(request.url, { method: 'GET' });
+	if (cache) {
+		const hit = await cache.match(cacheKey);
+		if (hit) return hit;
+	}
 	try {
 		const res = await fetch(url.toString(), {
 			headers: { 'user-agent': USER_AGENT, accept: 'application/rss+xml, application/xml, text/xml, */*' },
@@ -307,11 +314,21 @@ async function fetchFeed(raw: string): Promise<Response> {
 		const buf = await res.arrayBuffer();
 		if (buf.byteLength > MAX_FEED_BYTES) return textError('Feed too large', 413);
 		if (!res.ok) return textError(`Feed HTTP ${res.status}`, 502);
-		return new Response(buf, {
-			headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'no-store' },
+		const response = new Response(buf, {
+			headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': FEED_CACHE_CONTROL },
 		});
+		if (cache) ctx.waitUntil(cache.put(cacheKey, response.clone()).catch(() => {}));
+		return response;
 	} catch {
 		return textError('Feed timed out', 504);
+	}
+}
+
+function workerCache(): Cache | null {
+	try {
+		return typeof caches !== 'undefined' ? caches.default : null;
+	} catch {
+		return null;
 	}
 }
 

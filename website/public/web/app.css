@@ -10,6 +10,9 @@
 	--chrome-hit: 2.75rem;
 	--chrome-bar: 3.5rem;
 	--chrome-inset: 1rem;
+	--screen-pad-top: 1.5rem;
+	--screen-pad-bottom: 2.5rem;
+	--tap: 3.25rem;
 	--font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
 		monospace;
 }
@@ -34,7 +37,7 @@ body {
 }
 
 body {
-	padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+	padding: calc(env(safe-area-inset-top, 0px) + 1rem) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 #app {
@@ -79,6 +82,7 @@ header.app-bar h1,
 header.app-bar > .ghost,
 header.app-bar > .app-bar-slot,
 header.app-bar > .ghost.gear {
+	position: relative;
 	width: var(--chrome-hit);
 	height: var(--chrome-bar);
 	min-width: 0;
@@ -87,6 +91,25 @@ header.app-bar > .ghost.gear {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	touch-action: manipulation;
+}
+
+/* The glyph stays put. A fixed pad is not clipped by the scrolling list, so a tap in the corner padding still hits. */
+header.app-bar > .ghost:first-child::before,
+header.app-bar > .ghost.gear::before {
+	content: '';
+	position: fixed;
+	top: 0;
+	width: 4.75rem;
+	height: calc(env(safe-area-inset-top, 0px) + 5.5rem);
+}
+
+header.app-bar > .ghost:first-child::before {
+	left: 0;
+}
+
+header.app-bar > .ghost.gear::before {
+	right: 0;
 }
 
 header.app-bar.wide-end > :last-child {
@@ -96,24 +119,38 @@ header.app-bar.wide-end > :last-child {
 }
 
 .row-icon {
-	min-width: 2.4rem;
-	min-height: 2.2rem;
+	position: relative;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	touch-action: manipulation;
 }
 
-.row-icon svg {
-	display: block;
+.row-icon::before,
+.prompt-glyph::before,
+.play-toggle::before,
+.now-playing .play::before {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: var(--tap);
+	height: var(--tap);
+	transform: translate(-50%, -50%);
 }
 
 .ghost.gear svg,
 .now-playing .play svg,
 .play-toggle svg,
-.podcast-mark svg {
+.podcast-mark svg,
+.row-icon svg,
+.prompt-glyph svg {
 	width: var(--chrome-icon);
 	height: var(--chrome-icon);
 	display: block;
+	pointer-events: none;
 }
 
 .ghost,
@@ -151,7 +188,7 @@ main {
 	flex: 1;
 	min-height: 0;
 	overflow: auto;
-	padding: 0.5rem var(--chrome-inset) 1rem;
+	padding: var(--screen-pad-top) var(--chrome-inset) var(--screen-pad-bottom);
 	display: flex;
 	flex-direction: column;
 }
@@ -218,19 +255,28 @@ main.home-main {
 }
 
 .home-side .ghost.gear {
+	position: relative;
 	color: var(--fg);
 	display: inline-flex;
-	align-items: center;
+	align-items: flex-start;
 	width: var(--chrome-hit);
-	height: var(--chrome-icon);
+	height: auto;
 	min-width: var(--chrome-hit);
-	min-height: var(--chrome-icon);
+	min-height: 2.75rem;
 	padding: 0;
 	align-self: flex-start;
 	justify-content: center;
+	touch-action: manipulation;
+}
+
+.home-side .ghost.gear::before {
+	content: '';
+	position: absolute;
+	inset: -0.35rem -0.85rem -0.45rem -0.35rem;
 }
 
 .home-mark {
+	position: relative;
 	background: none;
 	border: 0;
 	color: inherit;
@@ -244,6 +290,7 @@ main.home-main {
 	align-items: center;
 	justify-content: flex-start;
 	gap: 0.1rem;
+	touch-action: manipulation;
 }
 
 .home-side.right .home-mark {
@@ -268,6 +315,28 @@ main.home-main {
 	min-height: var(--chrome-icon);
 	padding: 0 0.35rem 0.45rem 0;
 	justify-content: flex-start;
+}
+
+.podcast-mark::before,
+.home-mark:not(.podcast-mark)::before {
+	content: '';
+	position: absolute;
+}
+
+/* Reach the corner padding without covering the weather mark. Fixed so the list cannot clip it. */
+.podcast-mark::before {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 4.75rem;
+	height: calc(env(safe-area-inset-top, 0px) + 3.75rem);
+}
+
+.home-mark:not(.podcast-mark)::before {
+	top: -0.25rem;
+	left: -0.75rem;
+	right: -0.35rem;
+	bottom: -0.85rem;
 }
 
 .weather-glyph svg {
@@ -724,19 +793,19 @@ label span {
 .command-dock {
 	flex: none;
 	background: var(--bg);
-	padding: 0 0.6rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+	padding: 0 0.6rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-width: 48rem) {
 	.command-dock {
 		/* Floor when env(safe-area-inset-bottom) is 0 on iPhone Safari. */
-		padding-bottom: max(2.25rem, calc(1.1rem + env(safe-area-inset-bottom, 0px)));
+		padding-bottom: max(3rem, calc(1.85rem + env(safe-area-inset-bottom, 0px)));
 	}
 }
 
 @media (display-mode: standalone) {
 	.command-dock {
-		padding-bottom: max(2.75rem, calc(1.5rem + env(safe-area-inset-bottom, 0px)));
+		padding-bottom: max(3.5rem, calc(2.25rem + env(safe-area-inset-bottom, 0px)));
 	}
 }
 
@@ -765,12 +834,14 @@ label span {
 }
 
 .prompt-glyph {
+	position: relative;
 	color: var(--accent);
 	font-size: 1.35rem;
-	min-width: 2.4rem;
-	min-height: 2.6rem;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
 	padding: 0.35rem 0.2rem;
 	line-height: 1;
+	touch-action: manipulation;
 }
 
 .command-bar input,
@@ -902,6 +973,11 @@ details.s3-secondary summary {
 	font-size: 0.85rem;
 }
 
+.list-sentinel {
+	height: 1px;
+	flex: none;
+}
+
 .hidden {
 	display: none !important;
 }
@@ -962,13 +1038,22 @@ details.s3-secondary summary {
 
 .play-toggle,
 .now-playing .play {
+	position: relative;
 	color: var(--accent);
-	min-width: var(--chrome-hit);
-	min-height: var(--chrome-hit);
+	min-width: var(--tap);
+	min-height: var(--tap);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	padding: 0;
+	touch-action: manipulation;
+}
+
+.player-controls .ghost {
+	position: relative;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+	touch-action: manipulation;
 }
 
 .player-controls {

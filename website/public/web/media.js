@@ -414,7 +414,16 @@ export function timestamps(text) {
 }
 
 export const FETCH_TIMEOUT_MS = 12_000;
-export const FEED_HYDRATE_LIMIT = 4;
+export const FEED_HYDRATE_LIMIT = 6;
+
+/** Successful RSS may be reused by the browser and the Worker. Shorter than FEED_STALE_MS so a later check still reaches the origin. */
+export const FEED_CACHE_CONTROL = 'public, max-age=900';
+
+/** Newest episodes kept per show in the on-device catalog. Enough to open a show without waiting on RSS. */
+export const CATALOG_PER_SHOW = 60;
+
+/** Plain-text show notes stored with the catalog. Full HTML stays in memory after a fetch. */
+export const CATALOG_NOTE_CHARS = 2000;
 
 export function podcastsOf(doc) {
 	const bag = doc?.podcasts || {};
@@ -444,6 +453,79 @@ export function showsNeedingFeed(bag, now = Date.now(), staleMs = FEED_STALE_MS)
 		const last = Number(show.lastCheckedAt) || 0;
 		return !last || now - last >= staleMs;
 	});
+}
+
+/** Open show first, so that screen fills before the rest of the library. */
+export function showsInFeedOrder(stale, showId) {
+	const id = String(showId || '').toLowerCase();
+	if (!id) return stale || [];
+	return [...(stale || [])].sort((a, b) => {
+		const rank = (show) => (String(show?.feedUrl || '').toLowerCase() === id ? 0 : 1);
+		return rank(a) - rank(b);
+	});
+}
+
+export function compactEpisode(episode) {
+	if (!episode?.id || !episode.showId) return null;
+	const description = stripTags(episode.description || '').replace(/\s+/g, ' ').trim().slice(0, CATALOG_NOTE_CHARS);
+	return {
+		id: String(episode.id),
+		showId: episode.showId,
+		title: episode.title || 'untitled',
+		pubDate: episode.pubDate || 0,
+		durationMs: episode.durationMs || 0,
+		enclosureUrl: episode.enclosureUrl || '',
+		description,
+	};
+}
+
+/** Compact episode lists for IndexedDB. Account sync stays slim; this cache is this browser only. */
+export function compactCatalog(episodes, perShow = CATALOG_PER_SHOW) {
+	const byShow = new Map();
+	for (const episode of episodes || []) {
+		const compact = compactEpisode(episode);
+		if (!compact) continue;
+		const key = String(compact.showId).toLowerCase();
+		const list = byShow.get(key) || [];
+		list.push(compact);
+		byShow.set(key, list);
+	}
+	const out = [];
+	for (const list of byShow.values()) {
+		list.sort((a, b) => (b.pubDate || 0) - (a.pubDate || 0));
+		out.push(...list.slice(0, perShow));
+	}
+	return out;
+}
+
+/**
+ * Put a saved catalog back onto a slim snapshot. In-memory episodes win, but a
+ * cached description or enclosure fills a blank. Episodes for unsubscribed shows are dropped.
+ */
+export function restoreCatalog(doc, cached) {
+	if (!doc) return doc;
+	const pods = podcastsOf(doc);
+	const feeds = new Set(pods.shows.map((show) => String(show.feedUrl || '').toLowerCase()));
+	const byId = new Map();
+	for (const episode of cached || []) {
+		if (!episode?.id || !feeds.has(String(episode.showId || '').toLowerCase())) continue;
+		byId.set(String(episode.id), episode);
+	}
+	for (const episode of pods.episodes) {
+		if (!episode?.id) continue;
+		const prev = byId.get(String(episode.id));
+		if (!prev) byId.set(String(episode.id), episode);
+		else {
+			byId.set(String(episode.id), {
+				...prev,
+				...episode,
+				description: episode.description || prev.description || '',
+				enclosureUrl: episode.enclosureUrl || prev.enclosureUrl || '',
+				durationMs: Math.max(episode.durationMs || 0, prev.durationMs || 0),
+			});
+		}
+	}
+	return { ...doc, podcasts: { ...pods, episodes: [...byId.values()] } };
 }
 
 export function progressMap(progress) {
