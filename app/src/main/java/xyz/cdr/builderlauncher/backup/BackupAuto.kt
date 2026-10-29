@@ -15,7 +15,7 @@ object BackupAuto {
         ready: Boolean,
     ): Action {
         if (frequency != BackupFrequency.AUTO || !ready) return Action.NONE
-        if (dirty) return Action.PUSH
+        if (dirty && lastPullAtEpochMs > 0L) return Action.PUSH
         val pullDue = lastPullAtEpochMs <= 0L ||
             nowMs - lastPullAtEpochMs >= BackupFrequency.PULL_INTERVAL_MS
         if (pullDue) return Action.PULL

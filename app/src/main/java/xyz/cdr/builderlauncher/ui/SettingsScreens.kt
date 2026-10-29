@@ -880,7 +880,7 @@ internal fun BackupSettingsPage(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Sign-in replaces local data with the account snapshot. Sync now merges both ways. OAuth tokens travel only when Include AI credentials is on.",
+            "Builder account (recommended). Same email and password on the phone and builder.cdr.xyz. Sign-in merges this phone with the account. It does not replace either side. OAuth tokens travel only when Include AI credentials is on.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -957,27 +957,25 @@ internal fun BackupSettingsPage(
                 color = if (backupBusy) Dim else Paper,
                 modifier = Modifier
                     .clickable(enabled = !backupBusy) {
-                        confirmOverwriteLocal(ctx) {
-                            backupBusy = true
-                            scope.launch {
-                                backupMsg = runCatching {
-                                    withContext(Dispatchers.IO) {
-                                        val signed = backup.login(accountEmail, accountPassword)
-                                        signed + ". " + backup.restore()
-                                    }
-                                }.fold(
-                                    onSuccess = {
-                                        AccountAutofill.commit(ctx)
-                                        it
-                                    },
-                                    onFailure = {
-                                        AccountAutofill.cancel(ctx)
-                                        it.message ?: "Sign in failed"
-                                    },
-                                )
-                                accountPassword = ""
-                                backupBusy = false
-                            }
+                        backupBusy = true
+                        scope.launch {
+                            backupMsg = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    val signed = backup.login(accountEmail, accountPassword)
+                                    signed + ". " + backup.mergeAccount()
+                                }
+                            }.fold(
+                                onSuccess = {
+                                    AccountAutofill.commit(ctx)
+                                    it
+                                },
+                                onFailure = {
+                                    AccountAutofill.cancel(ctx)
+                                    it.message ?: "Sign in failed"
+                                },
+                            )
+                            accountPassword = ""
+                            backupBusy = false
                         }
                     }
                     .padding(vertical = 8.dp),
