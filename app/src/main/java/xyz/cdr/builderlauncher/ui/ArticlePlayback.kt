@@ -62,15 +62,20 @@ internal class ArticlePlayback(
         articlePlayer.arm(article, startMs, speed, playing = false)
         scope.launch {
             var live = false
-            var growing = false
             val prepared = runCatching {
                 speech.load(article) { first ->
                     if (mine != token[0]) return@load
+                    live = true
+                    val growing = Reads.shouldStreamGrowingFile(first.complete) && first.uri.scheme == "file"
                     scope.launch(Dispatchers.Main) {
                         if (mine != token[0]) return@launch
-                        live = true
-                        growing = !first.complete && first.uri.scheme == "file"
-                        articlePlayer.play(article, first.uri, first.headers, startMs, speed)
+                        if (growing) {
+                            articlePlayer.playGrowing(article, File(first.uri.path.orEmpty()), startMs, speed) {
+                                speech.stillWriting(article.id)
+                            }
+                        } else {
+                            articlePlayer.play(article, first.uri, first.headers, startMs, speed)
+                        }
                     }
                 }.await()
             }
@@ -78,7 +83,6 @@ internal class ArticlePlayback(
             prepared.onSuccess { ready ->
                 withContext(Dispatchers.Main) {
                     if (!live) articlePlayer.play(article, ready.uri, ready.headers, startMs, speed)
-                    else if (growing) articlePlayer.appendGrowing(File(ready.uri.path.orEmpty()))
                     setAudio(article.id, Reads.audioProgressLabel("ready", 1, 1))
                 }
             }.onFailure { err ->

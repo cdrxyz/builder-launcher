@@ -176,6 +176,8 @@ class ReadsTest {
         assertEquals("YQ==", Reads.speechEvent("""{"type":"audio.delta","delta":"YQ=="}""").second)
         assertEquals(false, Reads.shouldStartSpeech(100))
         assertEquals(true, Reads.shouldStartSpeech(Reads.SPEECH_START_BYTES))
+        assertEquals(true, Reads.shouldStreamGrowingFile(false))
+        assertEquals(false, Reads.shouldStreamGrowingFile(true))
         assertEquals("generating…", Reads.articleDownloadLabel(""))
         assertEquals("generating…", Reads.articleDownloadLabel("preparing audio"))
         assertEquals("generating…", Reads.articleDownloadLabel("preparing audio", 0, 0))

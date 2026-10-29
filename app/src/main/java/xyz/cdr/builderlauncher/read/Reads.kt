@@ -252,6 +252,8 @@ object Reads {
 
     fun shouldStartSpeech(bytes: Int): Boolean = bytes >= SPEECH_START_BYTES
 
+    fun shouldStreamGrowingFile(complete: Boolean): Boolean = !complete
+
     private fun jsonField(raw: String, name: String): String {
         val key = "\"$name\""
         val at = raw.indexOf(key)

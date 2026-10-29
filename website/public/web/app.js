@@ -25,7 +25,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, speechHash, speechStartReady, storedPieces, storedRows } from './article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, speechHash, staleMediaError, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -234,8 +234,23 @@ const state = {
 
 const app = document.getElementById('app');
 
+const liveAudio = { id: null, token: 0, open: false, pending: [], finished: false };
+
 if ('serviceWorker' in navigator) {
 	navigator.serviceWorker.register('./sw.js').catch(() => {});
+	navigator.serviceWorker.addEventListener('message', (event) => {
+		const data = event.data || {};
+		if (data.type !== 'live-open') return;
+		if (data.id !== liveAudio.id || String(data.token) !== String(liveAudio.token)) return;
+		liveAudio.open = true;
+		const sw = navigator.serviceWorker.controller;
+		if (!sw) return;
+		for (const chunk of liveAudio.pending) {
+			sw.postMessage({ type: 'live-audio', id: data.id, token: liveAudio.token, chunk }, [chunk.buffer]);
+		}
+		liveAudio.pending = [];
+		if (liveAudio.finished) sw.postMessage({ type: 'live-audio', id: data.id, token: liveAudio.token, done: true });
+	});
 }
 
 audio.playbackRate = loadSpeed();
@@ -3812,7 +3827,43 @@ async function storedClip(article, index, plan) {
 	return requestClip(article, index, plan);
 }
 
-async function fetchXaiSpeech(bearer, text, voice, onStart, onProgress) {
+function canLiveStream() {
+	return Boolean(navigator.serviceWorker && navigator.serviceWorker.controller);
+}
+
+function armLive(article, token) {
+	liveAudio.id = article.id;
+	liveAudio.token = token;
+	liveAudio.open = false;
+	liveAudio.pending = [];
+	liveAudio.finished = false;
+}
+
+function pushLiveChunk(id, token, bytes, done) {
+	if (liveAudio.id !== id || String(liveAudio.token) !== String(token)) return;
+	const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+	if (!sw) return;
+	if (done) {
+		liveAudio.finished = true;
+		if (liveAudio.open) sw.postMessage({ type: 'live-audio', id, token, done: true });
+		return;
+	}
+	if (!bytes || attachTruncatedSpeech()) return;
+	const chunk = bytes instanceof Uint8Array ? bytes.slice() : new Uint8Array(bytes);
+	if (!liveAudio.open) {
+		liveAudio.pending.push(chunk);
+		return;
+	}
+	sw.postMessage({ type: 'live-audio', id, token, chunk }, [chunk.buffer]);
+}
+
+function storedReady(article, index) {
+	const job = audioJob(article);
+	if (!job || job.status === 'failed') return false;
+	return job.status === 'ready' || Number(job.done) > index;
+}
+
+async function fetchXaiSpeech(bearer, text, voice, onChunk, onProgress) {
 	let res;
 	try {
 		res = await fetch('https://api.x.ai/v1/tts', {
@@ -3838,14 +3889,13 @@ async function fetchXaiSpeech(bearer, text, voice, onStart, onProgress) {
 		if (blob.size < 64) throw new Error('Speech reply was empty.');
 		return blob;
 	}
-	return readSpeechBlob(res.body, onStart, onProgress);
+	return readSpeechBlob(res.body, onChunk, onProgress);
 }
 
-function readSpeechBlob(body, onStart, onProgress) {
+function readSpeechBlob(body, onChunk, onProgress) {
 	const reader = body.getReader();
 	const parts = [];
 	let received = 0;
-	let started = false;
 	const take = () => reader.read().then(({ done, value }) => {
 		if (done) {
 			const blob = new Blob(parts, { type: 'audio/mpeg' });
@@ -3855,10 +3905,7 @@ function readSpeechBlob(body, onStart, onProgress) {
 		parts.push(value);
 		received += value.byteLength;
 		if (onProgress) onProgress(received);
-		if (speechStartReady(received, started) && onStart) {
-			started = true;
-			onStart(URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' })), true);
-		}
+		if (onChunk) onChunk(value);
 		return take();
 	});
 	return take().finally(() => reader.releaseLock());
@@ -3927,23 +3974,24 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 	if (res.status === 404) {
 		const piece = storedPieces(article.text)[index];
 		if (!piece) throw new Error('Nothing to speak.');
-		const blob = await fetchXaiSpeech(plan.bearer, piece, voice, (liveUrl, partial) => {
-			if (!readSpeak.playing || readSpeak.id !== article.id) return;
-			const row = storedRows(article.text)[index];
-			if (!row) return;
-			playStoredUrl(liveUrl, row, readSpeak.token, true, Boolean(partial));
+		const blob = await fetchXaiSpeech(plan.bearer, piece, voice, (chunk) => {
+			pushLiveChunk(article.id, readSpeak.token, chunk);
 		}, (received) => noteGeneration(article, received));
-		const url = URL.createObjectURL(blob);
-		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
+		pushLiveChunk(article.id, readSpeak.token, null, true);
+		let saved = false;
 		try {
 			await storeArticleAudio(article, voice, hash, index, blob);
+			saved = true;
 		} catch {
 			/* this device can still play the file */
 		}
+		const url = saved ? storedFileUrl(article, index) : URL.createObjectURL(blob);
+		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
 		return url;
 	}
 	if (!res.ok) throw new Error('Could not load saved audio.');
-	const url = URL.createObjectURL(await res.blob());
+	await res.body?.cancel?.();
+	const url = storedFileUrl(article, index);
 	clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
 	return url;
 }
@@ -4028,44 +4076,21 @@ function speakStoredChunk(row) {
 	const article = readSpeak.article;
 	readSpeak.positionMs = row.startMs;
 	paintReadPos();
-	const cached = cachedClip(article, row.index);
-	if (cached) {
-		playStoredUrl(cached, row, token);
+	const ready = storedReady(article, row.index);
+	const kind = playbackKind({ ready, canLive: canLiveStream() });
+	if (kind === 'stored') {
+		playAccountUrl(storedFileUrl(article, row.index), row, token);
 		return;
 	}
-	const job = audioJob(article);
-	if (job && (job.status === 'ready' || (job.status !== 'failed' && job.done > row.index))) {
-		streamStoredFile(article, row, token);
-		return;
+	if (kind === 'live') {
+		if (liveAudio.id !== article.id || String(liveAudio.token) !== String(token)) armLive(article, token);
+		playAccountUrl(liveAudioPath(article.id, token), row, token);
 	}
 	storedClip(article, row.index, readSpeak.plan)
 		.then((url) => {
 			if (!readSpeak.playing || readSpeak.token !== token) return;
-			playStoredUrl(url, row, token);
-		})
-		.catch((err) => {
-			if (readSpeak.token !== token) return;
-			readSpeak.playing = false;
-			const message = err.message || 'Could not play saved audio.';
-			failStoredPlay(article, message);
-			setStatus(message);
-			readCheckpoint(true);
-			paintReadPos();
-		});
-}
-
-function streamStoredFile(article, row, token) {
-	fetch(storedFileUrl(article, row.index), { credentials: 'include' })
-		.then((res) => {
-			if (!res.ok || !res.body) throw new Error('Could not load saved audio.');
-			return readSpeechBlob(res.body, (partialUrl) => {
-				if (!readSpeak.playing || readSpeak.token !== token) return;
-				playStoredUrl(partialUrl, row, token, true, true);
-			});
-		})
-		.then((blob) => {
-			if (!readSpeak.playing || readSpeak.token !== token) return;
-			playStoredUrl(URL.createObjectURL(blob), row, token, true, false);
+			if (kind === 'live' && (liveAudio.finished || liveAudio.pending.length)) return;
+			playAccountUrl(url, row, token);
 		})
 		.catch((err) => {
 			if (readSpeak.token !== token) return;
@@ -4109,45 +4134,31 @@ function failStoredPlay(article, message) {
 	});
 }
 
-function playStoredUrl(url, row, token, viaBlob, partial) {
+let playGen = 0;
+
+function playAccountUrl(url, row, token) {
 	const clip = readSpeak.audio || new Audio();
 	readSpeak.audio = clip;
-	const carried = partial ? 0 : (clip.currentTime || 0);
-	readSpeak.partial = Boolean(partial);
+	const gen = ++playGen;
+	readSpeak.partial = false;
 	clip.loop = false;
 	clip.volume = 1;
 	clip.playbackRate = ttsSpeed(state.speed);
+	clip.ontimeupdate = () => {
+		if (readSpeak.token !== token || staleMediaError(playGen, gen)) return;
+		const clipMs = Math.max(0, (row.endMs || 0) - (row.startMs || 0));
+		const audioDur = Number.isFinite(clip.duration) ? clip.duration * 1000 : 0;
+		readSpeak.positionMs = (row.startMs || 0) + playedWordMs(clip.currentTime * 1000, audioDur, clipMs);
+		paintReadPos();
+	};
 	clip.onended = () => {
-		if (!readSpeak.playing || readSpeak.token !== token || readSpeak.partial) return;
+		if (!readSpeak.playing || readSpeak.token !== token || staleMediaError(playGen, gen)) return;
 		advanceRead(row);
 	};
 	clip.onerror = () => {
-		if (!readSpeak.playing || readSpeak.token !== token) return;
-		if (!mediaErrorStopsPlayback(clip.error && clip.error.code, readSpeak.partial)) return;
-		if (!viaBlob && String(url).startsWith('/api/')) {
-			fetch(url, { credentials: 'include' })
-				.then((res) => {
-					if (!res.ok || !res.body) throw new Error('Could not load saved audio.');
-					return readSpeechBlob(res.body, (partialUrl) => {
-						if (!readSpeak.playing || readSpeak.token !== token) return;
-						playStoredUrl(partialUrl, row, token, true, true);
-					});
-				})
-				.then((blob) => {
-					if (!readSpeak.playing || readSpeak.token !== token) return;
-					playStoredUrl(URL.createObjectURL(blob), row, token, true, false);
-				})
-				.catch((err) => {
-					if (readSpeak.token !== token) return;
-					readSpeak.playing = false;
-					const message = err.message || 'Could not play saved audio.';
-					failStoredPlay(readSpeak.article, message);
-					setStatus(message);
-					readCheckpoint(true);
-					paintReadPos();
-				});
-			return;
-		}
+		if (!readSpeak.playing || readSpeak.token !== token || staleMediaError(playGen, gen)) return;
+		if (!mediaErrorStopsPlayback(clip.error && clip.error.code, false)) return;
+		if (String(url).includes('/api/articles/live')) return;
 		readSpeak.playing = false;
 		const message = 'Could not play saved audio.';
 		failStoredPlay(readSpeak.article, message);
@@ -4156,16 +4167,15 @@ function playStoredUrl(url, row, token, viaBlob, partial) {
 		paintReadPos();
 	};
 	if (!sameMediaSrc(clip, url)) clip.src = url;
-	const offset = carried > 0.25 ? carried : Math.max(0, (readSpeak.positionMs - row.startMs) / 1000);
+	const offset = Math.max(0, (readSpeak.positionMs - (row.startMs || 0)) / 1000);
 	const applyOffset = () => {
 		if (offset > 0.25 && Number.isFinite(clip.duration) && offset < clip.duration) clip.currentTime = offset;
 	};
-	if (carried > 0.25) clip.addEventListener('loadedmetadata', applyOffset, { once: true });
-	else applyOffset();
+	if (offset > 0.25) clip.addEventListener('loadedmetadata', applyOffset, { once: true });
 	const pending = clip.play();
 	if (pending && pending.catch) {
 		pending.catch(() => {
-			if (readSpeak.token !== token || readSpeak.partial) return;
+			if (readSpeak.token !== token || staleMediaError(playGen, gen)) return;
 			readSpeak.playing = false;
 			setStatus('Press play');
 			paintReadPos();
@@ -4242,6 +4252,21 @@ async function readPlay(article, startMs) {
 	readSpeak.audio = held;
 	readSpeak.playing = true;
 	readSpeak.id = article.id;
+	const opened = readSpeak.audio || new Audio();
+	readSpeak.audio = opened;
+	if (signedIn() && article?.text) {
+		const preview = storedRows(article.text);
+		const index = chunkIndexAt(preview, startMs || 0);
+		const kind = playbackKind({ ready: storedReady(article, index), canLive: canLiveStream() });
+		if (kind === 'stored') {
+			opened.src = storedFileUrl(article, index);
+			opened.play().catch(() => {});
+		} else if (kind === 'live') {
+			armLive(article, readSpeak.token);
+			opened.src = liveAudioPath(article.id, readSpeak.token);
+			opened.play().catch(() => {});
+		}
+	}
 	let plan;
 	try {
 		plan = await ensureSpeech();

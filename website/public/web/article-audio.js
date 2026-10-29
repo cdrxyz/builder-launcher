@@ -121,6 +121,38 @@ export function speechStartReady(received, started) {
 	return !started && Number(received) > SPEECH_START_BYTES;
 }
 
+export function playbackKind({ ready, canLive } = {}) {
+	if (ready) return 'stored';
+	if (canLive) return 'live';
+	return 'hold';
+}
+
+export function attachTruncatedSpeech() {
+	return false;
+}
+
+export function liveAudioPath(id, token) {
+	return `/api/articles/live?id=${encodeURIComponent(id)}&t=${encodeURIComponent(token)}`;
+}
+
+export function audioIsFullRead(header) {
+	const range = audioByteRange(header);
+	if (!range) return true;
+	return range.offset === 0 && range.length == null;
+}
+
+export function staleMediaError(current, seen) {
+	return current !== seen;
+}
+
+export function playedWordMs(audioMs, audioDurationMs, textDurationMs) {
+	const audio = Number(audioMs) || 0;
+	const audioDur = Number(audioDurationMs);
+	const textDur = Number(textDurationMs) || 0;
+	if (!Number.isFinite(audioDur) || audioDur <= 0 || textDur <= 0) return Math.max(0, audio);
+	return Math.min(textDur, Math.round((textDur * Math.max(0, audio)) / audioDur));
+}
+
 export function storedRows(text) {
 	let cursor = 0;
 	return storedPieces(text).map((piece, index) => {

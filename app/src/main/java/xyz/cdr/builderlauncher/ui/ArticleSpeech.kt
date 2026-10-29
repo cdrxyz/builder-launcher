@@ -45,6 +45,9 @@ internal class ArticleSpeech(
     private val ready = mutableMapOf<String, PreparedGrok>()
     private val loads = mutableMapOf<String, Deferred<PreparedGrok>>()
     private val sockets = mutableMapOf<String, WebSocket>()
+    private val writing = mutableMapOf<String, Boolean>()
+
+    fun stillWriting(id: String): Boolean = writing[id] == true
 
     fun cancel() {
         sockets.values.forEach { runCatching { it.cancel() } }
@@ -100,32 +103,37 @@ internal class ArticleSpeech(
                     onFirst?.invoke(it)
                 }
             } else {
-                val file = saver.localFile(article.id, hash, spoken)
-                val done = CompletableDeferred<Throwable?>()
-                var started = false
-                var reported = 0
-                val socket = SpeechStream().open(bearer, article.text, file, spoken, onBytes = { bytes ->
-                    if (bytes - reported >= 32_000) {
-                        reported = bytes
-                        ArticleSpeechProgress.note(article.id, bytes)
+                writing[article.id] = true
+                try {
+                    val file = saver.localFile(article.id, hash, spoken)
+                    val done = CompletableDeferred<Throwable?>()
+                    var started = false
+                    var reported = 0
+                    val socket = SpeechStream().open(bearer, article.text, file, spoken, onBytes = { bytes ->
+                        if (bytes - reported >= 32_000) {
+                            reported = bytes
+                            ArticleSpeechProgress.note(article.id, bytes)
+                        }
+                        if (!started && Reads.shouldStartSpeech(bytes)) {
+                            started = true
+                            onFirst?.invoke(PreparedGrok(Uri.fromFile(file), emptyMap(), complete = false))
+                        }
+                    }, onDone = { err -> done.complete(err) })
+                    sockets[article.id] = socket
+                    if (!SpeechStream.waitForFirstAudio(file)) {
+                        socket.cancel()
+                        file.writeBytes(client.fetchXaiSpeech(bearer, article.text, spoken))
+                    } else {
+                        done.await()?.let { throw it }
+                        if (file.length() < 64) error("Speech reply was empty.")
                     }
-                    if (!started && Reads.shouldStartSpeech(bytes)) {
-                        started = true
-                        onFirst?.invoke(PreparedGrok(Uri.fromFile(file), emptyMap(), complete = false))
+                    if (account.isNotBlank()) {
+                        runCatching { client.storeArticleAudio(account, article.id, spoken, hash, 0, file.readBytes()) }
                     }
-                }, onDone = { err -> done.complete(err) })
-                sockets[article.id] = socket
-                if (!SpeechStream.waitForFirstAudio(file)) {
-                    socket.cancel()
-                    file.writeBytes(client.fetchXaiSpeech(bearer, article.text, spoken))
-                } else {
-                    done.await()?.let { throw it }
-                    if (file.length() < 64) error("Speech reply was empty.")
+                    PreparedGrok(Uri.fromFile(file), emptyMap()).also { ready[article.id] = it }
+                } finally {
+                    writing[article.id] = false
                 }
-                if (account.isNotBlank()) {
-                    runCatching { client.storeArticleAudio(account, article.id, spoken, hash, 0, file.readBytes()) }
-                }
-                PreparedGrok(Uri.fromFile(file), emptyMap()).also { ready[article.id] = it }
             }
         }
         loads[article.id] = job

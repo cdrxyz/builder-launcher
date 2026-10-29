@@ -2,7 +2,7 @@ import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
 import { voiceId } from '../../website/public/web/ai.js';
-import { audioByteRange, audioContentRange, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
+import { audioByteRange, audioContentRange, audioIsFullRead, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
 
 export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket };
 
@@ -39,7 +39,8 @@ async function getAudio(request: Request, url: URL, vault: R2Bucket, userId: str
 	}
 	const n = Number(index);
 	if (!Number.isInteger(n) || n < 0 || n > 80) return jsonError('Article not found', 404);
-	const range = audioByteRange(request.headers.get('Range'));
+	const rangeHeader = request.headers.get('Range');
+	const range = audioIsFullRead(rangeHeader) ? null : audioByteRange(rangeHeader);
 	const obj = await vault.get(speechObjectKey(userId, articleId, voice, hash, n), range ? { range } : undefined);
 	if (!obj) return jsonError('Not ready', 404);
 	const headers = new Headers({

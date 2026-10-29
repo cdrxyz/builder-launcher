@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, audioByteRange, audioContentRange, audioProgressLabel, expectedSpeechBytes, mediaErrorStopsPlayback, nextSpeechIndex, showArticleDownload, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, storedPieces } from '../public/web/article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, showArticleDownload, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -35,6 +35,10 @@ test('speech asks xAI directly and saves the finished file', async () => {
 	assert.equal(frames.slice(0, -1).map((row) => row.delta).join(''), 'a'.repeat(9_000));
 	const app = await import('node:fs').then((fs) => fs.readFileSync(new URL('../public/web/app.js', import.meta.url), 'utf8'));
 	assert.match(app, /https:\/\/api\.x\.ai\/v1\/tts/);
+	assert.match(app, /playbackKind\(/);
+	assert.match(app, /liveAudioPath\(/);
+	assert.doesNotMatch(app, /Boolean\(partial\)/);
+	assert.doesNotMatch(app, /createObjectURL\(new Blob\(parts/);
 	assert.match(app, /content-type': 'audio\/mpeg'/);
 	assert.doesNotMatch(app, /timeout: 300_000/);
 });
@@ -104,4 +108,20 @@ test('an article download says generating until the file exists, never 0%', () =
 	assert.equal(articleGenerationLabel('preparing', 0, 8000), 'generating…');
 	assert.equal(articleGenerationLabel('preparing', 2960, 8000), 'generating… 37%');
 	assert.equal(articleGenerationLabel('preparing', 9000, 8000), 'generating… 99%');
+});
+
+test('a saved article streams from the account url, and a truncated mp3 is not a stream', () => {
+	assert.equal(playbackKind({ ready: true, canLive: true }), 'stored');
+	assert.equal(playbackKind({ ready: false, canLive: true }), 'live');
+	assert.equal(playbackKind({ ready: false, canLive: false }), 'hold');
+	assert.equal(attachTruncatedSpeech(), false);
+	assert.equal(liveAudioPath('r046a4934057f51cf', 7), '/api/articles/live?id=r046a4934057f51cf&t=7');
+	assert.equal(audioIsFullRead(''), true);
+	assert.equal(audioIsFullRead('bytes=0-'), true);
+	assert.equal(audioIsFullRead('bytes=0-1'), false);
+	assert.equal(audioIsFullRead('bytes=100-'), false);
+	assert.equal(staleMediaError(2, 1), true);
+	assert.equal(staleMediaError(2, 2), false);
+	assert.equal(playedWordMs(15000, 30000, 60000), 30000);
+	assert.equal(playedWordMs(1000, Infinity, 60000), 1000);
 });
