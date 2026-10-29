@@ -19,10 +19,6 @@ class PhoneContacts(private val context: Context) {
         return next
     }
 
-    fun invalidate() {
-        loadedAt = 0L
-    }
-
     fun search(query: String): List<PhoneContact> = ContactMatch.filter(all(), query)
 
     private fun load(): List<PhoneContact> {

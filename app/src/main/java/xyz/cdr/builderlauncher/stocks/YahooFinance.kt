@@ -2,6 +2,7 @@ package xyz.cdr.builderlauncher.stocks
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -48,8 +49,6 @@ data class StockQuote(
     val extendedPercent: Double? = null,
 ) {
     val up: Boolean get() = change >= 0
-    val hasExtended: Boolean
-        get() = !extendedLabel.isNullOrBlank() && extendedPrice != null
 }
 
 data class StockChartData(
@@ -213,31 +212,27 @@ object YahooFinance {
     private fun JsonObject.str(key: String): String? =
         this[key]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
 
-    private fun JsonObject.num(key: String): Double? {
-        val prim = this[key]?.jsonPrimitive ?: return null
-        return prim.doubleOrNull ?: prim.contentOrNull?.toDoubleOrNull()
-    }
+    private fun JsonPrimitive.toDoubleLoose(): Double? =
+        if (contentOrNull == "null") null else doubleOrNull ?: contentOrNull?.toDoubleOrNull()
 
-    private fun JsonObject.long(key: String): Long? {
-        val prim = this[key]?.jsonPrimitive ?: return null
-        return prim.longOrNull ?: prim.doubleOrNull?.toLong() ?: prim.contentOrNull?.toDoubleOrNull()?.toLong()
-    }
+    private fun JsonPrimitive.toLongLoose(): Long? =
+        if (contentOrNull == "null") {
+            null
+        } else {
+            longOrNull ?: doubleOrNull?.toLong() ?: contentOrNull?.toDoubleOrNull()?.toLong()
+        }
+
+    private fun JsonObject.num(key: String): Double? = this[key]?.jsonPrimitive?.toDoubleLoose()
+
+    private fun JsonObject.long(key: String): Long? = this[key]?.jsonPrimitive?.toLongLoose()
 
     private fun JsonObject.nums(key: String): List<Double?> {
         val arr = this[key]?.jsonArray ?: return emptyList()
-        return arr.map { el ->
-            val prim = runCatching { el.jsonPrimitive }.getOrNull() ?: return@map null
-            if (prim.contentOrNull == "null") null
-            else prim.doubleOrNull ?: prim.contentOrNull?.toDoubleOrNull()
-        }
+        return arr.map { el -> runCatching { el.jsonPrimitive.toDoubleLoose() }.getOrNull() }
     }
 
     private fun JsonObject.longs(key: String): List<Long?> {
         val arr = this[key]?.jsonArray ?: return emptyList()
-        return arr.map { el ->
-            val prim = runCatching { el.jsonPrimitive }.getOrNull() ?: return@map null
-            if (prim.contentOrNull == "null") null
-            else prim.longOrNull ?: prim.doubleOrNull?.toLong() ?: prim.contentOrNull?.toDoubleOrNull()?.toLong()
-        }
+        return arr.map { el -> runCatching { el.jsonPrimitive.toLongLoose() }.getOrNull() }
     }
 }

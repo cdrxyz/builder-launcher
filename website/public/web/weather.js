@@ -257,10 +257,6 @@ export function weekday(date, today = null) {
 	return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(d);
 }
 
-export function weekdayShort(isoDate) {
-	return weekday(isoDate);
-}
-
 export function todayIso() {
 	const n = new Date();
 	return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;

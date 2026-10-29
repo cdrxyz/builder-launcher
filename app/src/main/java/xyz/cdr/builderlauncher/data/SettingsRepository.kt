@@ -30,7 +30,6 @@ data class BuilderSettings(
     val apiKey: String = "",
     val model: String = "",
     val keyboardMode: KeyboardMode = KeyboardMode.AUTO,
-    val commandBarBottom: Boolean? = null,
     val weatherPlace: String = "",
     val weatherLat: Double? = null,
     val weatherLon: Double? = null,
@@ -325,7 +324,6 @@ class SettingsRepository(context: Context) {
     }
 
     companion object {
-        const val XAI_BASE = "https://api.x.ai/v1"
         private const val PREFS = "builder.secure"
         private const val KEY_PROVIDER = "provider"
         private const val KEY_HERMES = "hermes_base"
