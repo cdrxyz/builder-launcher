@@ -1,4 +1,4 @@
-const CACHE = 'builder-launcher-web-v51';
+const CACHE = 'builder-launcher-web-v52';
 const SHELL = [
 	'./',
 	'./index.html',
@@ -34,12 +34,50 @@ self.addEventListener('activate', (event) => {
 	);
 });
 
+const liveStreams = new Map();
+
+self.addEventListener('message', (event) => {
+	const data = event.data || {};
+	if (data.type !== 'live-audio') return;
+	const slot = liveStreams.get(`${data.id}:${data.token}`);
+	if (!slot) return;
+	if (data.done) {
+		try { slot.controller.close(); } catch { /* already closed */ }
+		liveStreams.delete(`${data.id}:${data.token}`);
+		return;
+	}
+	if (data.chunk) {
+		const bytes = data.chunk instanceof Uint8Array ? data.chunk : new Uint8Array(data.chunk);
+		try { slot.controller.enqueue(bytes); } catch { /* the player stopped */ }
+	}
+});
+
 self.addEventListener('fetch', (event) => {
 	const req = event.request;
 	if (req.method !== 'GET') return;
 	const url = new URL(req.url);
 	if (url.origin !== self.location.origin) return;
 	if (url.pathname === '/api/articles/audio') return;
+	if (url.pathname === '/api/articles/live') {
+		const id = url.searchParams.get('id') || '';
+		const token = url.searchParams.get('t') || '';
+		const key = `${id}:${token}`;
+		const stream = new ReadableStream({
+			start(controller) {
+				liveStreams.set(key, { controller });
+				self.clients.matchAll({ includeUncontrolled: true }).then((clients) => {
+					clients.forEach((client) => client.postMessage({ type: 'live-open', id, token }));
+				});
+			},
+			cancel() {
+				liveStreams.delete(key);
+			},
+		});
+		event.respondWith(new Response(stream, {
+			headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' },
+		}));
+		return;
+	}
 	if (url.pathname.startsWith('/api/')) {
 		event.respondWith(fetch(req));
 		return;

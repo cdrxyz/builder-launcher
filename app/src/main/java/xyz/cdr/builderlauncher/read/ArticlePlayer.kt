@@ -64,10 +64,9 @@ class ArticlePlayer(context: Context) : ArticleControls {
         textDuration = Reads.durationMs(article.text)
         pendingWordMs = startMs.coerceIn(0L, textDuration)
         val exo = obtain() ?: return
+        runCatching { exo.stop() }
         if (uri.scheme == "file" || uri.scheme == "content") {
-            exo.setMediaItem(
-                MediaItem.Builder().setUri(uri).setMimeType(androidx.media3.common.MimeTypes.AUDIO_MPEG).build(),
-            )
+            exo.setMediaItem(MediaItem.fromUri(uri))
         } else {
             val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
             val source = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(app, http))
@@ -87,13 +86,15 @@ class ArticlePlayer(context: Context) : ArticleControls {
         return exo.playbackState == Player.STATE_READY && exo.playWhenReady
     }
 
-    fun playGrowing(article: ReadArticle, file: File, startMs: Long, speed: Float) {
+    fun playGrowing(article: ReadArticle, file: File, startMs: Long, speed: Float, stillWriting: () -> Boolean) {
         val rate = Podcasts.snapSpeed(speed)
         textDuration = Reads.durationMs(article.text)
         pendingWordMs = startMs.coerceIn(0L, textDuration)
         val exo = obtain() ?: return
-        val source = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(app))
-            .createMediaSource(MediaItem.fromUri(Uri.fromFile(file)))
+        runCatching { exo.stop() }
+        val item = MediaItem.Builder().setUri(Uri.fromFile(file)).setMimeType(androidx.media3.common.MimeTypes.AUDIO_MPEG).build()
+        val source = ProgressiveMediaSource.Factory(GrowingFileDataSource.Factory(file, stillWriting))
+            .createMediaSource(item)
         exo.setMediaSource(source)
         exo.prepare()
         exo.playWhenReady = true
