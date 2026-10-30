@@ -107,8 +107,10 @@ class PodcastPlaybackService : Service() {
                 return START_STICKY
             }
             ACTION_STOP -> {
+                startInForeground()
                 ready = false
                 PodcastPlayer.stop()
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -236,7 +238,11 @@ class PodcastPlaybackService : Service() {
 
         fun stop(context: Context) {
             val intent = Intent(context, PodcastPlaybackService::class.java).setAction(ACTION_STOP)
-            ContextCompat.startForegroundService(context, intent)
+            if (Podcasts.startsForegroundServiceToStop()) {
+                ContextCompat.startForegroundService(context, intent)
+            } else {
+                context.stopService(intent)
+            }
         }
 
         private fun notification(

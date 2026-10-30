@@ -78,6 +78,8 @@ class ArticlePlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            startInForeground()
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -157,7 +159,11 @@ class ArticlePlaybackService : Service() {
 
         fun stop(context: Context) {
             val intent = Intent(context, ArticlePlaybackService::class.java).setAction(ACTION_STOP)
-            ContextCompat.startForegroundService(context, intent)
+            if (Podcasts.startsForegroundServiceToStop()) {
+                ContextCompat.startForegroundService(context, intent)
+            } else {
+                context.stopService(intent)
+            }
         }
 
         private fun notification(context: Context, title: String, session: MediaSession?, playing: Boolean): Notification {

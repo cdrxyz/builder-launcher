@@ -24,7 +24,9 @@ class ArticleDownload(private val context: Context) {
             val old = legacyFile(articleId, hash)
             if (Reads.localAudioPlayable(old.length())) return old
         }
-        return null
+        return context.cacheDir.listFiles()
+            ?.filter { Reads.cachedArticleName(it.name, articleId, voice) && Reads.localAudioPlayable(it.length()) }
+            ?.maxByOrNull { it.lastModified() }
     }
 
     fun fetch(token: String, articleId: String, hash: String, voice: String = Reads.GROK_VOICE, onProgress: (Long, Long) -> Unit): ByteArray? {

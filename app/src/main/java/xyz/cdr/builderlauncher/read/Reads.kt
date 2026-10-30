@@ -220,8 +220,23 @@ object Reads {
 
     fun expectedSpeechBytes(durationMs: Long): Long = if (durationMs <= 0L) 0L else durationMs * 8L
 
+    fun cachedArticleName(name: String, articleId: String, voice: String): Boolean {
+        if (articleId.isBlank() || !name.endsWith(".mp3")) return false
+        val spoken = voiceId(voice)
+        val voiced = "article-$articleId-$spoken-"
+        if (name.startsWith(voiced)) return true
+        if (spoken != GROK_VOICE) return false
+        val legacy = "article-$articleId-"
+        if (!name.startsWith(legacy)) return false
+        val rest = name.removePrefix(legacy).removeSuffix(".mp3")
+        return VOICES.none { rest.startsWith("${it.first}-") }
+    }
+
+    fun deviceFileCountsAsReady(onDevice: Boolean, audioLabel: String): Boolean =
+        onDevice && shouldProbeStoredAudio(audioLabel)
+
     fun articleGenerationLabel(audioLabel: String, received: Long = 0, expected: Long = 0): String {
-        if (audioLabel == "audio ready" || audioLabel.startsWith("audio failed")) return ""
+        if (!audioLabel.startsWith("preparing")) return ""
         if (expected <= 0L || received <= 0L) return "generating…"
         val pct = ((received * 100) / expected).toInt().coerceIn(0, 99)
         return if (pct > 0) "generating… $pct%" else "generating…"
