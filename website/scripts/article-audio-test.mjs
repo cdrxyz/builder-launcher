@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, showArticleDownload, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces } from '../public/web/article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, showArticleDownload, speechBearer, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -16,31 +16,14 @@ test('saved article audio is keyed per account, article, and voice', () => {
 	assert.equal(storedPieces(`${text} `.repeat(40)).every((piece) => piece.length <= 60_000), true);
 });
 
-test('speech asks xAI directly and saves the finished file', async () => {
-	const { xaiSpeechPayload, SPEECH_WAIT_MS } = await import('../public/web/ai.js');
-	const payload = xaiSpeechPayload('Hello there.', 'Leo', 1);
-	assert.equal(payload.voice_id, 'leo');
-	assert.equal(payload.text, 'Hello there.');
-	assert.equal(payload.output_format.codec, 'mp3');
-	assert.equal(payload.optimize_streaming_latency, 1);
-	assert.equal(SPEECH_WAIT_MS > 120_000, true);
-	const { speechStreamQuery, speechTextFrames } = await import('../public/web/ai.js');
-	const query = speechStreamQuery('Leo', 1);
-	assert.equal(query.get('voice'), 'leo');
-	assert.equal(query.get('codec'), 'mp3');
-	assert.equal(query.get('optimize_streaming_latency'), '1');
-	const frames = speechTextFrames('a'.repeat(9_000));
-	assert.equal(frames.at(-1).type, 'text.done');
-	assert.equal(frames.filter((row) => row.type === 'text.delta').length, 3);
-	assert.equal(frames.slice(0, -1).map((row) => row.delta).join(''), 'a'.repeat(9_000));
+test('article speech is generated on the account host, not in the browser', async () => {
+	assert.equal(speechBearer('server-key', ''), 'server-key');
+	assert.equal(speechBearer('', 'user-token'), 'user-token');
+	assert.equal(speechBearer('  ', ''), '');
 	const app = await import('node:fs').then((fs) => fs.readFileSync(new URL('../public/web/app.js', import.meta.url), 'utf8'));
-	assert.match(app, /https:\/\/api\.x\.ai\/v1\/tts/);
-	assert.match(app, /playbackKind\(/);
-	assert.match(app, /liveAudioPath\(/);
-	assert.doesNotMatch(app, /Boolean\(partial\)/);
-	assert.doesNotMatch(app, /createObjectURL\(new Blob\(parts/);
-	assert.match(app, /content-type': 'audio\/mpeg'/);
-	assert.doesNotMatch(app, /timeout: 300_000/);
+	assert.doesNotMatch(app, /https:\/\/api\.x\.ai\/v1\/tts/);
+	assert.match(app, /function requestBackendSpeech/);
+	assert.doesNotMatch(app, /plan = await ensureSpeech\(\)/);
 });
 
 test('article audio progress says how far, when ready, and when it failed', () => {

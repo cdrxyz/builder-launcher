@@ -99,6 +99,11 @@ class BackupService(
         return "Restored ${summary(remote)}"
     }
 
+    fun joinWaitlist(email: String): String {
+        account.joinWaitlist(email)
+        return "You are on the waitlist."
+    }
+
     fun signup(email: String, password: String): String {
         val session = account.signup(email, password)
         saveSession(session)

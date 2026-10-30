@@ -151,6 +151,8 @@ object Reads {
     fun usesGrokVoice(providerIsXai: Boolean, bearer: String?): Boolean =
         providerIsXai && !bearer.isNullOrBlank()
 
+    fun usesAccountSpeech(accountToken: String?): Boolean = !accountToken.isNullOrBlank()
+
     fun storedAudioReady(indexes: List<Int>, index: Int = 0): Boolean = index in indexes
 
     fun storedAudioQuery(articleId: String, voice: String = GROK_VOICE, hash: String, index: Int? = null): String {
