@@ -39,13 +39,17 @@ internal class ArticleDownloads(
     fun isDownloaded(id: String): Boolean = id in downloaded()
 
     fun probe(article: ReadArticle) {
-        val current = audio()[article.id].orEmpty()
-        if (!Reads.shouldProbeStoredAudio(current)) return
         scope.launch(Dispatchers.IO) {
             val hash = Reads.speechHash(article.text)
             val spoken = Reads.voiceId(voice())
-            val local = ArticleDownload(context).playableFile(article.id, spoken, hash)
-            val ready = local != null || runCatching {
+            val saver = ArticleDownload(context)
+            val kept = saver.onDevice(article.id, spoken, hash, article.title)
+            if (kept) {
+                withContext(Dispatchers.Main) { setDownloaded(downloaded() + article.id) }
+            }
+            val current = audio()[article.id].orEmpty()
+            if (!Reads.shouldProbeStoredAudio(current)) return@launch
+            val ready = saver.playableFile(article.id, spoken, hash) != null || runCatching {
                 val token = settings().accountToken
                 token.isNotBlank() && Reads.storedAudioReady(
                     AccountClient().storedArticleIndexes(token, article.id, spoken, hash),

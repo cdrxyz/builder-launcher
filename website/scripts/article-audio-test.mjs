@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, showArticleDownload, speechBearer, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces } from '../public/web/article-audio.js';
+import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, showArticleDownload, speechBearer, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces, stripSpeechNoise, acceptSpeechScript } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -19,7 +19,9 @@ test('saved article audio is keyed per account, article, and voice', () => {
 test('article speech is generated on the account host, not in the browser', async () => {
 	assert.equal(speechBearer('server-key', ''), 'server-key');
 	assert.equal(speechBearer('', 'user-token'), 'user-token');
-	assert.equal(speechBearer('  ', ''), '');
+	assert.equal(stripSpeechNoise('Read this https://example.com/ad now.'), 'Read this now.');
+	assert.equal(acceptSpeechScript('a'.repeat(80), 'a'.repeat(80)), true);
+	assert.equal(acceptSpeechScript('a'.repeat(80), 'short'), false);
 	const app = await import('node:fs').then((fs) => fs.readFileSync(new URL('../public/web/app.js', import.meta.url), 'utf8'));
 	assert.doesNotMatch(app, /https:\/\/api\.x\.ai\/v1\/tts/);
 	assert.match(app, /function requestBackendSpeech/);

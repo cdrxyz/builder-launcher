@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.read
 
 import kotlinx.serialization.Serializable
+import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import java.net.URI
 
@@ -71,7 +72,7 @@ object Reads {
         return hash.toString(16).padStart(16, '0')
     }
 
-    fun speechHash(text: String): String = fnv1a64("60000\n$text")
+    fun speechHash(text: String): String = fnv1a64("60000\nclean\n$text")
 
     fun publicUri(raw: String): URI? {
         var text = raw.trim()
@@ -152,6 +153,20 @@ object Reads {
         providerIsXai && !bearer.isNullOrBlank()
 
     fun usesAccountSpeech(accountToken: String?): Boolean = !accountToken.isNullOrBlank()
+
+    const val SAVED_ARTICLES = "Saved Articles"
+    const val SAVED_FEED = "saved-articles"
+
+    fun downloadKept(cacheBytes: Long, storeBytes: Long): Boolean =
+        localAudioPlayable(cacheBytes) || localAudioPlayable(storeBytes)
+
+    fun homeControlsArticle(articlePlaying: Boolean, articleLoaded: Boolean, podcastPlaying: Boolean): Boolean =
+        articlePlaying || (articleLoaded && !podcastPlaying)
+
+    fun savedArticlesShow(count: Int): PodcastShow? {
+        if (count <= 0) return null
+        return PodcastShow(feedUrl = SAVED_FEED, title = SAVED_ARTICLES, author = "$count saved")
+    }
 
     fun storedAudioReady(indexes: List<Int>, index: Int = 0): Boolean = index in indexes
 

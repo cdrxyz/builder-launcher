@@ -558,6 +558,19 @@ export function recentAt(progress) {
 	return Math.max(progress?.lastPlayedAt || 0, progress?.savedAt || 0);
 }
 
+export function progressAfterSkip(previous, episodeId, durationMs, now, skipped) {
+	const dur = durationMs > 0 ? durationMs : previous?.durationMs || 0;
+	return {
+		episodeId,
+		positionMs: previous?.positionMs || 0,
+		durationMs: dur,
+		lastPlayedAt: now,
+		finished: previous?.finished === true,
+		skipped: skipped === true,
+		savedAt: previous?.savedAt || 0,
+	};
+}
+
 export function savedProgress(previous, episodeId, durationMs, now) {
 	const dur = durationMs > 0 ? durationMs : previous?.durationMs || 0;
 	return {

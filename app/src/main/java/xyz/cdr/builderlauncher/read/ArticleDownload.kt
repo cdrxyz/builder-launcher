@@ -62,6 +62,27 @@ class ArticleDownload(private val context: Context) {
         return Reads.localAudioPlayable(file.length())
     }
 
+    fun onDevice(articleId: String, voice: String, hash: String, title: String): Boolean {
+        val cache = playableFile(articleId, voice, hash)?.length() ?: 0L
+        return Reads.downloadKept(cache, storeSize(Reads.mediaStoreName(title, voice)))
+    }
+
+    private fun storeSize(name: String): Long {
+        if (name.isBlank() || Build.VERSION.SDK_INT < 29) return 0L
+        val projection = arrayOf(MediaStore.Downloads.SIZE)
+        context.contentResolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+            arrayOf(name),
+            "${MediaStore.Downloads.DATE_ADDED} DESC",
+        )?.use { cursor ->
+            val size = cursor.getColumnIndex(MediaStore.Downloads.SIZE)
+            if (cursor.moveToFirst()) return cursor.getLong(size)
+        }
+        return 0L
+    }
+
     fun save(name: String, bytes: ByteArray): Boolean {
         if (bytes.size < 64) return false
         if (Build.VERSION.SDK_INT >= 29) {

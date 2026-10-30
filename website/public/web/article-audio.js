@@ -11,7 +11,26 @@ export function speechBearer(secret, supplied) {
 }
 
 export function speechHash(text) {
-	return fnv1a64(`${SPEAK_STORE}\n${String(text || '')}`);
+	return fnv1a64(`${SPEAK_STORE}\nclean\n${String(text || '')}`);
+}
+
+export function stripSpeechNoise(text) {
+	return String(text || '')
+		.replace(/https?:\/\/\S+/gi, '')
+		.replace(/\bwww\.\S+/gi, '')
+		.replace(/[ 	]{2,}/g, ' ')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
+}
+
+export function acceptSpeechScript(original, cleaned) {
+	const source = String(original || '').trim();
+	const next = String(cleaned || '').trim();
+	if (next.length < 40) return false;
+	if (/https?:\/\//i.test(next)) return false;
+	if (next.length > source.length * 1.05 + 80) return false;
+	if (source.length > 400 && next.length < source.length * 0.4) return false;
+	return true;
 }
 
 export function storedPieces(text) {

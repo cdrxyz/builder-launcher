@@ -155,17 +155,22 @@ class ReadsTest {
         assertEquals("audio ready", Reads.audioProgressLabel("ready", 17, 17))
         assertEquals("audio failed · Speech HTTP 429", Reads.audioProgressLabel("failed", 3, 17, "Speech HTTP 429"))
         assertEquals("audio failed", Reads.audioProgressLabel("failed"))
-        assertEquals("281fcf45454ff909", Reads.speechHash("Hello there."))
+        assertEquals("50e04c3a88df016c", Reads.speechHash("Hello there."))
         assertEquals(true, Reads.usesGrokVoice(true, "token"))
         assertEquals(false, Reads.usesGrokVoice(true, " "))
         assertEquals(false, Reads.usesGrokVoice(false, "token"))
         assertEquals(true, Reads.usesAccountSpeech("token"))
         assertEquals(false, Reads.usesAccountSpeech(" "))
+        assertEquals(true, Reads.downloadKept(cacheBytes = 80, storeBytes = 0))
+        assertEquals(true, Reads.downloadKept(cacheBytes = 0, storeBytes = 80))
+        assertEquals(false, Reads.downloadKept(cacheBytes = 0, storeBytes = 0))
+        assertEquals(true, Reads.homeControlsArticle(articlePlaying = true, articleLoaded = true, podcastPlaying = false))
+        assertEquals(false, Reads.homeControlsArticle(articlePlaying = false, articleLoaded = true, podcastPlaying = true))
         assertEquals(true, Reads.storedAudioReady(listOf(0)))
         assertEquals(false, Reads.storedAudioReady(emptyList()))
         assertEquals(
-            "/api/articles/audio?id=r046a4934057f51cf&voice=leo&hash=281fcf45454ff909",
-            Reads.storedAudioQuery("r046a4934057f51cf", hash = "281fcf45454ff909"),
+            "/api/articles/audio?id=r046a4934057f51cf&voice=leo&hash=50e04c3a88df016c",
+            Reads.storedAudioQuery("r046a4934057f51cf", hash = "50e04c3a88df016c"),
         )
         assertEquals(30_000L, Reads.wordMsFromAudio(15_000L, 30_000L, 60_000L))
         assertEquals(15_000L, Reads.audioMsFromWord(30_000L, 30_000L, 60_000L))

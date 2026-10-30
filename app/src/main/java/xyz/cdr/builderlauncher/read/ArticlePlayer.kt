@@ -128,6 +128,31 @@ class ArticlePlayer(context: Context) : ArticleControls {
         arm(article, startMs, speed, playing = true)
     }
 
+    fun resume() {
+        val exo = player ?: return
+        if (_state.value.articleId == null) return
+        exo.playWhenReady = true
+        runCatching { exo.play() }
+        _state.value = _state.value.copy(playing = true)
+    }
+
+    fun seekSession(positionMs: Long) {
+        val id = _state.value.articleId ?: return
+        val duration = _state.value.durationMs
+        val word = positionMs.coerceIn(0L, duration.coerceAtLeast(0L))
+        val exo = player
+        if (exo != null) {
+            val audioDur = audioDuration(exo)
+            if (audioDur > 0L) exo.seekTo(Reads.audioMsFromWord(word, audioDur, duration))
+        }
+        _state.value = _state.value.copy(positionMs = word)
+        onCheckpoint?.invoke(id, word)
+    }
+
+    fun skipSession(deltaMs: Long) {
+        seekSession(Reads.skip(_state.value.positionMs, _state.value.durationMs, deltaMs))
+    }
+
     override fun pause() {
         player?.playWhenReady = false
         runCatching { player?.pause() }

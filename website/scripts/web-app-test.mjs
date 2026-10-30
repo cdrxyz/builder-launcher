@@ -23,6 +23,7 @@ import {
 	parseYahooSearch,
 	performance,
 	podcastsOf,
+	progressAfterSkip,
 	quoteStats,
 	cagr,
 	cagrStats,
@@ -272,6 +273,10 @@ test('podcast home rows match phone sections', () => {
 		],
 	);
 	assert.equal(finished({ finished: true }), true);
+	const skipped = progressAfterSkip({ episodeId: 'new', positionMs: 4, savedAt: 9 }, 'new', 1000, 50, true);
+	assert.equal(skipped.skipped, true);
+	assert.equal(skipped.lastPlayedAt, 50);
+	assert.equal(skipped.savedAt, 9);
 	assert.equal(podcastsOf({}).shows.length, 0);
 });
 
@@ -280,8 +285,9 @@ test('all recent episode rows offer a download', async () => {
 	const start = js.indexOf('function podcastCatalogScreen');
 	const end = js.indexOf('function saveEpisodeToRecent');
 	const body = js.slice(start, end);
-	assert.match(body, /kind === 'recent' && episode\.enclosureUrl/);
-	assert.match(body, /iconButton\('download'/);
+	assert.match(body, /download: kind === 'recent'/);
+	assert.match(body, /dismiss: true/);
+	assert.match(js, /function dismissEpisode/);
 	assert.match(js, /function downloadEpisode/);
 });
 
@@ -924,7 +930,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(3\.5rem, calc\(2\.25rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v54/);
+	assert.match(sw, /builder-launcher-web-v55/);
 	assert.match(sw, /\/api\/articles\/live/);
 	assert.match(sw, /content-type': 'audio\/mpeg'/);
 });

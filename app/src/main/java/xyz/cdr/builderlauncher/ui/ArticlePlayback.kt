@@ -8,7 +8,10 @@ import kotlinx.coroutines.withContext
 import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.LlmProvider
+import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
+import xyz.cdr.builderlauncher.read.ArticleMedia
+import xyz.cdr.builderlauncher.read.ArticlePlaybackService
 import xyz.cdr.builderlauncher.read.ArticleControls
 import xyz.cdr.builderlauncher.read.ArticleDownload
 import xyz.cdr.builderlauncher.read.ArticlePlayer
@@ -76,6 +79,9 @@ internal class ArticlePlayback(
                         } else {
                             articlePlayer.play(article, first.uri, first.headers, startMs, speed)
                         }
+                        ArticleMedia.note(article.title)
+                        ArticlePlaybackService.start(context, article.title)
+                        PodcastPlaybackService.stop(context)
                     }
                 }.await()
             }
@@ -83,6 +89,9 @@ internal class ArticlePlayback(
             prepared.onSuccess { ready ->
                 withContext(Dispatchers.Main) {
                     if (!live) articlePlayer.play(article, ready.uri, ready.headers, startMs, speed)
+                    ArticleMedia.note(article.title)
+                    ArticlePlaybackService.start(context, article.title)
+                    PodcastPlaybackService.stop(context)
                     setAudio(article.id, Reads.audioProgressLabel("ready", 1, 1))
                 }
             }.onFailure { err ->
