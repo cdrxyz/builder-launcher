@@ -287,7 +287,7 @@ fun BuilderRoot(
     val readSpeed by reads.speed.collectAsState()
     val systemPlayback by speaker.state.collectAsState()
     val grokPlayback by articlePlayer.state.collectAsState()
-    val grokOn = Reads.usesGrokVoice(settings.provider == LlmProvider.XAI, CredentialResolver.bearer(settings))
+    val grokOn = Reads.usesAccountSpeech(settings.accountToken)
     val readPlayback = if (grokOn && grokPlayback.articleId != null) grokPlayback else systemPlayback
     val playback by PodcastPlayer.state.collectAsState()
     val upcoming by calendar.current.collectAsState()

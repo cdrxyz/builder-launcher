@@ -3865,95 +3865,6 @@ function storedReady(article, index) {
 	return job.status === 'ready' || Number(job.done) > index;
 }
 
-async function fetchXaiSpeech(bearer, text, voice, onChunk, onProgress) {
-	let res;
-	try {
-		res = await fetch('https://api.x.ai/v1/tts', {
-			method: 'POST',
-			headers: {
-				authorization: `Bearer ${bearer}`,
-				accept: 'audio/mpeg',
-				'content-type': 'application/json',
-			},
-			body: JSON.stringify(xaiSpeechPayload(text, voice, 1)),
-			signal: AbortSignal.timeout(SPEECH_WAIT_MS),
-		});
-	} catch (err) {
-		if (err?.name === 'TimeoutError' || err?.name === 'AbortError') throw new Error('Audio timed out. Try again.');
-		throw new Error('Could not reach speech.');
-	}
-	if (!res.ok) {
-		const body = await res.json().catch(() => ({}));
-		throw new Error(body.error || `Speech HTTP ${res.status}`);
-	}
-	if (!res.body) {
-		const blob = await res.blob();
-		if (blob.size < 64) throw new Error('Speech reply was empty.');
-		return blob;
-	}
-	return readSpeechBlob(res.body, onChunk, onProgress);
-}
-
-function readSpeechBlob(body, onChunk, onProgress) {
-	const reader = body.getReader();
-	const parts = [];
-	let received = 0;
-	const take = () => reader.read().then(({ done, value }) => {
-		if (done) {
-			const blob = new Blob(parts, { type: 'audio/mpeg' });
-			if (blob.size < 64) throw new Error('Speech reply was empty.');
-			return blob;
-		}
-		parts.push(value);
-		received += value.byteLength;
-		if (onProgress) onProgress(received);
-		if (onChunk) onChunk(value);
-		return take();
-	});
-	return take().finally(() => reader.releaseLock());
-}
-
-function readSpeechStream(body, onStart, onProgress) {
-	const reader = body.getReader();
-	const parts = [];
-	const queue = [];
-	let received = 0;
-	let started = false;
-	let source = null;
-	const media = new MediaSource();
-	const url = URL.createObjectURL(media);
-	const pump = () => {
-		if (!source || source.updating || !queue.length) return;
-		try { source.appendBuffer(queue.shift()); } catch { /* the finished blob still plays */ }
-	};
-	media.addEventListener('sourceopen', () => {
-		try { source = media.addSourceBuffer('audio/mpeg'); } catch { return; }
-		source.addEventListener('updateend', pump);
-		pump();
-	}, { once: true });
-	const take = () => reader.read().then(({ done, value }) => {
-		if (done) {
-			const close = () => { try { if (media.readyState === 'open') media.endOfStream(); } catch { /* already ended */ } };
-			if (source && source.updating) source.addEventListener('updateend', close, { once: true });
-			else close();
-			const blob = new Blob(parts, { type: 'audio/mpeg' });
-			if (blob.size < 64) throw new Error('Speech reply was empty.');
-			return blob;
-		}
-		parts.push(value);
-		queue.push(value);
-		received += value.byteLength;
-		if (onProgress) onProgress(received);
-		pump();
-		if (!started && received > 16_000 && onStart) {
-			started = true;
-			onStart(url);
-		}
-		return take();
-	});
-	return take().finally(() => reader.releaseLock());
-}
-
 async function storeArticleAudio(article, voice, hash, index, blob) {
 	const query = new URLSearchParams({ id: article.id, voice, hash, index: String(index) });
 	const res = await fetch(`/api/articles/audio?${query}`, {
@@ -3974,20 +3885,8 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 	const query = new URLSearchParams({ id: article.id, voice, hash, index: String(index) });
 	let res = await fetch(`/api/articles/audio?${query}`, { credentials: 'include', cache: 'no-store' });
 	if (res.status === 404) {
-		const piece = storedPieces(article.text)[index];
-		if (!piece) throw new Error('Nothing to speak.');
-		const blob = await fetchXaiSpeech(plan.bearer, piece, voice, (chunk) => {
-			pushLiveChunk(article.id, readSpeak.token, chunk);
-		}, (received) => noteGeneration(article, received));
-		pushLiveChunk(article.id, readSpeak.token, null, true);
-		let saved = false;
-		try {
-			await storeArticleAudio(article, voice, hash, index, blob);
-			saved = true;
-		} catch {
-			/* this device can still play the file */
-		}
-		const url = saved ? storedFileUrl(article, index) : URL.createObjectURL(blob);
+		await requestBackendSpeech(article);
+		const url = storedFileUrl(article, index);
 		clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
 		return url;
 	}
@@ -3996,6 +3895,21 @@ async function loadStoredClip(article, index, plan, voice, hash) {
 	const url = storedFileUrl(article, index);
 	clipUrls.set(`${article.id}:${voice}:${hash}:${index}`, url);
 	return url;
+}
+
+function requestBackendSpeech(article) {
+	return fetch('/api/articles/audio', {
+		method: 'POST',
+		headers: { accept: 'application/json', 'content-type': 'application/json' },
+		body: JSON.stringify({ id: article.id, text: article.text, voice: voiceId(state.voice) }),
+		credentials: 'include',
+		cache: 'no-store',
+		signal: AbortSignal.timeout(SPEECH_WAIT_MS),
+	}).then(async (res) => {
+		const body = await res.json().catch(() => ({}));
+		if (!res.ok) throw new Error(body.error || 'Could not prepare audio.');
+		return body;
+	});
 }
 
 function prepareArticleAudio(article) {
@@ -4009,15 +3923,9 @@ function prepareArticleAudio(article) {
 		total: pieces.length,
 		articleId: article.id,
 	});
-	ensureSpeech()
-		.then((plan) => {
-			if (plan.engine !== 'xai') {
-				audioJobs.delete(key);
-				paintAudio(article.id);
-				if (/^(preparing audio|ready to play)/.test(String(state.status || ''))) noteStatus('');
-				return;
-			}
-			pumpSpeech(article, speechRun(article, plan));
+	requestBackendSpeech(article)
+		.then(() => {
+			setAudioJob(key, { status: 'ready', done: pieces.length, total: pieces.length, articleId: article.id });
 		})
 		.catch((err) => {
 			const message = err.message || 'Could not prepare audio.';
@@ -4259,26 +4167,28 @@ async function readPlay(article, startMs) {
 	if (signedIn() && article?.text) {
 		const preview = storedRows(article.text);
 		const index = chunkIndexAt(preview, startMs || 0);
-		const kind = playbackKind({ ready: storedReady(article, index), canLive: canLiveStream() });
-		if (kind === 'stored') {
+		if (storedReady(article, index)) {
 			opened.src = storedFileUrl(article, index);
-			opened.play().catch(() => {});
-		} else if (kind === 'live') {
-			armLive(article, readSpeak.token);
-			opened.src = liveAudioPath(article.id, readSpeak.token);
 			opened.play().catch(() => {});
 		}
 	}
-	let plan;
-	try {
-		plan = await ensureSpeech();
-	} catch (err) {
-		readSpeak.playing = false;
-		if (held) held.pause();
-		setStatus(err.message || 'Could not speak that article.');
-		return;
+	let plan = { engine: 'browser' };
+	const stored = signedIn() && Boolean(article?.text);
+	if (stored) {
+		try {
+			if (!storedReady(article, chunkIndexAt(storedRows(article.text), startMs || 0))) {
+				await requestBackendSpeech(article);
+				const pieces = storedRows(article.text);
+				setAudioJob(audioJobKey(article), { status: 'ready', done: pieces.length, total: pieces.length, articleId: article.id });
+			}
+			plan = { engine: 'backend' };
+		} catch (err) {
+			readSpeak.playing = false;
+			if (held) held.pause();
+			setStatus(err.message || 'Could not speak that article.');
+			return;
+		}
 	}
-	const stored = plan.engine === 'xai' && signedIn();
 	if (!stored && held) {
 		held.pause();
 		readSpeak.audio = null;

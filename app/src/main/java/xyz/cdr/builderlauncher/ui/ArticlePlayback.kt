@@ -34,7 +34,7 @@ internal class ArticlePlayback(
     val controls: ArticleControls = ChosenSpeaker(
         speaker,
         articlePlayer,
-        { Reads.usesGrokVoice(settings().provider == LlmProvider.XAI, CredentialResolver.bearer(settings())) },
+        { Reads.usesAccountSpeech(settings().accountToken) },
         { article, start, speed -> start(article, start, speed) },
         ::cancel,
         { article ->

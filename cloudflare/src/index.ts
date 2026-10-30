@@ -25,6 +25,7 @@ export interface Env {
 	ASSETS: { fetch: (request: Request) => Promise<Response> };
 	DB?: D1Database;
 	VAULT?: R2Bucket;
+	XAI_API_KEY?: string;
 }
 
 const STATIC = /\.(css|js|mjs|map|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|webmanifest)$/i;
@@ -89,7 +90,7 @@ async function handleApi(request: Request, url: URL, env: Env, ctx: ExecutionCon
 		}
 		if (url.pathname === '/api/articles/audio') {
 			if (!env.DB) return jsonError('Account sync is not configured on this Worker', 503);
-			const audio = await handleArticleAudio(request, url, { DB: env.DB, VAULT: env.VAULT });
+			const audio = await handleArticleAudio(request, url, { DB: env.DB, VAULT: env.VAULT, XAI_API_KEY: env.XAI_API_KEY });
 			if (audio) return audio;
 		}
 		if (url.pathname === '/api/weather/search' && request.method === 'GET') {

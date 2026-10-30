@@ -159,6 +159,8 @@ class ReadsTest {
         assertEquals(true, Reads.usesGrokVoice(true, "token"))
         assertEquals(false, Reads.usesGrokVoice(true, " "))
         assertEquals(false, Reads.usesGrokVoice(false, "token"))
+        assertEquals(true, Reads.usesAccountSpeech("token"))
+        assertEquals(false, Reads.usesAccountSpeech(" "))
         assertEquals(true, Reads.storedAudioReady(listOf(0)))
         assertEquals(false, Reads.storedAudioReady(emptyList()))
         assertEquals(

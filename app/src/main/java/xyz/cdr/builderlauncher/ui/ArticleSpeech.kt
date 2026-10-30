@@ -87,53 +87,17 @@ internal class ArticleSpeech(
                 }
             }
             val account = current.accountToken
-            val bearer = CredentialResolver.bearer(current) ?: error("Sign in to xAI in settings.")
+            if (account.isBlank()) error("Sign in to play saved audio.")
             val client = AccountClient()
-            val stored = if (account.isBlank()) {
-                emptyList()
-            } else {
-                runCatching { client.storedArticleIndexes(account, article.id, spoken, hash) }.getOrDefault(emptyList())
+            val stored = runCatching { client.storedArticleIndexes(account, article.id, spoken, hash) }.getOrDefault(emptyList())
+            if (!Reads.storedAudioReady(stored)) {
+                client.prepareArticleAudio(account, article.id, article.text, spoken, "")
             }
-            if (Reads.storedAudioReady(stored)) {
-                PreparedGrok(
-                    Uri.parse("${AccountClient.ORIGIN}${Reads.storedAudioQuery(article.id, voice = spoken, hash = hash, index = 0)}"),
-                    mapOf("Authorization" to "Bearer $account"),
-                ).also {
-                    ready[article.id] = it
-                    onFirst?.invoke(it)
-                }
-            } else {
-                writing[article.id] = true
-                try {
-                    val file = saver.localFile(article.id, hash, spoken)
-                    val done = CompletableDeferred<Throwable?>()
-                    var started = false
-                    var reported = 0
-                    val socket = SpeechStream().open(bearer, article.text, file, spoken, onBytes = { bytes ->
-                        if (bytes - reported >= 32_000) {
-                            reported = bytes
-                            ArticleSpeechProgress.note(article.id, bytes)
-                        }
-                        if (!started && Reads.shouldStartSpeech(bytes)) {
-                            started = true
-                            onFirst?.invoke(PreparedGrok(Uri.fromFile(file), emptyMap(), complete = false))
-                        }
-                    }, onDone = { err -> done.complete(err) })
-                    sockets[article.id] = socket
-                    if (!SpeechStream.waitForFirstAudio(file)) {
-                        socket.cancel()
-                        file.writeBytes(client.fetchXaiSpeech(bearer, article.text, spoken))
-                    } else {
-                        done.await()?.let { throw it }
-                        if (file.length() < 64) error("Speech reply was empty.")
-                    }
-                    if (account.isNotBlank()) {
-                        runCatching { client.storeArticleAudio(account, article.id, spoken, hash, 0, file.readBytes()) }
-                    }
-                    PreparedGrok(Uri.fromFile(file), emptyMap()).also { ready[article.id] = it }
-                } finally {
-                    writing[article.id] = false
-                }
+            val bytes = saver.fetch(account, article.id, hash, spoken) { _, _ -> }
+            if (bytes == null || !saver.keepPlayable(local, bytes)) error("Could not load saved audio.")
+            return@async PreparedGrok(Uri.fromFile(local), emptyMap(), complete = true).also {
+                ready[article.id] = it
+                onFirst?.invoke(it)
             }
         }
         loads[article.id] = job
@@ -163,7 +127,7 @@ internal class ArticleSpeech(
 
     suspend fun prepare(article: ReadArticle, onLabel: (String) -> Unit) {
         val current = settings()
-        if (!Reads.usesGrokVoice(current.provider == LlmProvider.XAI, CredentialResolver.bearer(current))) return
+        if (current.accountToken.isBlank()) return
         withContext(Dispatchers.Main) { onLabel(Reads.audioProgressLabel("preparing", 0, 1)) }
         runCatching { load(article).await() }.onSuccess {
             withContext(Dispatchers.Main) { onLabel(Reads.audioProgressLabel("ready", 1, 1)) }

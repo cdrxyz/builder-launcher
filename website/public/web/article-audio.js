@@ -4,6 +4,12 @@ import { SPEAK_STORE, speakPieces, voiceId } from './ai.js';
 const ARTICLE_ID = /^r[0-9a-f]{16}$/;
 const HASH = /^[0-9a-f]{16}$/;
 
+export function speechBearer(secret, supplied) {
+	const own = String(secret || '').trim();
+	if (own) return own;
+	return String(supplied || '').trim();
+}
+
 export function speechHash(text) {
 	return fnv1a64(`${SPEAK_STORE}\n${String(text || '')}`);
 }

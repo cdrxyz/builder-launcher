@@ -2,9 +2,9 @@ import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
 import { voiceId } from '../../website/public/web/ai.js';
-import { audioByteRange, audioContentRange, audioIsFullRead, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
+import { audioByteRange, audioContentRange, audioIsFullRead, speechBearer, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
 
-export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket };
+export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket; XAI_API_KEY?: string };
 
 const ARTICLE_ID = /^r[0-9a-f]{16}$/;
 const HASH = /^[0-9a-f]{16}$/;
@@ -22,7 +22,7 @@ export async function handleArticleAudio(request: Request, url: URL, env: AudioE
 	if (request.method === 'POST') {
 		const type = request.headers.get('content-type') || '';
 		if (type.includes('audio/') || type.includes('octet-stream')) return storeAudio(request, url, env.VAULT, user.id);
-		return putAudio(request, env.VAULT, user.id);
+		return putAudio(request, env, user.id);
 	}
 	return jsonError('Method not allowed', 405);
 }
@@ -75,16 +75,18 @@ async function storeAudio(request: Request, url: URL, vault: R2Bucket, userId: s
 	return Response.json({ ready: true, hash, voice, index }, { headers: { 'cache-control': 'no-store' } });
 }
 
-async function putAudio(request: Request, vault: R2Bucket, userId: string): Promise<Response> {
+async function putAudio(request: Request, env: AudioEnv, userId: string): Promise<Response> {
 	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 	if (!body) return jsonError('Invalid JSON');
 	const articleId = String(body.id || '');
 	const text = String(body.text || '');
-	const bearer = String(body.bearer || '').trim();
+	const bearer = speechBearer(env.XAI_API_KEY, body.bearer);
 	const voice = voiceId(body.voice);
 	if (!ARTICLE_ID.test(articleId)) return jsonError('Article not found', 404);
 	if (!text || text.length > 40_000) return jsonError('Nothing to speak');
-	if (!bearer) return jsonError('Sign in to xAI in settings, then sync.');
+	if (!bearer) return jsonError('Speech is not configured', 503);
+	const vault = env.VAULT;
+	if (!vault) return jsonError('Audio storage is not configured', 503);
 	const pieces = storedPieces(text);
 	const hash = speechHash(text);
 	if (!pieces.length) return Response.json({ ready: true, total: 0, hash, voice });
