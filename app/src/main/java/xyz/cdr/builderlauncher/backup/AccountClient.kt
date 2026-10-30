@@ -16,6 +16,11 @@ class AccountClient(
     private val origin: String = ORIGIN,
     private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = false },
 ) {
+    fun joinWaitlist(email: String) {
+        val body = json.encodeToString(WaitlistBody.serializer(), WaitlistBody(email.trim()))
+        post("/api/waitlist", body, token = "")
+    }
+
     fun signup(email: String, password: String): AccountSession = auth("/api/auth/signup", email, password)
 
     fun login(email: String, password: String): AccountSession = auth("/api/auth/login", email, password)
@@ -136,6 +141,9 @@ class AccountClient(
 
 @Serializable
 data class AuthBody(val email: String, val password: String)
+
+@Serializable
+data class WaitlistBody(val email: String)
 
 @Serializable
 data class AccountSession(

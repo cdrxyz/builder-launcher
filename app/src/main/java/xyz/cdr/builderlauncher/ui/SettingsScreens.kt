@@ -926,28 +926,16 @@ internal fun BackupSettingsPage(
                 autofillTypes = AccountAutofill.passwordTypes,
             ) { accountPassword = it }
             Text(
-                "Create account",
+                "Join waitlist",
                 color = if (backupBusy) Dim else Paper,
                 modifier = Modifier
                     .clickable(enabled = !backupBusy) {
-                        confirmOverwriteLocal(ctx) {
-                            backupBusy = true
-                            scope.launch {
-                                backupMsg = runCatching {
-                                    withContext(Dispatchers.IO) { backup.signup(accountEmail, accountPassword) }
-                                }.fold(
-                                    onSuccess = {
-                                        AccountAutofill.commit(ctx)
-                                        it
-                                    },
-                                    onFailure = {
-                                        AccountAutofill.cancel(ctx)
-                                        it.message ?: "Create failed"
-                                    },
-                                )
-                                accountPassword = ""
-                                backupBusy = false
-                            }
+                        backupBusy = true
+                        scope.launch {
+                            backupMsg = runCatching {
+                                withContext(Dispatchers.IO) { backup.joinWaitlist(accountEmail) }
+                            }.getOrElse { it.message ?: "Could not join the waitlist." }
+                            backupBusy = false
                         }
                     }
                     .padding(vertical = 8.dp),

@@ -1,13 +1,65 @@
 import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
-import { voiceId } from '../../website/public/web/ai.js';
+import { XAI_OAUTH, parseRefresh, voiceId } from '../../website/public/web/ai.js';
 import { audioByteRange, audioContentRange, audioIsFullRead, speechBearer, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
 
-export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket; XAI_API_KEY?: string };
+export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket; XAI_API_KEY?: string; XAI_REFRESH_TOKEN?: string };
 
 const ARTICLE_ID = /^r[0-9a-f]{16}$/;
 const HASH = /^[0-9a-f]{16}$/;
+
+const OAUTH_KEY = 'speech-oauth/token.json';
+
+export async function speechAccess(env: AudioEnv): Promise<string> {
+	const stored = await readSpeechOauth(env.VAULT);
+	if (stored && stored.expiresAtEpochMs > Date.now() + 60_000 && stored.accessToken) return stored.accessToken;
+	const refresh = stored?.refreshToken || String(env.XAI_REFRESH_TOKEN || '').trim();
+	if (refresh) {
+		const form = new URLSearchParams({
+			grant_type: 'refresh_token',
+			refresh_token: refresh,
+			client_id: XAI_OAUTH.clientId,
+		});
+		const res = await fetch(XAI_OAUTH.tokenUrl, {
+			method: 'POST',
+			headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+			body: form,
+		});
+		if (res.ok) {
+			const tokens = parseRefresh(await res.text(), Date.now(), refresh) as {
+				accessToken?: string;
+				refreshToken?: string;
+				expiresAtEpochMs?: number;
+			} | null;
+			if (tokens?.accessToken) {
+				await writeSpeechOauth(env.VAULT, {
+					accessToken: tokens.accessToken,
+					refreshToken: tokens.refreshToken || refresh,
+					expiresAtEpochMs: tokens.expiresAtEpochMs || Date.now() + 3_600_000,
+				});
+				return tokens.accessToken;
+			}
+		}
+	}
+	return String(env.XAI_API_KEY || '').trim();
+}
+
+async function readSpeechOauth(vault?: R2Bucket): Promise<{ accessToken: string; refreshToken: string; expiresAtEpochMs: number } | null> {
+	if (!vault) return null;
+	const obj = await vault.get(OAUTH_KEY);
+	if (!obj) return null;
+	try {
+		return JSON.parse(await obj.text());
+	} catch {
+		return null;
+	}
+}
+
+async function writeSpeechOauth(vault: R2Bucket | undefined, tokens: { accessToken: string; refreshToken: string; expiresAtEpochMs: number }) {
+	if (!vault) return;
+	await vault.put(OAUTH_KEY, JSON.stringify(tokens), { httpMetadata: { contentType: 'application/json' } });
+}
 
 export function speechObjectKey(userId: string, articleId: string, voice: string, hash: string, index: number): string {
 	return `speech/${userId}/${articleId}/${voice}/${hash}/${index}.mp3`;
@@ -80,7 +132,7 @@ async function putAudio(request: Request, env: AudioEnv, userId: string): Promis
 	if (!body) return jsonError('Invalid JSON');
 	const articleId = String(body.id || '');
 	const text = String(body.text || '');
-	const bearer = speechBearer(env.XAI_API_KEY, body.bearer);
+	const bearer = (await speechAccess(env)) || speechBearer('', body.bearer);
 	const voice = voiceId(body.voice);
 	if (!ARTICLE_ID.test(articleId)) return jsonError('Article not found', 404);
 	if (!text || text.length > 40_000) return jsonError('Nothing to speak');

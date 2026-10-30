@@ -1765,26 +1765,24 @@ function accountCard() {
 			button('sign out', () => signOut(), 'ghost'),
 		);
 	} else {
-		const create = document.createElement('button');
-		create.className = 'primary';
-		create.type = 'submit';
-		create.name = 'intent';
-		create.value = 'signup';
-		create.textContent = 'create account';
+		const wait = document.createElement('button');
+		wait.className = 'ghost';
+		wait.type = 'button';
+		wait.textContent = 'join waitlist';
+		wait.addEventListener('click', () => joinWaitlist(form));
 		const signIn = document.createElement('button');
-		signIn.className = 'ghost';
+		signIn.className = 'primary';
 		signIn.type = 'submit';
 		signIn.name = 'intent';
 		signIn.value = 'login';
 		signIn.textContent = 'sign in';
 		form.addEventListener('submit', (event) => {
 			event.preventDefault();
-			const intent = event.submitter?.value === 'signup' ? 'signup' : 'login';
 			const passwordInput = form.querySelector('[name="password"]');
-			if (passwordInput) applyPasswordManagerAttrs(passwordInput, 'password', 'password', intent);
-			submitAccount(form, intent);
+			if (passwordInput) applyPasswordManagerAttrs(passwordInput, 'password', 'password', 'login');
+			submitAccount(form, 'login');
 		});
-		actions.append(create, signIn);
+		actions.append(signIn, wait);
 	}
 	form.append(actions);
 	return form;
@@ -2437,15 +2435,33 @@ async function refreshWeather(force = false) {
 	}
 }
 
+async function joinWaitlist(form) {
+	const email = String(new FormData(form).get('email') || '').trim();
+	if (!email) {
+		setStatus('Enter an email address.');
+		return;
+	}
+	state.busy = true;
+	setStatus('Joining the waitlist…');
+	try {
+		await apiJson('/api/waitlist', { method: 'POST', body: { email } });
+		state.status = 'You are on the waitlist.';
+	} catch (err) {
+		state.status = err.message || String(err);
+	}
+	state.busy = false;
+	render();
+}
+
 async function submitAccount(form, mode) {
 	if (!confirmOverwriteLocal()) return;
 	const data = new FormData(form);
 	const email = String(data.get('email') || '').trim();
 	const password = String(data.get('password') || '');
 	state.busy = true;
-	setStatus(mode === 'signup' ? 'Creating account…' : 'Signing in…');
+	setStatus('Signing in…');
 	try {
-		const path = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+		const path = '/api/auth/login';
 		const res = await apiJson(path, { method: 'POST', body: { email, password } });
 		await storeAccountCredential(email, password);
 		state.account = accountRecord(res);

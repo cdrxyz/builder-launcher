@@ -18,12 +18,27 @@ test('email and password bounds', () => {
 	assert.equal(isValidPassword('longenough'), true);
 });
 
+test('signup is closed and the waitlist stores an email', async () => {
+	const db = new DatabaseSync(':memory:');
+	db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+	const env = { DB: d1(db) };
+	const closed = await handleAuth(jsonRequest('/api/auth/signup', { email: 'a@b.co', password: 'longenough' }), new URL('https://builder.cdr.xyz/api/auth/signup'), env);
+	assert.equal(closed.status, 403);
+	const joined = await handleAuth(jsonRequest('/api/waitlist', { email: 'Wait@Example.com' }), new URL('https://builder.cdr.xyz/api/waitlist'), env);
+	assert.equal(joined.status, 200);
+	assert.equal(db.prepare('SELECT email FROM waitlist').get().email, 'wait@example.com');
+	const again = await handleAuth(jsonRequest('/api/waitlist', { email: 'wait@example.com' }), new URL('https://builder.cdr.xyz/api/waitlist'), env);
+	assert.equal(again.status, 200);
+	assert.equal(db.prepare('SELECT COUNT(*) AS n FROM waitlist').get().n, 1);
+});
+
 test('a refresh token mints a new session after the access token expires', async () => {
 	const db = new DatabaseSync(':memory:');
 	db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
 	const env = { DB: d1(db) };
-	const signup = await handleAuth(jsonRequest('/api/auth/signup', { email: 'a@b.co', password: 'longenough' }), new URL('https://builder.cdr.xyz/api/auth/signup'), env);
-	const created = await signup.json();
+	const passwordHash = await hashPassword('longenough');
+	db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run('user-1', 'a@b.co', passwordHash);
+	const created = await (await handleAuth(jsonRequest('/api/auth/login', { email: 'a@b.co', password: 'longenough' }), new URL('https://builder.cdr.xyz/api/auth/login'), env)).json();
 	assert.ok(created.token);
 	assert.ok(created.refreshToken);
 	assert.notEqual(created.refreshToken, created.token);
