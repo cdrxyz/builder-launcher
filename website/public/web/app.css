@@ -647,6 +647,12 @@ main.home-main {
 	text-overflow: ellipsis;
 }
 
+.row .episode-icons {
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
+}
+
 .row .trail {
 	flex: none;
 	display: flex;

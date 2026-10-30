@@ -106,6 +106,7 @@ import {
 	removeTicker,
 	scrubBaseline,
 	skipped,
+	progressAfterSkip,
 	SPEED_STEPS,
 	STOCK_RANGES,
 	timestamps,
@@ -904,9 +905,10 @@ function homeScreen() {
 }
 
 function podcastMark() {
-	const playing = Boolean(audio.src) && !audio.paused;
-	const loaded = Boolean(state.episodeId && audio.src);
-	const pausedFor = state.pausedAt ? Date.now() - state.pausedAt : null;
+	const article = readSpeak.playing && readSpeak.article ? readSpeak.article : null;
+	const playing = article ? true : Boolean(audio.src) && !audio.paused;
+	const loaded = article ? true : Boolean(state.episodeId && audio.src);
+	const pausedFor = article ? null : (state.pausedAt ? Date.now() - state.pausedAt : null);
 	const mark = homePodcastMark(playing, loaded, pausedFor, HOME_MARK_IDLE_MS);
 	const btn = document.createElement('button');
 	btn.type = 'button';
@@ -915,6 +917,10 @@ function podcastMark() {
 	btn.setAttribute('aria-label', btn.title);
 	btn.innerHTML = podcastMarkSvg(mark);
 	btn.addEventListener('click', () => {
+		if (article && mark !== 'HEADPHONES') {
+			readToggle(article);
+			return;
+		}
 		if (mark === 'HEADPHONES') go('pods');
 		else if (state.episodeId) {
 			const ep = podcastsOf(state.doc).episodes.find((row) => row.id === state.episodeId);
@@ -1521,8 +1527,12 @@ function podsScreen() {
 		wrap.append(section('search'));
 		for (const hit of state.hits) wrap.append(podcastHitRow(hit));
 	}
+	const articles = readsOf(state.doc).articles;
+	if (articles.length && !state.hits.length) {
+		wrap.append(showRow({ feedUrl: 'saved-articles', title: 'Saved Articles', author: `${articles.length} saved` }));
+	}
 	const rows = homeRows(bag.shows, bag.episodes, bag.progress, playingId());
-	if (!rows.length && !state.hits.length) {
+	if (!rows.length && !state.hits.length && !articles.length) {
 		wrap.append(empty('No shows yet. Pull from S3, search a name, or paste an RSS / OPML URL.'));
 	}
 	for (const row of rows) {
@@ -1538,7 +1548,7 @@ function podsScreen() {
 			wrap.append(showRow(row.show));
 			continue;
 		}
-		wrap.append(episodeRow(row.episode, row.show, row.progress));
+		wrap.append(episodeRow(row.episode, row.show, row.progress, { download: true, dismiss: true }));
 	}
 	return wrap;
 }
@@ -1561,17 +1571,14 @@ function podcastCatalogScreen(kind) {
 			plus.setAttribute('aria-label', 'add to recent');
 			plus.addEventListener('click', (event) => event.stopPropagation());
 		}
-		const download = kind === 'recent' && episode.enclosureUrl
-			? iconButton('download', 'M9 3v7M6.2 7.2 9 10l2.8-2.8M4 12.2V15h10v-2.8', () => downloadEpisode(episode))
-			: null;
-		const trail = document.createElement('span');
-		trail.className = 'trail';
-		if (download) trail.append(download);
-		if (plus) trail.append(plus);
 		return listRow({
 			title: episode.title,
 			subtitle: shows.get(episode.showId)?.title || '',
-			trail: trail.childElementCount ? trail : null,
+			trail: episodeActions(episode, progress, {
+				download: kind === 'recent',
+				plus,
+				dismiss: true,
+			}),
 			dim: finished(progress) || skipped(progress),
 			onClick: () => {
 				state.tab = 'episode';
@@ -1604,6 +1611,40 @@ function appendWindow(wrap, rows, renderRow) {
 		if (entries.some((entry) => entry.isIntersecting)) fill(page);
 	}, { root: wrap.closest('main'), rootMargin: '640px' });
 	io.observe(sentinel);
+}
+
+function dismissEpisode(episode, restore = false) {
+	const bag = podcastsOf(state.doc);
+	const prev = progressMap(bag.progress).get(episode.id);
+	const next = progressAfterSkip(prev, episode.id, episode.durationMs || 0, Date.now(), !restore);
+	if (!restore && state.episodeId === episode.id) {
+		audio.pause();
+		state.episodeId = null;
+		if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+	}
+	mutate({ podcasts: { ...bag, progress: upsertProgress(bag.progress, next) } });
+}
+
+function episodeActions(episode, progress, { download = false, plus = null, dismiss = false } = {}) {
+	const trail = document.createElement('span');
+	trail.className = 'trail episode-actions';
+	const icons = document.createElement('span');
+	icons.className = 'episode-icons';
+	if (download && episode.enclosureUrl) {
+		icons.append(iconButton('download', 'M9 3v7M6.2 7.2 9 10l2.8-2.8M4 12.2V15h10v-2.8', () => downloadEpisode(episode)));
+	}
+	if (plus) icons.append(plus);
+	if (dismiss) {
+		const gone = skipped(progress);
+		icons.append(iconButton(
+			gone ? 'restore episode' : 'dismiss episode',
+			'M5 5l8 8M13 5L5 13',
+			() => dismissEpisode(episode, gone),
+		));
+	}
+	if (!icons.childElementCount) return null;
+	trail.append(icons);
+	return trail;
 }
 
 function saveEpisodeToRecent(episode) {
@@ -1648,7 +1689,7 @@ function showScreen() {
 				: 'No episodes yet.',
 		));
 	}
-	appendWindow(wrap, list, (episode) => episodeRow(episode, show, byId.get(episode.id)));
+	appendWindow(wrap, list, (episode) => episodeRow(episode, show, byId.get(episode.id), { download: true, dismiss: true }));
 	return wrap;
 }
 
@@ -2496,22 +2537,28 @@ function showRow(show) {
 		title: show.title,
 		subtitle: show.author || '',
 		onClick: () => {
+			if (show.feedUrl === 'saved-articles') {
+				go('read');
+				return;
+			}
 			state.showId = show.feedUrl;
 			go('show');
 		},
 		onContextMenu: () => {
+			if (show.feedUrl === 'saved-articles') return;
 			const bag = podcastsOf(state.doc);
 			mutate({ podcasts: { ...bag, ...unsubscribe(bag.shows, bag.episodes, bag.progress, show.feedUrl) } });
 		},
 	});
 }
 
-function episodeRow(episode, show, progress) {
+function episodeRow(episode, show, progress, actions = {}) {
 	return listRow({
 		title: episode.title,
 		subtitle: show?.title || '',
 		meta: formatDuration(progress?.positionMs || episode.durationMs),
 		dim: finished(progress) || skipped(progress),
+		trail: episodeActions(episode, progress, actions),
 		onClick: () => {
 			state.tab = 'episode';
 			state.showId = episode.showId;
@@ -2546,13 +2593,13 @@ function listRow({ title, subtitle = '', meta = '', dim = false, trail = null, o
 		copy.append(sub);
 	}
 	row.append(copy);
-	if (trail) row.append(trail);
-	else if (meta) {
+	if (meta) {
 		const side = document.createElement('span');
 		side.className = 'meta';
 		side.textContent = meta;
 		row.append(side);
 	}
+	if (trail) row.append(trail);
 	if (onClick) row.addEventListener('click', onClick);
 	if (onContextMenu) {
 		row.addEventListener('contextmenu', (event) => {
@@ -3605,6 +3652,7 @@ const readSpeak = {
 
 function readStop(save) {
 	readSpeak.playing = false;
+	if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	readSpeak.token += 1;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = null;
@@ -4234,7 +4282,21 @@ async function readPlay(article, startMs) {
 		}
 	}, 10_000);
 	speakReadChunk();
+	publishArticleSession(article);
 	render();
+}
+
+function publishArticleSession(article) {
+	const session = navigator.mediaSession;
+	if (!session || typeof MediaMetadata === 'undefined') return;
+	session.metadata = new MediaMetadata({
+		title: article.title || 'Article',
+		artist: 'Saved Articles',
+		album: 'Saved Articles',
+	});
+	session.playbackState = 'playing';
+	session.setActionHandler('play', () => readToggle(article));
+	session.setActionHandler('pause', () => readStop(true));
 }
 
 function readToggle(article) {

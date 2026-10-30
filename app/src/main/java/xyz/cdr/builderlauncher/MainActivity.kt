@@ -39,6 +39,7 @@ import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
+import xyz.cdr.builderlauncher.read.ArticleMedia
 import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ReadSpeaker
 import xyz.cdr.builderlauncher.read.ReadsRepository
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
         val reads = ReadsRepository(this)
         val reader = ReadSpeaker(this)
         val grok = ArticlePlayer(this)
+        ArticleMedia.bind(grok)
         speaker = reader
         articlePlayer = grok
         val calendar = CalendarRepository(this)

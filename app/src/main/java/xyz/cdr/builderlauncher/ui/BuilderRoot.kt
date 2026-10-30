@@ -207,6 +207,7 @@ import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.read.ArticleDownload
+import xyz.cdr.builderlauncher.read.ArticlePlaybackService
 import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ChosenSpeaker
 import xyz.cdr.builderlauncher.read.PreparedGrok
@@ -783,6 +784,7 @@ fun BuilderRoot(
     fun playEpisode(episode: PodcastEpisode) {
         speaker.pause()
         articlePlayer.pause()
+        ArticlePlaybackService.stop(ctx)
         podcasts.setSkipped(episode.id, false, episode.durationMs)
         val start = podcasts.progress.value[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
@@ -1516,14 +1518,25 @@ fun BuilderRoot(
                         page = Page.Todos
                     },
                     onOpenUsage = { openUsage() },
-                    playing = playback.playing,
-                    episodeLoaded = Podcasts.nowPlayingBarVisible(
-                        playback.episodeId,
-                        Podcasts.finished(playback.episodeId?.let { podcastProgress[it] }) ||
-                            Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs),
-                    ),
+                    playing = if (Reads.homeControlsArticle(grokPlayback.playing, grokPlayback.articleId != null, playback.playing)) grokPlayback.playing else playback.playing,
+                    episodeLoaded = if (Reads.homeControlsArticle(grokPlayback.playing, grokPlayback.articleId != null, playback.playing)) {
+                        grokPlayback.articleId != null
+                    } else {
+                        Podcasts.nowPlayingBarVisible(
+                            playback.episodeId,
+                            Podcasts.finished(playback.episodeId?.let { podcastProgress[it] }) ||
+                                Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs),
+                        )
+                    },
                     onOpenPodcasts = { openPodcastsList() },
-                    onTogglePlayback = { togglePlayback() },
+                    onTogglePlayback = {
+                        if (Reads.homeControlsArticle(grokPlayback.playing, grokPlayback.articleId != null, playback.playing)) {
+                            val article = readArticles.find { it.id == grokPlayback.articleId } ?: return@ClockHeader
+                            articleControls.toggle(article, grokPlayback.positionMs, readSpeed)
+                        } else {
+                            togglePlayback()
+                        }
+                    },
                     onOpenEvent = {
                         val item = upcoming ?: return@ClockHeader
                         try {
@@ -1874,8 +1887,8 @@ fun BuilderRoot(
                         }
                         Page.Podcasts -> {
                 val searching = PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && input.trim().isNotEmpty()
-                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId) {
-                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId)
+                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId, readArticles.size) {
+                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId, readArticles.size)
                 }
                 ScreenHeader(
                     title = Podcasts.COMMAND,
@@ -2064,7 +2077,13 @@ fun BuilderRoot(
                                         Column(
                                             Modifier
                                                 .weight(1f)
-                                                .clickable { openPodcastShow(row.show.feedUrl) },
+                                                .clickable {
+                                                    if (row.show.feedUrl == Reads.SAVED_FEED) {
+                                                        page = Page.Read
+                                                    } else {
+                                                        openPodcastShow(row.show.feedUrl)
+                                                    }
+                                                },
                                         ) {
                                             Text(row.show.title, color = Paper)
                                             if (row.show.author.isNotBlank()) {
@@ -2075,7 +2094,7 @@ fun BuilderRoot(
                                                 )
                                             }
                                         }
-                                        DeleteIcon(
+                                        if (row.show.feedUrl != Reads.SAVED_FEED) DeleteIcon(
                                             Modifier
                                                 .semantics { contentDescription = "unsubscribe" }
                                                 .clickable { unsubscribeShow(row.show.feedUrl) }

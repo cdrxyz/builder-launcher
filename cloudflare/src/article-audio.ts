@@ -2,7 +2,7 @@ import { currentUser } from './auth';
 import { jsonError } from './safe';
 import { xaiSpeechBytes } from './ai';
 import { XAI_OAUTH, parseRefresh, voiceId } from '../../website/public/web/ai.js';
-import { audioByteRange, audioContentRange, audioIsFullRead, speechBearer, speechHash, storedPieces } from '../../website/public/web/article-audio.js';
+import { audioByteRange, audioContentRange, audioIsFullRead, acceptSpeechScript, speechBearer, speechHash, storedPieces, stripSpeechNoise } from '../../website/public/web/article-audio.js';
 
 export type AudioEnv = { DB: D1Database; VAULT?: R2Bucket; XAI_API_KEY?: string; XAI_REFRESH_TOKEN?: string };
 
@@ -127,6 +127,34 @@ async function storeAudio(request: Request, url: URL, vault: R2Bucket, userId: s
 	return Response.json({ ready: true, hash, voice, index }, { headers: { 'cache-control': 'no-store' } });
 }
 
+async function spokenText(text: string, bearer: string): Promise<string> {
+	const plain = stripSpeechNoise(text);
+	try {
+		const res = await fetch('https://api.x.ai/v1/chat/completions', {
+			method: 'POST',
+			headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json', accept: 'application/json' },
+			body: JSON.stringify({
+				model: 'grok-4.6',
+				temperature: 0,
+				messages: [
+					{
+						role: 'system',
+						content: 'Prepare article text for speech. Remove advertisements, sponsorships, newsletter plugs, and URLs. Keep the article wording and order. Do not summarize. Return only the spoken text.',
+					},
+					{ role: 'user', content: plain.slice(0, 40_000) },
+				],
+			}),
+			signal: AbortSignal.timeout(60_000),
+		});
+		if (!res.ok) return plain;
+		const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+		const cleaned = String(data.choices?.[0]?.message?.content || '');
+		return acceptSpeechScript(plain, cleaned) ? cleaned.trim() : plain;
+	} catch {
+		return plain;
+	}
+}
+
 async function putAudio(request: Request, env: AudioEnv, userId: string): Promise<Response> {
 	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 	if (!body) return jsonError('Invalid JSON');
@@ -152,7 +180,8 @@ async function putAudio(request: Request, env: AudioEnv, userId: string): Promis
 		return Response.json({ ready: true, total: pieces.length, hash, voice, index: pieces.length - 1 });
 	}
 	if (!ready.has(index)) {
-		const audio = await xaiSpeechBytes(pieces[index], voice, bearer, 1);
+		const spoken = await spokenText(pieces[index], bearer);
+		const audio = await xaiSpeechBytes(spoken, voice, bearer, 1);
 		await vault.put(speechObjectKey(userId, articleId, voice, hash, index), audio, {
 			httpMetadata: { contentType: 'audio/mpeg' },
 		});
