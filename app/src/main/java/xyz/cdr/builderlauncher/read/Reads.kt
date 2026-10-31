@@ -163,6 +163,9 @@ object Reads {
     fun homeControlsArticle(articlePlaying: Boolean, articleLoaded: Boolean, podcastPlaying: Boolean): Boolean =
         articlePlaying || (articleLoaded && !podcastPlaying)
 
+    fun podcastIndexShowsArticle(articlePlaying: Boolean, articleLoaded: Boolean, podcastPlaying: Boolean): Boolean =
+        homeControlsArticle(articlePlaying, articleLoaded, podcastPlaying)
+
     fun pausesArticleWhenLeavingScreen(): Boolean = false
 
     fun savedArticlesShow(count: Int): PodcastShow? {
