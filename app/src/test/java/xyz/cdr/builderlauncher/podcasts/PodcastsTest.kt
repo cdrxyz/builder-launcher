@@ -434,6 +434,7 @@ class PodcastsTest {
         )
         assertEquals(Podcasts.SKIP_MS, Podcasts.mediaSkipMs(forward = true))
         assertEquals(-Podcasts.SKIP_MS, Podcasts.mediaSkipMs(forward = false))
+        assertFalse(Podcasts.startsForegroundServiceToStop())
         assertTrue(Podcasts.shouldOpenNowPlaying(Podcasts.ACTION_NOW_PLAYING, openExtra = false))
         assertTrue(Podcasts.shouldOpenNowPlaying(action = null, openExtra = true))
         assertFalse(Podcasts.shouldOpenNowPlaying(action = null, openExtra = false))

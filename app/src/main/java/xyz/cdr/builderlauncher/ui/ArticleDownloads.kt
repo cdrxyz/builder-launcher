@@ -44,21 +44,20 @@ internal class ArticleDownloads(
             val spoken = Reads.voiceId(voice())
             val saver = ArticleDownload(context)
             val kept = saver.onDevice(article.id, spoken, hash, article.title)
-            if (kept) {
-                withContext(Dispatchers.Main) { setDownloaded(downloaded() + article.id) }
-            }
             val current = audio()[article.id].orEmpty()
-            if (!Reads.shouldProbeStoredAudio(current)) return@launch
-            val ready = saver.playableFile(article.id, spoken, hash) != null || runCatching {
+            val stored = if (kept) false else runCatching {
                 val token = settings().accountToken
                 token.isNotBlank() && Reads.storedAudioReady(
                     AccountClient().storedArticleIndexes(token, article.id, spoken, hash),
                 )
             }.getOrDefault(false)
-            if (!ready) return@launch
+            val ready = Reads.deviceFileCountsAsReady(kept, current) ||
+                (Reads.shouldProbeStoredAudio(current) && stored)
+            if (!kept && !ready) return@launch
             withContext(Dispatchers.Main) {
+                if (kept) setDownloaded(downloaded() + article.id)
                 if (!Reads.shouldProbeStoredAudio(audio()[article.id].orEmpty())) return@withContext
-                setAudio(audio() + (article.id to Reads.audioProgressLabel("ready", 1, 1)))
+                if (ready) setAudio(audio() + (article.id to Reads.audioProgressLabel("ready", 1, 1)))
             }
         }
     }

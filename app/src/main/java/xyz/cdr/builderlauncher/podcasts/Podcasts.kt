@@ -451,6 +451,9 @@ object Podcasts {
 
     fun mediaSkipMs(forward: Boolean): Long = if (forward) SKIP_MS else -SKIP_MS
 
+    /** Starting a foreground service only to stop it crashes the launcher if startForeground is skipped. */
+    fun startsForegroundServiceToStop(): Boolean = false
+
     fun shouldOpenNowPlaying(action: String?, openExtra: Boolean): Boolean =
         action == ACTION_NOW_PLAYING || openExtra
 

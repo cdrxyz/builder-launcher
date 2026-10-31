@@ -499,7 +499,7 @@ fun BuilderRoot(
     LaunchedEffect(page) {
         if (page != Page.Read && page != Page.ReadPlayer) {
             speaker.pause()
-            articlePlayer.pause()
+            if (Reads.pausesArticleWhenLeavingScreen()) articlePlayer.pause()
         }
     }
     BuilderLoops(
