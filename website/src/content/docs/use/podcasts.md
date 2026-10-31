@@ -15,7 +15,7 @@ There is no live Overcast account sync. Export OPML from Overcast (Settings → 
 
 Order:
 
-1. **now playing** bar under gear/`>` when an episode is loaded and not finished. Tap the title for the episode screen. Play/pause icons on the right. The bar stays up while you search.
+1. **now playing** bar under gear/`>` when an episode is loaded and not finished. Tap the title for the episode screen. Play/pause icons on the right. The bar stays up while you search. A playing saved article uses the same bar, titled with the article and Saved Articles. Tap it to open that article's player.
 2. **recent** — up to 3 unfinished plays or episodes added with +, most recently touched, excluding the current episode. Tap to play without leaving the list. The position sits at the top of the row. Download sits beside ×, and the percent sits under the icon while a file is fetching, so it does not crowd the position. × dismisses it (skipped, reversible) and deletes its download. The dismiss is kept across sync, so it stays out of recent, next, and autoplay. `… all recent episodes >` opens every recent episode, with a download on each row.
 3. **next 5 episodes** — newest episodes that are not finished or skipped. Titles wrap to 3 lines. Show names stay on one line. Tap to play. The length sits at the top of the row. Download sits beside ×. Tap several downloads to queue them; each shows 0% under the icon until that file starts, then percent while it fetches. One file downloads at a time. × skips that episode, deletes its download, and leaves it out of this list and out of what plays next. `… all next episodes >` opens every episode, newest first, with + to add one to recent.
 

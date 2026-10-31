@@ -78,6 +78,7 @@ import {
 	formatChartTime,
 	formatExtended,
 	homeRows,
+	podcastIndexShowsArticle,
 	applyCheckedFeeds,
 	homePodcastMark,
 	HOME_MARK_IDLE_MS,
@@ -2664,6 +2665,16 @@ function iconButton(label, path, onClick, disabled = false) {
 }
 
 function nowPlayingBar() {
+	const podcastPlaying = Boolean(audio.src) && !audio.paused;
+	if (podcastIndexShowsArticle(readSpeak.playing, Boolean(readSpeak.id), podcastPlaying)) {
+		const article = readSpeak.article || readsOf(state.doc).articles.find((item) => item.id === readSpeak.id);
+		if (article) {
+			return mediaNowPlaying(article.title || 'Article', 'Saved Articles', readSpeak.playing, () => {
+				state.articleId = article.id;
+				go('article');
+			}, () => readToggle(article));
+		}
+	}
 	if (!state.episodeId) return null;
 	const bag = podcastsOf(state.doc);
 	const episode = bag.episodes.find((item) => item.id === state.episodeId);
@@ -2671,6 +2682,15 @@ function nowPlayingBar() {
 	const progress = progressMap(bag.progress).get(episode.id);
 	if (finished(progress) && audio.paused) return null;
 	const show = bag.shows.find((item) => item.feedUrl === episode.showId);
+	return mediaNowPlaying(episode.title, show?.title || '', !audio.paused, () => {
+		state.tab = 'episode';
+		state.showId = episode.showId;
+		state.episodeId = episode.id;
+		render();
+	}, () => togglePlay(episode));
+}
+
+function mediaNowPlaying(title, show, playing, onOpen, onToggle) {
 	const wrap = document.createElement('div');
 	wrap.className = 'now-playing';
 	const copy = document.createElement('button');
@@ -2681,26 +2701,21 @@ function nowPlayingBar() {
 	label.textContent = 'now playing';
 	const titleEl = document.createElement('span');
 	titleEl.className = 'title';
-	titleEl.textContent = episode.title;
+	titleEl.textContent = title;
 	copy.append(label, titleEl);
-	if (show?.title) {
+	if (show) {
 		const sub = document.createElement('span');
 		sub.className = 'sub';
-		sub.textContent = show.title;
+		sub.textContent = show;
 		copy.append(sub);
 	}
-	copy.addEventListener('click', () => {
-		state.tab = 'episode';
-		state.showId = episode.showId;
-		state.episodeId = episode.id;
-		render();
-	});
+	copy.addEventListener('click', onOpen);
 	const play = document.createElement('button');
 	play.type = 'button';
 	play.className = 'ghost play';
-	play.setAttribute('aria-label', audio.paused ? 'play' : 'pause');
-	play.innerHTML = playPauseSvg(!audio.paused);
-	play.addEventListener('click', () => togglePlay(episode));
+	play.setAttribute('aria-label', playing ? 'pause' : 'play');
+	play.innerHTML = playPauseSvg(playing);
+	play.addEventListener('click', onToggle);
 	wrap.append(copy, play);
 	return wrap;
 }

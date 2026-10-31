@@ -12,6 +12,10 @@ export function homePodcastMark(playing, episodeLoaded, pausedForMs, idleMs = HO
 	return 'HEADPHONES';
 }
 
+export function podcastIndexShowsArticle(articlePlaying, articleLoaded, podcastPlaying) {
+	return Boolean(articlePlaying) || (Boolean(articleLoaded) && !podcastPlaying);
+}
+
 export function watchlist(doc) {
 	return Array.isArray(doc?.watchlist) ? doc.watchlist : [];
 }

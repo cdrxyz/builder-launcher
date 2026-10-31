@@ -1920,7 +1920,21 @@ fun BuilderRoot(
                     Podcasts.finished(podcastProgress[nowEpisode.id]) ||
                         Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs)
                     )
-                if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
+                val articleNow = readArticles.find { it.id == readPlayback.articleId }
+                if (articleNow != null && Reads.podcastIndexShowsArticle(
+                    readPlayback.playing,
+                    readPlayback.articleId != null,
+                    playback.playing,
+                )) {
+                    PodcastNowPlayingBar(
+                        title = articleNow.title,
+                        show = Reads.SAVED_ARTICLES,
+                        playing = readPlayback.playing,
+                        onOpen = { openReadArticle(articleNow.id) },
+                        onToggle = { articleControls.toggle(articleNow, readPlayback.positionMs, readSpeed) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                } else if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
                     PodcastNowPlayingBar(
                         title = nowEpisode.title,
                         show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
