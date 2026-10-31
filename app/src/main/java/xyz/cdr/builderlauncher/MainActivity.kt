@@ -42,6 +42,7 @@ import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 import xyz.cdr.builderlauncher.read.ArticleMedia
 import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ReadSpeaker
+import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.ReadsRepository
 
 class MainActivity : ComponentActivity() {
@@ -125,7 +126,7 @@ class MainActivity : ComponentActivity() {
         stopped = true
         PodcastPlayer.persist()
         speaker?.pause()
-        articlePlayer?.pause()
+        if (Reads.pausesArticleWhenLeavingScreen()) articlePlayer?.pause() else articlePlayer?.persist()
     }
 
     override fun onDestroy() {

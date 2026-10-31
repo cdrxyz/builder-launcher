@@ -163,6 +163,8 @@ object Reads {
     fun homeControlsArticle(articlePlaying: Boolean, articleLoaded: Boolean, podcastPlaying: Boolean): Boolean =
         articlePlaying || (articleLoaded && !podcastPlaying)
 
+    fun pausesArticleWhenLeavingScreen(): Boolean = false
+
     fun savedArticlesShow(count: Int): PodcastShow? {
         if (count <= 0) return null
         return PodcastShow(feedUrl = SAVED_FEED, title = SAVED_ARTICLES, author = "$count saved")

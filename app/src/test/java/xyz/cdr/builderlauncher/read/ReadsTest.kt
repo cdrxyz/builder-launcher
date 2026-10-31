@@ -166,6 +166,7 @@ class ReadsTest {
         assertEquals(false, Reads.downloadKept(cacheBytes = 0, storeBytes = 0))
         assertEquals(true, Reads.homeControlsArticle(articlePlaying = true, articleLoaded = true, podcastPlaying = false))
         assertEquals(false, Reads.homeControlsArticle(articlePlaying = false, articleLoaded = true, podcastPlaying = true))
+        assertEquals(false, Reads.pausesArticleWhenLeavingScreen())
         assertEquals(true, Reads.storedAudioReady(listOf(0)))
         assertEquals(false, Reads.storedAudioReady(emptyList()))
         assertEquals(

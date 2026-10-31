@@ -859,13 +859,6 @@ function go(tab, prompt) {
 		state.stockScrub = null;
 	}
 	if (changingPage) state.speedMenu = false;
-	if (changingPage && tab !== 'read' && tab !== 'article') {
-		try {
-			readStop(true);
-		} catch {
-			/* A speech checkpoint must not block the next screen. */
-		}
-	}
 	if (tab !== 'article') state.articleId = tab === 'read' ? state.articleId : null;
 	if (changingPage && (tab === 'pods' || tab === 'show')) {
 		refreshPodcastFeeds({ rerender: true }).catch(() => {});
@@ -3086,6 +3079,7 @@ function playingId() {
 }
 
 function togglePlay(episode) {
+	if (readSpeak.playing) readStop(true);
 	if (audio.src !== episode.enclosureUrl) {
 		audio.src = episode.enclosureUrl;
 	}

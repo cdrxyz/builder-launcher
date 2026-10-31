@@ -163,6 +163,10 @@ class ArticlePlayer(context: Context) : ArticleControls {
         }
     }
 
+    fun persist() {
+        publish(save = true)
+    }
+
     override fun seek(article: ReadArticle, positionMs: Long, speed: Float) {
         val duration = Reads.durationMs(article.text)
         val word = positionMs.coerceIn(0L, duration)
