@@ -16,6 +16,10 @@ export function podcastIndexShowsArticle(articlePlaying, articleLoaded, podcastP
 	return Boolean(articlePlaying) || (Boolean(articleLoaded) && !podcastPlaying);
 }
 
+export function sessionPlayStartsArticle({ owner, pageVisible }) {
+	return owner === 'article' && !pageVisible;
+}
+
 export function watchlist(doc) {
 	return Array.isArray(doc?.watchlist) ? doc.watchlist : [];
 }
