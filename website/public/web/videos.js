@@ -101,6 +101,19 @@ export function pickStreams(player) {
 	};
 }
 
+export function streamHostAllowed(raw) {
+	try {
+		const host = new URL(raw).hostname.toLowerCase();
+		return host === 'googlevideo.com' || host.endsWith('.googlevideo.com');
+	} catch {
+		return false;
+	}
+}
+
+export function pageStreamUrl(kind, id, upstream) {
+	return `/api/videos/stream?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}&src=${encodeURIComponent(upstream)}`;
+}
+
 export function videosOf(doc) {
 	const bag = doc?.videos || {};
 	return {

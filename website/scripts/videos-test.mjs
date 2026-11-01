@@ -36,3 +36,11 @@ test('saving a video replaces the same id', () => {
 	assert.equal(next.length, 1);
 	assert.equal(next[0].title, 'New');
 });
+
+test('only a googlevideo stream can be proxied', async () => {
+	const { streamHostAllowed, pageStreamUrl } = await import('../public/web/videos.js');
+	assert.equal(streamHostAllowed('https://rr5.googlevideo.com/videoplayback?id=1'), true);
+	assert.equal(streamHostAllowed('https://evil.example/rr5.googlevideo.com'), false);
+	assert.equal(streamHostAllowed('not a url'), false);
+	assert.match(pageStreamUrl('audio', 'dQw4w9WgXcQ', 'https://rr5.googlevideo.com/a'), /^\/api\/videos\/stream\?kind=audio&id=dQw4w9WgXcQ&src=/);
+});

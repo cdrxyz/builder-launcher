@@ -1,4 +1,4 @@
-const CACHE = 'builder-launcher-web-v59';
+const CACHE = 'builder-launcher-web-v60';
 const SHELL = [
 	'./',
 	'./index.html',
@@ -59,6 +59,7 @@ self.addEventListener('fetch', (event) => {
 	const url = new URL(req.url);
 	if (url.origin !== self.location.origin) return;
 	if (url.pathname === '/api/articles/audio') return;
+	if (url.pathname === '/api/videos/stream') return;
 	if (url.pathname === '/api/articles/live') {
 		const id = url.searchParams.get('id') || '';
 		const token = url.searchParams.get('t') || '';
