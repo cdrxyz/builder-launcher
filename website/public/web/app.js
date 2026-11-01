@@ -98,6 +98,7 @@ import {
 	formatExtended,
 	homeRows,
 	podcastIndexShowsArticle,
+	sessionPlayStartsArticle,
 	applyCheckedFeeds,
 	homePodcastMark,
 	HOME_MARK_IDLE_MS,
@@ -202,6 +203,8 @@ const ITUNES = 'https://itunes.apple.com/search';
 
 const audio = new Audio();
 audio.preload = 'metadata';
+let playbackOwner = null;
+let articleAudibleWhenHidden = false;
 let lastSavedAt = 0;
 let lastSavedPos = 0;
 let listTab = null;
@@ -289,15 +292,25 @@ audio.addEventListener('timeupdate', () => {
 audio.addEventListener('pause', () => {
 	state.pausedAt = Date.now();
 	checkpoint(true);
+	if (playbackOwner === 'podcast' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	if (state.tab === 'home') render();
 });
 audio.addEventListener('play', () => {
 	state.pausedAt = 0;
+	if (playbackOwner === 'podcast' && navigator.mediaSession) navigator.mediaSession.playbackState = 'playing';
 	if (state.tab === 'home') render();
 });
 audio.addEventListener('ended', () => {
 	checkpoint(true, true);
 	render();
+});
+
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'hidden') {
+		articleAudibleWhenHidden = playbackOwner === 'article' && audibleClip();
+		return;
+	}
+	if (!articleAudibleWhenHidden && playbackOwner === 'article' && audibleClip()) readStop(true);
 });
 
 boot();
@@ -1914,7 +1927,7 @@ function dismissEpisode(episode, restore = false) {
 	if (!restore && state.episodeId === episode.id) {
 		audio.pause();
 		state.episodeId = null;
-		if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+		if (playbackOwner === 'podcast' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	}
 	mutate({ podcasts: { ...bag, progress: upsertProgress(bag.progress, next) } });
 }
@@ -3425,8 +3438,10 @@ function playingId() {
 }
 
 function togglePlay(episode) {
-	if (readSpeak.playing) readStop(true);
-	if (videoSpeak.playing) videoAudio.pause();
+	playbackOwner = 'podcast';
+	readStop(true);
+	videoAudio.pause();
+	publishPodcastSession(episode);
 	if (audio.src !== episode.enclosureUrl) {
 		audio.src = episode.enclosureUrl;
 	}
@@ -3981,8 +3996,16 @@ function fileInput() {
 const videoAudio = new Audio();
 videoAudio.preload = 'none';
 const videoSpeak = { id: null, playing: false, title: '' };
-videoAudio.addEventListener('play', () => { videoSpeak.playing = true; render(); });
-videoAudio.addEventListener('pause', () => { videoSpeak.playing = false; render(); });
+videoAudio.addEventListener('play', () => {
+	videoSpeak.playing = true;
+	if (playbackOwner === 'video' && navigator.mediaSession) navigator.mediaSession.playbackState = 'playing';
+	render();
+});
+videoAudio.addEventListener('pause', () => {
+	videoSpeak.playing = false;
+	if (playbackOwner === 'video' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+	render();
+});
 
 async function resolveVideo(raw) {
 	const res = await fetch(`/api/videos/resolve?url=${encodeURIComponent(raw)}`);
@@ -4025,9 +4048,17 @@ async function submitVideo(text) {
 
 async function playSavedVideo(video, audioOnly) {
 	if (!video) return;
-	if (readSpeak.playing) readStop(true);
+	playbackOwner = 'video';
+	readStop(true);
 	audio.pause();
-	const picked = await resolveVideo(video.url);
+	let picked;
+	try {
+		picked = await resolveVideo(video.url);
+	} catch (err) {
+		if (playbackOwner !== 'video') return;
+		throw err;
+	}
+	if (playbackOwner !== 'video') return;
 	videoSpeak.id = video.id;
 	videoSpeak.title = video.title;
 	videoSpeak.audioOnly = audioOnly;
@@ -4035,6 +4066,11 @@ async function playSavedVideo(video, audioOnly) {
 	videoSpeak.muxed = picked.muxed;
 	videoAudio.src = picked.audioUrl;
 	await videoAudio.play();
+	if (playbackOwner !== 'video') {
+		videoAudio.pause();
+		return;
+	}
+	publishVideoSession(video);
 	render();
 }
 
@@ -4053,7 +4089,7 @@ const readSpeak = {
 
 function readStop(save) {
 	readSpeak.playing = false;
-	if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+	if (playbackOwner === 'article' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	readSpeak.token += 1;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = null;
@@ -4695,9 +4731,12 @@ function advanceRead(row) {
 }
 
 async function readPlay(article, startMs) {
+	playbackOwner = 'article';
 	audio.pause();
+	videoAudio.pause();
 	const held = readSpeak.audio;
 	readSpeak.token += 1;
+	const token = readSpeak.token;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = null;
 	if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
@@ -4725,12 +4764,14 @@ async function readPlay(article, startMs) {
 			}
 			plan = { engine: 'backend' };
 		} catch (err) {
+			if (readSpeak.token !== token || playbackOwner !== 'article') return;
 			readSpeak.playing = false;
 			if (held) held.pause();
 			setStatus(err.message || 'Could not speak that article.');
 			return;
 		}
 	}
+	if (readSpeak.token !== token || playbackOwner !== 'article') return;
 	if (!stored && held) {
 		held.pause();
 		readSpeak.audio = null;
@@ -4773,8 +4814,58 @@ function publishArticleSession(article) {
 		album: 'Saved Articles',
 	});
 	session.playbackState = 'playing';
-	session.setActionHandler('play', () => readToggle(article));
-	session.setActionHandler('pause', () => readStop(true));
+	session.setActionHandler('play', () => {
+		if (!sessionPlayStartsArticle({ owner: playbackOwner, pageVisible: document.visibilityState === 'visible' })) return;
+		if (!readSpeak.article) return;
+		readPlay(readSpeak.article, readSpeak.positionMs || 0);
+	});
+	session.setActionHandler('pause', () => {
+		if (playbackOwner !== 'article') return;
+		readStop(true);
+	});
+}
+
+function publishPodcastSession(episode) {
+	const session = navigator.mediaSession;
+	if (!session || typeof MediaMetadata === 'undefined') return;
+	const show = podcastsOf(state.doc).shows.find((item) => item.feedUrl === episode.showId);
+	session.metadata = new MediaMetadata({
+		title: episode.title || 'Episode',
+		artist: show?.title || '',
+		album: show?.title || '',
+	});
+	session.playbackState = audio.paused ? 'paused' : 'playing';
+	session.setActionHandler('play', () => {
+		if (playbackOwner !== 'podcast' || !audio.paused) return;
+		audio.play().catch(() => {});
+		session.playbackState = 'playing';
+	});
+	session.setActionHandler('pause', () => {
+		if (playbackOwner !== 'podcast') return;
+		audio.pause();
+		session.playbackState = 'paused';
+	});
+}
+
+function publishVideoSession(video) {
+	const session = navigator.mediaSession;
+	if (!session || typeof MediaMetadata === 'undefined') return;
+	session.metadata = new MediaMetadata({
+		title: video.title || 'Video',
+		artist: 'Saved Videos',
+		album: 'Saved Videos',
+	});
+	session.playbackState = videoAudio.paused ? 'paused' : 'playing';
+	session.setActionHandler('play', () => {
+		if (playbackOwner !== 'video' || !videoAudio.paused) return;
+		videoAudio.play().catch(() => {});
+		session.playbackState = 'playing';
+	});
+	session.setActionHandler('pause', () => {
+		if (playbackOwner !== 'video') return;
+		videoAudio.pause();
+		session.playbackState = 'paused';
+	});
 }
 
 function readToggle(article) {
