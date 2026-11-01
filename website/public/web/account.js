@@ -1,3 +1,9 @@
+export const SIGNUP_CODE = 'timetobuild';
+
+export function signupCodeOpens(code) {
+	return String(code || '').trim().toLowerCase() === SIGNUP_CODE;
+}
+
 export const OVERWRITE_WARNING =
 	'This will overwrite any local data on this device (todos, notes, chats, pins, stocks, podcasts, articles, alarms, and settings). OAuth tokens on this phone stay unless the snapshot includes them. Continue?';
 

@@ -13,6 +13,10 @@ class AccountRefreshTest {
         assertFalse(AccountRefresh.shouldRetry(null, "refresh"))
         assertTrue(AccountRefresh.showsSignIn("me@example.com", "dead-token"))
         assertTrue(AccountRefresh.showsSignIn("", ""))
+        assertTrue(AccountSignup.opens("timetobuild"))
+        assertTrue(AccountSignup.opens(" TimeToBuild "))
+        assertFalse(AccountSignup.opens("nope"))
+        assertFalse(AccountSignup.opens(""))
     }
 
     @Test

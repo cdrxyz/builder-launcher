@@ -9,6 +9,7 @@ import {
 	requestAccountCredential,
 	setAccountRefresher,
 	storeAccountCredential,
+	signupCodeOpens,
 } from './account.js';
 import { emptyDoc, joinDocs, keepFreshArticles, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
 import {
@@ -1789,6 +1790,7 @@ function accountCard() {
 		form.append(
 			field('Email', 'email', state.account.email, 'you@example.com', 'email'),
 			field('Password', 'password', '', '8+ characters', 'password'),
+			field('Code', 'code', '', 'invite code', 'text'),
 		);
 		promptAccountPassword(form);
 	}
@@ -1800,11 +1802,25 @@ function accountCard() {
 			button('sign out', () => signOut(), 'ghost'),
 		);
 	} else {
-		const wait = document.createElement('button');
-		wait.className = 'ghost';
-		wait.type = 'button';
-		wait.textContent = 'join waitlist';
-		wait.addEventListener('click', () => joinWaitlist(form));
+		const gate = document.createElement('button');
+		gate.className = 'ghost';
+		gate.type = 'button';
+		const codeInput = form.querySelector('[name="code"]');
+		const paintGate = () => {
+			const open = signupCodeOpens(codeInput?.value);
+			gate.textContent = open ? 'create account' : 'join waitlist';
+			gate.onclick = () => {
+				if (signupCodeOpens(codeInput?.value)) {
+					const passwordInput = form.querySelector('[name="password"]');
+					if (passwordInput) applyPasswordManagerAttrs(passwordInput, 'password', 'password', 'signup');
+					submitAccount(form, 'signup');
+				} else {
+					joinWaitlist(form);
+				}
+			};
+		};
+		codeInput?.addEventListener('input', paintGate);
+		paintGate();
 		const signIn = document.createElement('button');
 		signIn.className = 'primary';
 		signIn.type = 'submit';
@@ -1817,7 +1833,7 @@ function accountCard() {
 			if (passwordInput) applyPasswordManagerAttrs(passwordInput, 'password', 'password', 'login');
 			submitAccount(form, 'login');
 		});
-		actions.append(signIn, wait);
+		actions.append(signIn, gate);
 	}
 	form.append(actions);
 	return form;
@@ -2494,10 +2510,12 @@ async function submitAccount(form, mode) {
 	const email = String(data.get('email') || '').trim();
 	const password = String(data.get('password') || '');
 	state.busy = true;
-	setStatus('Signing in…');
+	setStatus(mode === 'signup' ? 'Creating account…' : 'Signing in…');
 	try {
-		const path = '/api/auth/login';
-		const res = await apiJson(path, { method: 'POST', body: { email, password } });
+		const path = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+		const code = String(data.get('code') || '');
+		const body = mode === 'signup' ? { email, password, code } : { email, password };
+		const res = await apiJson(path, { method: 'POST', body });
 		await storeAccountCredential(email, password);
 		state.account = accountRecord(res);
 		saveAccount(state.account);

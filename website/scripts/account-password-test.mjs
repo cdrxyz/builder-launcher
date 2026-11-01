@@ -10,7 +10,15 @@ import {
 	passwordCredentialData,
 	requestAccountCredential,
 	storeAccountCredential,
+	signupCodeOpens,
 } from '../public/web/account.js';
+
+test('an invite code opens account creation', () => {
+	assert.equal(signupCodeOpens('timetobuild'), true);
+	assert.equal(signupCodeOpens(' TimeToBuild '), true);
+	assert.equal(signupCodeOpens('nope'), false);
+	assert.equal(signupCodeOpens(''), false);
+});
 
 test('account login fields prompt the password manager', async () => {
 	assert.equal(fieldAutocomplete('email', 'email'), 'username');
@@ -69,6 +77,10 @@ test('account login fields prompt the password manager', async () => {
 	assert.equal(await requestAccountCredential({ get: async () => { throw new Error('no'); } }), null);
 	const app = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
 	assert.match(app, /form\.id = 'builder-account-form'/);
+	assert.match(app, /field\('Code', 'code'/);
+	assert.match(app, /signupCodeOpens/);
+	assert.match(app, /create account/);
+	assert.match(app, /join waitlist/);
 	assert.match(app, /signIn\.type = 'submit'/);
 	assert.match(app, /promptAccountPassword\(form\)/);
 	assert.match(app, /await storeAccountCredential\(email, password\)/);
