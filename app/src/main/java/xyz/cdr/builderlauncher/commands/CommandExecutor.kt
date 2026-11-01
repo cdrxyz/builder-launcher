@@ -33,6 +33,7 @@ class CommandExecutor(
             Command.OpenStocks -> ExecResult.NavigateStocks
             Command.OpenPodcasts -> ExecResult.NavigatePodcasts
             Command.OpenRead -> ExecResult.NavigateRead
+            Command.OpenVideos -> ExecResult.NavigateVideos
             Command.OpenClock -> ExecResult.NavigateClock
             Command.OpenWeather -> ExecResult.NavigateWeather
             Command.OpenUsage -> ExecResult.NavigateUsage
@@ -185,6 +186,7 @@ sealed class ExecResult {
     data object NavigateStocks : ExecResult()
     data object NavigatePodcasts : ExecResult()
     data object NavigateRead : ExecResult()
+    data object NavigateVideos : ExecResult()
     data object NavigateClock : ExecResult()
     data object NavigateWeather : ExecResult()
     data object NavigateUsage : ExecResult()

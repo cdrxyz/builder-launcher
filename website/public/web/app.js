@@ -130,6 +130,7 @@ import {
 	readsOf,
 	upsertReadProgress,
 } from './reads.js';
+import { addVideo, deletedIdsAfterAdd as deletedVideoIdsAfterAdd, videosOf } from './videos.js';
 import {
 	GEOCODE,
 	airUrl,
@@ -767,6 +768,8 @@ function header() {
 		? () => go('pods')
 		: state.tab === 'article'
 			? () => go('read')
+			: state.tab === 'video'
+				? () => go('videos')
 		: state.tab === 'stock'
 			? () => go('stocks')
 			: state.tab === 'episode'
@@ -777,6 +780,8 @@ function header() {
 		? 'podcasts'
 		: state.tab === 'read' || state.tab === 'article'
 			? 'articles'
+		: state.tab === 'videos' || state.tab === 'video'
+			? 'videos'
 		: state.tab === 'tasks'
 			? 'tasks'
 			: state.tab === 'stock'
@@ -836,6 +841,8 @@ function main() {
 	else if (state.tab === 'episode') el.append(episodeScreen());
 	else if (state.tab === 'read') el.append(readScreen());
 	else if (state.tab === 'article') el.append(articleScreen());
+	else if (state.tab === 'videos') el.append(videosScreen());
+	else if (state.tab === 'video') el.append(videoScreen());
 	else if (state.tab === 'tasks') el.append(tasksScreen());
 	else if (state.tab === 'help') el.append(helpScreen());
 	else if (state.tab === 'weather') el.append(weatherScreen());
@@ -1003,7 +1010,7 @@ function helpScreen() {
 		'+  note',
 		'$  stock',
 		'?  ask AI',
-		'/  slash (notes stocks podcasts articles weather settings tasks pull push)',
+		'/  slash (notes stocks podcasts articles videos weather settings tasks pull push)',
 		'',
 		'Tap the prompt glyph for the prefix menu.',
 		'Back on home resets to -.',
@@ -1201,6 +1208,10 @@ function submitCommand() {
 		submitRead(text);
 		return;
 	}
+	if (state.tab === 'videos' || state.tab === 'video') {
+		submitVideo(text);
+		return;
+	}
 	setStatus('Unknown command. Type /help.');
 }
 
@@ -1237,6 +1248,10 @@ function runSlash(name) {
 	}
 	if (key === 'articles') {
 		go('read');
+		return;
+	}
+	if (key === 'videos' || key === 'video') {
+		go('videos');
 		return;
 	}
 	if (key === 'settings') {
@@ -1526,8 +1541,12 @@ function podsScreen() {
 	if (articles.length && !state.hits.length) {
 		wrap.append(showRow({ feedUrl: 'saved-articles', title: 'Saved Articles', author: `${articles.length} saved` }));
 	}
+	const videos = videosOf(state.doc).videos;
+	if (videos.length && !state.hits.length) {
+		wrap.append(showRow({ feedUrl: 'saved-videos', title: 'Saved Videos', author: `${videos.length} saved` }));
+	}
 	const rows = homeRows(bag.shows, bag.episodes, bag.progress, playingId());
-	if (!rows.length && !state.hits.length && !articles.length) {
+	if (!rows.length && !state.hits.length && !articles.length && !videos.length) {
 		wrap.append(empty('No shows yet. Pull from S3, search a name, or paste an RSS / OPML URL.'));
 	}
 	for (const row of rows) {
@@ -2553,11 +2572,15 @@ function showRow(show) {
 				go('read');
 				return;
 			}
+			if (show.feedUrl === 'saved-videos') {
+				go('videos');
+				return;
+			}
 			state.showId = show.feedUrl;
 			go('show');
 		},
 		onContextMenu: () => {
-			if (show.feedUrl === 'saved-articles') return;
+			if (show.feedUrl === 'saved-articles' || show.feedUrl === 'saved-videos') return;
 			const bag = podcastsOf(state.doc);
 			mutate({ podcasts: { ...bag, ...unsubscribe(bag.shows, bag.episodes, bag.progress, show.feedUrl) } });
 		},
@@ -2684,6 +2707,15 @@ function iconButton(label, path, onClick, disabled = false) {
 
 function nowPlayingBar() {
 	const podcastPlaying = Boolean(audio.src) && !audio.paused;
+	if (videoSpeak.playing) {
+		const video = videosOf(state.doc).videos.find((item) => item.id === videoSpeak.id);
+		if (video) {
+			return mediaNowPlaying(video.title || 'Video', 'Saved Videos', true, () => {
+				state.videoId = video.id;
+				go('video');
+			}, () => videoAudio.pause());
+		}
+	}
 	if (podcastIndexShowsArticle(readSpeak.playing, Boolean(readSpeak.id), podcastPlaying)) {
 		const article = readSpeak.article || readsOf(state.doc).articles.find((item) => item.id === readSpeak.id);
 		if (article) {
@@ -3113,6 +3145,7 @@ function playingId() {
 
 function togglePlay(episode) {
 	if (readSpeak.playing) readStop(true);
+	if (videoSpeak.playing) videoAudio.pause();
 	if (audio.src !== episode.enclosureUrl) {
 		audio.src = episode.enclosureUrl;
 	}
@@ -3662,6 +3695,66 @@ function fileInput() {
 		}
 	});
 	input.click();
+}
+
+const videoAudio = new Audio();
+videoAudio.preload = 'none';
+const videoSpeak = { id: null, playing: false, title: '' };
+videoAudio.addEventListener('play', () => { videoSpeak.playing = true; render(); });
+videoAudio.addEventListener('pause', () => { videoSpeak.playing = false; render(); });
+
+async function resolveVideo(raw) {
+	const res = await fetch(`/api/videos/resolve?url=${encodeURIComponent(raw)}`);
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(data.error || 'Could not play that video.');
+	return data;
+}
+
+async function submitVideo(text) {
+	const raw = String(text || '').trim();
+	if (!raw) return;
+	state.busy = true;
+	setStatus('Opening video…');
+	try {
+		const picked = await resolveVideo(raw);
+		const id = `v${picked.id}`;
+		const bag = videosOf(state.doc);
+		mutate({
+			videos: {
+				videos: addVideo(bag.videos, {
+					id,
+					url: `https://www.youtube.com/watch?v=${picked.id}`,
+					title: picked.title,
+					author: picked.author,
+					durationMs: picked.durationMs,
+				}),
+				deletedIds: deletedVideoIdsAfterAdd(bag.deletedIds, id),
+			},
+		});
+		state.videoId = id;
+		state.draft = '';
+		go('video');
+		await playSavedVideo(videosOf(state.doc).videos.find((item) => item.id === id), false);
+	} catch (err) {
+		setStatus(err.message || 'Could not play that video.');
+	} finally {
+		state.busy = false;
+	}
+}
+
+async function playSavedVideo(video, audioOnly) {
+	if (!video) return;
+	if (readSpeak.playing) readStop(true);
+	audio.pause();
+	const picked = await resolveVideo(video.url);
+	videoSpeak.id = video.id;
+	videoSpeak.title = video.title;
+	videoSpeak.audioOnly = audioOnly;
+	videoSpeak.picture = audioOnly ? '' : picked.videoUrl;
+	videoSpeak.muxed = picked.muxed;
+	videoAudio.src = picked.audioUrl;
+	await videoAudio.play();
+	render();
 }
 
 const readSpeak = {
@@ -4495,6 +4588,53 @@ function saveArticleFile(article, blob) {
 	link.click();
 	link.remove();
 	setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+}
+
+function videosScreen() {
+	const wrap = document.createElement('div');
+	const bag = videosOf(state.doc);
+	if (!bag.videos.length) wrap.append(empty('Paste a YouTube URL.'));
+	bag.videos.forEach((video) => {
+		const row = document.createElement('button');
+		row.type = 'button';
+		row.className = 'row';
+		row.textContent = video.title || 'Video';
+		row.addEventListener('click', () => {
+			state.videoId = video.id;
+			go('video');
+		});
+		wrap.append(row);
+	});
+	return wrap;
+}
+
+function videoScreen() {
+	const wrap = document.createElement('div');
+	const video = videosOf(state.doc).videos.find((item) => item.id === state.videoId);
+	if (!video) {
+		wrap.append(empty('Paste a YouTube URL.'));
+		return wrap;
+	}
+	wrap.append(title(video.title || 'Video'));
+	if (video.author) wrap.append(empty(video.author));
+	if (videoSpeak.id === video.id && videoSpeak.picture) {
+		const picture = document.createElement('video');
+		picture.className = 'video-frame';
+		picture.controls = true;
+		picture.src = videoSpeak.picture;
+		picture.play().catch(() => {});
+		wrap.append(picture);
+	}
+	const play = document.createElement('button');
+	play.type = 'button';
+	play.className = 'ghost';
+	play.textContent = videoSpeak.playing && videoSpeak.id === video.id ? 'pause' : 'play';
+	play.addEventListener('click', () => {
+		if (videoSpeak.playing && videoSpeak.id === video.id) videoAudio.pause();
+		else playSavedVideo(video, false).catch((err) => setStatus(err.message || 'Could not play that video.'));
+	});
+	wrap.append(play);
+	return wrap;
 }
 
 function readScreen() {

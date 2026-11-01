@@ -10,6 +10,7 @@ sealed class Command {
     data object OpenStocks : Command()
     data object OpenPodcasts : Command()
     data object OpenRead : Command()
+    data object OpenVideos : Command()
     data object OpenClock : Command()
     data object OpenWeather : Command()
     data object OpenUsage : Command()
@@ -87,6 +88,7 @@ object CommandParser {
             "stock" -> return Command.OpenStocks
             "podcast" -> return Command.OpenPodcasts
             "article", "articles" -> return Command.OpenRead
+            "video", "videos" -> return Command.OpenVideos
         }
         val appPick = AppPickQuery.parse(trimmed)
         if (appPick.pick != AppPick.Launch) {

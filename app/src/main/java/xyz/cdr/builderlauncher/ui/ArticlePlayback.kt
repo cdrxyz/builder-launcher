@@ -9,6 +9,7 @@ import xyz.cdr.builderlauncher.ai.oauth.CredentialResolver
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.LlmProvider
 import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
+import xyz.cdr.builderlauncher.videos.VideoMedia
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.read.ArticleMedia
 import xyz.cdr.builderlauncher.read.ArticlePlaybackService
@@ -82,6 +83,7 @@ internal class ArticlePlayback(
                         ArticleMedia.note(article.title)
                         ArticlePlaybackService.start(context, article.title)
                         PodcastPlaybackService.stop(context)
+                        VideoMedia.stop(context)
                     }
                 }.await()
             }
@@ -92,6 +94,7 @@ internal class ArticlePlayback(
                     ArticleMedia.note(article.title)
                     ArticlePlaybackService.start(context, article.title)
                     PodcastPlaybackService.stop(context)
+                    VideoMedia.stop(context)
                     setAudio(article.id, Reads.audioProgressLabel("ready", 1, 1))
                 }
             }.onFailure { err ->
