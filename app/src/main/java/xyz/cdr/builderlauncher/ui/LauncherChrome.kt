@@ -1787,6 +1787,7 @@ fun BackupChrome(
         Text("Sign out", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Field("Email", "you@example.com", "you@example.com")
         Field("Password", "", "8+ characters")
+        Field("Code", "", "invite code")
         Text("Join waitlist", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Text("Sign in", color = Paper, modifier = Modifier.padding(vertical = 8.dp))
         Spacer(Modifier.height(12.dp))

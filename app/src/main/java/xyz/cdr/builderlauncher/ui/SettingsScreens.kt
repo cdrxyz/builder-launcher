@@ -135,6 +135,7 @@ import xyz.cdr.builderlauncher.apps.AppList
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.AccountAutofill
 import xyz.cdr.builderlauncher.backup.AccountRefresh
+import xyz.cdr.builderlauncher.backup.AccountSignup
 import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.backup.S3Access
 import xyz.cdr.builderlauncher.backup.S3Signer
@@ -859,6 +860,7 @@ internal fun BackupSettingsPage(
     var s3Encryption by remember { mutableStateOf(settings.s3EncryptionKey) }
     var accountEmail by remember { mutableStateOf(settings.accountEmail) }
     var accountPassword by remember { mutableStateOf("") }
+    var signupCode by remember { mutableStateOf("") }
     var backupMsg by remember { mutableStateOf<String?>(null) }
     var backupBusy by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
@@ -925,21 +927,57 @@ internal fun BackupSettingsPage(
                 password = true,
                 autofillTypes = AccountAutofill.passwordTypes,
             ) { accountPassword = it }
-            Text(
-                "Join waitlist",
-                color = if (backupBusy) Dim else Paper,
-                modifier = Modifier
-                    .clickable(enabled = !backupBusy) {
-                        backupBusy = true
-                        scope.launch {
-                            backupMsg = runCatching {
-                                withContext(Dispatchers.IO) { backup.joinWaitlist(accountEmail) }
-                            }.getOrElse { it.message ?: "Could not join the waitlist." }
-                            backupBusy = false
+            LabeledField(
+                "Code",
+                signupCode,
+                "invite code",
+            ) { signupCode = it }
+            if (AccountSignup.opens(signupCode)) {
+                Text(
+                    "Create account",
+                    color = if (backupBusy) Dim else Paper,
+                    modifier = Modifier
+                        .clickable(enabled = !backupBusy) {
+                            backupBusy = true
+                            scope.launch {
+                                backupMsg = runCatching {
+                                    withContext(Dispatchers.IO) {
+                                        val created = backup.signup(accountEmail, accountPassword, signupCode)
+                                        created + ". " + backup.mergeAccount()
+                                    }
+                                }.fold(
+                                    onSuccess = {
+                                        AccountAutofill.commit(ctx)
+                                        it
+                                    },
+                                    onFailure = {
+                                        AccountAutofill.cancel(ctx)
+                                        it.message ?: "Could not create the account."
+                                    },
+                                )
+                                accountPassword = ""
+                                backupBusy = false
+                            }
                         }
-                    }
-                    .padding(vertical = 8.dp),
-            )
+                        .padding(vertical = 8.dp),
+                )
+            } else {
+                Text(
+                    "Join waitlist",
+                    color = if (backupBusy) Dim else Paper,
+                    modifier = Modifier
+                        .clickable(enabled = !backupBusy) {
+                            backupBusy = true
+                            scope.launch {
+                                backupMsg = runCatching {
+                                    withContext(Dispatchers.IO) { backup.joinWaitlist(accountEmail) }
+                                }.getOrElse { it.message ?: "Could not join the waitlist." }
+                                backupBusy = false
+                            }
+                        }
+                        .padding(vertical = 8.dp),
+                )
+            }
             Text(
                 "Sign in",
                 color = if (backupBusy) Dim else Paper,

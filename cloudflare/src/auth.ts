@@ -19,7 +19,7 @@ const COOKIE = 'bl_session';
 type UserRow = { id: string; email: string; password_hash: string };
 
 export async function handleAuth(request: Request, url: URL, env: AuthEnv): Promise<Response | null> {
-	if (url.pathname === '/api/auth/signup' && request.method === 'POST') return signupClosed();
+	if (url.pathname === '/api/auth/signup' && request.method === 'POST') return signup(request, env);
 	if (url.pathname === '/api/waitlist' && request.method === 'POST') return joinWaitlist(request, env);
 	if (url.pathname === '/api/auth/login' && request.method === 'POST') return login(request, env);
 	if (url.pathname === '/api/auth/refresh' && request.method === 'POST') return refresh(request, env);
@@ -43,7 +43,37 @@ export async function currentUser(request: Request, env: AuthEnv): Promise<{ id:
 }
 
 function signupClosed(): Response {
-	return jsonError('Accounts are closed. Join the waitlist.', 403);
+	return jsonError('Join the waitlist.', 403);
+}
+
+export const SIGNUP_CODE = 'timetobuild';
+
+export function signupCodeOpens(code: string): boolean {
+	return String(code || '').trim().toLowerCase() === SIGNUP_CODE;
+}
+
+async function signup(request: Request, env: AuthEnv): Promise<Response> {
+	const limited = await rateLimit(env.DB, `signup:${clientIp(request)}`, 10, 60 * 60);
+	if (limited) return limited;
+	let raw: Record<string, unknown>;
+	try {
+		raw = (await request.json()) as Record<string, unknown>;
+	} catch {
+		return jsonError('JSON body required');
+	}
+	if (!signupCodeOpens(String(raw.code || ''))) return signupClosed();
+	const email = normalizeEmail(String(raw.email || ''));
+	const password = String(raw.password || '');
+	if (!isValidEmail(email)) return jsonError('Enter a valid email');
+	if (!isValidPassword(password)) return jsonError('Password must be 8–128 characters');
+	const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first<{ id: string }>();
+	if (existing) return jsonError('That email already has an account. Sign in.', 409);
+	const id = randomToken(16);
+	await env.DB.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)')
+		.bind(id, email, await hashPassword(password))
+		.run();
+	await writeAudit(env.DB, { actorId: id, action: 'auth.signup', ip: clientIp(request) });
+	return issueSession(env, { id, email }, request);
 }
 
 async function joinWaitlist(request: Request, env: AuthEnv): Promise<Response> {

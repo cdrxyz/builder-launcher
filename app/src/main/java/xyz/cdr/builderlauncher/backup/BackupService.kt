@@ -104,8 +104,8 @@ class BackupService(
         return "You are on the waitlist."
     }
 
-    fun signup(email: String, password: String): String {
-        val session = account.signup(email, password)
+    fun signup(email: String, password: String, code: String): String {
+        val session = account.signup(email, password, code)
         saveSession(session)
         return "Created ${session.email}"
     }
