@@ -40,10 +40,13 @@ import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 import xyz.cdr.builderlauncher.read.ArticleMedia
+import xyz.cdr.builderlauncher.videos.VideoMedia
 import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ReadSpeaker
 import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.ReadsRepository
+import xyz.cdr.builderlauncher.videos.VideoPlayer
+import xyz.cdr.builderlauncher.videos.VideosRepository
 
 class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
@@ -78,14 +81,18 @@ class MainActivity : ComponentActivity() {
         val stocks = StocksRepository(this)
         val podcasts = PodcastsRepository(this)
         val reads = ReadsRepository(this)
+        val videos = VideosRepository(this)
         val reader = ReadSpeaker(this)
         val grok = ArticlePlayer(this)
+        val picture = VideoPlayer(this)
         ArticleMedia.bind(grok)
+        VideoMedia.bind(picture)
+        VideoMedia.videos = videos
         speaker = reader
         articlePlayer = grok
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
-        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, clock)
+        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, videos, clock)
         ClockScheduler.reconcile(this, clock)
         applyAlertWindow()
         PodcastPlayer.attach(this)

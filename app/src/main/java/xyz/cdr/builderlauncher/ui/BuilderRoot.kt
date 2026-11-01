@@ -215,6 +215,8 @@ import xyz.cdr.builderlauncher.read.ReadArticle
 import xyz.cdr.builderlauncher.read.ReadSpeaker
 import xyz.cdr.builderlauncher.read.Reads
 import xyz.cdr.builderlauncher.read.ReadsRepository
+import xyz.cdr.builderlauncher.videos.VideoMedia
+import xyz.cdr.builderlauncher.videos.Videos
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.Podcasts
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
@@ -338,6 +340,7 @@ fun BuilderRoot(
     var podcastShowUrl by remember { mutableStateOf<String?>(null) }
     var podcastEpisodeId by remember { mutableStateOf<String?>(null) }
     var readArticleId by remember { mutableStateOf<String?>(null) }
+    var videoId by remember { mutableStateOf<String?>(null) }
     var readBusy by remember { mutableStateOf(false) }
     var articleAudio by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var clockTab by remember { mutableStateOf(ClockTab.Timer) }
@@ -709,6 +712,27 @@ fun BuilderRoot(
         page = Page.PodcastEpisode
     }
 
+    fun openVideoList() {
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.Videos
+    }
+
+    fun openVideo(id: String) {
+        videoId = id
+        prompt = PrefixCommands.DEFAULT_PROMPT
+        input = ""
+        choices = emptyList()
+        people = emptyList()
+        help = false
+        appQuery = false
+        page = Page.VideoPlayer
+    }
+
     fun openReadList() {
         prompt = PrefixCommands.DEFAULT_PROMPT
         input = ""
@@ -785,6 +809,7 @@ fun BuilderRoot(
         speaker.pause()
         articlePlayer.pause()
         ArticlePlaybackService.stop(ctx)
+        VideoMedia.stop(ctx)
         podcasts.setSkipped(episode.id, false, episode.durationMs)
         val start = podcasts.progress.value[episode.id]?.takeIf { !Podcasts.finished(it) }?.positionMs ?: 0L
         val file = podcasts.downloadedFile(episode.id)
@@ -1268,6 +1293,15 @@ fun BuilderRoot(
             return
         }
         if (PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) &&
+            (page == Page.Videos || page == Page.VideoPlayer)
+        ) {
+            submitSavedVideo(scope, ctx, line) { id ->
+                input = ""
+                openVideo(id)
+            }
+            return
+        }
+        if (PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) &&
             (page == Page.Read || page == Page.ReadPlayer)
         ) {
             submitRead(line)
@@ -1360,6 +1394,7 @@ fun BuilderRoot(
             ExecResult.NavigateStocks -> openStocksList()
             ExecResult.NavigatePodcasts -> openPodcastsList()
             ExecResult.NavigateRead -> openReadList()
+            ExecResult.NavigateVideos -> openVideoList()
             ExecResult.NavigateClock -> openClock()
             ExecResult.NavigateWeather -> openWeather()
             ExecResult.NavigateUsage -> openUsage()
@@ -1887,8 +1922,9 @@ fun BuilderRoot(
                         }
                         Page.Podcasts -> {
                 val searching = PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && input.trim().isNotEmpty()
-                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId, readArticles.size) {
-                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId, readArticles.size)
+                val videoCount = SavedVideoCount()
+                val rows = remember(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId, readArticles.size, videoCount) {
+                    Podcasts.homeRows(podcastShows, podcastEpisodes, podcastProgress, playback.episodeId, readArticles.size, videoCount)
                 }
                 ScreenHeader(
                     title = Podcasts.COMMAND,
@@ -1921,29 +1957,29 @@ fun BuilderRoot(
                         Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs)
                     )
                 val articleNow = readArticles.find { it.id == readPlayback.articleId }
-                if (articleNow != null && Reads.podcastIndexShowsArticle(
-                    readPlayback.playing,
-                    readPlayback.articleId != null,
-                    playback.playing,
-                )) {
-                    PodcastNowPlayingBar(
-                        title = articleNow.title,
-                        show = Reads.SAVED_ARTICLES,
-                        playing = readPlayback.playing,
-                        onOpen = { openReadArticle(articleNow.id) },
-                        onToggle = { articleControls.toggle(articleNow, readPlayback.positionMs, readSpeed) },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                } else if (Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null) {
-                    PodcastNowPlayingBar(
-                        title = nowEpisode.title,
-                        show = podcasts.show(nowEpisode.showId)?.title.orEmpty(),
-                        playing = playback.playing,
-                        onOpen = { openPodcastEpisode(nowEpisode.id) },
-                        onToggle = { togglePlayback() },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
+                PodcastIndexNowPlaying(
+                    video = VideoMedia.videos?.videos?.value?.find { it.id == VideoMedia.player?.state?.value?.videoId },
+                    videoPlaying = VideoMedia.player?.state?.value?.playing == true,
+                    showVideo = VideoMedia.player?.state?.value?.videoId != null && (VideoMedia.player?.state?.value?.playing == true || !playback.playing),
+                    article = articleNow,
+                    showArticle = articleNow != null && Reads.podcastIndexShowsArticle(readPlayback.playing, readPlayback.articleId != null, playback.playing),
+                    articlePlaying = readPlayback.playing,
+                    episode = nowEpisode,
+                    episodeShow = nowEpisode?.let { podcasts.show(it.showId)?.title }.orEmpty(),
+                    episodePlaying = playback.playing,
+                    showEpisode = Podcasts.nowPlayingBarVisible(playback.episodeId, nowEnded) && nowEpisode != null,
+                    onOpenVideo = { VideoMedia.player?.state?.value?.videoId?.let { openVideo(it) } },
+                    onToggleVideo = {
+                        val player = VideoMedia.player ?: return@PodcastIndexNowPlaying
+                        val current = VideoMedia.videos?.videos?.value?.find { it.id == player.state.value.videoId } ?: return@PodcastIndexNowPlaying
+                        if (player.state.value.playing) player.pause()
+                        else scope.launch { playSaved(ctx, VideoMedia.videos!!, player, current, audioOnly = true) }
+                    },
+                    onOpenArticle = { articleNow?.let { openReadArticle(it.id) } },
+                    onToggleArticle = { articleNow?.let { articleControls.toggle(it, readPlayback.positionMs, readSpeed) } },
+                    onOpenEpisode = { nowEpisode?.let { openPodcastEpisode(it.id) } },
+                    onToggleEpisode = { togglePlayback() },
+                )
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (searching) {
                         if (podcastHits.isEmpty()) {
@@ -2094,6 +2130,8 @@ fun BuilderRoot(
                                                 .clickable {
                                                     if (row.show.feedUrl == Reads.SAVED_FEED) {
                                                         page = Page.Read
+                                                    } else if (row.show.feedUrl == Videos.SAVED_FEED) {
+                                                        openVideoList()
                                                     } else {
                                                         openPodcastShow(row.show.feedUrl)
                                                     }
@@ -2108,7 +2146,7 @@ fun BuilderRoot(
                                                 )
                                             }
                                         }
-                                        if (row.show.feedUrl != Reads.SAVED_FEED) DeleteIcon(
+                                        if (row.show.feedUrl != Reads.SAVED_FEED && row.show.feedUrl != Videos.SAVED_FEED) DeleteIcon(
                                             Modifier
                                                 .semantics { contentDescription = "unsubscribe" }
                                                 .clickable { unsubscribeShow(row.show.feedUrl) }
@@ -3501,6 +3539,11 @@ fun BuilderRoot(
                         is ReadEvent.Browser -> openArticleInBrowser(event.url)
                     }
                 },
+            )
+            Page.Videos, Page.VideoPlayer -> VideosHost(
+                openId = if (page == Page.VideoPlayer) videoId else null,
+                onOpen = { openVideo(it) },
+                onBack = { if (page == Page.VideoPlayer) openVideoList() else page = Page.Home },
             )
                 else -> Unit
             }

@@ -25,6 +25,7 @@ export const SLASH = [
 	{ name: 'settings', label: 'settings' },
 	{ name: 'stocks', label: 'watchlist' },
 	{ name: 'tasks', label: 'all tasks' },
+	{ name: 'videos', label: 'saved videos' },
 	{ name: 'weather', label: 'forecast' },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -70,6 +71,7 @@ export function builtinPage(query) {
 	if (q === 'stocks' || q === 'stock') return 'stocks';
 	if (q === 'podcasts' || q === 'podcast' || q === 'pods') return 'pods';
 	if (q === 'articles' || q === 'article') return 'read';
+	if (q === 'videos' || q === 'video') return 'videos';
 	if (q === 'settings' || q === 'setting' || q === 'backup') return 'settings';
 	if (q === 'tasks' || q === 'todos' || q === 'todo') return 'tasks';
 	if (q === 'weather') return 'weather';
@@ -89,6 +91,7 @@ export function pagePrompt(tab) {
 	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';
 	if (tab === 'read' || tab === 'articles' || tab === 'article') return '>';
+	if (tab === 'videos' || tab === 'video') return '>';
 	if (tab === 'chat' || tab === 'chats') return '?';
 	return DEFAULT_PROMPT;
 }

@@ -21,6 +21,7 @@ import xyz.cdr.builderlauncher.data.PinnedApps
 import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 import xyz.cdr.builderlauncher.read.ReadsRepository
+import xyz.cdr.builderlauncher.videos.VideosRepository
 import xyz.cdr.builderlauncher.stocks.StocksRepository
 import java.io.File
 import java.text.SimpleDateFormat
@@ -37,6 +38,7 @@ class BackupService(
     private val stocks: StocksRepository,
     private val podcasts: PodcastsRepository,
     private val reads: ReadsRepository,
+    private val videos: VideosRepository,
     private val clock: ClockStore,
     private val s3: S3Client = S3Client(),
     private val account: AccountClient = AccountClient(),
@@ -65,6 +67,7 @@ class BackupService(
             watchlist = stocks.watch.value,
             podcasts = podcasts.exportBackup(),
             reads = reads.exportBackup(),
+            videos = videos.exportBackup(),
             alarms = snap.alarms.filterNot { it.id in snap.deletedAlarmIds.toSet() },
             zones = snap.zones,
             settings = BackupSettings.from(current, includeApiKey = current.backupIncludeAiCredentials),
@@ -185,6 +188,7 @@ class BackupService(
             stocks.replaceAll(doc.watchlist)
             podcasts.importBackup(doc.podcasts)
             reads.importBackup(doc.reads)
+            videos.importBackup(doc.videos)
             val drop = doc.deletedAlarmIds.toSet()
             clock.replaceFromBackup(
                 Clock.keepLocalTimers(
@@ -214,6 +218,7 @@ class BackupService(
         podcasts.progress.map { },
         reads.articles.map { },
         reads.progress.map { },
+        videos.videos.map { },
         clock.state.map { it.alarms to it.zones }.distinctUntilChanged().map { },
         settings.settings.map { },
     ).drop(1)

@@ -507,6 +507,13 @@ main.home-main {
 	padding: 0.35rem 0 0.75rem;
 }
 
+.video-frame {
+	display: block;
+	width: 100%;
+	max-height: 240px;
+	background: #000;
+}
+
 .row {
 	display: flex;
 	align-items: flex-start;

@@ -1,5 +1,6 @@
 import { alignOpenOrder } from './items.js';
 import { mergeReads } from './reads.js';
+import { mergeVideos } from './videos.js';
 
 function restoredArticleIds(doc) {
 	const bag = doc?.reads || {};
@@ -230,6 +231,7 @@ export function slimDoc(doc) {
 			progress: reads.progress || [],
 			deletedIds: reads.deletedIds || [],
 		},
+		videos: doc.videos || { videos: [], deletedIds: [] },
 	};
 }
 
@@ -347,6 +349,7 @@ export function mergeDocs(a, b) {
 		watchlist: mergeWatch(a.watchlist, b.watchlist, preferA),
 		podcasts: mergePods(a.podcasts, b.podcasts),
 		reads: mergeReads(a.reads, b.reads, { restoredIds: restoredArticleIds(newer) }),
+		videos: mergeVideos(a.videos, b.videos, (newer.videos?.videos || []).map((item) => item.id)),
 		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
 		settings: mergeSettings(older.settings, newer.settings),
@@ -363,5 +366,6 @@ export function emptyDoc(now = Date.now()) {
 		watchlist: [],
 		podcasts: { shows: [], episodes: [], progress: [] },
 		reads: { articles: [], progress: [], deletedIds: [] },
+		videos: { videos: [], deletedIds: [] },
 	};
 }

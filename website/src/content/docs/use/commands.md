@@ -16,6 +16,7 @@ Type on home, then Enter. Empty prefixes (`@` with no name, `pin` with no app) s
 | | `stocks` | Open all stocks. App search shows `… all stocks >` |
 | | `podcasts` | Open all podcasts. App search shows `… all podcasts >`. Search, subscribe, stream, download. [Podcasts](podcasts/) |
 | | `articles` | Open saved articles. Paste a URL to add it. `1` opens the player. [Articles](articles/) |
+| | `videos` | Open saved videos. Paste a YouTube link. Podcasts play the audio. Videos shows the picture. [Videos](videos/) |
 | `?` | `?` then write, Enter | Write on home (bar stays at the bottom, one line until it wraps). Submit opens [chat](ai/) with the same bar at the bottom. Markdown answers. `<` home; provider mark opens Grok/ChatGPT/Claude/Hermes with the prompt; long-press the mark to switch providers; history lists past chats with a date and delete |
 | `/` | `/` then pick `settings` | Slash commands listed above the bar (ai, apps, articles, clock, help, hub, notes, podcasts, settings, stocks, usage, weather). The list scrolls; on home it hides todos and pins. Also in the [command menu](command-bar/) |
 | (none) | `Termux` | Search and launch apps. Tap a match to open it. Math stays calculator, including `5000*.05` typed as a number first. `AAPL` / `OBE.TO` switch to `$`. Else three more unmatched characters switch to `-` task mode |

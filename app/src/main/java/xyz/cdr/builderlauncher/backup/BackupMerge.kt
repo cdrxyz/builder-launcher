@@ -10,6 +10,7 @@ import xyz.cdr.builderlauncher.podcasts.EpisodeProgress
 import xyz.cdr.builderlauncher.podcasts.PodcastEpisode
 import xyz.cdr.builderlauncher.podcasts.PodcastShow
 import xyz.cdr.builderlauncher.read.Reads
+import xyz.cdr.builderlauncher.videos.Videos
 import xyz.cdr.builderlauncher.stocks.WatchItem
 
 object BackupMerge {
@@ -41,6 +42,7 @@ object BackupMerge {
             watchlist = mergeWatch(a.watchlist, b.watchlist, preferA),
             podcasts = mergePods(a.podcasts, b.podcasts),
             reads = Reads.mergeBackup(a.reads, b.reads, Reads.restoredIds(newer.reads)),
+            videos = Videos.mergeBackup(a.videos, b.videos, newer.videos.videos.map { it.id }.toSet()),
             alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
             zones = mergeZones(a.zones, b.zones),
             settings = mergeSettings(a.settings, b.settings, preferA),

@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.podcasts
 
 import xyz.cdr.builderlauncher.read.Reads
+import xyz.cdr.builderlauncher.videos.Videos
 import kotlinx.serialization.Serializable
 
 object Podcasts {
@@ -72,6 +73,7 @@ object Podcasts {
         progress: Map<String, EpisodeProgress>,
         currentEpisodeId: String? = null,
         articleCount: Int = 0,
+        videoCount: Int = 0,
     ): List<PodcastHomeRow> {
         val showById = shows.associateBy { it.feedUrl }
         val currentId = currentEpisodeId?.takeIf { it.isNotBlank() }
@@ -94,10 +96,11 @@ object Podcasts {
                 PodcastHomeRow.Fresh(episode, show)
             }
             .take(NEW)
-        val subs = shows.filter { it.feedUrl != Reads.SAVED_FEED }.sortedBy { it.title.lowercase() }
+        val subs = shows.filter { it.feedUrl != Reads.SAVED_FEED && it.feedUrl != Videos.SAVED_FEED }.sortedBy { it.title.lowercase() }
             .map { PodcastHomeRow.Subscription(it) }
             .toMutableList()
         Reads.savedArticlesShow(articleCount)?.let { subs.add(0, PodcastHomeRow.Subscription(it)) }
+        Videos.savedShow(videoCount)?.let { subs.add(if (articleCount > 0) 1 else 0, PodcastHomeRow.Subscription(it)) }
         val rows = mutableListOf<PodcastHomeRow>()
         if (continueRows.isNotEmpty()) {
             rows += PodcastHomeRow.Header(SECTION_RECENT)

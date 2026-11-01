@@ -54,6 +54,7 @@ export default defineConfig({
 						{ label: 'Stocks', slug: 'use/stocks' },
 						{ label: 'Podcasts', slug: 'use/podcasts' },
 						{ label: 'Articles', slug: 'use/articles' },
+						{ label: 'Videos', slug: 'use/videos' },
 						{ label: 'Hub', slug: 'use/hub' },
 						{ label: 'Ask AI', slug: 'use/ai' },
 					],

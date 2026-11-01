@@ -17,6 +17,7 @@ object SlashCommands {
         SlashCommand("settings", "settings", Command.OpenSettings),
         SlashCommand("stocks", "watchlist", Command.OpenStocks),
         SlashCommand("usage", "screen time", Command.OpenUsage),
+        SlashCommand("videos", "saved videos", Command.OpenVideos),
         SlashCommand("weather", "forecast", Command.OpenWeather),
     ).sortedBy { it.name }
 
