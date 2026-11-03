@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.clock.Clock
@@ -400,5 +401,20 @@ class BackupService(
             if (parts.isEmpty()) return "settings"
             return parts.joinToString(", ")
         }
+    }
+}
+
+/** Playback can outlive the screen. The activity installs the upload; the player asks for it. */
+object AccountSync {
+    private val scope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+    )
+
+    @Volatile
+    var upload: (suspend () -> Unit)? = null
+
+    fun pulse() {
+        val run = upload ?: return
+        scope.launch { run() }
     }
 }

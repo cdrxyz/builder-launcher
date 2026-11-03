@@ -12,6 +12,7 @@ import {
 	signupCodeOpens,
 } from './account.js';
 import { emptyDoc, joinDocs, keepFreshArticles, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
+import { PLAY_SAVE_MS, WRITE_QUIET_MS, settlePushedDoc, syncReadyAt } from './sync-quiet.js';
 import {
 	TASK_COMPLETE_FADE_MS,
 	TASK_COMPLETE_HOLD_MS,
@@ -429,6 +430,8 @@ function saveAutoSync(id) {
 
 let syncTimer = 0;
 let saveTimer = 0;
+let editGen = 0;
+const syncHolds = [];
 
 function armAutoSync() {
 	if (syncTimer) {
@@ -441,8 +444,18 @@ function armAutoSync() {
 	syncTimer = setInterval(() => tickAutoSync(), ms);
 }
 
+function holdSync(kind) {
+	editGen += 1;
+	syncHolds.push({ kind, at: Date.now() });
+	if (syncHolds.length > 12) syncHolds.shift();
+}
+
+function syncWaitMs(now = Date.now()) {
+	return Math.max(0, syncReadyAt(now, syncHolds) - now);
+}
+
 function tickAutoSync() {
-	if (!hasSync()) return;
+	if (!hasSync() || syncWaitMs() > 0) return;
 	if (state.dirty) push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
 	else if (hasSync()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
 }
@@ -450,12 +463,35 @@ function tickAutoSync() {
 function maybeSyncSave() {
 	if (state.autoSync !== 'save' || !hasSync() || !state.dirty) return;
 	if (saveTimer) clearTimeout(saveTimer);
-	saveTimer = setTimeout(() => {
-		saveTimer = 0;
-		if (state.autoSync === 'save' && hasSync() && state.dirty) {
-			push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
-		}
-	}, 800);
+	saveTimer = setTimeout(flushAutoSync, Math.max(WRITE_QUIET_MS, syncWaitMs()));
+}
+
+function flushAutoSync() {
+	saveTimer = 0;
+	const wait = syncWaitMs();
+	if (wait > 0 || state.busy) {
+		saveTimer = setTimeout(flushAutoSync, wait || 1_000);
+		return;
+	}
+	if (state.autoSync === 'save' && hasSync() && state.dirty) {
+		push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
+	}
+}
+
+function applyPushed(snapshot, remote, startedAt, gen) {
+	const settled = settlePushedDoc(
+		snapshot,
+		state.doc,
+		remote,
+		editGen !== gen,
+		joinDocs,
+		keepFreshArticles,
+		startedAt,
+	);
+	state.doc = settled.doc;
+	state.dirty = settled.dirty;
+	saveSnapshot(state.doc);
+	if (settled.dirty) maybeSyncSave();
 }
 
 function saveCreds(creds) {
@@ -555,7 +591,8 @@ function ensureDoc() {
 	if (!state.doc) state.doc = emptyDoc();
 }
 
-function mutate(next) {
+function mutate(next, kind = 'write') {
+	holdSync(kind);
 	ensureDoc();
 	const prevEpisodes = state.doc?.podcasts?.episodes;
 	state.doc = { ...state.doc, ...next };
@@ -622,8 +659,10 @@ async function pullAccount(opts = {}) {
 		state.doc = keepFreshArticles(joinDocs(state.doc, remote.document), state.doc, startedAt);
 		state.doc = restoreCatalog(state.doc, await loadCatalog());
 		const saved = saveSnapshot(state.doc);
+		const gen = editGen;
 		if (state.dirty || !remote.document) await pushAccount({ quiet: true, skipConfirm: true, skipHydrate: true });
-		state.dirty = false;
+		if (editGen === gen) state.dirty = false;
+		else maybeSyncSave();
 		state.hits = [];
 		state.status = saved === false ? statusFromError({ name: 'QuotaExceededError' }) : pulledLabel(state.doc);
 		if (!opts.skipHydrate) hydrateMedia().catch(() => {});
@@ -650,16 +689,16 @@ async function push(opts = {}) {
 	) {
 		return;
 	}
+	const gen = editGen;
+	const startedAt = Date.now();
+	const next = { ...state.doc, exportedAt: startedAt };
 	state.busy = true;
 	if (!opts.quiet) setStatus('Pushing…');
 	try {
-		const next = { ...state.doc, exportedAt: Date.now() };
 		const blob = await encrypt(encodeUtf8(`${JSON.stringify(next, null, 2)}\n`), state.creds.encryptionKey);
 		await s3Put(state.creds, blob);
-		state.doc = next;
-		state.dirty = false;
-		saveSnapshot(state.doc);
-		state.status = `Pushed ${new Date(next.exportedAt).toLocaleString()}`;
+		applyPushed(next, next, startedAt, gen);
+		state.status = `Pushed ${new Date(state.doc.exportedAt).toLocaleString()}`;
 	} catch (err) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
@@ -670,20 +709,19 @@ async function push(opts = {}) {
 
 async function pushAccount(opts = {}) {
 	ensureDoc();
+	const gen = editGen;
+	const startedAt = Date.now();
+	const next = { ...state.doc, exportedAt: startedAt };
 	state.busy = true;
 	if (!opts.quiet) setStatus('Syncing…');
 	try {
-		const startedAt = Date.now();
-		const next = { ...state.doc, exportedAt: startedAt };
 		const remote = await apiJson('/api/vault', {
 			method: 'PUT',
 			token: state.account.token,
 			body: { document: slimDoc(next) },
 		});
-		state.doc = keepFreshArticles(joinDocs(next, remote.document || next), state.doc, startedAt);
+		applyPushed(next, remote.document || next, startedAt, gen);
 		state.revision = remote.revision || state.revision;
-		state.dirty = false;
-		saveSnapshot(state.doc);
 		state.status = `Synced ${new Date(state.doc.exportedAt).toLocaleString()}`;
 		if (!opts.skipHydrate) hydrateMedia().catch(() => {});
 	} catch (err) {
@@ -707,6 +745,8 @@ function pulledLabel(doc) {
 function render() {
 	const focus = document.activeElement?.classList?.contains('command-input');
 	const draft = state.draft;
+	const editingNote = document.activeElement?.tagName === 'TEXTAREA' ? document.activeElement : null;
+	const caret = editingNote ? { start: editingNote.selectionStart, end: editingNote.selectionEnd } : null;
 	const list = app.querySelector('main');
 	const restore = list && listTab === state.tab ? list.scrollTop : 0;
 	listScroll = restore;
@@ -721,6 +761,14 @@ function render() {
 		if (input) {
 			input.focus({ preventScroll: true });
 			input.value = draft;
+		}
+	}
+	if (caret && state.tab === 'note' && state.noteMode === 'edit') {
+		const area = app.querySelector('.note-editor textarea');
+		if (area) {
+			area.focus({ preventScroll: true });
+			const end = area.value.length;
+			area.setSelectionRange(Math.min(caret.start, end), Math.min(caret.end, end));
 		}
 	}
 	mountSpeedMenu();
@@ -1345,6 +1393,7 @@ function moveTodo(id, delta) {
 	if (from < 0) return;
 	const to = from + delta;
 	if (to < 0 || to >= open.length) return;
+	holdSync('order');
 	setItems(moveOpenItems(items(), from, to));
 }
 
@@ -2815,6 +2864,7 @@ function updateNote(id, text) {
 	};
 	state.dirty = true;
 	saveSnapshot(state.doc);
+	holdSync('text');
 	maybeSyncSave();
 }
 
@@ -3159,7 +3209,7 @@ function checkpoint(force, ended = false) {
 	const pos = Math.floor(audio.currentTime * 1000);
 	const dur = Math.floor((audio.duration || 0) * 1000);
 	const now = Date.now();
-	if (!force && now - lastSavedAt < 30_000 && Math.abs(pos - lastSavedPos) < 30_000) return;
+	if (!force && now - lastSavedAt < PLAY_SAVE_MS && Math.abs(pos - lastSavedPos) < PLAY_SAVE_MS) return;
 	lastSavedAt = now;
 	lastSavedPos = pos;
 	const bag = podcastsOf(state.doc);

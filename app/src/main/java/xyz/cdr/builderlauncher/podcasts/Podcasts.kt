@@ -219,7 +219,8 @@ object Podcasts {
     }
 
     const val POSITION_PUBLISH_MS = 1_000L
-    const val POSITION_SAVE_MS = 30_000L
+    const val POSITION_SAVE_MS = 10_000L
+    const val POSITION_SYNC_MS = 15_000L
 
     fun shouldPublishPlayback(previous: PlaybackState, next: PlaybackState): Boolean {
         if (previous.episodeId != next.episodeId) return true
@@ -240,6 +241,17 @@ object Podcasts {
         if (positionMs == lastSavedPositionMs) return false
         if (nowElapsedMs - lastSavedAtElapsedMs >= intervalMs) return true
         return kotlin.math.abs(positionMs - lastSavedPositionMs) >= intervalMs
+    }
+
+    fun shouldUploadPlayback(
+        lastUploadElapsedMs: Long,
+        nowElapsedMs: Long,
+        playing: Boolean,
+        intervalMs: Long = POSITION_SYNC_MS,
+    ): Boolean {
+        if (!playing) return false
+        if (lastUploadElapsedMs <= 0L) return true
+        return nowElapsedMs - lastUploadElapsedMs >= intervalMs
     }
 
     fun checkpointProgress(

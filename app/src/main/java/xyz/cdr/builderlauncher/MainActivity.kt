@@ -13,7 +13,9 @@ import androidx.compose.runtime.getValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withContext
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.apps.InstalledApps
@@ -32,6 +34,7 @@ import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 import xyz.cdr.builderlauncher.ui.theme.accentColor
+import xyz.cdr.builderlauncher.backup.AccountSync
 import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
@@ -93,6 +96,10 @@ class MainActivity : ComponentActivity() {
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
         val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, videos, clock)
+        AccountSync.upload = {
+            withContext(Dispatchers.Main) { PodcastPlayer.persist() }
+            backup.tickAuto()
+        }
         ClockScheduler.reconcile(this, clock)
         applyAlertWindow()
         PodcastPlayer.attach(this)
@@ -132,6 +139,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         stopped = true
         PodcastPlayer.persist()
+        AccountSync.pulse()
         speaker?.pause()
         if (Reads.pausesArticleWhenLeavingScreen()) articlePlayer?.pause() else articlePlayer?.persist()
     }
