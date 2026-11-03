@@ -21,9 +21,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.MainActivity
 import xyz.cdr.builderlauncher.R
+import xyz.cdr.builderlauncher.backup.AccountSync
+import android.os.SystemClock
 
 class PodcastPlaybackService : Service() {
     private var session: MediaSession? = null
@@ -51,16 +55,19 @@ class PodcastPlaybackService : Service() {
                 override fun onPause() {
                     PodcastPlayer.pause()
                     publish()
+                    AccountSync.pulse()
                 }
 
                 override fun onStop() {
                     PodcastPlayer.stop()
+                    AccountSync.pulse()
                     stopSelf()
                 }
 
                 override fun onSeekTo(pos: Long) {
                     PodcastPlayer.seek(pos)
                     publish()
+                    AccountSync.pulse()
                 }
 
                 override fun onFastForward() {
@@ -90,6 +97,16 @@ class PodcastPlaybackService : Service() {
         sc.launch {
             PodcastPlayer.state.collect { publish() }
         }
+        sc.launch {
+            var lastUpload = 0L
+            while (isActive) {
+                delay(Podcasts.POSITION_SYNC_MS)
+                val now = SystemClock.elapsedRealtime()
+                if (!Podcasts.shouldUploadPlayback(lastUpload, now, PodcastPlayer.state.value.playing)) continue
+                lastUpload = now
+                AccountSync.pulse()
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -98,6 +115,7 @@ class PodcastPlaybackService : Service() {
                 ready = true
                 PodcastPlayer.pause()
                 publish()
+                AccountSync.pulse()
                 return START_STICKY
             }
             ACTION_PLAY -> {
@@ -110,6 +128,7 @@ class PodcastPlaybackService : Service() {
                 startInForeground()
                 ready = false
                 PodcastPlayer.stop()
+                AccountSync.pulse()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY

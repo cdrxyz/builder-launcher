@@ -228,11 +228,12 @@ class PodcastsTest {
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(skipSilence = false)))
         assertTrue(Podcasts.shouldPublishPlayback(base, base.copy(episodeId = "f")))
         assertEquals(1_000L, Podcasts.POSITION_PUBLISH_MS)
-        assertEquals(30_000L, Podcasts.POSITION_SAVE_MS)
+        assertEquals(10_000L, Podcasts.POSITION_SAVE_MS)
+        assertEquals(15_000L, Podcasts.POSITION_SYNC_MS)
         assertFalse(
             Podcasts.shouldCheckpointPlayback(
                 lastSavedAtElapsedMs = 0L,
-                nowElapsedMs = 29_000L,
+                nowElapsedMs = 9_000L,
                 lastSavedPositionMs = 1_000L,
                 positionMs = 3_000L,
             ),
@@ -240,11 +241,15 @@ class PodcastsTest {
         assertTrue(
             Podcasts.shouldCheckpointPlayback(
                 lastSavedAtElapsedMs = 0L,
-                nowElapsedMs = 30_000L,
+                nowElapsedMs = 10_000L,
                 lastSavedPositionMs = 1_000L,
                 positionMs = 3_000L,
             ),
         )
+        assertFalse(Podcasts.shouldUploadPlayback(0L, 1_000L, playing = false))
+        assertTrue(Podcasts.shouldUploadPlayback(0L, 1_000L, playing = true))
+        assertFalse(Podcasts.shouldUploadPlayback(1_000L, 10_000L, playing = true))
+        assertTrue(Podcasts.shouldUploadPlayback(1_000L, 16_000L, playing = true))
         assertTrue(
             Podcasts.shouldCheckpointPlayback(
                 lastSavedAtElapsedMs = 0L,

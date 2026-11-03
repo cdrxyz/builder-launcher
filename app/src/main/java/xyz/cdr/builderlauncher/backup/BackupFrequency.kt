@@ -12,7 +12,7 @@ enum class BackupFrequency {
     val hint: String
         get() = when (this) {
             AUTO ->
-                "Default. Uploads a few seconds after a local change. Pulls from the account or S3 every 5 minutes while the launcher is open, and when you open it."
+                "Default. Uploads a few seconds after a local change, and while a podcast is playing. Pulls every 5 minutes while the launcher is open, and when you open it."
             OFF -> "Manual only. Use backup now or sync now."
             DAILY -> "Uploads when you open the launcher if a day has passed."
             WEEKLY -> "Uploads when you open the launcher if a week has passed."
