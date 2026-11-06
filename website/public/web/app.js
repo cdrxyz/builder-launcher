@@ -12,7 +12,7 @@ import {
 	signupCodeOpens,
 } from './account.js';
 import { emptyDoc, joinDocs, keepFreshArticles, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
-import { PLAY_SAVE_MS, WRITE_QUIET_MS, settlePushedDoc, syncReadyAt } from './sync-quiet.js';
+import { PLAY_SAVE_MS, WRITE_QUIET_MS, autoSyncDelay, settlePushedDoc, syncReadyAt } from './sync-quiet.js';
 import {
 	TASK_COMPLETE_FADE_MS,
 	TASK_COMPLETE_HOLD_MS,
@@ -320,9 +320,11 @@ function pinVisualViewport() {
 		const vv = window.visualViewport;
 		const height = vv ? vv.height : window.innerHeight;
 		const top = vv ? vv.offsetTop : 0;
-		root.style.setProperty('--vv-height', `${Math.round(height)}px`);
-		root.style.setProperty('--vv-top', `${Math.round(top)}px`);
-		if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+		const nextHeight = `${Math.round(height)}px`;
+		const nextTop = `${Math.round(top)}px`;
+		if (root.style.getPropertyValue('--vv-height') !== nextHeight) root.style.setProperty('--vv-height', nextHeight);
+		if (root.style.getPropertyValue('--vv-top') !== nextTop) root.style.setProperty('--vv-top', nextTop);
+		if (!composing() && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
 		if (state.speedMenu) placeSpeedMenu(document.querySelector('.speed-menu'), document.querySelector('.speed-trigger'));
 	};
 	apply();
@@ -454,8 +456,15 @@ function syncWaitMs(now = Date.now()) {
 	return Math.max(0, syncReadyAt(now, syncHolds) - now);
 }
 
+function composing() {
+	const el = document.activeElement;
+	if (!el) return false;
+	const tag = el.tagName;
+	return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable === true;
+}
+
 function tickAutoSync() {
-	if (!hasSync() || syncWaitMs() > 0) return;
+	if (!hasSync() || autoSyncDelay(syncWaitMs(), state.busy, composing()) > 0) return;
 	if (state.dirty) push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
 	else if (hasSync()) pull({ quiet: true, skipHydrate: true }).catch(() => {});
 }
@@ -468,14 +477,23 @@ function maybeSyncSave() {
 
 function flushAutoSync() {
 	saveTimer = 0;
-	const wait = syncWaitMs();
-	if (wait > 0 || state.busy) {
-		saveTimer = setTimeout(flushAutoSync, wait || 1_000);
+	const wait = autoSyncDelay(syncWaitMs(), state.busy, composing());
+	if (wait > 0) {
+		saveTimer = setTimeout(flushAutoSync, wait);
 		return;
 	}
 	if (state.autoSync === 'save' && hasSync() && state.dirty) {
 		push({ quiet: true, skipHydrate: true, skipConfirm: true }).catch(() => {});
 	}
+}
+
+function finishSyncPaint() {
+	if (!composing()) {
+		render();
+		return;
+	}
+	const line = document.querySelector('p.status');
+	if (line) line.textContent = state.status || '';
 }
 
 function applyPushed(snapshot, remote, startedAt, gen) {
@@ -642,7 +660,7 @@ async function pull(opts = {}) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		render();
+		finishSyncPaint();
 	}
 }
 
@@ -670,7 +688,7 @@ async function pullAccount(opts = {}) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		render();
+		finishSyncPaint();
 	}
 }
 
@@ -703,7 +721,7 @@ async function push(opts = {}) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		render();
+		finishSyncPaint();
 	}
 }
 
@@ -728,7 +746,7 @@ async function pushAccount(opts = {}) {
 		if (!opts.quiet) state.status = statusFromError(err);
 	} finally {
 		state.busy = false;
-		render();
+		finishSyncPaint();
 	}
 }
 
