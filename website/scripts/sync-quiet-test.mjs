@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ORDER_QUIET_MS, PLAY_SAVE_MS, TEXT_QUIET_MS, WRITE_QUIET_MS, settlePushedDoc, syncReadyAt } from '../public/web/sync-quiet.js';
+import { ORDER_QUIET_MS, PLAY_SAVE_MS, TEXT_QUIET_MS, WRITE_QUIET_MS, autoSyncDelay, settlePushedDoc, syncReadyAt } from '../public/web/sync-quiet.js';
 
 test('typing and reordering hold an automatic push', () => {
 	assert.equal(TEXT_QUIET_MS, 8_000);
@@ -34,4 +34,11 @@ test('a push keeps keystrokes and order changes made during the request', () => 
 	const quiet = settlePushedDoc(snapshot, live, remote, false, join, keepFresh, 1);
 	assert.equal(quiet.dirty, false);
 	assert.equal(quiet.doc.text, 'hel');
+});
+
+test('an open keyboard defers the automatic sync', () => {
+	assert.equal(autoSyncDelay(0, false, false), 0);
+	assert.equal(autoSyncDelay(4_000, false, true), 4_000);
+	assert.equal(autoSyncDelay(0, true, false), 1_000);
+	assert.equal(autoSyncDelay(0, false, true), 1_000);
 });
