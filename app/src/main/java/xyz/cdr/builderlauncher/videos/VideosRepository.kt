@@ -19,6 +19,7 @@ class VideosRepository(
     context: Context,
     private val http: OkHttpClient = HttpClients.derived(connectSec = 15, readSec = 20),
 ) {
+    private val appContext = context.applicationContext
     private val file = File(context.applicationContext.filesDir, "videos.json")
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val _videos = MutableStateFlow<List<SavedVideo>>(emptyList())
@@ -54,18 +55,27 @@ class VideosRepository(
     suspend fun resolve(raw: String): PickedVideo? = withContext(Dispatchers.IO) {
         val id = Videos.youtubeId(raw)
         if (id.isBlank()) return@withContext null
+        val proof = runCatching { VideoProofWeb.mint(appContext, id, http) }.getOrNull()
+        if (proof != null) {
+            val proved = post(Videos.playerUrl(), VideoProofs.WEB_UA, VideoProofs.webPlayerBody(id, proof))
+            if (proved != null) return@withContext VideoProofs.apply(proved, proof.streamingPot)
+        }
         for ((ua, body) in Videos.playerAttempts(id)) {
-            val request = Request.Builder()
-                .url(Videos.playerUrl())
-                .header("User-Agent", ua)
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
-            val text = runCatching {
-                http.newCall(request).execute().use { if (it.isSuccessful) it.body?.string() else null }
-            }.getOrNull() ?: continue
-            Videos.pick(text)?.let { return@withContext it }
+            post(Videos.playerUrl(), ua, body)?.let { return@withContext it }
         }
         return@withContext null
+    }
+
+    private fun post(url: String, ua: String, body: String): PickedVideo? {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", ua)
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        val text = runCatching {
+            http.newCall(request).execute().use { if (it.isSuccessful) it.body?.string() else null }
+        }.getOrNull() ?: return null
+        return Videos.pick(text)
     }
 
     private fun load(): VideoBackup {

@@ -40,6 +40,29 @@ class VideosTest {
     }
 
     @Test
+    fun aProofRequestCarriesTheTokenAndNotASignIn() {
+        val page = """
+            "visitorData":"Cgtabc","INNERTUBE_CLIENT_VERSION":"2.1"
+            \x22bgChallenge\x22:\x7b\x22interpreterUrl\x22:\x7b\x22privateDoNotAccessOrElseTrustedResourceUrlWrappedValue\x22:\x22\/\/www.google.com\/js\/th\/abc.js\x22\x7d,\x22program\x22:\x22prog\x22,\x22globalName\x22:\x22trayride\x22
+        """.trimIndent()
+        val challenge = VideoProofs.parse(page)
+        assertEquals("Cgtabc", challenge?.visitorData)
+        assertEquals("2.1", challenge?.clientVersion)
+        assertEquals("https://www.google.com/js/th/abc.js", challenge?.interpreterUrl)
+        assertEquals("prog", challenge?.program)
+        assertEquals("trayride", challenge?.globalName)
+        val proof = VideoProof("Cgtabc", "2.1", "player", "stream")
+        val body = VideoProofs.webPlayerBody("dQw4w9WgXcQ", proof)
+        assertTrue(body.contains("\"poToken\":\"player\""))
+        assertTrue(body.contains("visitorData"))
+        assertFalse(body.contains("sign in"))
+        assertEquals(
+            "https://rr.googlevideo.com/videoplayback?id=1&pot=stream",
+            VideoProofs.withStreamProof("https://rr.googlevideo.com/videoplayback?id=1", "stream"),
+        )
+    }
+
+    @Test
     fun savingAVideoReplacesTheSameId() {
         val first = Videos.add(emptyList(), SavedVideo("vdQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "Old"), 1)
         val next = Videos.add(first, SavedVideo("vdQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "New"), 2)
