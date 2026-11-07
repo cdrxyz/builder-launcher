@@ -33,6 +33,10 @@ class VideosTest {
         assertTrue(picked?.muxed == true)
         assertEquals(213000L, picked?.durationMs)
         assertEquals(null, Videos.pick("""{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in"}}"""))
+        val attempts = Videos.playerAttempts("dQw4w9WgXcQ")
+        assertEquals(2, attempts.size)
+        assertTrue(attempts[0].second.contains("ANDROID"))
+        assertTrue(attempts[1].second.contains("IOS"))
     }
 
     @Test

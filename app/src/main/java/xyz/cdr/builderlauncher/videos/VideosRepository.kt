@@ -54,14 +54,18 @@ class VideosRepository(
     suspend fun resolve(raw: String): PickedVideo? = withContext(Dispatchers.IO) {
         val id = Videos.youtubeId(raw)
         if (id.isBlank()) return@withContext null
-        val request = Request.Builder()
-            .url(Videos.playerUrl())
-            .header("User-Agent", Videos.PLAYER_UA)
-            .post(Videos.playerBody(id).toRequestBody("application/json".toMediaType()))
-            .build()
-        val body = runCatching { http.newCall(request).execute().use { if (it.isSuccessful) it.body?.string() else null } }.getOrNull()
-            ?: return@withContext null
-        Videos.pick(body)
+        for ((ua, body) in Videos.playerAttempts(id)) {
+            val request = Request.Builder()
+                .url(Videos.playerUrl())
+                .header("User-Agent", ua)
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+            val text = runCatching {
+                http.newCall(request).execute().use { if (it.isSuccessful) it.body?.string() else null }
+            }.getOrNull() ?: continue
+            Videos.pick(text)?.let { return@withContext it }
+        }
+        return@withContext null
     }
 
     private fun load(): VideoBackup {

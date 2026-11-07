@@ -2,6 +2,7 @@ export const SAVED_FEED = 'saved-videos';
 export const MAX_VIDEOS = 100;
 export const PLAYER_KEY = 'AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w';
 export const PLAYER_UA = 'com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip';
+export const IOS_UA = 'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_1 like Mac OS X)';
 
 const ID = /^[A-Za-z0-9_-]{11}$/;
 
@@ -33,28 +34,41 @@ export function canonicalUrl(id) {
 	return ID.test(id) ? `https://www.youtube.com/watch?v=${id}` : '';
 }
 
-export function playerRequest(id) {
+export function playerRequest(id, client = 'ANDROID') {
+	const ios = client === 'IOS';
 	return {
 		url: `https://www.youtube.com/youtubei/v1/player?key=${PLAYER_KEY}&prettyPrint=false`,
 		headers: {
 			'content-type': 'application/json',
-			'user-agent': PLAYER_UA,
+			'user-agent': ios ? IOS_UA : PLAYER_UA,
 		},
 		body: JSON.stringify({
 			context: {
-				client: {
-					clientName: 'ANDROID',
-					clientVersion: '20.10.38',
-					hl: 'en',
-					gl: 'US',
-					androidSdkVersion: 34,
-				},
+				client: ios
+					? { clientName: 'IOS', clientVersion: '20.10.4', hl: 'en', gl: 'US' }
+					: {
+						clientName: 'ANDROID',
+						clientVersion: '20.10.38',
+						hl: 'en',
+						gl: 'US',
+						androidSdkVersion: 34,
+					},
 			},
 			videoId: id,
 			contentCheckOk: true,
 			racyCheckOk: true,
 		}),
 	};
+}
+
+export function playerAttempts(id) {
+	return [playerRequest(id, 'ANDROID'), playerRequest(id, 'IOS')];
+}
+
+export function publicVideoError(reason) {
+	const text = String(reason || '').trim();
+	if (!text || /sign in|not a bot/i.test(text)) return 'Could not play that video.';
+	return text;
 }
 
 function mime(format) {
