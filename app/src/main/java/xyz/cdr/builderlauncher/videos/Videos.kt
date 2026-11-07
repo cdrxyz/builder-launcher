@@ -50,6 +50,7 @@ object Videos {
     const val MAX_VIDEOS = 100
     const val PLAYER_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w"
     const val PLAYER_UA = "com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip"
+    const val IOS_UA = "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_1 like Mac OS X)"
     private val idPattern = Regex("^[A-Za-z0-9_-]{11}$")
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -86,6 +87,14 @@ object Videos {
 
     fun playerBody(youtubeId: String): String =
         """{"context":{"client":{"clientName":"ANDROID","clientVersion":"20.10.38","hl":"en","gl":"US","androidSdkVersion":34}},"videoId":"$youtubeId","contentCheckOk":true,"racyCheckOk":true}"""
+
+    fun iosBody(youtubeId: String): String =
+        """{"context":{"client":{"clientName":"IOS","clientVersion":"20.10.4","hl":"en","gl":"US"}},"videoId":"$youtubeId","contentCheckOk":true,"racyCheckOk":true}"""
+
+    fun playerAttempts(youtubeId: String): List<Pair<String, String>> = listOf(
+        PLAYER_UA to playerBody(youtubeId),
+        IOS_UA to iosBody(youtubeId),
+    )
 
     fun pick(body: String): PickedVideo? {
         val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull() ?: return null
