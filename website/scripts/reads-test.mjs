@@ -13,6 +13,13 @@ import {
 	fetchUrl,
 	nextFetchUrl,
 	positionLabel,
+	positionMsAtChar,
+	charIndexAtPosition,
+	charAtReadingScroll,
+	scrollForReadingChar,
+	shouldSaveReading,
+	readingMoved,
+	readingCharAt,
 	publicationFromUrl,
 } from '../public/web/reads.js';
 
@@ -136,4 +143,34 @@ test('a re-added article survives an older delete, and a newer delete still wins
 	);
 	assert.equal(during.reads.articles.some((item) => item.id === 'r1'), true);
 	assert.equal(during.reads.deletedIds.includes('r1'), false);
+});
+
+test('reading place uses the same clock as audio and restores from scroll', () => {
+	const text = 'Alpha sentence one. Beta sentence two is longer than the first. Gamma ends the piece.';
+	const rows = chunks(text);
+	assert.equal(positionMsAtChar(text, rows[1].start), rows[1].startMs);
+	assert.equal(charIndexAtPosition(text, rows[1].startMs), rows[1].start);
+	const mid = rows[1].start + Math.floor((rows[1].end - rows[1].start) / 2);
+	const ms = positionMsAtChar(text, mid);
+	assert.ok(ms >= rows[1].startMs && ms <= rows[1].endMs);
+	const lines = [
+		{ topPx: 0, start: 0 },
+		{ topPx: 40, start: 22 },
+		{ topPx: 80, start: 60 },
+	];
+	assert.equal(charAtReadingScroll(140, 100, lines), 22);
+	assert.equal(scrollForReadingChar(100, lines, 61), 180);
+	assert.equal(scrollForReadingChar(100, lines, 0), 0);
+	assert.equal(readingCharAt([
+		{ start: 0, top: 100 },
+		{ start: 22, top: 180 },
+		{ start: 60, top: 260 },
+	], 190), 22);
+	assert.equal(shouldSaveReading(0, 1000, 0, 5000, false, false), false);
+	assert.equal(shouldSaveReading(0, 1000, 5000, 5000, true, true), false);
+	assert.equal(shouldSaveReading(0, 1000, 0, 5000, true, true), true);
+	assert.equal(shouldSaveReading(1000, 2000, 0, 5000, true, false), false);
+	assert.equal(shouldSaveReading(1000, 12000, 0, 5000, true, false), true);
+	assert.equal(readingMoved(100, 140), true);
+	assert.equal(readingMoved(100, 110), false);
 });

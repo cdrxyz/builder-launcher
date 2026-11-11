@@ -127,8 +127,13 @@ import {
 	fetchUrl,
 	indexFromInput,
 	positionLabel,
+	positionMsAtChar,
 	progressFor,
+	readingCharAt,
+	readingMoved,
 	readsOf,
+	scrollForReadingChar,
+	shouldSaveReading,
 	upsertReadProgress,
 } from './reads.js';
 import { addVideo, deletedIdsAfterAdd as deletedVideoIdsAfterAdd, videosOf } from './videos.js';
@@ -304,6 +309,10 @@ async function boot() {
 		if (state.tab === 'home' && !document.activeElement?.classList?.contains('command-input')) render();
 	}, 5000);
 	armAutoSync();
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') saveReadingPlace(true);
+	});
+	window.addEventListener('pagehide', () => saveReadingPlace(true));
 	render();
 	// Fill shows before the account round trip so Podcasts can open from the catalog.
 	refreshPodcastFeeds().catch(() => {});
@@ -772,6 +781,8 @@ function render() {
 		}
 	}
 	mountSpeedMenu();
+	restoreReadingPlace();
+	bindReadingPlace();
 }
 
 function header() {
@@ -901,6 +912,7 @@ function main() {
 }
 
 function go(tab, prompt) {
+	if (state.tab === 'article' && tab !== 'article') saveReadingPlace(true);
 	const changingPage = tab !== state.tab;
 	state.tab = tab;
 	state.hits = [];
@@ -3859,6 +3871,83 @@ function paintReadPos() {
 	});
 }
 
+let readingPlacedFor = null;
+let readingRestoreScroll = null;
+let readingUserMoved = false;
+let readingSavedAt = 0;
+let readingSavedPos = -1;
+
+function saveReadingPlace(force) {
+	if (state.tab !== 'article' || !state.articleId || !state.doc) return;
+	if (readSpeak.playing && readSpeak.id === state.articleId) return;
+	const article = readsOf(state.doc).articles.find((item) => item.id === state.articleId);
+	if (!article) return;
+	const pos = readingPositionMs(article);
+	if (pos == null) return;
+	const now = Date.now();
+	if (!shouldSaveReading(readingSavedAt, now, readingSavedPos, pos, readingUserMoved, force, PLAY_SAVE_MS)) return;
+	readingSavedAt = now;
+	readingSavedPos = pos;
+	const bag = readsOf(state.doc);
+	const next = { articleId: article.id, positionMs: pos, updatedAt: now };
+	state.doc = { ...state.doc, reads: { ...bag, progress: upsertReadProgress(bag.progress, next) } };
+	state.dirty = true;
+	saveSnapshot(state.doc);
+	maybeSyncSave();
+}
+
+function readingPositionMs(article) {
+	const mainEl = document.querySelector('main');
+	if (!mainEl) return null;
+	const nodes = [...document.querySelectorAll('.read-sentence')];
+	if (!nodes.length) return 0;
+	const viewportTop = mainEl.getBoundingClientRect().top;
+	const sentences = nodes.map((node) => ({
+		start: Number(node.dataset.start || 0),
+		top: node.getBoundingClientRect().top,
+	}));
+	return positionMsAtChar(article.text, readingCharAt(sentences, viewportTop));
+}
+
+function restoreReadingPlace() {
+	if (state.tab !== 'article') {
+		readingPlacedFor = null;
+		return;
+	}
+	if (!state.articleId || readingPlacedFor === state.articleId) return;
+	const article = readsOf(state.doc).articles.find((item) => item.id === state.articleId);
+	const mainEl = document.querySelector('main');
+	if (!article || !mainEl) return;
+	const saved = progressFor(readsOf(state.doc).progress, article.id)?.positionMs || 0;
+	const rows = readChunks(article.text);
+	const index = chunkIndexAt(rows, saved);
+	const node = mainEl.querySelector(`.read-sentence[data-i="${index}"]`);
+	readingSavedPos = saved;
+	readingSavedAt = Date.now();
+	readingUserMoved = false;
+	if (node && saved > 0) {
+		const top = node.getBoundingClientRect().top;
+		const viewportTop = mainEl.getBoundingClientRect().top;
+		mainEl.scrollTop = scrollForReadingChar(
+			mainEl.scrollTop,
+			[{ topPx: Math.round(top - viewportTop), start: 1 }],
+			1,
+		);
+	}
+	readingRestoreScroll = mainEl.scrollTop;
+	readingPlacedFor = state.articleId;
+}
+
+function bindReadingPlace() {
+	const mainEl = document.querySelector('main');
+	if (!mainEl || state.tab !== 'article') return;
+	mainEl.addEventListener('scroll', () => {
+		if (readingPlacedFor !== state.articleId || readingRestoreScroll == null) return;
+		if (readingMoved(readingRestoreScroll, mainEl.scrollTop)) readingUserMoved = true;
+		saveReadingPlace(false);
+	}, { passive: true });
+}
+
 async function ensureSpeech() {
 	let settings = aiView();
 	if (needsRefresh(settings)) {
@@ -4824,6 +4913,7 @@ function articleScreen() {
 		const span = document.createElement('span');
 		span.className = 'read-sentence';
 		span.dataset.i = String(index);
+		span.dataset.start = String(row.start);
 		if (live && readSpeak.playing && index === readSpeak.index) span.classList.add('read-current');
 		span.textContent = article.text.slice(row.start, row.end);
 		text.append(span);

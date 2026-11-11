@@ -1211,3 +1211,16 @@ test('episode player uses a scrollable speed list and Android play/pause marks',
 	assert.match(weather, /mark === 'PLAY'\) return playPauseSvg\(false\)/);
 	assert.match(weather, /mark === 'PAUSE'\) return playPauseSvg\(true\)/);
 });
+
+test('a saved article restores the reading place and uploads it like a podcast', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	assert.match(js, /function saveReadingPlace\(force\)/);
+	assert.match(js, /function restoreReadingPlace\(\)/);
+	assert.match(js, /if \(state\.tab === 'article' && tab !== 'article'\) saveReadingPlace\(true\)/);
+	assert.match(js, /visibilitychange/);
+	assert.match(js, /pagehide/);
+	assert.match(js, /dataset\.start/);
+	const service = await readFile(new URL('../../app/src/main/java/xyz/cdr/builderlauncher/read/ArticlePlaybackService.kt', import.meta.url), 'utf8');
+	assert.match(service, /AccountSync\.pulse\(\)/);
+	assert.match(service, /shouldUploadPlayback/);
+});

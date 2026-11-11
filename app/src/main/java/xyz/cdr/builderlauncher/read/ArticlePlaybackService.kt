@@ -19,10 +19,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import xyz.cdr.builderlauncher.R
+import xyz.cdr.builderlauncher.backup.AccountSync
 import xyz.cdr.builderlauncher.podcasts.PodcastPlaybackService
 import xyz.cdr.builderlauncher.podcasts.Podcasts
+import android.os.SystemClock
 
 class ArticlePlaybackService : Service() {
     private var session: MediaSession? = null
@@ -45,16 +49,19 @@ class ArticlePlaybackService : Service() {
                 override fun onPause() {
                     ArticleMedia.player?.pause()
                     publish()
+                    AccountSync.pulse()
                 }
 
                 override fun onStop() {
                     ArticleMedia.player?.pause()
+                    AccountSync.pulse()
                     stopSelf()
                 }
 
                 override fun onSeekTo(pos: Long) {
                     ArticleMedia.player?.seekSession(pos)
                     publish()
+                    AccountSync.pulse()
                 }
 
                 override fun onFastForward() = skip(forward = true)
@@ -73,6 +80,17 @@ class ArticlePlaybackService : Service() {
         scope = sc
         sc.launch {
             ArticleMedia.player?.state?.collect { publish() }
+        }
+        sc.launch {
+            var lastUpload = 0L
+            while (isActive) {
+                delay(Podcasts.POSITION_SYNC_MS)
+                val now = SystemClock.elapsedRealtime()
+                val playing = ArticleMedia.player?.state?.value?.playing == true
+                if (!Podcasts.shouldUploadPlayback(lastUpload, now, playing)) continue
+                lastUpload = now
+                AccountSync.pulse()
+            }
         }
     }
 
