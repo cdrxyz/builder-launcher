@@ -393,6 +393,70 @@ object Reads {
         return if (hit < 0) chunks.lastIndex else hit
     }
 
+    data class ReadingLine(val topPx: Int, val start: Int)
+
+    fun positionMsAtChar(text: String, charIndex: Int): Long {
+        if (text.isEmpty()) return 0L
+        val rows = chunks(text)
+        if (rows.isEmpty()) return 0L
+        val index = charIndex.coerceIn(0, text.length)
+        val hit = rows.indexOfLast { index >= it.start }
+        val row = rows[if (hit < 0) 0 else hit]
+        if (index <= row.start) return row.startMs
+        val span = (row.end - row.start).coerceAtLeast(1)
+        val into = (index - row.start).coerceIn(0, span)
+        val ms = (row.endMs - row.startMs).coerceAtLeast(0L)
+        return (row.startMs + ms * into / span).coerceIn(row.startMs, row.endMs.coerceAtLeast(row.startMs))
+    }
+
+    fun charIndexAtPosition(text: String, positionMs: Long): Int {
+        if (text.isEmpty()) return 0
+        val rows = chunks(text)
+        if (rows.isEmpty()) return 0
+        val row = rows[chunkIndexAt(rows, positionMs)]
+        val spanMs = (row.endMs - row.startMs).coerceAtLeast(1L)
+        val into = (positionMs - row.startMs).coerceIn(0L, spanMs)
+        val span = (row.end - row.start).coerceAtLeast(0)
+        val index = row.start + (span.toLong() * into / spanMs)
+        return index.coerceIn(0L, text.length.toLong()).toInt()
+    }
+
+    fun charAtReadingScroll(scrollPx: Int, textTopPx: Int, lines: List<ReadingLine>): Int {
+        if (lines.isEmpty()) return 0
+        val y = scrollPx - textTopPx
+        val hit = lines.indexOfLast { it.topPx <= y }
+        return lines[if (hit < 0) 0 else hit].start
+    }
+
+    fun scrollForReadingChar(textTopPx: Int, lines: List<ReadingLine>, charIndex: Int): Int {
+        if (charIndex <= 0 || lines.isEmpty()) return 0
+        val hit = lines.indexOfLast { it.start <= charIndex }
+        val line = lines[if (hit < 0) 0 else hit]
+        if (line.start <= 0 && charIndex <= 0) return 0
+        return (textTopPx + line.topPx).coerceAtLeast(0)
+    }
+
+    fun readingMoved(restoredScrollPx: Int, scrollPx: Int, slopPx: Int = 24): Boolean =
+        kotlin.math.abs(scrollPx - restoredScrollPx) > slopPx
+
+    fun shouldSaveReading(
+        lastSavedAtElapsedMs: Long,
+        nowElapsedMs: Long,
+        lastSavedPositionMs: Long,
+        positionMs: Long,
+        userMoved: Boolean,
+        force: Boolean,
+    ): Boolean {
+        if (!userMoved || positionMs == lastSavedPositionMs) return false
+        if (force) return true
+        return Podcasts.shouldCheckpointPlayback(
+            lastSavedAtElapsedMs = lastSavedAtElapsedMs,
+            nowElapsedMs = nowElapsedMs,
+            lastSavedPositionMs = lastSavedPositionMs,
+            positionMs = positionMs,
+        )
+    }
+
     fun skip(positionMs: Long, durationMs: Long, deltaMs: Long): Long =
         Podcasts.skip(positionMs, durationMs, deltaMs)
 

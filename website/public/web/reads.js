@@ -145,6 +145,77 @@ export function chunkIndexAt(rows, positionMs) {
 	return hit < 0 ? rows.length - 1 : hit;
 }
 
+export function positionMsAtChar(text, charIndex) {
+	const body = String(text || '');
+	if (!body) return 0;
+	const rows = chunks(body);
+	if (!rows.length) return 0;
+	const index = Math.min(Math.max(0, charIndex || 0), body.length);
+	let hit = -1;
+	rows.forEach((row, i) => {
+		if (index >= row.start) hit = i;
+	});
+	const row = rows[hit < 0 ? 0 : hit];
+	if (index <= row.start) return row.startMs;
+	const span = Math.max(1, row.end - row.start);
+	const into = Math.min(Math.max(0, index - row.start), span);
+	const ms = Math.max(0, row.endMs - row.startMs);
+	return Math.min(Math.max(row.startMs, row.startMs + Math.floor((ms * into) / span)), Math.max(row.startMs, row.endMs));
+}
+
+export function charIndexAtPosition(text, positionMs) {
+	const body = String(text || '');
+	if (!body) return 0;
+	const rows = chunks(body);
+	if (!rows.length) return 0;
+	const row = rows[chunkIndexAt(rows, positionMs)];
+	const spanMs = Math.max(1, row.endMs - row.startMs);
+	const into = Math.min(Math.max(0, (positionMs || 0) - row.startMs), spanMs);
+	const span = Math.max(0, row.end - row.start);
+	return Math.min(Math.max(0, row.start + Math.floor((span * into) / spanMs)), body.length);
+}
+
+export function charAtReadingScroll(scrollPx, textTopPx, lines) {
+	if (!lines?.length) return 0;
+	const y = scrollPx - textTopPx;
+	let hit = -1;
+	lines.forEach((line, i) => {
+		if (line.topPx <= y) hit = i;
+	});
+	return lines[hit < 0 ? 0 : hit].start;
+}
+
+export function scrollForReadingChar(textTopPx, lines, charIndex) {
+	if (!charIndex || charIndex <= 0 || !lines?.length) return 0;
+	let hit = -1;
+	lines.forEach((line, i) => {
+		if (line.start <= charIndex) hit = i;
+	});
+	const line = lines[hit < 0 ? 0 : hit];
+	return Math.max(0, textTopPx + line.topPx);
+}
+
+export function readingCharAt(sentences, viewportTop) {
+	if (!sentences?.length) return 0;
+	let hit = null;
+	for (const row of sentences) {
+		if (row.top <= viewportTop + 8) hit = row;
+	}
+	return (hit || sentences[0]).start || 0;
+}
+
+export function readingMoved(restoredScrollPx, scrollPx, slopPx = 24) {
+	return Math.abs(scrollPx - restoredScrollPx) > slopPx;
+}
+
+export function shouldSaveReading(lastSavedAt, now, lastSavedPositionMs, positionMs, userMoved, force, intervalMs = 10_000) {
+	if (!userMoved || positionMs === lastSavedPositionMs) return false;
+	if (force) return true;
+	if (positionMs === lastSavedPositionMs) return false;
+	if (now - lastSavedAt >= intervalMs) return true;
+	return Math.abs(positionMs - lastSavedPositionMs) >= intervalMs;
+}
+
 export function readsOf(doc) {
 	const bag = doc?.reads || {};
 	return {

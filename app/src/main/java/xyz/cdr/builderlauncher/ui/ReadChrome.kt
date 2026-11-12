@@ -20,14 +20,26 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.os.SystemClock
+import xyz.cdr.builderlauncher.backup.AccountSync
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -152,7 +164,75 @@ fun ReadPlayerChrome(
     downloaded: Boolean = false,
     speed: @Composable () -> Unit = {},
     voice: @Composable () -> Unit = {},
+    articleKey: String = "",
+    savedPositionMs: Long = 0L,
+    onReadingPlace: (Long) -> Unit = {},
 ) {
+    val scroll = rememberScrollState()
+    val sample = remember(articleKey) { ReadingSample() }
+    var layout by remember(articleKey) { mutableStateOf<TextLayoutResult?>(null) }
+    var textWindowTop by remember(articleKey) { mutableIntStateOf(0) }
+    var textPositioned by remember(articleKey) { mutableStateOf(false) }
+    var columnWindowTop by remember(articleKey) { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    sample.playing = playing
+    fun placeMs(): Long {
+        val result = layout ?: return sample.positionMs
+        val lines = (0 until result.lineCount).map { i ->
+            Reads.ReadingLine(result.getLineTop(i).toInt(), result.getLineStart(i))
+        }
+        val textTop = textWindowTop - columnWindowTop + scroll.value
+        return Reads.positionMsAtChar(text, Reads.charAtReadingScroll(scroll.value, textTop, lines))
+    }
+    fun flush(force: Boolean) {
+        if (!sample.placed || sample.playing || !sample.moved) return
+        val now = SystemClock.elapsedRealtime()
+        val next = placeMs()
+        if (!Reads.shouldSaveReading(sample.lastSavedAt, now, sample.savedMs, next, sample.moved, force)) return
+        sample.lastSavedAt = now
+        sample.savedMs = next
+        sample.positionMs = next
+        onReadingPlace(next)
+    }
+    LaunchedEffect(articleKey, layout, textWindowTop, columnWindowTop, textPositioned, savedPositionMs) {
+        val result = layout ?: return@LaunchedEffect
+        if (result.lineCount == 0 || !textPositioned) return@LaunchedEffect
+        val jump = sample.placed && kotlin.math.abs(savedPositionMs - sample.restoredMs) >= Reads.SKIP_MS
+        if (sample.placed && !jump) return@LaunchedEffect
+        if (sample.moved && !jump) return@LaunchedEffect
+        val lines = (0 until result.lineCount).map { i ->
+            Reads.ReadingLine(result.getLineTop(i).toInt(), result.getLineStart(i))
+        }
+        val textTop = textWindowTop - columnWindowTop + scroll.value
+        val char = Reads.charIndexAtPosition(text, savedPositionMs)
+        val target = Reads.scrollForReadingChar(textTop, lines, char).coerceIn(0, scroll.maxValue.coerceAtLeast(0))
+        if (savedPositionMs > 0L && target == 0 && scroll.maxValue == 0) return@LaunchedEffect
+        scroll.scrollTo(target)
+        sample.restoreScroll = scroll.value
+        sample.restoredMs = savedPositionMs
+        sample.savedMs = savedPositionMs
+        sample.lastSavedAt = SystemClock.elapsedRealtime()
+        sample.placed = true
+        if (jump) sample.moved = false
+    }
+    LaunchedEffect(articleKey, scroll) {
+        snapshotFlow { scroll.value }.collect {
+            if (!sample.placed) return@collect
+            if (Reads.readingMoved(sample.restoreScroll, scroll.value)) sample.moved = true
+            sample.positionMs = placeMs()
+            flush(force = false)
+        }
+    }
+    DisposableEffect(lifecycleOwner, articleKey) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) flush(force = true)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            flush(force = true)
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth(),
@@ -167,7 +247,8 @@ fun ReadPlayerChrome(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+                .onGloballyPositioned { columnWindowTop = it.boundsInWindow().top.toInt() }
+                .verticalScroll(scroll),
         ) {
             if (publication.isNotBlank()) {
                 Text(publication, color = Dim, style = MaterialTheme.typography.bodyMedium)
@@ -237,10 +318,26 @@ fun ReadPlayerChrome(
             BasicText(
                 text = highlighted(text, highlightStart, highlightEnd),
                 style = MaterialTheme.typography.bodyLarge.copy(color = Paper),
+                onTextLayout = { layout = it },
+                modifier = Modifier.onGloballyPositioned {
+                    textWindowTop = it.boundsInWindow().top.toInt()
+                    textPositioned = true
+                },
             )
             Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+private class ReadingSample {
+    var placed: Boolean = false
+    var playing: Boolean = false
+    var moved: Boolean = false
+    var positionMs: Long = 0L
+    var savedMs: Long = 0L
+    var restoredMs: Long = 0L
+    var restoreScroll: Int = 0
+    var lastSavedAt: Long = 0L
 }
 
 @Composable
@@ -383,6 +480,13 @@ fun ColumnScope.ReadHost(
                 onPick = { reads.setVoice(it) },
             )
         },
+        onReadingPlace = { ms ->
+            val id = article?.id
+            if (!id.isNullOrBlank()) {
+                reads.saveProgress(id, ms)
+                AccountSync.pulse()
+            }
+        },
     )
 }
 
@@ -423,6 +527,7 @@ fun ColumnScope.ReadOverlay(
     downloadVisible: (ReadArticle) -> Boolean = { false },
     downloaded: (ReadArticle) -> Boolean = { false },
     voice: @Composable () -> Unit = {},
+    onReadingPlace: (Long) -> Unit = {},
 ) {
     var speedMenu by remember(article?.id) { mutableStateOf(false) }
     Column(Modifier.weight(1f)) {
@@ -464,6 +569,9 @@ fun ColumnScope.ReadOverlay(
                 downloadLabel = downloadLabel(article),
                 downloadVisible = downloadVisible(article),
                 downloaded = downloaded(article),
+                articleKey = article.id,
+                savedPositionMs = positionMs,
+                onReadingPlace = onReadingPlace,
                 speed = {
                     PodcastSpeedMenu(
                         speed = speed,

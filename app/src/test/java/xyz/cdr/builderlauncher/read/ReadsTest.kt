@@ -255,6 +255,43 @@ class ReadsTest {
         dir.deleteRecursively()
     }
 
+    @Test
+    fun readingPlaceUsesTheSameClockAsAudioAndSurvivesARoundTrip() {
+        val text = "Alpha sentence one. Beta sentence two is longer than the first. Gamma ends the piece."
+        val rows = Reads.chunks(text)
+        assertEquals(rows[1].startMs, Reads.positionMsAtChar(text, rows[1].start))
+        assertEquals(rows[1].start, Reads.charIndexAtPosition(text, rows[1].startMs))
+        val mid = rows[1].start + (rows[1].end - rows[1].start) / 2
+        val ms = Reads.positionMsAtChar(text, mid)
+        assertTrue(ms >= rows[1].startMs)
+        assertTrue(ms <= rows[1].endMs)
+        val back = Reads.charIndexAtPosition(text, ms)
+        assertEquals(1, Reads.chunkIndexAt(rows, Reads.positionMsAtChar(text, back)))
+    }
+
+    @Test
+    fun scrollMapsToTheLineAtTheTopAndBack() {
+        val lines = listOf(
+            Reads.ReadingLine(0, 0),
+            Reads.ReadingLine(40, 22),
+            Reads.ReadingLine(80, 60),
+        )
+        assertEquals(22, Reads.charAtReadingScroll(scrollPx = 140, textTopPx = 100, lines = lines))
+        assertEquals(180, Reads.scrollForReadingChar(textTopPx = 100, lines = lines, charIndex = 61))
+        assertEquals(0, Reads.scrollForReadingChar(textTopPx = 100, lines = lines, charIndex = 0))
+    }
+
+    @Test
+    fun readingSaveWaitsUntilTheReaderMovesThenMatchesPodcastCadence() {
+        assertEquals(false, Reads.shouldSaveReading(0L, 1_000L, 0L, 5_000L, userMoved = false, force = false))
+        assertEquals(false, Reads.shouldSaveReading(0L, 1_000L, 5_000L, 5_000L, userMoved = true, force = true))
+        assertEquals(true, Reads.shouldSaveReading(0L, 1_000L, 0L, 5_000L, userMoved = true, force = true))
+        assertEquals(false, Reads.shouldSaveReading(1_000L, 2_000L, 0L, 5_000L, userMoved = true, force = false))
+        assertEquals(true, Reads.shouldSaveReading(1_000L, 12_000L, 0L, 5_000L, userMoved = true, force = false))
+        assertEquals(true, Reads.readingMoved(100, 140))
+        assertEquals(false, Reads.readingMoved(100, 110))
+    }
+
     private fun article(id: String, title: String = id, text: String = "body", addedAt: Long = 0) =
         ReadArticle(id = id, url = "https://example.com/$id", title = title, publication = "Example", text = text, addedAt = addedAt)
 }

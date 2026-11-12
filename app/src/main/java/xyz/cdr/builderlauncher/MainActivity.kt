@@ -97,7 +97,11 @@ class MainActivity : ComponentActivity() {
         val clock = ClockStore.get(this)
         val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, videos, clock)
         AccountSync.upload = {
-            withContext(Dispatchers.Main) { PodcastPlayer.persist() }
+            withContext(Dispatchers.Main) {
+                PodcastPlayer.persist()
+                articlePlayer?.persist()
+            }
+            backup.markLocalChange()
             backup.tickAuto()
         }
         ClockScheduler.reconcile(this, clock)
@@ -139,9 +143,9 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         stopped = true
         PodcastPlayer.persist()
-        AccountSync.pulse()
         speaker?.pause()
         if (Reads.pausesArticleWhenLeavingScreen()) articlePlayer?.pause() else articlePlayer?.persist()
+        AccountSync.pulse()
     }
 
     override fun onDestroy() {

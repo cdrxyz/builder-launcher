@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -40,6 +41,9 @@ class ArticlePlayer(context: Context) : ArticleControls {
     var onError: ((String) -> Unit)? = null
     private var textDuration = 0L
     private var pendingWordMs = 0L
+    private var lastSavedArticleId: String? = null
+    private var lastSavedPositionMs = -1L
+    private var lastSavedAtElapsedMs = 0L
     private val tick = object : Runnable {
         override fun run() {
             publish(save = false)
@@ -251,7 +255,14 @@ class ArticlePlayer(context: Context) : ArticleControls {
         val audioPos = runCatching { exo.currentPosition }.getOrDefault(0L)
         val word = Reads.wordMsFromAudio(audioPos, audioDur, textDuration)
         _state.value = _state.value.copy(positionMs = word, durationMs = textDuration)
-        if (save) onCheckpoint?.invoke(id, word)
+        if (pendingWordMs > 0L && word + 1_000L < pendingWordMs) return
+        if (lastSavedArticleId != id) lastSavedPositionMs = -1L
+        val now = SystemClock.elapsedRealtime()
+        if (!Reads.shouldSaveReading(lastSavedAtElapsedMs, now, lastSavedPositionMs, word, userMoved = true, force = save)) return
+        onCheckpoint?.invoke(id, word)
+        lastSavedArticleId = id
+        lastSavedPositionMs = word
+        lastSavedAtElapsedMs = now
     }
 
     private fun audioDuration(exo: ExoPlayer): Long {
