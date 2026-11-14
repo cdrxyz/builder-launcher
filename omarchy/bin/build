@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+mkdir -p "$ROOT/build"
+cd "$ROOT/build"
+
+QMAKE="$(command -v qmake6 || true)"
+if [ -z "$QMAKE" ]; then
+  QMAKE="$(command -v qmake || true)"
+fi
+if [ -z "$QMAKE" ] && [ -x /opt/homebrew/opt/qt/bin/qmake ]; then
+  QMAKE=/opt/homebrew/opt/qt/bin/qmake
+fi
+if [ -z "$QMAKE" ]; then
+  echo "qmake6 is missing. On Omarchy: omarchy-pkg-add base-devel qt6-base qt6-declarative qt6-multimedia qt6-svg qt6-wayland ffmpeg" >&2
+  exit 1
+fi
+
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+"$QMAKE" "$ROOT/builder-launcher.pro"
+make -j"$JOBS"
+
+echo "Built $ROOT/build/builder-launcher"

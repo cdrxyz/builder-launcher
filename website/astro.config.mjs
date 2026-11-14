@@ -33,6 +33,7 @@ export default defineConfig({
 					label: 'Start',
 					items: [
 						{ label: 'Install', slug: 'start/install' },
+						{ label: 'Omarchy', slug: 'start/omarchy' },
 						{ label: 'First run', slug: 'start/first-run' },
 					],
 				},

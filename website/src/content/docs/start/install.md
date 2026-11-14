@@ -30,3 +30,7 @@ Every pull request also publishes a **prerelease** tagged `pr-<number>` (replace
 ## Set as Home
 
 Android asks once to make Builder Launcher the default Home app. If you declined, type `settings` → **Set as default home app**. See [Default home app](../configure/default-home/).
+
+## Omarchy
+
+The desk for the same account is a separate app. Install steps: [Omarchy](./omarchy/).

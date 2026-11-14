@@ -64,6 +64,24 @@ AI stays optional and private: point `?` at your own Hermes instance, or sign in
 
 Sideload without Obtainium: download `builder-launcher-release.apk` from [Releases](https://github.com/cdrxyz/builder-launcher/releases).
 
+## Omarchy
+
+The desk for the same account lives in [`omarchy/`](omarchy/README.md). It is not the phone app. App search, text, and calls stay on the phone.
+
+```sh
+git clone https://github.com/cdrxyz/builder-launcher.git
+cd builder-launcher/omarchy
+./bin/install
+```
+
+If you already have the repo, `git pull` first, then the same `cd` and `./bin/install`. That builds with `qmake6`, packages with `makepkg`, and adds Builder Launcher to the app launcher. Open it with Super + Space. If `qmake6` is missing:
+
+```sh
+omarchy-pkg-add base-devel qt6-base qt6-declarative qt6-multimedia qt6-svg qt6-wayland ffmpeg
+```
+
+Full steps: [omarchy/README.md](omarchy/README.md). The manual page is [Omarchy](https://cdrxyz.github.io/builder-launcher/start/omarchy/).
+
 ## Commands
 
 Type on the home screen, then Enter.

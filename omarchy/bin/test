@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+if command -v node >/dev/null 2>&1; then
+  node "$ROOT/bin/check-merge.mjs"
+fi
+
+mkdir -p "$ROOT/build/tests"
+cd "$ROOT/build/tests"
+
+QMAKE="$(command -v qmake6 || true)"
+if [ -z "$QMAKE" ]; then
+  QMAKE="$(command -v qmake || true)"
+fi
+if [ -z "$QMAKE" ] && [ -x /opt/homebrew/opt/qt/bin/qmake ]; then
+  QMAKE=/opt/homebrew/opt/qt/bin/qmake
+fi
+if [ -z "$QMAKE" ]; then
+  echo "qmake6 is missing." >&2
+  exit 1
+fi
+
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+"$QMAKE" "$ROOT/tests/builder-launcher_tests.pro"
+make -j"$JOBS"
+QT_QPA_PLATFORM=offscreen ./builder-launcher_tests
