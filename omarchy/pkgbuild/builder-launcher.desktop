@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Builder Launcher
+Name[da]=Builder Launcher
+Comment=Tasks, notes, podcasts, and the rest of your builder account
+Comment[da]=Opgaver, noter, podcasts og resten af din Builder-konto
+Exec=builder-launcher
+Icon=builder-launcher
+Terminal=false
+Categories=Office;Utility;
+StartupWMClass=builder-launcher

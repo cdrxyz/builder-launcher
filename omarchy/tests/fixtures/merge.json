@@ -1,0 +1,2157 @@
+[
+  {
+    "name": "reopen stays open",
+    "a": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 1760129600000,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": null
+        }
+      ],
+      "deletedIds": []
+    },
+    "b": {
+      "version": 1,
+      "exportedAt": 1760086400000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": 1760086400000
+        }
+      ],
+      "deletedIds": []
+    },
+    "ab": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 1760129600000,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": null
+        }
+      ],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 1760129600000,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": null
+        }
+      ],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 1760129600000,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": null
+        }
+      ],
+      "deletedIds": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "completion beats open",
+    "a": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": []
+    },
+    "b": {
+      "version": 1,
+      "exportedAt": 1760086400000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": 1760086400000
+        }
+      ],
+      "deletedIds": []
+    },
+    "ab": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": 1760086400000
+        }
+      ],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0,
+          "completedAt": 1760086400000
+        }
+      ],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "version": 1,
+      "exportedAt": 1760129600000,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "deleted id drops the item",
+    "a": {
+      "version": 1,
+      "exportedAt": 10,
+      "items": [
+        {
+          "id": "keep",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        },
+        {
+          "id": "gone",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": [
+        "gone"
+      ]
+    },
+    "b": {
+      "version": 1,
+      "exportedAt": 5,
+      "items": [
+        {
+          "id": "gone",
+          "kind": "todo",
+          "text": "still here",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": []
+    },
+    "ab": {
+      "version": 1,
+      "exportedAt": 10,
+      "items": [
+        {
+          "id": "keep",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": [
+        "gone"
+      ],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "version": 1,
+      "exportedAt": 10,
+      "items": [
+        {
+          "id": "keep",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": [
+        "gone"
+      ],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "version": 1,
+      "exportedAt": 10,
+      "items": [
+        {
+          "id": "keep",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        },
+        {
+          "id": "gone",
+          "kind": "todo",
+          "text": "buy screws",
+          "createdAt": 1760000000000,
+          "updatedAt": 0,
+          "order": 0,
+          "orderedAt": 0
+        }
+      ],
+      "deletedIds": [
+        "gone"
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "unpin drops the package",
+    "a": {
+      "exportedAt": 20,
+      "pins": [
+        "keep"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "gone",
+          "pinned": false,
+          "at": 20
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "pins": [
+        "keep",
+        "gone"
+      ]
+    },
+    "ab": {
+      "exportedAt": 20,
+      "pins": [
+        "keep"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "gone",
+          "pinned": false,
+          "at": 20
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 20,
+      "pins": [
+        "keep"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "gone",
+          "pinned": false,
+          "at": 20
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 20,
+      "pins": [
+        "keep"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "gone",
+          "pinned": false,
+          "at": 20
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "equal stamp prefers unpin",
+    "a": {
+      "exportedAt": 10,
+      "pins": [
+        "app"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": true,
+          "at": 10
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "pins": [],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": false,
+          "at": 10
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 10,
+      "pins": [],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": false,
+          "at": 10
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 10,
+      "pins": [],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": false,
+          "at": 10
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 10,
+      "pins": [
+        "app"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": true,
+          "at": 10
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "later pin beats unpin",
+    "a": {
+      "exportedAt": 30,
+      "pins": [
+        "app"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": true,
+          "at": 30
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "pins": [],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": false,
+          "at": 10
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 30,
+      "pins": [
+        "app"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": true,
+          "at": 30
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 30,
+      "pins": [
+        "app"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": true,
+          "at": 30
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 30,
+      "pins": [
+        "app"
+      ],
+      "pinChanges": [
+        {
+          "packageName": "app",
+          "pinned": true,
+          "at": 30
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "deleted alarm is dropped",
+    "a": {
+      "exportedAt": 20,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true
+        }
+      ],
+      "deletedAlarmIds": [
+        "a1"
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 20,
+      "alarms": [],
+      "deletedAlarmIds": [
+        "a1"
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {}
+    },
+    "ba": {
+      "exportedAt": 20,
+      "alarms": [],
+      "deletedAlarmIds": [
+        "a1"
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {}
+    },
+    "slimA": {
+      "exportedAt": 20,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true
+        }
+      ],
+      "deletedAlarmIds": [
+        "a1"
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "dismissed alarm keeps the later fire",
+    "a": {
+      "exportedAt": 20,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "lastFiredAt": 40,
+          "updatedAt": 10
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "lastFiredAt": 5,
+          "updatedAt": 10
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 20,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "lastFiredAt": 40,
+          "updatedAt": 10,
+          "snoozeUntil": null
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 20,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "lastFiredAt": 40,
+          "updatedAt": 10,
+          "snoozeUntil": null
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 20,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "lastFiredAt": 40,
+          "updatedAt": 10
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "equal stamp prefers a disabled alarm",
+    "a": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 30,
+          "enabled": false,
+          "updatedAt": 10,
+          "snoozeUntil": 99
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 30,
+          "enabled": true,
+          "updatedAt": 10,
+          "snoozeUntil": 50
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 30,
+          "enabled": false,
+          "updatedAt": 10,
+          "snoozeUntil": null,
+          "lastFiredAt": null
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 30,
+          "enabled": false,
+          "updatedAt": 10,
+          "snoozeUntil": null,
+          "lastFiredAt": null
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 30,
+          "enabled": false,
+          "updatedAt": 10,
+          "snoozeUntil": 99
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "newer enable turns the alarm back on",
+    "a": {
+      "exportedAt": 30,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "updatedAt": 30
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": false,
+          "updatedAt": 10
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 30,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "updatedAt": 30,
+          "lastFiredAt": null,
+          "snoozeUntil": null
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 30,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "updatedAt": 30,
+          "lastFiredAt": null,
+          "snoozeUntil": null
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 30,
+      "alarms": [
+        {
+          "id": "a1",
+          "hour": 7,
+          "minute": 0,
+          "enabled": true,
+          "updatedAt": 30
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "equal play stamp keeps a skip",
+    "a": {
+      "exportedAt": 50,
+      "podcasts": {
+        "progress": [
+          {
+            "episodeId": "ep",
+            "lastPlayedAt": 40,
+            "skipped": true,
+            "savedAt": 1
+          }
+        ]
+      }
+    },
+    "b": {
+      "exportedAt": 40,
+      "podcasts": {
+        "progress": [
+          {
+            "episodeId": "ep",
+            "lastPlayedAt": 40,
+            "skipped": false,
+            "savedAt": 5
+          }
+        ]
+      }
+    },
+    "ab": {
+      "exportedAt": 50,
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [
+          {
+            "episodeId": "ep",
+            "lastPlayedAt": 40,
+            "skipped": true,
+            "savedAt": 5
+          }
+        ],
+        "cacheBytes": 0
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 50,
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [
+          {
+            "episodeId": "ep",
+            "lastPlayedAt": 40,
+            "skipped": true,
+            "savedAt": 5
+          }
+        ],
+        "cacheBytes": 0
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 50,
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [
+          {
+            "episodeId": "ep",
+            "lastPlayedAt": 40,
+            "skipped": true,
+            "savedAt": 1
+          }
+        ]
+      },
+      "watchlist": [],
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "blank credentials do not wipe the older key",
+    "a": {
+      "exportedAt": 20,
+      "settings": {
+        "apiKey": "",
+        "model": "new",
+        "weatherPlace": "Kitchener"
+      }
+    },
+    "b": {
+      "exportedAt": 10,
+      "settings": {
+        "apiKey": "sk-old",
+        "model": "old",
+        "oauthRefresh": "r"
+      }
+    },
+    "ab": {
+      "exportedAt": 20,
+      "settings": {
+        "apiKey": "sk-old",
+        "model": "new",
+        "oauthRefresh": "r",
+        "weatherPlace": "Kitchener"
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 20,
+      "settings": {
+        "apiKey": "sk-old",
+        "model": "new",
+        "oauthRefresh": "r",
+        "weatherPlace": "Kitchener"
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 20,
+      "settings": {
+        "apiKey": "",
+        "model": "new",
+        "weatherPlace": "Kitchener"
+      },
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "order stamp is independent of text",
+    "a": {
+      "version": 1,
+      "exportedAt": 50,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "old words",
+          "createdAt": 1760000000000,
+          "updatedAt": 5,
+          "order": 9,
+          "orderedAt": 50
+        }
+      ],
+      "deletedIds": []
+    },
+    "b": {
+      "version": 1,
+      "exportedAt": 40,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "new words",
+          "createdAt": 1760000000000,
+          "updatedAt": 40,
+          "order": 1,
+          "orderedAt": 10
+        }
+      ],
+      "deletedIds": []
+    },
+    "ab": {
+      "version": 1,
+      "exportedAt": 50,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "old words",
+          "createdAt": 1760000000000,
+          "updatedAt": 5,
+          "order": 9,
+          "orderedAt": 50
+        }
+      ],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "version": 1,
+      "exportedAt": 50,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "new words",
+          "createdAt": 1760000000000,
+          "updatedAt": 40,
+          "order": 9,
+          "orderedAt": 50
+        }
+      ],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "version": 1,
+      "exportedAt": 50,
+      "items": [
+        {
+          "id": "abc",
+          "kind": "todo",
+          "text": "old words",
+          "createdAt": 1760000000000,
+          "updatedAt": 5,
+          "order": 9,
+          "orderedAt": 50
+        }
+      ],
+      "deletedIds": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "re-added article clears its delete on the newer side",
+    "a": {
+      "exportedAt": 30,
+      "reads": {
+        "articles": [
+          {
+            "id": "r1",
+            "title": "back",
+            "addedAt": 30,
+            "text": "hello"
+          }
+        ],
+        "deletedIds": [],
+        "progress": []
+      }
+    },
+    "b": {
+      "exportedAt": 10,
+      "reads": {
+        "articles": [],
+        "deletedIds": [
+          "r1"
+        ],
+        "progress": [
+          {
+            "articleId": "r1",
+            "positionMs": 4,
+            "updatedAt": 8
+          }
+        ]
+      }
+    },
+    "ab": {
+      "exportedAt": 30,
+      "reads": {
+        "articles": [
+          {
+            "id": "r1",
+            "title": "back",
+            "addedAt": 30,
+            "text": "hello"
+          }
+        ],
+        "progress": [
+          {
+            "articleId": "r1",
+            "positionMs": 4,
+            "updatedAt": 8
+          }
+        ],
+        "deletedIds": []
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 30,
+      "reads": {
+        "articles": [
+          {
+            "id": "r1",
+            "title": "back",
+            "addedAt": 30,
+            "text": "hello"
+          }
+        ],
+        "progress": [
+          {
+            "articleId": "r1",
+            "positionMs": 4,
+            "updatedAt": 8
+          }
+        ],
+        "deletedIds": []
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 30,
+      "reads": {
+        "articles": [
+          {
+            "id": "r1",
+            "title": "back",
+            "addedAt": 30,
+            "text": "hello"
+          }
+        ],
+        "progress": [],
+        "deletedIds": []
+      },
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "slim drops episodes and unplayed progress",
+    "a": {
+      "exportedAt": 1,
+      "watchlist": [
+        {
+          "symbol": "brk.b",
+          "name": "Berkshire",
+          "price": 1,
+          "addedAt": 2
+        }
+      ],
+      "podcasts": {
+        "shows": [
+          {
+            "feedUrl": "https://ex.ample/feed",
+            "title": "Show"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "ep",
+            "title": "One"
+          }
+        ],
+        "progress": [
+          {
+            "episodeId": "played",
+            "lastPlayedAt": 3
+          },
+          {
+            "episodeId": "saved",
+            "savedAt": 4
+          },
+          {
+            "episodeId": "skip",
+            "skipped": true
+          },
+          {
+            "episodeId": "cold",
+            "lastPlayedAt": 0
+          }
+        ]
+      }
+    },
+    "b": {
+      "version": 1,
+      "exportedAt": 1,
+      "items": [],
+      "deletedIds": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    },
+    "ab": {
+      "version": 1,
+      "exportedAt": 1,
+      "items": [],
+      "deletedIds": [],
+      "watchlist": [
+        {
+          "symbol": "brk.b",
+          "name": "Berkshire",
+          "price": 1,
+          "addedAt": 2
+        }
+      ],
+      "podcasts": {
+        "shows": [
+          {
+            "feedUrl": "https://ex.ample/feed",
+            "title": "Show"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "ep",
+            "title": "One"
+          }
+        ],
+        "progress": [
+          {
+            "episodeId": "played",
+            "lastPlayedAt": 3
+          },
+          {
+            "episodeId": "saved",
+            "savedAt": 4
+          },
+          {
+            "episodeId": "skip",
+            "skipped": true
+          },
+          {
+            "episodeId": "cold",
+            "lastPlayedAt": 0
+          }
+        ],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 1,
+      "watchlist": [
+        {
+          "symbol": "brk.b",
+          "name": "Berkshire",
+          "price": 1,
+          "addedAt": 2
+        }
+      ],
+      "podcasts": {
+        "shows": [
+          {
+            "feedUrl": "https://ex.ample/feed",
+            "title": "Show"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "ep",
+            "title": "One"
+          }
+        ],
+        "progress": [
+          {
+            "episodeId": "played",
+            "lastPlayedAt": 3
+          },
+          {
+            "episodeId": "saved",
+            "savedAt": 4
+          },
+          {
+            "episodeId": "skip",
+            "skipped": true
+          },
+          {
+            "episodeId": "cold",
+            "lastPlayedAt": 0
+          }
+        ],
+        "cacheBytes": 0
+      },
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 1,
+      "watchlist": [
+        {
+          "symbol": "brk.b",
+          "name": "Berkshire",
+          "addedAt": 2,
+          "exchange": ""
+        }
+      ],
+      "podcasts": {
+        "shows": [
+          {
+            "feedUrl": "https://ex.ample/feed",
+            "title": "Show"
+          }
+        ],
+        "episodes": [],
+        "progress": [
+          {
+            "episodeId": "played",
+            "lastPlayedAt": 3
+          },
+          {
+            "episodeId": "saved",
+            "savedAt": 4
+          },
+          {
+            "episodeId": "skip",
+            "skipped": true
+          }
+        ]
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  }
+]
