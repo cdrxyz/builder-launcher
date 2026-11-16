@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QJsonObject>
 #include <QMediaPlayer>
 #include <QAudioOutput>
@@ -46,7 +47,7 @@ public:
     QString draft() const { return m_draft; }
     QString status() const { return m_status; }
     QString title() const;
-    bool signedIn() const { return !m_token.isEmpty(); }
+    bool signedIn() const { return !m_token.isEmpty() && m_token != QLatin1String("demo"); }
     QString email() const { return m_email; }
     bool syncing() const { return m_syncing; }
     QString syncLabel() const;
@@ -58,7 +59,7 @@ public:
     bool playing() const { return m_player.playbackState() == QMediaPlayer::PlayingState; }
     QString positionLabel() const;
     QVariantList menu() const { return m_menu; }
-    bool menuOpen() const { return m_prompt == QLatin1String("/") && !m_menu.isEmpty(); }
+    bool menuOpen() const { return m_prompt == QLatin1String("/"); }
     QString alert() const { return m_alert; }
     QString alertTime() const { return m_alertTime; }
     bool includeAi() const { return m_includeAi; }
@@ -69,6 +70,7 @@ public:
 
     void setDraft(const QString &draft);
     Q_INVOKABLE void loadDemo();
+    void start();
 
     Q_INVOKABLE void submit();
     Q_INVOKABLE void setPrompt(const QString &glyph);
@@ -95,13 +97,24 @@ public:
     Q_INVOKABLE void setWeatherPlace(const QString &query);
     Q_INVOKABLE bool signupOpens(const QString &code) const;
     Q_INVOKABLE QStringList shortcutRows() const;
+    Q_INVOKABLE void showHelp();
 
 signals:
     void changed();
+    void helpRequested();
 
 private:
     void setStatus(const QString &status);
+    void clearDraft();
     void rebuild();
+    QVariantList visibleRows() const;
+    void runSlash(const QString &name);
+    void openSelection();
+    void hydrate();
+    int displayTemp(double celsius) const;
+    QString placeLabel(qint64 positionMs, qint64 durationMs) const;
+    QString articlePlace(const QJsonObject &article) const;
+    QString episodePlace(const QJsonObject &episode) const;
     void mutate(const QJsonObject &next, const QString &hold = {});
     void remember();
     void saveVault();
@@ -115,7 +128,8 @@ private:
     void applyRemote(const QJsonObject &remote, bool existed);
     void finishPush(const QJsonObject &remote);
     QString selectedId() const;
-    void playUrl(const QString &url, const QString &title, const QString &show);
+    void playUrl(const QString &url, const QString &title, const QString &show, const QString &episodeId = {});
+    void checkpointPlayback(bool force, bool ended);
     void checkAlarms();
     void notify(const QString &title, const QString &body);
     void searchStock(const QString &query);
@@ -125,6 +139,7 @@ private:
     void resolveVideo(const QString &id);
     void ask(const QString &question);
     void refreshWeather();
+    void refreshQuotes();
     void subscribeShow(const QString &feedUrl, const QString &title, const QString &author);
 
     Http m_http;
@@ -159,5 +174,11 @@ private:
     QTimer m_clockTimer;
     QMediaPlayer m_player;
     QAudioOutput m_audio;
+    QJsonObject m_forecast;
+    QHash<QString, QString> m_quotes;
     QString m_api = QStringLiteral("https://builder.cdr.xyz");
+    QString m_episodeId;
+    qint64 m_resumeMs = 0;
+    qint64 m_playSavedAt = 0;
+    qint64 m_playSavedPos = 0;
 };

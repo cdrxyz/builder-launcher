@@ -18,6 +18,12 @@ private slots:
     void deleteRecordsTheId();
     void mathDoesNotStealABareNumber();
     void alarmParsesAWeekdayTime();
+    void videoIdMatchesThePhone();
+    void slashResolvesAUniquePrefix();
+    void feedEpisodesUseShowId();
+    void playbackWaitsTenSeconds();
+    void playbackMarksNearlyFinished();
+    void playbackProgressRoundTrips();
     void themeFallsBack();
     void translatorFallsBackToEnglish();
 
@@ -89,6 +95,62 @@ void BuilderLauncherTests::alarmParsesAWeekdayTime() {
     QCOMPARE(alarms.first().hour, 7);
     QCOMPARE(alarms.first().minute, 30);
     QCOMPARE(alarms.first().days, QVector<int>({1, 2, 3, 4, 5}));
+}
+
+void BuilderLauncherTests::videoIdMatchesThePhone() {
+    QCOMPARE(savedVideoId(QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ")), QStringLiteral("vdQw4w9WgXcQ"));
+    QCOMPARE(savedVideoId(QStringLiteral("https://youtu.be/dQw4w9WgXcQ")), QStringLiteral("vdQw4w9WgXcQ"));
+    QCOMPARE(savedVideoId(QStringLiteral("not a video")), QString());
+}
+
+void BuilderLauncherTests::slashResolvesAUniquePrefix() {
+    QCOMPARE(slashCommand(QStringLiteral("notes")), QStringLiteral("notes"));
+    QCOMPARE(slashCommand(QStringLiteral("no")), QStringLiteral("notes"));
+    QCOMPARE(slashCommand(QStringLiteral("pods")), QStringLiteral("podcasts"));
+    QCOMPARE(slashCommand(QStringLiteral("ai")), QStringLiteral("chat"));
+    QCOMPARE(slashCommand(QStringLiteral("s")), QString());
+    QCOMPARE(slashCommand(QString()), QString());
+}
+
+void BuilderLauncherTests::feedEpisodesUseShowId() {
+    const auto episodes = parseFeedEpisodes(
+        QByteArray("<rss><channel><item><title>Ep</title><guid>g1</guid><duration>1:30</duration>"
+                   "<enclosure url=\"https://example.com/a.mp3\"/></item></channel></rss>"),
+        QStringLiteral("https://example.com/feed"));
+    QCOMPARE(episodes.size(), 1);
+    const auto episode = episodes.first().toObject();
+    QCOMPARE(episode.value(QStringLiteral("showId")).toString(), QStringLiteral("https://example.com/feed"));
+    QCOMPARE(episode.value(QStringLiteral("id")).toString(), QStringLiteral("g1"));
+    QCOMPARE(episode.value(QStringLiteral("enclosureUrl")).toString(), QStringLiteral("https://example.com/a.mp3"));
+    QCOMPARE(episode.value(QStringLiteral("durationMs")).toDouble(), 90000.0);
+}
+
+void BuilderLauncherTests::playbackWaitsTenSeconds() {
+    QVERIFY(!playbackDue(0, 5000, 0, 1000, false));
+    QVERIFY(playbackDue(0, 5000, 0, 20000, false));
+    QVERIFY(playbackDue(0, 11000, 0, 1000, false));
+    QVERIFY(playbackDue(1000, 1500, 0, 0, true));
+}
+
+void BuilderLauncherTests::playbackMarksNearlyFinished() {
+    QVERIFY(!playbackFinished(10, 0));
+    QVERIFY(!playbackFinished(10000, 3600000));
+    QVERIFY(playbackFinished(95, 100));
+    QVERIFY(playbackFinished(3580000, 3600000));
+}
+
+void BuilderLauncherTests::playbackProgressRoundTrips() {
+    const auto saved = saveEpisodeProgress(emptyDoc(1), QStringLiteral("ep"), 12000, 90000, 50, false);
+    QCOMPARE(savedResumeMs(saved, QStringLiteral("ep")), 12000);
+    const auto row = saved.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("progress")).toArray().first().toObject();
+    QCOMPARE(row.value(QStringLiteral("episodeId")).toString(), QStringLiteral("ep"));
+    QCOMPARE(row.value(QStringLiteral("lastPlayedAt")).toDouble(), 50.0);
+    QCOMPARE(row.value(QStringLiteral("finished")).toBool(), false);
+    QCOMPARE(row.value(QStringLiteral("skipped")).toBool(), false);
+    const auto again = saveEpisodeProgress(saved, QStringLiteral("ep"), 88000, 90000, 60, false);
+    QCOMPARE(again.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("progress")).toArray().size(), 1);
+    QVERIFY(again.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("progress")).toArray().first().toObject().value(QStringLiteral("finished")).toBool());
+    QCOMPARE(savedResumeMs(again, QStringLiteral("ep")), 0);
 }
 
 void BuilderLauncherTests::themeFallsBack() {

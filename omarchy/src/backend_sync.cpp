@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSet>
 #include <QProcess>
 #include <QUrl>
 #include <QUrlQuery>
@@ -185,6 +186,7 @@ void Backend::push() {
         saveVault();
         setStatus(tr("Synced."));
         rebuild();
+        hydrate();
     });
 }
 
@@ -210,25 +212,78 @@ void Backend::applyRemote(const QJsonObject &remote, bool existed) {
     saveVault();
     setStatus(tr("Synced."));
     rebuild();
+    hydrate();
+}
+
+void Backend::runSlash(const QString &name) {
+    const QString key = slashCommand(name);
+    clearDraft();
+    if (key == QLatin1String("pull")) {
+        m_prompt = QStringLiteral("-");
+        pull();
+        rebuild();
+        return;
+    }
+    if (key == QLatin1String("push")) {
+        m_prompt = QStringLiteral("-");
+        push();
+        rebuild();
+        return;
+    }
+    if (key == QLatin1String("help")) {
+        m_prompt = QStringLiteral("-");
+        showHelp();
+        rebuild();
+        return;
+    }
+    if (key.isEmpty()) {
+        setStatus(tr("Unknown slash command."));
+        rebuild();
+        return;
+    }
+    go(key);
+}
+
+void Backend::openSelection() {
+    const auto rows = visibleRows();
+    if (m_selected < 0 || m_selected >= rows.size())
+        return;
+    const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
+    if (kind == QLatin1String("slash") || kind == QLatin1String("note") || kind == QLatin1String("show") ||
+        kind == QLatin1String("episode") || kind == QLatin1String("article") || kind == QLatin1String("video") ||
+        kind == QLatin1String("hit") || kind == QLatin1String("link"))
+        activateSelection();
 }
 
 void Backend::submit() {
     const QString text = m_draft.trimmed();
-    if (m_prompt == QLatin1String("@") || m_prompt == QLatin1String("#")) {
+    if (m_prompt == QLatin1String("@") || m_prompt == QLatin1String("#") || m_prompt == QLatin1String("*")) {
         setStatus(tr("Use the Android app for text and calls."));
         return;
     }
+    if (text.isEmpty()) {
+        if (m_prompt == QLatin1String("/")) {
+            runSlash(selectedId());
+            return;
+        }
+        if (m_prompt == QLatin1String("+")) {
+            // From anywhere else, an empty note prompt opens the list.
+            // On the list, it opens the selected note.
+            if (m_page == QLatin1String("notes"))
+                openSelection();
+            else
+                go(QStringLiteral("notes"));
+            return;
+        }
+        if (m_prompt == QLatin1String("$")) {
+            go(QStringLiteral("stocks"));
+            return;
+        }
+        openSelection();
+        return;
+    }
     if (m_prompt == QLatin1String("/")) {
-        const QString name = text.toLower();
-        m_draft.clear();
-        if (name == QLatin1String("pull"))
-            pull();
-        else if (name == QLatin1String("push"))
-            push();
-        else if (name == QLatin1String("help"))
-            go(QStringLiteral("help"));
-        else if (!name.isEmpty())
-            go(name == QLatin1String("podcasts") ? QStringLiteral("podcasts") : name);
+        runSlash(text);
         return;
     }
     if (m_prompt == QLatin1String("-")) {
@@ -236,20 +291,20 @@ void Backend::submit() {
             const auto alarms = parseAlarmInputs(text);
             if (!alarms.isEmpty()) {
                 mutate(addAlarms(m_doc, alarms, QDateTime::currentMSecsSinceEpoch()));
-                m_draft.clear();
+                clearDraft();
                 setStatus(tr("Alarm saved."));
                 return;
             }
         }
         if (looksLikeMath(text)) {
             setStatus(evaluateMath(text));
-            m_draft.clear();
+            clearDraft();
             return;
         }
         if (text.isEmpty())
             return;
         mutate(addTask(m_doc, text, QDateTime::currentMSecsSinceEpoch()));
-        m_draft.clear();
+        clearDraft();
         return;
     }
     if (m_prompt == QLatin1String("+")) {
@@ -261,7 +316,7 @@ void Backend::submit() {
         m_detailId = next.value(QStringLiteral("items")).toArray().first().toObject().value(QStringLiteral("id")).toString();
         mutate(next);
         m_page = QStringLiteral("note");
-        m_draft.clear();
+        clearDraft();
         rebuild();
         return;
     }
@@ -271,26 +326,55 @@ void Backend::submit() {
             return;
         }
         searchStock(text);
-        m_draft.clear();
+        clearDraft();
         return;
     }
     if (m_prompt == QLatin1String("?")) {
         if (text.isEmpty())
             return;
         ask(text);
-        m_draft.clear();
+        clearDraft();
         return;
     }
     if (m_prompt == QLatin1String(">")) {
-        if (text.isEmpty())
-            return;
-        if (m_page == QLatin1String("articles") || looksLikeUrl(text))
+        if (m_page == QLatin1String("articles")) {
+            bool ok = false;
+            const int index = text.toInt(&ok);
+            if (ok) {
+                if (index >= 1 && index <= m_rows.size()) {
+                    m_detailId = m_rows.at(index - 1).toMap().value(QStringLiteral("id")).toString();
+                    m_page = QStringLiteral("article");
+                    clearDraft();
+                    rebuild();
+                } else {
+                    setStatus(tr("No article %1.").arg(text));
+                }
+                return;
+            }
+            if (!looksLikeUrl(text)) {
+                setStatus(tr("Paste an article URL."));
+                return;
+            }
             saveArticle(text);
-        else if (m_page == QLatin1String("videos") || !youtubeIdOf(text).isEmpty())
+            clearDraft();
+            return;
+        }
+        if (m_page == QLatin1String("videos")) {
+            if (youtubeIdOf(text).isEmpty()) {
+                setStatus(tr("Paste a YouTube URL."));
+                return;
+            }
             saveVideo(text);
+            clearDraft();
+            return;
+        }
+        if (!youtubeIdOf(text).isEmpty())
+            saveVideo(text);
+        else if (looksLikeUrl(text))
+            saveArticle(text);
         else
             searchPodcast(text);
-        m_draft.clear();
+        clearDraft();
         return;
     }
 }
@@ -325,7 +409,8 @@ void Backend::toggleSelection() {
     const QString id = selectedId();
     if (id.isEmpty())
         return;
-    const QString kind = m_rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
+    const auto rows = visibleRows();
+    const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (kind == QLatin1String("todo") || kind == QLatin1String("done"))
         mutate(toggleTask(m_doc, id, now));
@@ -337,19 +422,77 @@ void Backend::deleteSelection() {
     const QString id = selectedId();
     if (id.isEmpty())
         return;
-    const QString kind = m_rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
+    const auto rows = visibleRows();
+    const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (kind == QLatin1String("alarm"))
         mutate(deleteAlarm(m_doc, id, now));
     else if (kind == QLatin1String("todo") || kind == QLatin1String("done") || kind == QLatin1String("note"))
         mutate(deleteItem(m_doc, id, now));
+    else if (kind == QLatin1String("stock")) {
+        QJsonArray kept;
+        for (const auto &value : m_doc.value(QStringLiteral("watchlist")).toArray())
+            if (value.toObject().value(QStringLiteral("symbol")).toString().compare(id, Qt::CaseInsensitive) != 0)
+                kept.append(value);
+        auto next = m_doc;
+        next.insert(QStringLiteral("watchlist"), kept);
+        mutate(touchExported(next, now));
+    } else if (kind == QLatin1String("article") || kind == QLatin1String("video")) {
+        const QString bagName = kind == QLatin1String("article") ? QStringLiteral("reads") : QStringLiteral("videos");
+        const QString listName = kind == QLatin1String("article") ? QStringLiteral("articles") : QStringLiteral("videos");
+        const QString progressKey = kind == QLatin1String("article") ? QStringLiteral("articleId") : QStringLiteral("videoId");
+        auto bag = m_doc.value(bagName).toObject();
+        QJsonArray kept;
+        for (const auto &value : bag.value(listName).toArray())
+            if (value.toObject().value(QStringLiteral("id")).toString() != id)
+                kept.append(value);
+        QJsonArray progress;
+        for (const auto &value : bag.value(QStringLiteral("progress")).toArray())
+            if (value.toObject().value(progressKey).toString() != id)
+                progress.append(value);
+        QJsonArray deleted = bag.value(QStringLiteral("deletedIds")).toArray();
+        deleted.append(id);
+        bag.insert(listName, kept);
+        bag.insert(QStringLiteral("progress"), progress);
+        bag.insert(QStringLiteral("deletedIds"), deleted);
+        auto next = m_doc;
+        next.insert(bagName, bag);
+        mutate(touchExported(next, now));
+    } else if (kind == QLatin1String("show")) {
+        auto pods = m_doc.value(QStringLiteral("podcasts")).toObject();
+        QJsonArray shows;
+        for (const auto &value : pods.value(QStringLiteral("shows")).toArray())
+            if (value.toObject().value(QStringLiteral("feedUrl")).toString().compare(id, Qt::CaseInsensitive) != 0)
+                shows.append(value);
+        QJsonArray episodes;
+        QSet<QString> dropped;
+        for (const auto &value : pods.value(QStringLiteral("episodes")).toArray()) {
+            const auto episode = value.toObject();
+            const QString showId = episode.value(QStringLiteral("showId")).toString(episode.value(QStringLiteral("feedUrl")).toString());
+            if (showId.compare(id, Qt::CaseInsensitive) == 0)
+                dropped.insert(episode.value(QStringLiteral("id")).toString());
+            else
+                episodes.append(episode);
+        }
+        QJsonArray progress;
+        for (const auto &value : pods.value(QStringLiteral("progress")).toArray())
+            if (!dropped.contains(value.toObject().value(QStringLiteral("episodeId")).toString()))
+                progress.append(value);
+        pods.insert(QStringLiteral("shows"), shows);
+        pods.insert(QStringLiteral("episodes"), episodes);
+        pods.insert(QStringLiteral("progress"), progress);
+        auto next = m_doc;
+        next.insert(QStringLiteral("podcasts"), pods);
+        mutate(touchExported(next, now));
+    }
 }
 
 void Backend::activateSelection() {
     const QString id = selectedId();
     if (id.isEmpty())
         return;
-    const QString kind = m_rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
+    const auto rows = visibleRows();
+    const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
     if (kind == QLatin1String("todo") || kind == QLatin1String("done")) {
         toggleSelection();
         return;
@@ -368,7 +511,8 @@ void Backend::activateSelection() {
     }
     if (kind == QLatin1String("episode")) {
         const auto episode = findById(m_doc.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("episodes")).toArray(), id);
-        playUrl(episode.value(QStringLiteral("enclosureUrl")).toString(), episode.value(QStringLiteral("title")).toString(), tr("Podcasts"));
+        playUrl(episode.value(QStringLiteral("enclosureUrl")).toString(), episode.value(QStringLiteral("title")).toString(),
+                tr("Podcasts"), id);
         return;
     }
     if (kind == QLatin1String("article")) {
@@ -382,14 +526,14 @@ void Backend::activateSelection() {
         return;
     }
     if (kind == QLatin1String("hit")) {
-        const auto map = m_rows.at(m_selected).toMap();
+        const auto map = rows.at(m_selected).toMap();
         subscribeShow(id, map.value(QStringLiteral("title")).toString(), map.value(QStringLiteral("subtitle")).toString());
         return;
     }
     if (kind == QLatin1String("link"))
         go(id);
     if (kind == QLatin1String("slash"))
-        go(id);
+        runSlash(id);
 }
 
 void Backend::setComposing(bool on) {
@@ -401,6 +545,9 @@ void Backend::saveDetail(const QString &text) {
         return;
     if (text == findById(m_doc.value(QStringLiteral("items")).toArray(), m_detailId).value(QStringLiteral("text")).toString())
         return;
+    // Keep the editor's text. rebuild() leaves it alone while composing, and a
+    // binding back to the previous detail would eat the keystroke.
+    m_detail = text;
     mutate(updateItemText(m_doc, m_detailId, text, QDateTime::currentMSecsSinceEpoch()), QStringLiteral("text"));
 }
 
@@ -411,20 +558,54 @@ void Backend::playPause() {
         m_player.play();
 }
 
-void Backend::playUrl(const QString &url, const QString &title, const QString &show) {
+void Backend::playUrl(const QString &url, const QString &title, const QString &show, const QString &episodeId) {
     if (url.isEmpty()) {
         setStatus(tr("Nothing to play."));
         return;
     }
+    if (!m_episodeId.isEmpty())
+        checkpointPlayback(true, false);
+    m_episodeId = episodeId;
+    m_resumeMs = episodeId.isEmpty() ? 0 : savedResumeMs(m_doc, episodeId);
+    m_playSavedAt = 0;
+    m_playSavedPos = 0;
     m_player.setSource(QUrl(url));
     m_player.play();
     m_nowPlaying = title + QStringLiteral(" — ") + show;
     setStatus(tr("Playing."));
 }
 
+void Backend::checkpointPlayback(bool force, bool ended) {
+    if (m_episodeId.isEmpty())
+        return;
+    // The player reports 0 until the saved place is applied. Writing that
+    // would wipe the place the next play is about to seek to.
+    if (m_resumeMs > 0 && !ended)
+        return;
+    const qint64 pos = qMax<qint64>(0, m_player.position());
+    qint64 dur = m_player.duration();
+    if (dur < 0)
+        dur = 0;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (!playbackDue(m_playSavedAt, now, m_playSavedPos, pos, force))
+        return;
+    m_playSavedAt = now;
+    m_playSavedPos = pos;
+    // A moving playhead is not an edit Ctrl+Z should undo.
+    m_doc = saveEpisodeProgress(m_doc, m_episodeId, pos, dur, now, ended);
+    m_dirty = true;
+    saveVault();
+    scheduleSync({});
+    if (m_page == QLatin1String("show"))
+        rebuild();
+    else
+        emit changed();
+}
+
 void Backend::dismissAlert() {
     if (m_alertId.isEmpty())
         return;
+    checkpointPlayback(true, false);
     mutate(acknowledgeAlarm(m_doc, m_alertId, QDateTime::currentMSecsSinceEpoch()));
     m_alert.clear();
     m_alertTime.clear();
@@ -436,6 +617,7 @@ void Backend::dismissAlert() {
 void Backend::snoozeAlert() {
     if (m_alertId.isEmpty())
         return;
+    checkpointPlayback(true, false);
     mutate(snoozeAlarm(m_doc, m_alertId, QDateTime::currentMSecsSinceEpoch()));
     m_alert.clear();
     m_alertTime.clear();

@@ -7,7 +7,6 @@
 #include <QJsonDocument>
 #include <QUrl>
 #include <QUrlQuery>
-#include <QXmlStreamReader>
 
 namespace {
 
@@ -49,48 +48,21 @@ QString providerBase(const QString &provider) {
     return {};
 }
 
-QJsonArray parseRss(const QByteArray &xml, const QString &feedUrl) {
-    QXmlStreamReader reader(xml);
-    QString showTitle;
-    QString itemTitle;
-    QString enclosure;
-    QString guid;
-    bool inItem = false;
-    QJsonArray episodes;
-    while (!reader.atEnd()) {
-        reader.readNext();
-        if (reader.isStartElement()) {
-            const auto name = reader.name();
-            if (name == QLatin1String("item")) {
-                inItem = true;
-                itemTitle.clear();
-                enclosure.clear();
-                guid.clear();
-            } else if (!inItem && name == QLatin1String("title")) {
-                showTitle = reader.readElementText();
-            } else if (inItem && name == QLatin1String("title")) {
-                itemTitle = reader.readElementText();
-            } else if (inItem && name == QLatin1String("guid")) {
-                guid = reader.readElementText();
-            } else if (inItem && name == QLatin1String("enclosure")) {
-                enclosure = reader.attributes().value(QStringLiteral("url")).toString();
-            }
-        } else if (reader.isEndElement() && reader.name() == QLatin1String("item")) {
-            inItem = false;
-            if (itemTitle.isEmpty() || enclosure.isEmpty())
-                continue;
-            QJsonObject episode;
-            episode.insert(QStringLiteral("id"), guid.isEmpty() ? enclosure : guid);
-            episode.insert(QStringLiteral("feedUrl"), feedUrl);
-            episode.insert(QStringLiteral("title"), itemTitle);
-            episode.insert(QStringLiteral("enclosureUrl"), enclosure);
-            episodes.append(episode);
-            if (episodes.size() >= 40)
-                break;
-        }
-    }
-    Q_UNUSED(showTitle);
-    return episodes;
+QString quoteLabel(const QJsonObject &body) {
+    const auto results = body.value(QStringLiteral("chart")).toObject().value(QStringLiteral("result")).toArray();
+    if (results.isEmpty())
+        return {};
+    const auto meta = results.first().toObject().value(QStringLiteral("meta")).toObject();
+    if (!meta.contains(QStringLiteral("regularMarketPrice")))
+        return {};
+    const double price = meta.value(QStringLiteral("regularMarketPrice")).toDouble();
+    const double previous = meta.contains(QStringLiteral("chartPreviousClose"))
+                                ? meta.value(QStringLiteral("chartPreviousClose")).toDouble()
+                                : meta.value(QStringLiteral("previousClose")).toDouble(price);
+    const double percent = previous == 0 ? 0 : (price - previous) / previous * 100.0;
+    const QString sign = percent > 0 ? QStringLiteral("+") : QString();
+    const int digits = qAbs(price) >= 1000 ? 0 : qAbs(price) >= 1 ? 2 : 4;
+    return QString::number(price, 'f', digits) + QStringLiteral("  ") + sign + QString::number(percent, 'f', 1) + QLatin1Char('%');
 }
 
 } // namespace
@@ -123,6 +95,7 @@ void Backend::searchStock(const QString &query) {
             next.insert(QStringLiteral("watchlist"), list);
             mutate(touchExported(next, QDateTime::currentMSecsSinceEpoch()));
             go(QStringLiteral("stocks"));
+            refreshQuotes();
         });
 }
 
@@ -153,6 +126,7 @@ void Backend::searchPodcast(const QString &query) {
                                           {QStringLiteral("trailing"), QString()},
                                           {QStringLiteral("kind"), QStringLiteral("hit")}});
             }
+            m_selected = 0;
             if (m_rows.isEmpty())
                 setStatus(tr("No podcast matches."));
             else
@@ -204,7 +178,8 @@ void Backend::saveArticle(const QString &url) {
 }
 
 void Backend::saveVideo(const QString &url) {
-    const QString id = youtubeIdOf(url);
+    const QString youtube = youtubeIdOf(url);
+    const QString id = savedVideoId(url);
     if (id.isEmpty()) {
         setStatus(tr("Paste a YouTube URL."));
         return;
@@ -217,7 +192,7 @@ void Backend::saveVideo(const QString &url) {
             kept.append(value);
     QJsonObject video;
     video.insert(QStringLiteral("id"), id);
-    video.insert(QStringLiteral("url"), QStringLiteral("https://www.youtube.com/watch?v=") + id);
+    video.insert(QStringLiteral("url"), QStringLiteral("https://www.youtube.com/watch?v=") + youtube);
     video.insert(QStringLiteral("title"), url);
     video.insert(QStringLiteral("author"), QString());
     video.insert(QStringLiteral("addedAt"), double(QDateTime::currentMSecsSinceEpoch()));
@@ -235,23 +210,56 @@ void Backend::saveVideo(const QString &url) {
 }
 
 void Backend::resolveVideo(const QString &id) {
+    const auto saved = findById(m_doc.value(QStringLiteral("videos")).toObject().value(QStringLiteral("videos")).toArray(), id);
+    const QString watch = saved.value(QStringLiteral("url")).toString();
+    const QString youtube = youtubeIdOf(watch.isEmpty() ? id : watch);
+    if (youtube.isEmpty()) {
+        setStatus(tr("Paste a YouTube URL."));
+        return;
+    }
     setStatus(tr("Opening the video…"));
-    api(QStringLiteral("GET"), QStringLiteral("/api/videos/resolve?id=") + QString::fromUtf8(QUrl::toPercentEncoding(id)), {}, true,
+    const QString query = QStringLiteral("https://www.youtube.com/watch?v=") + youtube;
+    api(QStringLiteral("GET"), QStringLiteral("/api/videos/resolve?url=") + QString::fromUtf8(QUrl::toPercentEncoding(query)), {}, true,
         [this, id](QJsonObject body, QString error) {
             if (!error.isEmpty()) {
                 setStatus(error);
                 return;
             }
-            const QString url = body.value(QStringLiteral("videoUrl")).toString();
-            const auto video = findById(m_doc.value(QStringLiteral("videos")).toObject().value(QStringLiteral("videos")).toArray(), id);
-            playUrl(m_api + url, video.value(QStringLiteral("title")).toString(), tr("Saved Videos"));
+            const QString title = body.value(QStringLiteral("title")).toString();
+            const QString author = body.value(QStringLiteral("author")).toString();
+            auto videos = m_doc.value(QStringLiteral("videos")).toObject();
+            QJsonArray list;
+            for (const auto &value : videos.value(QStringLiteral("videos")).toArray()) {
+                auto video = value.toObject();
+                if (video.value(QStringLiteral("id")).toString() != id) {
+                    list.append(video);
+                    continue;
+                }
+                if (!title.isEmpty())
+                    video.insert(QStringLiteral("title"), title);
+                if (!author.isEmpty())
+                    video.insert(QStringLiteral("author"), author);
+                if (body.contains(QStringLiteral("durationMs")))
+                    video.insert(QStringLiteral("durationMs"), body.value(QStringLiteral("durationMs")).toDouble());
+                list.append(video);
+            }
+            videos.insert(QStringLiteral("videos"), list);
+            auto next = m_doc;
+            next.insert(QStringLiteral("videos"), videos);
+            mutate(touchExported(next, QDateTime::currentMSecsSinceEpoch()));
+            QString url = body.value(QStringLiteral("videoUrl")).toString();
+            if (url.isEmpty())
+                url = body.value(QStringLiteral("audioUrl")).toString();
+            if (url.startsWith(QLatin1Char('/')))
+                url = m_api + url;
+            playUrl(url, title.isEmpty() ? id : title, author.isEmpty() ? tr("Saved Videos") : author);
         });
 }
 
 void Backend::ask(const QString &question) {
     if (!m_includeAi) {
-        setStatus(tr("Turn on Include AI credentials in settings. The key stays out of sync until then."));
         go(QStringLiteral("settings"));
+        setStatus(tr("Turn on Include AI credentials in settings. The key stays out of sync until then."));
         return;
     }
     const auto settings = m_doc.value(QStringLiteral("settings")).toObject();
@@ -361,11 +369,19 @@ void Backend::subscribeShow(const QString &feedUrl, const QString &title, const 
                        show.insert(QStringLiteral("feedUrl"), feedUrl);
                        show.insert(QStringLiteral("title"), title);
                        show.insert(QStringLiteral("author"), author);
+                       show.insert(QStringLiteral("episodeOrder"), QStringLiteral("NEWEST"));
                        show.insert(QStringLiteral("subscribedAt"), double(QDateTime::currentMSecsSinceEpoch()));
                        kept.prepend(show);
-                       auto episodes = pods.value(QStringLiteral("episodes")).toArray();
-                       for (const auto &value : parseRss(body, feedUrl))
-                           episodes.prepend(value);
+                       QJsonArray episodes;
+                       for (const auto &value : pods.value(QStringLiteral("episodes")).toArray()) {
+                           const auto episode = value.toObject();
+                           const QString showId =
+                               episode.value(QStringLiteral("showId")).toString(episode.value(QStringLiteral("feedUrl")).toString());
+                           if (showId.compare(feedUrl, Qt::CaseInsensitive) != 0)
+                               episodes.append(episode);
+                       }
+                       for (const auto &value : parseFeedEpisodes(body, feedUrl))
+                           episodes.append(value);
                        pods.insert(QStringLiteral("shows"), kept);
                        pods.insert(QStringLiteral("episodes"), episodes);
                        auto next = m_doc;
@@ -421,9 +437,35 @@ void Backend::refreshWeather() {
                 setStatus(error);
                 return;
             }
+            m_forecast = body;
             const auto current = body.value(QStringLiteral("current")).toObject();
-            const int temp = qRound(current.value(QStringLiteral("temperature_2m")).toDouble());
+            const int temp = displayTemp(current.value(QStringLiteral("temperature_2m")).toDouble());
             const QString kind = weatherCode(current.value(QStringLiteral("weather_code")).toInt());
             setStatus(tr("%1°  %2").arg(temp).arg(kind));
+            if (m_page == QLatin1String("weather") || m_page == QLatin1String("home"))
+                rebuild();
         });
+}
+
+void Backend::refreshQuotes() {
+    if (m_token == QLatin1String("demo"))
+        return;
+    const auto list = m_doc.value(QStringLiteral("watchlist")).toArray();
+    for (const auto &value : list) {
+        const QString symbol = value.toObject().value(QStringLiteral("symbol")).toString().trimmed().toUpper();
+        if (symbol.isEmpty())
+            continue;
+        api(QStringLiteral("GET"),
+            QStringLiteral("/api/yahoo/chart?symbol=%1&range=1d&interval=1d").arg(QString::fromUtf8(QUrl::toPercentEncoding(symbol))), {},
+            true, [this, symbol](QJsonObject body, QString error) {
+                if (!error.isEmpty())
+                    return;
+                const QString label = quoteLabel(body);
+                if (label.isEmpty())
+                    return;
+                m_quotes.insert(symbol, label);
+                if (m_page == QLatin1String("stocks") || m_page == QLatin1String("home"))
+                    rebuild();
+            });
+    }
 }

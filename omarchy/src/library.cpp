@@ -3,10 +3,12 @@
 #include "merge.h"
 
 #include <QDateTime>
+#include <QHash>
 #include <QRegularExpression>
 #include <QTimeZone>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QXmlStreamReader>
 #include <QtMath>
 #include <algorithm>
 #include <functional>
@@ -651,6 +653,113 @@ QString articleIdForUrl(const QString &raw) {
     return QStringLiteral("r") + QString::number(hash, 16).rightJustified(16, QLatin1Char('0'));
 }
 
+QString savedVideoId(const QString &raw) {
+    const QString id = youtubeIdOf(raw);
+    return id.isEmpty() ? QString() : QStringLiteral("v") + id;
+}
+
+QStringList slashNames() {
+    return {QStringLiteral("articles"), QStringLiteral("clock"),  QStringLiteral("help"),     QStringLiteral("home"),
+            QStringLiteral("notes"),    QStringLiteral("podcasts"), QStringLiteral("pull"),   QStringLiteral("push"),
+            QStringLiteral("settings"), QStringLiteral("stocks"),  QStringLiteral("tasks"),   QStringLiteral("videos"),
+            QStringLiteral("weather")};
+}
+
+QString slashCommand(const QString &query) {
+    const QString q = query.trimmed().toLower();
+    if (q.isEmpty())
+        return {};
+    const QHash<QString, QString> alias = {
+        {QStringLiteral("note"), QStringLiteral("notes")},       {QStringLiteral("stock"), QStringLiteral("stocks")},
+        {QStringLiteral("podcast"), QStringLiteral("podcasts")}, {QStringLiteral("pods"), QStringLiteral("podcasts")},
+        {QStringLiteral("article"), QStringLiteral("articles")}, {QStringLiteral("video"), QStringLiteral("videos")},
+        {QStringLiteral("setting"), QStringLiteral("settings")}, {QStringLiteral("backup"), QStringLiteral("settings")},
+        {QStringLiteral("todo"), QStringLiteral("tasks")},       {QStringLiteral("todos"), QStringLiteral("tasks")},
+        {QStringLiteral("ai"), QStringLiteral("chat")},          {QStringLiteral("ask"), QStringLiteral("chat")},
+        {QStringLiteral("chat"), QStringLiteral("chat")}};
+    if (alias.contains(q))
+        return alias.value(q);
+    const QStringList names = slashNames();
+    if (names.contains(q))
+        return q;
+    QStringList hits;
+    for (const auto &name : names)
+        if (name.startsWith(q))
+            hits.append(name);
+    return hits.size() == 1 ? hits.first() : QString();
+}
+
+qint64 feedDurationMs(const QString &raw) {
+    const QString text = raw.trimmed();
+    if (text.isEmpty())
+        return 0;
+    const auto parts = text.split(QLatin1Char(':'));
+    if (parts.size() == 1) {
+        bool ok = false;
+        const double seconds = text.toDouble(&ok);
+        return ok ? qint64(seconds * 1000.0) : 0;
+    }
+    qint64 total = 0;
+    for (const auto &part : parts) {
+        bool ok = false;
+        total = total * 60 + part.toInt(&ok);
+        if (!ok)
+            return 0;
+    }
+    return total * 1000;
+}
+
+QJsonArray parseFeedEpisodes(const QByteArray &xml, const QString &feedUrl) {
+    QXmlStreamReader reader(xml);
+    QString itemTitle;
+    QString enclosure;
+    QString guid;
+    QString pubDate;
+    QString duration;
+    bool inItem = false;
+    QJsonArray episodes;
+    while (!reader.atEnd()) {
+        reader.readNext();
+        if (reader.isStartElement()) {
+            const auto name = reader.name();
+            if (name == QLatin1String("item") || name == QLatin1String("entry")) {
+                inItem = true;
+                itemTitle.clear();
+                enclosure.clear();
+                guid.clear();
+                pubDate.clear();
+                duration.clear();
+            } else if (inItem && name == QLatin1String("title")) {
+                itemTitle = reader.readElementText(QXmlStreamReader::IncludeChildElements).trimmed();
+            } else if (inItem && (name == QLatin1String("guid") || name == QLatin1String("id"))) {
+                guid = reader.readElementText().trimmed();
+            } else if (inItem && (name == QLatin1String("pubDate") || name == QLatin1String("published"))) {
+                pubDate = reader.readElementText().trimmed();
+            } else if (inItem && name == QLatin1String("duration")) {
+                duration = reader.readElementText().trimmed();
+            } else if (inItem && name == QLatin1String("enclosure")) {
+                enclosure = reader.attributes().value(QStringLiteral("url")).toString();
+            }
+        } else if (reader.isEndElement() && (reader.name() == QLatin1String("item") || reader.name() == QLatin1String("entry"))) {
+            inItem = false;
+            if (itemTitle.isEmpty() || enclosure.isEmpty())
+                continue;
+            QJsonObject episode;
+            episode.insert(QStringLiteral("id"), guid.isEmpty() ? enclosure : guid);
+            episode.insert(QStringLiteral("showId"), feedUrl);
+            episode.insert(QStringLiteral("title"), itemTitle);
+            episode.insert(QStringLiteral("enclosureUrl"), enclosure);
+            const QDateTime when = QDateTime::fromString(pubDate, Qt::RFC2822Date);
+            episode.insert(QStringLiteral("pubDate"), when.isValid() ? double(when.toMSecsSinceEpoch()) : 0);
+            episode.insert(QStringLiteral("durationMs"), double(feedDurationMs(duration)));
+            episodes.append(episode);
+            if (episodes.size() >= 40)
+                break;
+        }
+    }
+    return episodes;
+}
+
 QString youtubeIdOf(const QString &raw) {
     const QString text = raw.trimmed();
     static const QRegularExpression id(QStringLiteral("^[A-Za-z0-9_-]{11}$"));
@@ -713,4 +822,59 @@ QJsonObject restoreLocalMedia(QJsonObject adopted, const QJsonObject &local) {
 
 bool slimDiffers(const QJsonObject &left, const QJsonObject &right) {
     return !jsonEqual(slimDoc(left), slimDoc(right));
+}
+
+bool playbackDue(qint64 lastSavedAt, qint64 now, qint64 lastPos, qint64 pos, bool force) {
+    if (force)
+        return true;
+    return !(now - lastSavedAt < 10000 && qAbs(pos - lastPos) < 10000);
+}
+
+bool playbackFinished(qint64 positionMs, qint64 durationMs) {
+    if (durationMs <= 0)
+        return false;
+    const qint64 remaining = durationMs - positionMs;
+    return remaining <= 30000 || positionMs >= durationMs * 95 / 100;
+}
+
+qint64 savedResumeMs(const QJsonObject &doc, const QString &episodeId) {
+    const auto progress = doc.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("progress")).toArray();
+    for (const auto &value : progress) {
+        const auto row = value.toObject();
+        if (row.value(QStringLiteral("episodeId")).toString() != episodeId)
+            continue;
+        const qint64 pos = qint64(row.value(QStringLiteral("positionMs")).toDouble());
+        const qint64 dur = qint64(row.value(QStringLiteral("durationMs")).toDouble());
+        if (row.value(QStringLiteral("finished")).toBool() || playbackFinished(pos, dur))
+            return 0;
+        return qMax<qint64>(0, pos);
+    }
+    return 0;
+}
+
+QJsonObject saveEpisodeProgress(QJsonObject doc, const QString &episodeId, qint64 positionMs, qint64 durationMs, qint64 now,
+                                bool ended) {
+    auto pods = doc.value(QStringLiteral("podcasts")).toObject();
+    QJsonArray kept;
+    QJsonObject prev;
+    for (const auto &value : pods.value(QStringLiteral("progress")).toArray()) {
+        const auto row = value.toObject();
+        if (row.value(QStringLiteral("episodeId")).toString() == episodeId)
+            prev = row;
+        else
+            kept.append(value);
+    }
+    const qint64 dur = durationMs > 0 ? durationMs : qint64(prev.value(QStringLiteral("durationMs")).toDouble());
+    const qint64 pos = qMax<qint64>(0, positionMs);
+    QJsonObject next;
+    next.insert(QStringLiteral("episodeId"), episodeId);
+    next.insert(QStringLiteral("positionMs"), double(pos));
+    next.insert(QStringLiteral("durationMs"), double(dur));
+    next.insert(QStringLiteral("lastPlayedAt"), double(now));
+    next.insert(QStringLiteral("finished"), ended || playbackFinished(pos, dur));
+    next.insert(QStringLiteral("skipped"), false);
+    kept.append(next);
+    pods.insert(QStringLiteral("progress"), kept);
+    doc.insert(QStringLiteral("podcasts"), pods);
+    return doc;
 }
