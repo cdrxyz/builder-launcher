@@ -16,6 +16,8 @@ import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.clock.ClockSnapshot
 import xyz.cdr.builderlauncher.clock.ClockStore
 import xyz.cdr.builderlauncher.data.BuilderSettings
+import xyz.cdr.builderlauncher.data.HabitScheduler
+import xyz.cdr.builderlauncher.data.HabitStore
 import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.PinnedApps
@@ -41,6 +43,7 @@ class BackupService(
     private val reads: ReadsRepository,
     private val videos: VideosRepository,
     private val clock: ClockStore,
+    private val habits: HabitStore,
     private val s3: S3Client = S3Client(),
     private val account: AccountClient = AccountClient(),
     private val json: Json = Json {
@@ -71,6 +74,9 @@ class BackupService(
             videos = videos.exportBackup(),
             alarms = snap.alarms.filterNot { it.id in snap.deletedAlarmIds.toSet() },
             zones = snap.zones,
+            habits = habits.state.value.habits,
+            habitMarks = habits.state.value.marks,
+            deletedHabitIds = habits.state.value.deletedIds,
             settings = BackupSettings.from(current, includeApiKey = current.backupIncludeAiCredentials),
             deletedAlarmIds = snap.deletedAlarmIds,
         )
@@ -202,6 +208,13 @@ class BackupService(
                 ),
             )
             ClockScheduler.reconcile(context, clock)
+            val dropHabits = doc.deletedHabitIds.toSet()
+            habits.replaceAll(
+                doc.habits.filterNot { it.id in dropHabits },
+                doc.habitMarks.filterNot { it.habitId in dropHabits },
+                doc.deletedHabitIds,
+            )
+            HabitScheduler.reconcile(context, habits)
             settings.applyBackup(doc.settings)
         } finally {
             applying = false
@@ -221,6 +234,7 @@ class BackupService(
         reads.progress.map { },
         videos.videos.map { },
         clock.state.map { it.alarms to it.zones }.distinctUntilChanged().map { },
+        habits.state.map { },
         settings.settings.map { },
     ).drop(1)
 
@@ -398,6 +412,7 @@ class BackupService(
             if (doc.podcasts.shows.isNotEmpty()) parts += "${doc.podcasts.shows.size} podcasts"
             if (doc.reads.articles.isNotEmpty()) parts += "${doc.reads.articles.size} articles"
             if (doc.alarms.isNotEmpty()) parts += "${doc.alarms.size} alarms"
+            if (doc.habits.isNotEmpty()) parts += "${doc.habits.size} habits"
             if (parts.isEmpty()) return "settings"
             return parts.joinToString(", ")
         }

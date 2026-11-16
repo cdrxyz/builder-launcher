@@ -279,6 +279,8 @@ QString Backend::title() const {
         return tr("Home");
     if (page == QLatin1String("tasks"))
         return tr("Tasks");
+    if (page == QLatin1String("habits"))
+        return tr("Habits");
     if (page == QLatin1String("notes") || page == QLatin1String("note"))
         return tr("Notes");
     if (page == QLatin1String("stocks"))
@@ -381,6 +383,16 @@ void Backend::syncIfDue() {
         push();
 }
 
+void Backend::nudgeHomePane(int dx) {
+    if (m_page != QLatin1String("home"))
+        return;
+    const int next = dx < -48 ? 1 : dx > 48 ? 0 : m_homePane;
+    if (next == m_homePane)
+        return;
+    m_homePane = next;
+    rebuild();
+}
+
 void Backend::go(const QString &page) {
     m_page = page;
     m_selected = 0;
@@ -439,7 +451,7 @@ void Backend::rebuild() {
         const QString query = m_draft.trimmed().toLower();
         const QHash<QString, QString> labels = {
             {QStringLiteral("articles"), tr("saved articles")}, {QStringLiteral("clock"), tr("alarms")},
-            {QStringLiteral("help"), tr("commands")},           {QStringLiteral("home"), tr("home")},
+            {QStringLiteral("habits"), tr("habit tracker")}, {QStringLiteral("help"), tr("commands")},           {QStringLiteral("home"), tr("home")},
             {QStringLiteral("notes"), tr("all notes")},         {QStringLiteral("podcasts"), tr("all podcasts")},
             {QStringLiteral("pull"), tr("sync down")},          {QStringLiteral("push"), tr("sync up")},
             {QStringLiteral("settings"), tr("settings")},       {QStringLiteral("stocks"), tr("watchlist")},
@@ -453,14 +465,29 @@ void Backend::rebuild() {
     }
     if (m_page == QLatin1String("home")) {
         const auto open = openTodos(m_doc);
-        int shown = 0;
-        for (const auto &item : open) {
-            if (shown++ >= 3)
-                break;
-            add(row(item.value(QStringLiteral("id")).toString(), item.value(QStringLiteral("text")).toString(), tr("task"), {},
-                    QStringLiteral("todo")));
+        if (m_homePane == 1) {
+            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+            add(row(QStringLiteral("graph"), habitDayLabel(m_doc, now), tr("today"), {}, QStringLiteral("label")));
+            int shown = 0;
+            for (const auto &value : m_doc.value(QStringLiteral("habits")).toArray()) {
+                if (shown++ >= 3)
+                    break;
+                const auto habit = value.toObject();
+                const qint64 slot = openHabitSlot(habit, now);
+                const bool done = habitDone(m_doc, habit.value(QStringLiteral("id")).toString(), slot);
+                add(row(habit.value(QStringLiteral("id")).toString(), habit.value(QStringLiteral("name")).toString(),
+                        habitSchedule(habit), done ? tr("done") : tr("check"), QStringLiteral("habit")));
+            }
+        } else {
+            int shown = 0;
+            for (const auto &item : open) {
+                if (shown++ >= 3)
+                    break;
+                add(row(item.value(QStringLiteral("id")).toString(), item.value(QStringLiteral("text")).toString(), tr("task"), {},
+                        QStringLiteral("todo")));
+            }
         }
-        if (open.size() > 3)
+        if (m_homePane != 1 && open.size() > 3)
             add(row(QStringLiteral("tasks"), tr("All tasks"), tr("%n open tasks", "", open.size()), {}, QStringLiteral("link")));
         if (!weatherPlace().isEmpty()) {
             const auto current = m_forecast.value(QStringLiteral("current")).toObject();
@@ -490,6 +517,25 @@ void Backend::rebuild() {
         for (const auto &item : doneTodos(m_doc))
             add(row(item.value(QStringLiteral("id")).toString(), item.value(QStringLiteral("text")).toString(), tr("done"), {},
                     QStringLiteral("done")));
+    } else if (m_page == QLatin1String("habits")) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const auto settings = m_doc.value(QStringLiteral("settings")).toObject();
+        const bool reminders = !settings.contains(QStringLiteral("habitReminders")) || settings.value(QStringLiteral("habitReminders")).toBool();
+        const QString sound = settings.value(QStringLiteral("habitSound")).toString(QStringLiteral("PULSE")).toUpper();
+        add(row(QStringLiteral("habit-reminders"), tr("alarms"), reminders ? tr("on") : tr("off"), {}, QStringLiteral("habit-reminders")));
+        const QStringList tones = {QStringLiteral("PULSE"), QStringLiteral("CHIME"), QStringLiteral("BELL"),
+                                   QStringLiteral("ORTHODOX"), QStringLiteral("HUM"), QStringLiteral("OFF")};
+        for (const auto &tone : tones)
+            add(row(QStringLiteral("habit-sound-") + tone, tone.toLower(), tone == sound ? tr("selected") : QString(), {},
+                    QStringLiteral("habit-sound")));
+        add(row(QStringLiteral("graph"), habitDayLabel(m_doc, now), tr("today"), {}, QStringLiteral("label")));
+        for (const auto &value : m_doc.value(QStringLiteral("habits")).toArray()) {
+            const auto habit = value.toObject();
+            const qint64 slot = openHabitSlot(habit, now);
+            const bool done = habitDone(m_doc, habit.value(QStringLiteral("id")).toString(), slot);
+            add(row(habit.value(QStringLiteral("id")).toString(), habit.value(QStringLiteral("name")).toString(),
+                    habitSchedule(habit), done ? tr("done") : tr("check"), QStringLiteral("habit")));
+        }
     } else if (m_page == QLatin1String("notes")) {
         for (const auto &item : notesOf(m_doc))
             add(row(item.value(QStringLiteral("id")).toString(), noteTitle(item.value(QStringLiteral("text")).toString()), {}, {},

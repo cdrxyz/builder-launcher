@@ -98,6 +98,33 @@ const cases = [
 		},
 	},
 	{
+		name: 'deleted habit drops the habit and its marks',
+		a: {
+			exportedAt: 20,
+			habits: [{ id: 'h1', name: 'stretch', kind: 'daily', updatedAt: 20, createdAt: 1, enabled: true }],
+			habitMarks: [{ id: 'h1:1', habitId: 'h1', slotAt: 1, done: true, updatedAt: 2 }],
+			deletedHabitIds: ['h1'],
+		},
+		b: {
+			exportedAt: 10,
+			habits: [{ id: 'h1', name: 'stretch', kind: 'daily', updatedAt: 10, createdAt: 1, enabled: true }],
+			habitMarks: [{ id: 'h1:1', habitId: 'h1', slotAt: 1, done: false, updatedAt: 1 }],
+		},
+	},
+	{
+		name: 'newer habit check wins',
+		a: {
+			exportedAt: 20,
+			habits: [{ id: 'h1', name: 'water', kind: 'interval', everyMinutes: 240, times: [480], updatedAt: 5, createdAt: 1, enabled: true }],
+			habitMarks: [{ id: 'h1:8', habitId: 'h1', slotAt: 8, done: true, updatedAt: 30 }],
+		},
+		b: {
+			exportedAt: 10,
+			habits: [{ id: 'h1', name: 'water', kind: 'interval', everyMinutes: 240, times: [480], updatedAt: 5, createdAt: 1, enabled: true }],
+			habitMarks: [{ id: 'h1:8', habitId: 'h1', slotAt: 8, done: false, updatedAt: 10 }],
+		},
+	},
+	{
 		name: 'slim drops episodes and unplayed progress',
 		a: {
 			exportedAt: 1,

@@ -25,6 +25,8 @@ import xyz.cdr.builderlauncher.clock.ClockScheduler
 import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
+import xyz.cdr.builderlauncher.data.HabitScheduler
+import xyz.cdr.builderlauncher.data.HabitStore
 import xyz.cdr.builderlauncher.data.LocalLists
 import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.PinnedApps
@@ -65,8 +67,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
-        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.READ_CALENDAR)
-            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        val needed = listOf(
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.READ_CALENDAR,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ).filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
         }
@@ -95,7 +100,8 @@ class MainActivity : ComponentActivity() {
         articlePlayer = grok
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
-        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, videos, clock)
+        val habits = HabitStore(this)
+        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, videos, clock, habits)
         AccountSync.upload = {
             withContext(Dispatchers.Main) {
                 PodcastPlayer.persist()
@@ -105,6 +111,7 @@ class MainActivity : ComponentActivity() {
             backup.tickAuto()
         }
         ClockScheduler.reconcile(this, clock)
+        HabitScheduler.reconcile(this, habits)
         applyAlertWindow()
         PodcastPlayer.attach(this)
         PodcastPlayer.onCheckpoint = { id, pos, dur -> podcasts.checkpoint(id, pos, dur) }
@@ -129,6 +136,7 @@ class MainActivity : ComponentActivity() {
                     articlePlayer = grok,
                     calendar = calendar,
                     clock = clock,
+                    habits = habits,
                     backup = backup,
                     homePresses = homePresses,
                     nowPlayingRequests = nowPlayingRequests,

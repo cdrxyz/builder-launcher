@@ -286,6 +286,16 @@ void Backend::submit() {
         runSlash(text);
         return;
     }
+    if (m_prompt == QLatin1String("-") && m_page == QLatin1String("habits")) {
+        const auto draft = parseHabit(text);
+        if (draft.isEmpty()) {
+            setStatus(tr("stretch daily · water every 4 hours · meds 7am and 7pm"));
+            return;
+        }
+        mutate(addHabit(m_doc, draft, QDateTime::currentMSecsSinceEpoch()));
+        m_draft.clear();
+        return;
+    }
     if (m_prompt == QLatin1String("-")) {
         if (m_page == QLatin1String("clock")) {
             const auto alarms = parseAlarmInputs(text);
@@ -412,7 +422,16 @@ void Backend::toggleSelection() {
     const auto rows = visibleRows();
     const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (kind == QLatin1String("todo") || kind == QLatin1String("done"))
+    if (kind == QLatin1String("habit-reminders")) {
+        const auto settings = m_doc.value(QStringLiteral("settings")).toObject();
+        const bool on = !settings.contains(QStringLiteral("habitReminders")) || settings.value(QStringLiteral("habitReminders")).toBool();
+        setHabitReminders(!on);
+    } else if (kind == QLatin1String("habit-sound")) {
+        setHabitSound(id.mid(QStringLiteral("habit-sound-").size()));
+    } else if (kind == QLatin1String("habit")) {
+        const qint64 slot = openHabitSlot(findById(m_doc.value(QStringLiteral("habits")).toArray(), id), now);
+        mutate(toggleHabit(m_doc, id, slot, now));
+    } else if (kind == QLatin1String("todo") || kind == QLatin1String("done"))
         mutate(toggleTask(m_doc, id, now));
     else if (kind == QLatin1String("alarm"))
         mutate(toggleAlarm(m_doc, id, now));
@@ -425,7 +444,9 @@ void Backend::deleteSelection() {
     const auto rows = visibleRows();
     const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (kind == QLatin1String("alarm"))
+    if (kind == QLatin1String("habit"))
+        mutate(deleteHabit(m_doc, id, now));
+    else if (kind == QLatin1String("alarm"))
         mutate(deleteAlarm(m_doc, id, now));
     else if (kind == QLatin1String("todo") || kind == QLatin1String("done") || kind == QLatin1String("note"))
         mutate(deleteItem(m_doc, id, now));
@@ -493,7 +514,8 @@ void Backend::activateSelection() {
         return;
     const auto rows = visibleRows();
     const QString kind = rows.at(m_selected).toMap().value(QStringLiteral("kind")).toString();
-    if (kind == QLatin1String("todo") || kind == QLatin1String("done")) {
+    if (kind == QLatin1String("todo") || kind == QLatin1String("done") || kind == QLatin1String("habit") ||
+        kind == QLatin1String("habit-reminders") || kind == QLatin1String("habit-sound")) {
         toggleSelection();
         return;
     }
@@ -644,6 +666,43 @@ void Backend::checkAlarms() {
         emit changed();
         return;
     }
+    const auto settings = m_doc.value(QStringLiteral("settings")).toObject();
+    const bool reminders = !settings.contains(QStringLiteral("habitReminders")) || settings.value(QStringLiteral("habitReminders")).toBool();
+    if (!reminders)
+        return;
+    const auto due = dueHabit(m_doc, now, m_habitReminded);
+    if (!due.isEmpty()) {
+        m_habitReminded.insert(due.value(QStringLiteral("key")).toString());
+        notify(due.value(QStringLiteral("name")).toString(), due.value(QStringLiteral("body")).toString());
+        setHabitSound(settings.value(QStringLiteral("habitSound")).toString(QStringLiteral("PULSE")));
+    }
+}
+
+void Backend::setHabitReminders(bool on) {
+    auto settings = m_doc.value(QStringLiteral("settings")).toObject();
+    settings.insert(QStringLiteral("habitReminders"), on);
+    auto next = m_doc;
+    next.insert(QStringLiteral("settings"), settings);
+    mutate(next);
+}
+
+void Backend::setHabitSound(const QString &sound) {
+    const QString name = sound.toUpper();
+    auto settings = m_doc.value(QStringLiteral("settings")).toObject();
+    if (settings.value(QStringLiteral("habitSound")).toString() != name) {
+        settings.insert(QStringLiteral("habitSound"), name);
+        auto next = m_doc;
+        next.insert(QStringLiteral("settings"), settings);
+        mutate(next);
+    }
+    if (name == QLatin1String("OFF"))
+        return;
+    const QString event = name == QLatin1String("CHIME") ? QStringLiteral("complete")
+        : name == QLatin1String("BELL")                  ? QStringLiteral("bell")
+        : name == QLatin1String("ORTHODOX")              ? QStringLiteral("dialog-information")
+        : name == QLatin1String("HUM")                   ? QStringLiteral("audio-volume-change")
+                                                         : QStringLiteral("message");
+    QProcess::startDetached(QStringLiteral("canberra-gtk-play"), {QStringLiteral("-i"), event});
 }
 
 void Backend::notify(const QString &title, const QString &body) {

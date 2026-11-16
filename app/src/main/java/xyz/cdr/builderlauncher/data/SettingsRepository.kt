@@ -43,6 +43,8 @@ data class BuilderSettings(
     val uiTone: UiTone = UiTone.DARK,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
+    val habitReminders: Boolean = true,
+    val habitSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
     val pinUsage: Boolean = false,
     val clockFace: ClockFace = ClockFace.ANALOG,
@@ -162,6 +164,8 @@ class SettingsRepository(context: Context) {
                 uiTone = restored.uiTone,
                 stockInsert = restored.stockInsert,
                 clockSound = restored.clockSound,
+                habitReminders = restored.habitReminders,
+                habitSound = restored.habitSound,
                 appIcons = restored.appIcons,
                 pinUsage = restored.pinUsage,
                 clockFace = restored.clockFace,
@@ -229,6 +233,8 @@ class SettingsRepository(context: Context) {
             uiTone = UiTone.parse(prefs.getString(KEY_UI_TONE, UiTone.DARK.name)),
             stockInsert = insert,
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
+            habitReminders = prefs.getBoolean(KEY_HABIT_REMINDERS, true),
+            habitSound = ClockSound.parse(prefs.getString(KEY_HABIT_SOUND, ClockSound.PULSE.name)),
             appIcons = appIcons,
             pinUsage = prefs.getBoolean(KEY_PIN_USAGE, false),
             clockFace = clockFace,
@@ -288,6 +294,8 @@ class SettingsRepository(context: Context) {
             .putString(KEY_UI_TONE, next.uiTone.name)
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
+            .putBoolean(KEY_HABIT_REMINDERS, next.habitReminders)
+            .putString(KEY_HABIT_SOUND, next.habitSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
             .putBoolean(KEY_PIN_USAGE, next.pinUsage)
             .putString(KEY_CLOCK_FACE, next.clockFace.name)
@@ -345,6 +353,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_UI_TONE = "ui_tone"
         private const val KEY_STOCK_INSERT = "stock_insert"
         private const val KEY_CLOCK_SOUND = "clock_sound"
+        private const val KEY_HABIT_REMINDERS = "habit_reminders"
+        private const val KEY_HABIT_SOUND = "habit_sound"
         private const val KEY_APP_ICONS = "app_icons"
         private const val KEY_PIN_USAGE = "pin_usage"
         private const val KEY_CLOCK_FACE = "clock_face"

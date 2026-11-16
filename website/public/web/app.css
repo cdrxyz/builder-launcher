@@ -381,6 +381,22 @@ main.home-main {
 
 .home-todos {
 	margin-top: 0.5rem;
+	touch-action: pan-y;
+}
+
+.habit-chart {
+	display: flex;
+	align-items: flex-end;
+	gap: 4px;
+	height: 72px;
+	margin: 0.4rem 0 0.6rem;
+}
+
+.habit-chart span {
+	flex: 1;
+	background: var(--accent, #d7a34a);
+	border-radius: 2px;
+	min-height: 2px;
 }
 
 .weather .weather-glyph {

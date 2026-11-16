@@ -16,6 +16,7 @@ export function webPrefixes() {
 
 export const SLASH = [
 	{ name: 'articles', label: 'saved articles' },
+	{ name: 'habits', label: 'habit tracker' },
 	{ name: 'help', label: 'commands' },
 	{ name: 'home', label: 'home' },
 	{ name: 'notes', label: 'all notes' },
@@ -74,6 +75,7 @@ export function builtinPage(query) {
 	if (q === 'videos' || q === 'video') return 'videos';
 	if (q === 'settings' || q === 'setting' || q === 'backup') return 'settings';
 	if (q === 'tasks' || q === 'todos' || q === 'todo') return 'tasks';
+	if (q === 'habits' || q === 'habit') return 'habits';
 	if (q === 'weather') return 'weather';
 	if (q === 'home') return 'home';
 	if (q === 'help') return 'help';
@@ -87,6 +89,7 @@ export function homePreview(items, limit = 3) {
 
 export function pagePrompt(tab) {
 	if (tab === 'tasks') return '-';
+	if (tab === 'habits') return '-';
 	if (tab === 'notes' || tab === 'note') return '+';
 	if (tab === 'stocks' || tab === 'stock') return '$';
 	if (tab === 'pods' || tab === 'show' || tab === 'episode') return '>';

@@ -116,6 +116,16 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".data.HabitReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="xyz.cdr.builderlauncher.habit.REMIND" />
+                <action android:name="xyz.cdr.builderlauncher.habit.CHECK" />
+            </intent-filter>
+        </receiver>
         <service
             android:name=".clock.ClockAlertService"
             android:exported="false"
