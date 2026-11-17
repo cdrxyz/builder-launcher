@@ -29,3 +29,10 @@ export function settlePushedDoc(snapshot, live, remote, genChanged, join, keepFr
 		dirty: Boolean(genChanged),
 	};
 }
+
+/** Wait, in ms, before an automatic sync may run. Typing and an in-flight sync defer it. */
+export function autoSyncDelay(waitMs, busy, typing) {
+	if (waitMs > 0) return waitMs;
+	if (busy || typing) return 1_000;
+	return 0;
+}

@@ -968,6 +968,8 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(js, /function autoSyncCard\(/);
 	assert.match(js, /id: 'save', label: 'on save'/);
 	assert.match(js, /function maybeSyncSave\(/);
+	assert.match(js, /function finishSyncPaint\(/);
+	assert.match(js, /autoSyncDelay\(syncWaitMs\(\), state\.busy, composing\(\)\)/);
 	assert.match(js, /holdSync\('text'\)/);
 	assert.match(js, /holdSync\('order'\)/);
 	assert.match(js, /function nowPlayingBar\(/);
