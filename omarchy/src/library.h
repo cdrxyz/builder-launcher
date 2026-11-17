@@ -2,6 +2,7 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSet>
 #include <QString>
 #include <QVector>
 
@@ -67,4 +68,14 @@ bool slimDiffers(const QJsonObject &left, const QJsonObject &right);
 
 QVector<int> alarmDays(const QJsonObject &alarm);
 QJsonObject findById(const QJsonArray &list, const QString &id, const char *key = "id");
+
+QJsonObject parseHabit(const QString &raw);
+QString habitSchedule(const QJsonObject &habit);
+qint64 openHabitSlot(const QJsonObject &habit, qint64 now);
+bool habitDone(const QJsonObject &doc, const QString &habitId, qint64 slot);
+QJsonObject addHabit(QJsonObject doc, const QJsonObject &draft, qint64 now);
+QJsonObject toggleHabit(QJsonObject doc, const QString &id, qint64 slot, qint64 now);
+QJsonObject deleteHabit(QJsonObject doc, const QString &id, qint64 now);
+QString habitDayLabel(const QJsonObject &doc, qint64 now);
+QJsonObject dueHabit(const QJsonObject &doc, qint64 now, const QSet<QString> &reminded);
 

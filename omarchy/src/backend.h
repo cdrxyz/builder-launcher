@@ -5,6 +5,7 @@
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QObject>
+#include <QSet>
 #include <QTimer>
 #include <QVariantList>
 #include <QVector>
@@ -14,6 +15,7 @@
 class Backend : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString page READ page NOTIFY changed)
+    Q_PROPERTY(int homePane READ homePane NOTIFY changed)
     Q_PROPERTY(QString prompt READ prompt NOTIFY changed)
     Q_PROPERTY(QString draft READ draft WRITE setDraft NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
@@ -75,6 +77,8 @@ public:
     Q_INVOKABLE void submit();
     Q_INVOKABLE void setPrompt(const QString &glyph);
     Q_INVOKABLE void go(const QString &page);
+    Q_INVOKABLE void nudgeHomePane(int dx);
+    int homePane() const { return m_homePane; }
     Q_INVOKABLE void moveSelection(int delta);
     Q_INVOKABLE void activateSelection();
     Q_INVOKABLE void deleteSelection();
@@ -132,6 +136,8 @@ private:
     void checkpointPlayback(bool force, bool ended);
     void checkAlarms();
     void notify(const QString &title, const QString &body);
+    void setHabitReminders(bool on);
+    void setHabitSound(const QString &sound);
     void searchStock(const QString &query);
     void searchPodcast(const QString &query);
     void saveArticle(const QString &url);
@@ -162,6 +168,7 @@ private:
     QVector<QJsonObject> m_undo;
     QVector<QJsonObject> m_redo;
     int m_selected = 0;
+    int m_homePane = 0;
     int m_revision = 0;
     bool m_dirty = false;
     bool m_syncing = false;
@@ -172,6 +179,7 @@ private:
     qint64 m_holdUntil = 0;
     QTimer m_syncTimer;
     QTimer m_clockTimer;
+    QSet<QString> m_habitReminded;
     QMediaPlayer m_player;
     QAudioOutput m_audio;
     QJsonObject m_forecast;

@@ -142,7 +142,20 @@ ApplicationWindow {
                         if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { backend.moveSelection(-1); event.accepted = true }
                         if (event.key === Qt.Key_Space) { backend.toggleSelection(); event.accepted = true }
                         if (event.key === Qt.Key_X) { backend.deleteSelection(); event.accepted = true }
+                        if (event.key === Qt.Key_Left && backend.page === "home") { backend.nudgeHomePane(80); event.accepted = true }
+                        if (event.key === Qt.Key_Right && backend.page === "home") { backend.nudgeHomePane(-80); event.accepted = true }
                         if (event.key === Qt.Key_Question) { win.helpVisible = !win.helpVisible; event.accepted = true }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        propagateComposedEvents: true
+                        property real startX: 0
+                        onPressed: mouse => { startX = mouse.x; mouse.accepted = false }
+                        onReleased: mouse => {
+                            if (backend.page === "home")
+                                backend.nudgeHomePane(mouse.x - startX)
+                            mouse.accepted = false
+                        }
                     }
                 }
 

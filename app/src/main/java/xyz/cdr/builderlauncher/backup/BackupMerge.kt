@@ -3,6 +3,8 @@ package xyz.cdr.builderlauncher.backup
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.data.ChatThread
+import xyz.cdr.builderlauncher.data.Habit
+import xyz.cdr.builderlauncher.data.Habits
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.LocalItem
 import xyz.cdr.builderlauncher.data.PinChange
@@ -26,6 +28,8 @@ object BackupMerge {
         val drop = deleted.toSet()
         val deletedAlarms = (a.deletedAlarmIds + b.deletedAlarmIds).distinct()
         val dropAlarms = deletedAlarms.toSet()
+        val deletedHabits = (a.deletedHabitIds + b.deletedHabitIds).distinct()
+        val dropHabits = deletedHabits.toSet()
         val (pins, pinChanges) = mergePins(a.pins, b.pins, a.pinChanges, b.pinChanges)
         return BackupDocument(
             version = maxOf(a.version, b.version),
@@ -45,6 +49,9 @@ object BackupMerge {
             videos = Videos.mergeBackup(a.videos, b.videos, newer.videos.videos.map { it.id }.toSet()),
             alarms = mergeAlarms(a.alarms, b.alarms).filterNot { it.id in dropAlarms },
             zones = mergeZones(a.zones, b.zones),
+            habits = Habits.mergeHabits(a.habits, b.habits).filterNot { it.id in dropHabits },
+            habitMarks = Habits.mergeMarks(a.habitMarks, b.habitMarks).filterNot { it.habitId in dropHabits },
+            deletedHabitIds = deletedHabits,
             settings = mergeSettings(a.settings, b.settings, preferA),
             deletedAlarmIds = deletedAlarms,
         )
