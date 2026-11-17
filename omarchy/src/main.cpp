@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
     Backend backend;
     if (demo)
         backend.loadDemo();
+    backend.start();
 
     if (!args.isEmpty() && args.first() == QLatin1String("tasks")) {
         // Headless listing is printed by the GUI object's rows after a rebuild.

@@ -12,5 +12,4 @@ TextArea {
     placeholderText: backend.page === "note" ? qsTr("Write the note") : ""
     onActiveFocusChanged: backend.setComposing(activeFocus)
     onTextChanged: if (backend.page === "note" && activeFocus) backend.saveDetail(text)
-    Keys.onEscapePressed: backend.go("notes")
 }

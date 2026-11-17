@@ -49,6 +49,17 @@ bool looksLikeMath(const QString &text);
 
 QString articleIdForUrl(const QString &raw);
 QString youtubeIdOf(const QString &raw);
+QString savedVideoId(const QString &raw);
+QString slashCommand(const QString &query);
+QStringList slashNames();
+QJsonArray parseFeedEpisodes(const QByteArray &xml, const QString &feedUrl);
+
+// The page writes a playhead about every 10 seconds, or at once on pause.
+bool playbackDue(qint64 lastSavedAt, qint64 now, qint64 lastPos, qint64 pos, bool force);
+bool playbackFinished(qint64 positionMs, qint64 durationMs);
+QJsonObject saveEpisodeProgress(QJsonObject doc, const QString &episodeId, qint64 positionMs, qint64 durationMs,
+                                qint64 now, bool ended);
+qint64 savedResumeMs(const QJsonObject &doc, const QString &episodeId);
 
 QJsonObject touchExported(QJsonObject doc, qint64 now);
 QJsonObject restoreLocalMedia(QJsonObject adopted, const QJsonObject &local);

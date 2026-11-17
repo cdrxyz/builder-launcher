@@ -3,8 +3,10 @@
 #include "library.h"
 #include "merge.h"
 
+#include <QDate>
 #include <QDateTime>
 #include <QDir>
+#include <QRegularExpression>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -78,6 +80,31 @@ QString weatherCode(int code) {
     return QStringLiteral("storm");
 }
 
+QString leadingPrompt(const QString &draft) {
+    if (draft.isEmpty())
+        return {};
+    const QString first = draft.left(1);
+    const QStringList glyphs = {QStringLiteral("-"), QStringLiteral("+"), QStringLiteral("$"), QStringLiteral("?"),
+                                QStringLiteral("/"), QStringLiteral(">"), QStringLiteral("@"), QStringLiteral("#"),
+                                QStringLiteral("*")};
+    return glyphs.contains(first) ? first : QString();
+}
+
+QString clockText(qint64 ms) {
+    const qint64 seconds = qMax<qint64>(0, ms) / 1000;
+    return QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+}
+
+int wordCount(const QString &text) {
+    int words = 0;
+    static const QRegularExpression splitter(QStringLiteral("\\s+"));
+    static const QRegularExpression letter(QStringLiteral("[0-9A-Za-z]"));
+    for (const auto &word : text.split(splitter, Qt::SkipEmptyParts))
+        if (word.contains(letter))
+            ++words;
+    return words;
+}
+
 } // namespace
 
 Backend::Backend(QObject *parent) : QObject(parent), m_audio(this), m_player(this) {
@@ -87,15 +114,38 @@ Backend::Backend(QObject *parent) : QObject(parent), m_audio(this), m_player(thi
     m_clockTimer.setInterval(15000);
     connect(&m_clockTimer, &QTimer::timeout, this, &Backend::checkAlarms);
     m_clockTimer.start();
-    connect(&m_player, &QMediaPlayer::playbackStateChanged, this, &Backend::changed);
-    connect(&m_player, &QMediaPlayer::positionChanged, this, &Backend::changed);
+    connect(&m_player, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state) {
+        if (state != QMediaPlayer::PlayingState)
+            checkpointPlayback(true, false);
+        emit changed();
+    });
+    connect(&m_player, &QMediaPlayer::positionChanged, this, [this] {
+        checkpointPlayback(false, false);
+        emit changed();
+    });
+    connect(&m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
+        if (m_resumeMs > 0 && (status == QMediaPlayer::LoadedMedia || status == QMediaPlayer::BufferedMedia)) {
+            const qint64 resume = m_resumeMs;
+            m_resumeMs = 0;
+            m_player.setPosition(resume);
+        }
+        if (status == QMediaPlayer::EndOfMedia)
+            checkpointPlayback(true, true);
+    });
     connect(&m_player, &QMediaPlayer::errorOccurred, this, [this](QMediaPlayer::Error, const QString &message) {
         setStatus(message.isEmpty() ? tr("Playback failed.") : message);
     });
     loadLocal();
-    if (!m_token.isEmpty())
-        pull();
     rebuild();
+}
+
+void Backend::start() {
+    // main() may call loadDemo() first. A pull started in the constructor would
+    // still finish and write that account over the sample.
+    if (m_token.isEmpty() || m_token == QLatin1String("demo"))
+        return;
+    pull();
+    QTimer::singleShot(0, this, [this] { hydrate(); });
 }
 
 void Backend::loadDemo() {
@@ -148,14 +198,79 @@ void Backend::setStatus(const QString &status) {
     emit changed();
 }
 
-void Backend::setDraft(const QString &draft) {
-    if (m_draft == draft)
+void Backend::clearDraft() {
+    if (m_draft.isEmpty())
         return;
-    m_draft = draft;
-    if (m_prompt == QLatin1String("/"))
+    m_draft.clear();
+    emit changed();
+}
+
+void Backend::setDraft(const QString &draft) {
+    QString next = draft;
+    const QString glyph = leadingPrompt(next);
+    if (!glyph.isEmpty())
+        next = next.mid(1);
+    const bool promptChanged = !glyph.isEmpty() && glyph != m_prompt;
+    if (promptChanged)
+        m_prompt = glyph;
+    if (m_draft == next && !promptChanged)
+        return;
+    m_draft = next;
+    if (promptChanged || m_prompt == QLatin1String("/"))
         rebuild();
     else
         emit changed();
+}
+
+QVariantList Backend::visibleRows() const {
+    return menuOpen() ? m_menu : m_rows;
+}
+
+void Backend::showHelp() {
+    emit helpRequested();
+}
+
+void Backend::hydrate() {
+    if (m_token == QLatin1String("demo"))
+        return;
+    refreshWeather();
+    refreshQuotes();
+}
+
+int Backend::displayTemp(double celsius) const {
+    const QString units = m_doc.value(QStringLiteral("settings")).toObject().value(QStringLiteral("weatherUnits")).toString().toUpper();
+    const double value = units == QLatin1String("IMPERIAL") ? celsius * 9.0 / 5.0 + 32.0 : celsius;
+    return qRound(value);
+}
+
+QString Backend::placeLabel(qint64 positionMs, qint64 durationMs) const {
+    if (positionMs <= 0 || durationMs <= 0)
+        return {};
+    return tr("%1 of %2").arg(clockText(positionMs), clockText(durationMs));
+}
+
+QString Backend::articlePlace(const QJsonObject &article) const {
+    const QString id = article.value(QStringLiteral("id")).toString();
+    qint64 position = 0;
+    for (const auto &value : m_doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("progress")).toArray()) {
+        const auto row = value.toObject();
+        if (row.value(QStringLiteral("articleId")).toString() == id)
+            position = qint64(row.value(QStringLiteral("positionMs")).toDouble());
+    }
+    const qint64 duration = wordCount(article.value(QStringLiteral("text")).toString()) * 60000LL / 160;
+    return placeLabel(position, duration);
+}
+
+QString Backend::episodePlace(const QJsonObject &episode) const {
+    const QString id = episode.value(QStringLiteral("id")).toString();
+    for (const auto &value : m_doc.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("progress")).toArray()) {
+        const auto row = value.toObject();
+        if (row.value(QStringLiteral("episodeId")).toString() != id)
+            continue;
+        const qint64 duration = qint64(row.value(QStringLiteral("durationMs")).toDouble(episode.value(QStringLiteral("durationMs")).toDouble()));
+        return placeLabel(qint64(row.value(QStringLiteral("positionMs")).toDouble()), duration);
+    }
+    return {};
 }
 
 QString Backend::title() const {
@@ -188,7 +303,7 @@ QString Backend::title() const {
 QString Backend::syncLabel() const {
     if (m_syncing)
         return tr("Syncing…");
-    if (m_token.isEmpty())
+    if (m_token.isEmpty() || m_token == QLatin1String("demo"))
         return tr("Not signed in");
     if (m_dirty)
         return tr("Waiting to sync");
@@ -227,12 +342,12 @@ QString Backend::positionLabel() const {
 }
 
 QStringList Backend::shortcutRows() const {
-    return {tr("Enter submits the command"),
-            tr("/ opens a page. Tab cycles the prompt"),
-            tr("j and k move. Space toggles. x deletes"),
-            tr("Ctrl+Z undoes a local edit"),
-            tr("? on the list shows this. ? in the bar asks"),
-            tr("Ctrl+Q quits")};
+    return {tr("Enter submits the command. An empty bar opens the selection"),
+            tr("/ opens a page. Tab cycles the prompt. A typed prefix switches mode"),
+            tr("Up and Down move. Space toggles when the bar is empty"),
+            tr("Delete removes the row when the bar is empty"),
+            tr("? in the bar asks. Ctrl+/ shows this"),
+            tr("Ctrl+Z undoes a local edit. Ctrl+Q quits")};
 }
 
 void Backend::remember() {
@@ -282,31 +397,38 @@ void Backend::go(const QString &page) {
         m_prompt = QStringLiteral("?");
     else
         m_prompt = QStringLiteral("-");
-    m_draft.clear();
+    // A page change drops the previous result. Callers that navigate to show
+    // a message set the status after go().
+    m_status.clear();
+    clearDraft();
     rebuild();
     if (page == QLatin1String("weather"))
         refreshWeather();
+    if (page == QLatin1String("stocks"))
+        refreshQuotes();
 }
 
 void Backend::setPrompt(const QString &glyph) {
     if (glyph.isEmpty())
         return;
     m_prompt = glyph.left(1);
-    m_draft.clear();
+    clearDraft();
     rebuild();
 }
 
 void Backend::moveSelection(int delta) {
-    if (m_rows.isEmpty())
+    const auto rows = visibleRows();
+    if (rows.isEmpty())
         return;
-    m_selected = qBound(0, m_selected + delta, m_rows.size() - 1);
+    m_selected = qBound(0, m_selected + delta, rows.size() - 1);
     emit changed();
 }
 
 QString Backend::selectedId() const {
-    if (m_selected < 0 || m_selected >= m_rows.size())
+    const auto rows = visibleRows();
+    if (m_selected < 0 || m_selected >= rows.size())
         return {};
-    return m_rows.at(m_selected).toMap().value(QStringLiteral("id")).toString();
+    return rows.at(m_selected).toMap().value(QStringLiteral("id")).toString();
 }
 
 void Backend::rebuild() {
@@ -315,7 +437,7 @@ void Backend::rebuild() {
     const auto add = [this](const QVariantMap &entry) { m_rows.append(entry); };
     if (m_prompt == QLatin1String("/")) {
         const QString query = m_draft.trimmed().toLower();
-        const QList<QPair<QString, QString>> commands = {
+        const QHash<QString, QString> labels = {
             {QStringLiteral("articles"), tr("saved articles")}, {QStringLiteral("clock"), tr("alarms")},
             {QStringLiteral("help"), tr("commands")},           {QStringLiteral("home"), tr("home")},
             {QStringLiteral("notes"), tr("all notes")},         {QStringLiteral("podcasts"), tr("all podcasts")},
@@ -323,22 +445,35 @@ void Backend::rebuild() {
             {QStringLiteral("settings"), tr("settings")},       {QStringLiteral("stocks"), tr("watchlist")},
             {QStringLiteral("tasks"), tr("all tasks")},         {QStringLiteral("videos"), tr("saved videos")},
             {QStringLiteral("weather"), tr("forecast")}};
-        for (const auto &command : commands) {
-            if (!query.isEmpty() && !command.first.startsWith(query))
+        for (const auto &name : slashNames()) {
+            if (!query.isEmpty() && !name.startsWith(query) && slashCommand(query) != name)
                 continue;
-            m_menu.append(row(command.first, command.first, command.second, {}, QStringLiteral("slash")));
+            m_menu.append(row(name, name, labels.value(name), {}, QStringLiteral("slash")));
         }
     }
     if (m_page == QLatin1String("home")) {
+        const auto open = openTodos(m_doc);
         int shown = 0;
-        for (const auto &item : openTodos(m_doc)) {
+        for (const auto &item : open) {
             if (shown++ >= 3)
                 break;
             add(row(item.value(QStringLiteral("id")).toString(), item.value(QStringLiteral("text")).toString(), tr("task"), {},
                     QStringLiteral("todo")));
         }
-        if (!weatherPlace().isEmpty())
-            add(row(QStringLiteral("weather"), weatherPlace(), tr("weather"), {}, QStringLiteral("link")));
+        if (open.size() > 3)
+            add(row(QStringLiteral("tasks"), tr("All tasks"), tr("%n open tasks", "", open.size()), {}, QStringLiteral("link")));
+        if (!weatherPlace().isEmpty()) {
+            const auto current = m_forecast.value(QStringLiteral("current")).toObject();
+            QString trailing;
+            if (current.contains(QStringLiteral("temperature_2m")))
+                trailing = tr("%1°").arg(displayTemp(current.value(QStringLiteral("temperature_2m")).toDouble()));
+            add(row(QStringLiteral("weather"), weatherPlace(), tr("weather"), trailing, QStringLiteral("link")));
+        }
+        const auto watch = m_doc.value(QStringLiteral("watchlist")).toArray();
+        if (!watch.isEmpty()) {
+            const QString symbol = watch.first().toObject().value(QStringLiteral("symbol")).toString();
+            add(row(QStringLiteral("stocks"), symbol, tr("stock"), m_quotes.value(symbol), QStringLiteral("link")));
+        }
         for (const auto &value : m_doc.value(QStringLiteral("alarms")).toArray()) {
             const auto alarm = value.toObject();
             if (alarm.value(QStringLiteral("enabled")).isBool() && !alarm.value(QStringLiteral("enabled")).toBool())
@@ -381,8 +516,29 @@ void Backend::rebuild() {
     } else if (m_page == QLatin1String("stocks")) {
         for (const auto &value : m_doc.value(QStringLiteral("watchlist")).toArray()) {
             const auto item = value.toObject();
-            add(row(item.value(QStringLiteral("symbol")).toString(), item.value(QStringLiteral("symbol")).toString(),
-                    item.value(QStringLiteral("name")).toString(), {}, QStringLiteral("stock")));
+            const QString symbol = item.value(QStringLiteral("symbol")).toString();
+            add(row(symbol, symbol, item.value(QStringLiteral("name")).toString(), m_quotes.value(symbol), QStringLiteral("stock")));
+        }
+    } else if (m_page == QLatin1String("weather")) {
+        const auto current = m_forecast.value(QStringLiteral("current")).toObject();
+        if (current.contains(QStringLiteral("temperature_2m"))) {
+            const int code = current.value(QStringLiteral("weather_code")).toInt();
+            add(row(QStringLiteral("now"), tr("%1°").arg(displayTemp(current.value(QStringLiteral("temperature_2m")).toDouble())),
+                    weatherCode(code), weatherPlace(), QStringLiteral("forecast")));
+        }
+        const auto daily = m_forecast.value(QStringLiteral("daily")).toObject();
+        const auto times = daily.value(QStringLiteral("time")).toArray();
+        const auto highs = daily.value(QStringLiteral("temperature_2m_max")).toArray();
+        const auto lows = daily.value(QStringLiteral("temperature_2m_min")).toArray();
+        const auto codes = daily.value(QStringLiteral("weather_code")).toArray();
+        const QDate today = QDate::currentDate();
+        for (int index = 0; index < times.size() && index < 7; ++index) {
+            const QDate date = QDate::fromString(times.at(index).toString(), Qt::ISODate);
+            const QString name = date == today ? tr("Today") : QLocale().dayName(date.dayOfWeek(), QLocale::ShortFormat);
+            const QString high = highs.size() > index ? QString::number(displayTemp(highs.at(index).toDouble())) : QString();
+            const QString low = lows.size() > index ? QString::number(displayTemp(lows.at(index).toDouble())) : QString();
+            const QString kind = codes.size() > index ? weatherCode(codes.at(index).toInt()) : QString();
+            add(row(times.at(index).toString(), name, kind, tr("%1°  %2°").arg(high, low), QStringLiteral("forecast")));
         }
     } else if (m_page == QLatin1String("podcasts")) {
         for (const auto &value : m_doc.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("shows")).toArray()) {
@@ -393,16 +549,17 @@ void Backend::rebuild() {
     } else if (m_page == QLatin1String("show")) {
         for (const auto &value : m_doc.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("episodes")).toArray()) {
             const auto episode = value.toObject();
-            if (episode.value(QStringLiteral("feedUrl")).toString() != m_detailId)
+            const QString showId = episode.value(QStringLiteral("showId")).toString(episode.value(QStringLiteral("feedUrl")).toString());
+            if (showId.compare(m_detailId, Qt::CaseInsensitive) != 0)
                 continue;
-            add(row(episode.value(QStringLiteral("id")).toString(), episode.value(QStringLiteral("title")).toString(), {}, {},
-                    QStringLiteral("episode")));
+            add(row(episode.value(QStringLiteral("id")).toString(), episode.value(QStringLiteral("title")).toString(), {},
+                    episodePlace(episode), QStringLiteral("episode")));
         }
     } else if (m_page == QLatin1String("articles")) {
         for (const auto &value : m_doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("articles")).toArray()) {
             const auto article = value.toObject();
             add(row(article.value(QStringLiteral("id")).toString(), article.value(QStringLiteral("title")).toString(),
-                    article.value(QStringLiteral("publication")).toString(), {}, QStringLiteral("article")));
+                    article.value(QStringLiteral("publication")).toString(), articlePlace(article), QStringLiteral("article")));
         }
     } else if (m_page == QLatin1String("article")) {
         const auto article = findById(m_doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("articles")).toArray(), m_detailId);
@@ -425,7 +582,12 @@ void Backend::rebuild() {
                     message.value(QStringLiteral("role")).toString(), {}, QStringLiteral("message")));
         }
     }
-    if (m_selected >= m_rows.size())
-        m_selected = qMax(0, m_rows.size() - 1);
+    const int count = menuOpen() ? m_menu.size() : m_rows.size();
+    if (count == 0)
+        m_selected = 0;
+    else if (m_selected >= count)
+        m_selected = count - 1;
+    else if (m_selected < 0)
+        m_selected = 0;
     emit changed();
 }

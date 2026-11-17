@@ -17,14 +17,32 @@ ApplicationWindow {
     Material.accent: theme.accent
     Material.roundedScale: theme.radius
 
-    property bool helpVisible: backend.page === "help"
+    property bool helpVisible: false
     property int pad: Math.min(8, theme.radius)
 
     Shortcut { sequence: "Ctrl+Q"; context: Qt.ApplicationShortcut; onActivated: backend.dirty ? quitDialog.open() : Qt.quit() }
     Shortcut { sequences: [StandardKey.Undo]; context: Qt.ApplicationShortcut; onActivated: backend.undo() }
     Shortcut { sequences: [StandardKey.Redo]; context: Qt.ApplicationShortcut; onActivated: backend.redo() }
     Shortcut { sequence: "Ctrl+/"; context: Qt.ApplicationShortcut; onActivated: win.helpVisible = !win.helpVisible }
-    Shortcut { sequence: "Esc"; context: Qt.ApplicationShortcut; onActivated: win.helpVisible ? win.helpVisible = false : backend.go("home") }
+    Shortcut {
+        sequence: "Esc"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (quitDialog.visible)
+                quitDialog.close()
+            else if (win.helpVisible)
+                win.helpVisible = false
+            else if (backend.page === "note")
+                backend.go("notes")
+            else
+                backend.go("home")
+        }
+    }
+
+    Connections {
+        target: backend
+        function onHelpRequested() { win.helpVisible = true }
+    }
 
     Item {
         anchors.fill: parent
@@ -63,16 +81,20 @@ ApplicationWindow {
                     model: backend.menuOpen ? backend.menu : backend.rows
                     delegate: Item {
                         width: list.width
-                        height: 52
                         required property var modelData
                         required property int index
+                        implicitHeight: Math.max(52, row.implicitHeight + 16)
+                        height: implicitHeight
                         Rectangle {
                             anchors.fill: parent
                             radius: win.pad
                             color: index === backend.selected ? "#1c1c22" : "transparent"
                             border.color: index === backend.selected ? theme.accent : "transparent"
                             RowLayout {
-                                anchors.fill: parent
+                                id: row
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
                                 anchors.margins: 10
                                 Label {
                                     text: modelData.kind === "todo" ? "○" : modelData.kind === "done" ? "●" : ""
@@ -82,8 +104,21 @@ ApplicationWindow {
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 0
-                                    Label { text: modelData.title; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Label { text: modelData.subtitle; color: "#9a9aa3"; font.pixelSize: 12; visible: text.length > 0; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Label {
+                                        text: modelData.title
+                                        wrapMode: modelData.kind === "message" ? Text.Wrap : Text.NoWrap
+                                        elide: modelData.kind === "message" ? Text.ElideNone : Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    Label {
+                                        text: modelData.subtitle
+                                        color: "#9a9aa3"
+                                        font.pixelSize: 12
+                                        visible: text.length > 0
+                                        wrapMode: modelData.kind === "message" ? Text.Wrap : Text.NoWrap
+                                        elide: modelData.kind === "message" ? Text.ElideNone : Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
                                 }
                                 Label { text: modelData.trailing; color: "#9a9aa3" }
                             }
@@ -91,6 +126,15 @@ ApplicationWindow {
                                 anchors.fill: parent
                                 onClicked: { backend.moveSelection(index - backend.selected); backend.activateSelection() }
                             }
+                        }
+                    }
+                    Connections {
+                        target: backend
+                        function onChanged() {
+                            Qt.callLater(function() {
+                                if (backend.selected >= 0 && backend.selected < list.count)
+                                    list.positionViewAtIndex(backend.selected, ListView.Contain)
+                            })
                         }
                     }
                     Keys.onPressed: event => {
@@ -103,7 +147,22 @@ ApplicationWindow {
                 }
 
                 SettingsForm { }
-                DetailPane { }
+                DetailPane { id: editor }
+                Connections {
+                    target: backend
+                    property string seenPage: ""
+                    function onChanged() {
+                        const page = backend.page
+                        if (page === "note" && seenPage !== "note")
+                            Qt.callLater(function() {
+                                editor.forceActiveFocus()
+                                editor.cursorPosition = editor.length
+                            })
+                        if (page !== "note" && seenPage === "note")
+                            Qt.callLater(function() { command.forceActiveFocus() })
+                        seenPage = page
+                    }
+                }
             }
 
             Rectangle {
@@ -140,16 +199,38 @@ ApplicationWindow {
                         id: command
                         anchors.fill: parent
                         placeholderText: ""
-                        text: backend.draft
                         font.family: "monospace"
                         font.pixelSize: 16
                         leftPadding: 12
                         Material.accent: theme.accent
-                        onTextChanged: if (text !== backend.draft) backend.draft = text
+                        // Typing breaks a text: binding, so user edits go in through
+                        // textEdited and the field is filled back only when the draft changes.
+                        onTextEdited: if (text !== backend.draft) backend.draft = text
                         onAccepted: backend.submit()
-                        Keys.onTabPressed: {
+                        Connections {
+                            target: backend
+                            function onChanged() {
+                                if (command.text !== backend.draft)
+                                    command.text = backend.draft
+                            }
+                        }
+                        Keys.onTabPressed: event => {
                             const order = ["-", "+", "$", "?", "/", ">"]
-                            backend.setPrompt(order[(order.indexOf(backend.prompt) + 1) % order.length])
+                            const index = order.indexOf(backend.prompt)
+                            backend.setPrompt(order[(index < 0 ? 0 : index + 1) % order.length])
+                            event.accepted = true
+                        }
+                        Keys.onPressed: event => {
+                            if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                                backend.moveSelection(event.key === Qt.Key_Down ? 1 : -1)
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Space && text.length === 0) {
+                                backend.toggleSelection()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Delete && text.length === 0) {
+                                backend.deleteSelection()
+                                event.accepted = true
+                            }
                         }
                         Component.onCompleted: forceActiveFocus()
                     }
@@ -181,19 +262,25 @@ ApplicationWindow {
             visible: win.helpVisible || backend.alert.length > 0
             anchors.fill: parent
             color: "#cc0e0e10"
+            MouseArea {
+                anchors.fill: parent
+                onClicked: win.helpVisible = false
+            }
             Column {
                 anchors.centerIn: parent
                 spacing: 8
-                width: Math.min(420, parent.width - 48)
+                width: Math.min(480, parent.width - 48)
                 Label {
                     text: backend.alert.length > 0 ? backend.alert : qsTr("Shortcuts")
                     font.pixelSize: 22
                     color: theme.accent
+                    width: parent.width
+                    wrapMode: Text.WordWrap
                 }
                 Label { text: backend.alertTime; visible: backend.alert.length > 0; font.pixelSize: 28 }
                 Repeater {
-                    model: backend.shortcutRows()
-                    Label { required property string modelData; text: modelData; color: "#d7d7de" }
+                    model: backend.alert.length > 0 ? [] : backend.shortcutRows()
+                    Label { required property string modelData; text: modelData; color: "#d7d7de"; width: parent.width; wrapMode: Text.WordWrap }
                 }
                 Row {
                     spacing: 8
@@ -202,7 +289,6 @@ ApplicationWindow {
                     Button { text: qsTr("Dismiss"); onClicked: backend.dismissAlert() }
                 }
             }
-            MouseArea { anchors.fill: parent; onClicked: win.helpVisible = false }
         }
     }
 
@@ -211,7 +297,14 @@ ApplicationWindow {
         title: qsTr("Quit")
         modal: true
         anchors.centerIn: parent
-        Label { text: qsTr("Unsynced edits stay on this desk. Quit anyway?") }
+        width: 440
+        standardButtons: Dialog.NoButton
+        contentItem: Label {
+            width: 400
+            text: qsTr("Unsynced edits stay on this desk. Quit anyway?")
+            wrapMode: Text.WordWrap
+            color: "#f4f4f5"
+        }
         footer: DialogButtonBox {
             Button { text: qsTr("Quit"); DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole; onClicked: Qt.quit() }
             Button { text: qsTr("Stay"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }

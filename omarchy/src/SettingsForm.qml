@@ -11,7 +11,15 @@ Flickable {
         width: parent.width
         spacing: 8
         Label { text: qsTr("Account"); color: "#9a9aa3" }
-        TextField { id: email; placeholderText: qsTr("Email"); text: backend.email; Material.accent: theme.accent; Layout.fillWidth: true }
+        TextField {
+            id: email
+            property string accountEmail: backend.email
+            placeholderText: qsTr("Email")
+            text: accountEmail
+            Material.accent: theme.accent
+            Layout.fillWidth: true
+            onAccountEmailChanged: if (!activeFocus) text = accountEmail
+        }
         TextField { id: password; placeholderText: qsTr("Password"); echoMode: TextInput.Password; Material.accent: theme.accent; Layout.fillWidth: true }
         TextField { id: code; placeholderText: qsTr("Invite code"); Material.accent: theme.accent; Layout.fillWidth: true }
         RowLayout {
@@ -50,10 +58,13 @@ Flickable {
         }
         Label { text: qsTr("Weather"); color: "#9a9aa3" }
         TextField {
+            id: place
+            property string savedPlace: backend.weatherPlace
             placeholderText: qsTr("Place")
-            text: backend.weatherPlace
+            text: savedPlace
             Material.accent: theme.accent
             Layout.fillWidth: true
+            onSavedPlaceChanged: if (!activeFocus) text = savedPlace
             onAccepted: backend.setWeatherPlace(text)
         }
     }
