@@ -2,15 +2,17 @@
 
 #include "library.h"
 #include "merge.h"
+#include "translator.h"
 
 #include <QDate>
 #include <QDateTime>
 #include <QDir>
-#include <QRegularExpression>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLocalSocket>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QTimeZone>
@@ -22,9 +24,21 @@ namespace {
 const QString kApi = QStringLiteral("https://builder.cdr.xyz");
 
 QString dataDir() {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(dir);
-    return dir;
+    return deskDataDir();
+}
+
+QLocale deskLocale() {
+    return Translator::formatLocale(Translator::readLanguage(QDir::homePath() + QStringLiteral("/.config/omarchy/language")));
+}
+
+QVariantMap withQuote(QVariantMap entry, const Quote &quote) {
+    if (!quote.ok)
+        return entry;
+    const QLocale locale = deskLocale();
+    entry.insert(QStringLiteral("trailing"), formatQuotePrice(quote, locale));
+    entry.insert(QStringLiteral("change"), formatQuoteChange(quote, locale));
+    entry.insert(QStringLiteral("tone"), quoteTone(quote.percent));
+    return entry;
 }
 
 bool writePrivate(const QString &path, const QByteArray &bytes) {
@@ -95,16 +109,6 @@ QString clockText(qint64 ms) {
     return QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
 }
 
-int wordCount(const QString &text) {
-    int words = 0;
-    static const QRegularExpression splitter(QStringLiteral("\\s+"));
-    static const QRegularExpression letter(QStringLiteral("[0-9A-Za-z]"));
-    for (const auto &word : text.split(splitter, Qt::SkipEmptyParts))
-        if (word.contains(letter))
-            ++words;
-    return words;
-}
-
 } // namespace
 
 Backend::Backend(QObject *parent) : QObject(parent), m_audio(this), m_player(this) {
@@ -114,13 +118,21 @@ Backend::Backend(QObject *parent) : QObject(parent), m_audio(this), m_player(thi
     m_clockTimer.setInterval(15000);
     connect(&m_clockTimer, &QTimer::timeout, this, &Backend::checkAlarms);
     m_clockTimer.start();
+    m_barTimer.setSingleShot(true);
+    m_barTimer.setInterval(400);
+    connect(&m_barTimer, &QTimer::timeout, this, &Backend::publishBar);
+    m_barPulse.setInterval(2000);
+    connect(&m_barPulse, &QTimer::timeout, this, &Backend::publishBar);
+    m_barPulse.start();
     connect(&m_player, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state) {
         if (state != QMediaPlayer::PlayingState)
             checkpointPlayback(true, false);
+        scheduleBar();
         emit changed();
     });
     connect(&m_player, &QMediaPlayer::positionChanged, this, [this] {
         checkpointPlayback(false, false);
+        scheduleBar();
         emit changed();
     });
     connect(&m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
@@ -141,19 +153,49 @@ Backend::Backend(QObject *parent) : QObject(parent), m_audio(this), m_player(thi
 
 void Backend::start() {
     // main() may call loadDemo() first. A pull started in the constructor would
-    // still finish and write that account over the sample.
-    if (m_token.isEmpty() || m_token == QLatin1String("demo"))
+    // still finish and write that account over the sample. Demo also stays off
+    // the bar socket, so a sample run cannot replace the live desk. A signed-out
+    // desk still serves the bar, so the tray can use the local vault.
+    if (m_token == QLatin1String("demo"))
+        return;
+    startBar();
+    scheduleBar();
+    if (m_token.isEmpty())
         return;
     pull();
     QTimer::singleShot(0, this, [this] { hydrate(); });
 }
 
 void Backend::loadDemo() {
+    m_barPulse.stop();
+    m_barTimer.stop();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     m_doc = emptyDoc(now);
     m_doc = addTask(m_doc, QStringLiteral("Sketch the joint"), now - 2000);
     m_doc = addTask(m_doc, QStringLiteral("Order cedar"), now - 1000);
     m_doc = addNote(m_doc, QStringLiteral("Shop notes"), now);
+    QJsonArray watch;
+    QJsonObject up;
+    up.insert(QStringLiteral("symbol"), QStringLiteral("ACME"));
+    up.insert(QStringLiteral("name"), QStringLiteral("Acme"));
+    QJsonObject down;
+    down.insert(QStringLiteral("symbol"), QStringLiteral("NOPE"));
+    down.insert(QStringLiteral("name"), QStringLiteral("Nope"));
+    watch.append(up);
+    watch.append(down);
+    m_doc.insert(QStringLiteral("watchlist"), watch);
+    Quote gained;
+    gained.ok = true;
+    gained.price = 1234.5;
+    gained.percent = 1.24;
+    gained.currency = QStringLiteral("USD");
+    Quote lost;
+    lost.ok = true;
+    lost.price = 88;
+    lost.percent = -0.4;
+    lost.currency = QStringLiteral("USD");
+    m_quotes.insert(QStringLiteral("ACME"), gained);
+    m_quotes.insert(QStringLiteral("NOPE"), lost);
     m_email = QStringLiteral("builder@example.com");
     m_token = QStringLiteral("demo");
     m_page = QStringLiteral("home");
@@ -189,6 +231,118 @@ void Backend::saveSession() {
     payload.insert(QStringLiteral("refreshToken"), m_refresh);
     payload.insert(QStringLiteral("includeAi"), m_includeAi);
     writePrivate(dataDir() + QStringLiteral("/session.json"), QJsonDocument(payload).toJson(QJsonDocument::Compact));
+}
+
+void Backend::scheduleBar() {
+    if (!m_barTimer.isActive())
+        m_barTimer.start();
+}
+
+void Backend::publishBar() {
+    if (m_token == QLatin1String("demo"))
+        return;
+    BarMedia media;
+    if (!m_nowPlaying.isEmpty()) {
+        const int split = m_nowPlaying.indexOf(QStringLiteral(" — "));
+        media.title = split < 0 ? m_nowPlaying : m_nowPlaying.left(split);
+        media.detail = split < 0 ? QString() : m_nowPlaying.mid(split + 3);
+        media.kind = QStringLiteral("episode");
+        media.playing = playing();
+        media.position = positionLabel();
+    }
+    BarMedia reading;
+    if (m_page == QLatin1String("article") && !m_detailId.isEmpty()) {
+        const auto article =
+            findById(m_doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("articles")).toArray(), m_detailId);
+        reading.title = article.value(QStringLiteral("title")).toString();
+        reading.detail = article.value(QStringLiteral("publication")).toString();
+        reading.kind = QStringLiteral("article");
+        reading.position = articlePlace(article);
+    }
+    QString temp;
+    const auto current = m_forecast.value(QStringLiteral("current")).toObject();
+    if (current.contains(QStringLiteral("temperature_2m")))
+        temp = tr("%1°").arg(displayTemp(current.value(QStringLiteral("temperature_2m")).toDouble()));
+    auto status = barStatus(m_doc, m_quotes, media, reading, temp, deskLocale());
+    status.insert(QStringLiteral("at"), double(QDateTime::currentMSecsSinceEpoch()));
+    writePrivate(barStatusPath(), QJsonDocument(status).toJson(QJsonDocument::Compact));
+}
+
+void Backend::startBar() {
+    m_barServer.setSocketOptions(QLocalServer::UserAccessOption);
+    QLocalServer::removeServer(barSocketPath());
+    if (!m_barServer.listen(barSocketPath()))
+        return;
+    connect(&m_barServer, &QLocalServer::newConnection, this, [this] {
+        while (auto *socket = m_barServer.nextPendingConnection()) {
+            connect(socket, &QLocalSocket::readyRead, this, [this, socket] {
+                while (socket->canReadLine()) {
+                    const auto command = QJsonDocument::fromJson(socket->readLine()).object();
+                    handleBar(command);
+                    socket->write(QByteArrayLiteral("{\"ok\":true}\n"));
+                    socket->flush();
+                    socket->disconnectFromServer();
+                }
+            });
+            connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
+        }
+    });
+}
+
+void Backend::handleBar(const QJsonObject &command) {
+    const QString name = command.value(QStringLiteral("cmd")).toString();
+    if (name == QLatin1String("ping"))
+        return;
+    if (name == QLatin1String("play-pause")) {
+        if (!m_nowPlaying.isEmpty())
+            playPause();
+        return;
+    }
+    if (name == QLatin1String("seek")) {
+        if (m_nowPlaying.isEmpty())
+            return;
+        const int delta = qBound(-300000, command.value(QStringLiteral("ms")).toInt(), 300000);
+        qint64 next = m_player.position() + delta;
+        if (next < 0)
+            next = 0;
+        const qint64 dur = m_player.duration();
+        if (dur > 0 && next > dur)
+            next = dur;
+        m_player.setPosition(next);
+        return;
+    }
+    if (name == QLatin1String("toggle")) {
+        const QString id = command.value(QStringLiteral("id")).toString();
+        const auto item = findById(m_doc.value(QStringLiteral("items")).toArray(), id);
+        if (item.value(QStringLiteral("kind")).toString().compare(QLatin1String("todo"), Qt::CaseInsensitive) != 0)
+            return;
+        mutate(toggleTask(m_doc, id, QDateTime::currentMSecsSinceEpoch()));
+        return;
+    }
+    if (name == QLatin1String("add")) {
+        if (m_token == QLatin1String("demo"))
+            return;
+        const QString text = barTaskText(command.value(QStringLiteral("text")).toString());
+        if (text.isEmpty())
+            return;
+        mutate(addTask(m_doc, text, QDateTime::currentMSecsSinceEpoch()));
+        return;
+    }
+    if (name != QLatin1String("open"))
+        return;
+    static const QRegularExpression pageOk(QStringLiteral("^(home|tasks|notes|stocks|podcasts|articles|article|videos|weather|clock|settings)$"));
+    const QString page = command.value(QStringLiteral("page")).toString();
+    const QString id = command.value(QStringLiteral("id")).toString();
+    if (pageOk.match(page).hasMatch()) {
+        // Opening an article from the list leaves Back on the list.
+        go(page == QLatin1String("article") ? QStringLiteral("articles") : page);
+        if (page == QLatin1String("article") && !id.isEmpty()) {
+            m_detailId = id;
+            m_page = QStringLiteral("article");
+            rebuild();
+        }
+    }
+    emit raiseRequested();
 }
 
 void Backend::setStatus(const QString &status) {
@@ -235,6 +389,13 @@ void Backend::hydrate() {
         return;
     refreshWeather();
     refreshQuotes();
+    refreshPodcastFeeds();
+}
+
+double Backend::readingFraction() const {
+    if (m_page != QLatin1String("article"))
+        return 0;
+    return articleReadingFraction(m_doc, m_detailId);
 }
 
 int Backend::displayTemp(double celsius) const {
@@ -251,14 +412,7 @@ QString Backend::placeLabel(qint64 positionMs, qint64 durationMs) const {
 
 QString Backend::articlePlace(const QJsonObject &article) const {
     const QString id = article.value(QStringLiteral("id")).toString();
-    qint64 position = 0;
-    for (const auto &value : m_doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("progress")).toArray()) {
-        const auto row = value.toObject();
-        if (row.value(QStringLiteral("articleId")).toString() == id)
-            position = qint64(row.value(QStringLiteral("positionMs")).toDouble());
-    }
-    const qint64 duration = wordCount(article.value(QStringLiteral("text")).toString()) * 60000LL / 160;
-    return placeLabel(position, duration);
+    return placeLabel(articlePositionMs(m_doc, id), speechDurationMs(article.value(QStringLiteral("text")).toString()));
 }
 
 QString Backend::episodePlace(const QJsonObject &episode) const {
@@ -347,8 +501,98 @@ QStringList Backend::shortcutRows() const {
             tr("Up and Down move. Space toggles when the bar is empty"),
             tr("Delete removes the row when the bar is empty"),
             tr("? in the bar asks. Ctrl+/ shows this"),
+            tr("Cmd+[ or Alt+Left goes back. Cmd+] or Alt+Right goes forward."),
             tr("Ctrl+Z undoes a local edit. Ctrl+Q quits")};
 }
+
+bool Backend::Place::operator==(const Place &other) const {
+    if (page != other.page || detailId != other.detailId || podcastHits != other.podcastHits)
+        return false;
+    if (!podcastHits)
+        return true;
+    if (hits.size() != other.hits.size())
+        return false;
+    for (int index = 0; index < hits.size(); ++index) {
+        if (hits.at(index).toMap().value(QStringLiteral("id")).toString() !=
+            other.hits.at(index).toMap().value(QStringLiteral("id")).toString())
+            return false;
+    }
+    return true;
+}
+
+void Backend::applyPrompt(const QString &page) {
+    if (page == QLatin1String("notes") || page == QLatin1String("note"))
+        m_prompt = QStringLiteral("+");
+    else if (page == QLatin1String("stocks"))
+        m_prompt = QStringLiteral("$");
+    else if (page == QLatin1String("podcasts") || page == QLatin1String("articles") || page == QLatin1String("videos") ||
+             page == QLatin1String("show"))
+        m_prompt = QStringLiteral(">");
+    else if (page == QLatin1String("chat"))
+        m_prompt = QStringLiteral("?");
+    else
+        m_prompt = QStringLiteral("-");
+}
+
+Backend::Place Backend::capture() const {
+    Place place;
+    place.page = m_page;
+    place.detailId = m_detailId;
+    place.podcastHits = m_showPodcastHits;
+    if (m_showPodcastHits)
+        place.hits = m_podcastHits;
+    return place;
+}
+
+void Backend::visit() {
+    // Page changes that skip go() still finish here. Playback and status
+    // updates do not rebuild, so they do not push a history entry.
+    if (m_restoring)
+        return;
+    const Place here = capture();
+    if (!m_history.isEmpty() && m_history.at(m_historyIndex) == here)
+        return;
+    if (m_historyIndex + 1 < m_history.size())
+        m_history.resize(m_historyIndex + 1);
+    m_history.append(here);
+    m_historyIndex = m_history.size() - 1;
+    while (m_history.size() > 40) {
+        m_history.removeFirst();
+        --m_historyIndex;
+    }
+    emit historyChanged();
+}
+
+void Backend::travel(int delta) {
+    const int index = m_historyIndex + delta;
+    if (index < 0 || index >= m_history.size())
+        return;
+    const Place place = m_history.at(index);
+    m_historyIndex = index;
+    // Recording this restore would drop the pages still ahead of it.
+    m_restoring = true;
+    ++m_searchGen;
+    m_showPodcastHits = place.podcastHits;
+    m_podcastHits = place.podcastHits ? place.hits : QVariantList{};
+    m_page = place.page;
+    m_selected = 0;
+    m_detailId = place.detailId;
+    m_detail.clear();
+    applyPrompt(place.page);
+    m_status.clear();
+    clearDraft();
+    rebuild();
+    m_restoring = false;
+    emit historyChanged();
+    if (place.page == QLatin1String("weather"))
+        refreshWeather();
+    if (place.page == QLatin1String("stocks"))
+        refreshQuotes();
+}
+
+void Backend::back() { travel(-1); }
+
+void Backend::forward() { travel(1); }
 
 void Backend::remember() {
     m_undo.append(m_doc);
@@ -382,21 +626,14 @@ void Backend::syncIfDue() {
 }
 
 void Backend::go(const QString &page) {
+    ++m_searchGen;
+    m_showPodcastHits = false;
+    m_podcastHits.clear();
     m_page = page;
     m_selected = 0;
     m_detailId.clear();
     m_detail.clear();
-    if (page == QLatin1String("notes") || page == QLatin1String("note"))
-        m_prompt = QStringLiteral("+");
-    else if (page == QLatin1String("stocks"))
-        m_prompt = QStringLiteral("$");
-    else if (page == QLatin1String("podcasts") || page == QLatin1String("articles") || page == QLatin1String("videos") ||
-             page == QLatin1String("show"))
-        m_prompt = QStringLiteral(">");
-    else if (page == QLatin1String("chat"))
-        m_prompt = QStringLiteral("?");
-    else
-        m_prompt = QStringLiteral("-");
+    applyPrompt(page);
     // A page change drops the previous result. Callers that navigate to show
     // a message set the status after go().
     m_status.clear();
@@ -411,6 +648,9 @@ void Backend::go(const QString &page) {
 void Backend::setPrompt(const QString &glyph) {
     if (glyph.isEmpty())
         return;
+    ++m_searchGen;
+    m_showPodcastHits = false;
+    m_podcastHits.clear();
     m_prompt = glyph.left(1);
     clearDraft();
     rebuild();
@@ -472,7 +712,8 @@ void Backend::rebuild() {
         const auto watch = m_doc.value(QStringLiteral("watchlist")).toArray();
         if (!watch.isEmpty()) {
             const QString symbol = watch.first().toObject().value(QStringLiteral("symbol")).toString();
-            add(row(QStringLiteral("stocks"), symbol, tr("stock"), m_quotes.value(symbol), QStringLiteral("link")));
+            add(withQuote(row(QStringLiteral("stocks"), symbol, tr("stock"), {}, QStringLiteral("link")),
+                          m_quotes.value(symbol.trimmed().toUpper())));
         }
         for (const auto &value : m_doc.value(QStringLiteral("alarms")).toArray()) {
             const auto alarm = value.toObject();
@@ -517,7 +758,8 @@ void Backend::rebuild() {
         for (const auto &value : m_doc.value(QStringLiteral("watchlist")).toArray()) {
             const auto item = value.toObject();
             const QString symbol = item.value(QStringLiteral("symbol")).toString();
-            add(row(symbol, symbol, item.value(QStringLiteral("name")).toString(), m_quotes.value(symbol), QStringLiteral("stock")));
+            add(withQuote(row(symbol, symbol, item.value(QStringLiteral("name")).toString(), {}, QStringLiteral("stock")),
+                          m_quotes.value(symbol.trimmed().toUpper())));
         }
     } else if (m_page == QLatin1String("weather")) {
         const auto current = m_forecast.value(QStringLiteral("current")).toObject();
@@ -540,6 +782,8 @@ void Backend::rebuild() {
             const QString kind = codes.size() > index ? weatherCode(codes.at(index).toInt()) : QString();
             add(row(times.at(index).toString(), name, kind, tr("%1°  %2°").arg(high, low), QStringLiteral("forecast")));
         }
+    } else if (m_page == QLatin1String("podcasts") && m_showPodcastHits) {
+        m_rows = m_podcastHits;
     } else if (m_page == QLatin1String("podcasts")) {
         for (const auto &value : m_doc.value(QStringLiteral("podcasts")).toObject().value(QStringLiteral("shows")).toArray()) {
             const auto show = value.toObject();
@@ -589,5 +833,8 @@ void Backend::rebuild() {
         m_selected = count - 1;
     else if (m_selected < 0)
         m_selected = 0;
+    visit();
+    emit rowsChanged();
     emit changed();
+    scheduleBar();
 }

@@ -77,14 +77,17 @@ void Backend::afterAuth(const QJsonObject &body) {
 void Backend::signIn(const QString &email, const QString &password) {
     QJsonObject body{{QStringLiteral("email"), email.trimmed()}, {QStringLiteral("password"), password}};
     setStatus(tr("Signing in…"));
-    m_token.clear();
-    api(QStringLiteral("POST"), QStringLiteral("/api/auth/login"), body, false, [this](QJsonObject body, QString error) {
-        if (!error.isEmpty()) {
-            setStatus(error);
-            return;
-        }
-        afterAuth(body);
-    });
+    // Keep the current session until the new one arrives. A failed login must
+    // not sign the desk out, and the login call itself must not send the old token.
+    m_http.request(QStringLiteral("POST"), QUrl(m_api + QStringLiteral("/api/auth/login")),
+                   QJsonDocument(body).toJson(QJsonDocument::Compact), {},
+                   [this](int status, const QByteArray &bytes, const QString &transport) {
+                       if (status < 200 || status >= 300) {
+                           setStatus(failure(bytes, status, transport));
+                           return;
+                       }
+                       afterAuth(objectOf(bytes));
+                   });
 }
 
 void Backend::signUp(const QString &email, const QString &password, const QString &code) {
@@ -314,8 +317,10 @@ void Backend::submit() {
         }
         const auto next = addNote(m_doc, text, QDateTime::currentMSecsSinceEpoch());
         m_detailId = next.value(QStringLiteral("items")).toArray().first().toObject().value(QStringLiteral("id")).toString();
-        mutate(next);
+        // Set the page before mutate rebuilds, or history records the old page
+        // with this note's id and Back stops on a blank extra step.
         m_page = QStringLiteral("note");
+        mutate(next);
         clearDraft();
         rebuild();
         return;
@@ -605,24 +610,20 @@ void Backend::checkpointPlayback(bool force, bool ended) {
 void Backend::dismissAlert() {
     if (m_alertId.isEmpty())
         return;
-    checkpointPlayback(true, false);
     mutate(acknowledgeAlarm(m_doc, m_alertId, QDateTime::currentMSecsSinceEpoch()));
     m_alert.clear();
     m_alertTime.clear();
     m_alertId.clear();
-    m_player.stop();
     rebuild();
 }
 
 void Backend::snoozeAlert() {
     if (m_alertId.isEmpty())
         return;
-    checkpointPlayback(true, false);
     mutate(snoozeAlarm(m_doc, m_alertId, QDateTime::currentMSecsSinceEpoch()));
     m_alert.clear();
     m_alertTime.clear();
     m_alertId.clear();
-    m_player.stop();
     setStatus(tr("Snoozed 8 min."));
 }
 
@@ -642,6 +643,8 @@ void Backend::checkAlarms() {
         mutate(stampAlarmFired(m_doc, m_alertId, now));
         notify(m_alert, m_alertTime);
         emit changed();
+        // The desk may be hidden for the bar. The alarm screen lives on the window.
+        emit raiseRequested();
         return;
     }
 }

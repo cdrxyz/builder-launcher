@@ -35,7 +35,9 @@ To try it without installing the package:
 ./build/builder-launcher
 ```
 
-`./bin/test` checks the account merge against the web client's rules, plus tasks, alarms, and the theme fallback.
+`./bin/test` checks the account merge against the web client's rules, plus tasks, alarms, quotes, and the theme fallback.
+
+The top bar shows the Builder mark. Click it and a panel opens under the bar with a line to add a task, the first three open tasks, play and pause for the podcast that is on, the article that is open, and the watchlist. Enter on that line adds the task. A circle marks a task done. The title opens that page. Article speech is not on this desk, so an open article is shown as reading rather than as something playing. Clicks go through `bar/desk`, which uses this checkout's build when that binary is present.
 
 After a later `git pull`, run `./bin/install` again. Sign in from Settings with the same account as the phone. Sign-in merges this desk with the account. It does not replace either side.
 
@@ -56,6 +58,8 @@ After a later `git pull`, run `./bin/install` again. Sign in from Settings with 
 | Delete | Delete the selected row when the bar is empty |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo a local edit |
 | Ctrl+/ | Shortcuts |
+| ← / Cmd+[ / Alt+Left | Back. The header button, the mouse back button, and the Back key do this too |
+| → / Cmd+] / Alt+Right | Forward, same as the header button, the mouse forward button, and the Forward key |
 | Ctrl+Q | Quit. Asks first when a sync is still waiting |
 | Esc | Close the quit dialog, then the shortcuts. In a note, return to the list. Otherwise go home |
 

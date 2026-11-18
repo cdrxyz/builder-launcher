@@ -3,14 +3,21 @@
 #include "merge.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QHash>
+#include <QJsonDocument>
+#include <QLocalSocket>
 #include <QRegularExpression>
+#include <QSet>
+#include <QStandardPaths>
 #include <QTimeZone>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QXmlStreamReader>
 #include <QtMath>
 #include <algorithm>
+#include <cstdio>
 #include <functional>
 
 namespace {
@@ -760,6 +767,75 @@ QJsonArray parseFeedEpisodes(const QByteArray &xml, const QString &feedUrl) {
     return episodes;
 }
 
+QStringList feedsToRefresh(const QJsonObject &doc, qint64 now, const QString &openFeed, qint64 staleMs) {
+    const auto pods = doc.value(QStringLiteral("podcasts")).toObject();
+    QSet<QString> have;
+    for (const auto &value : pods.value(QStringLiteral("episodes")).toArray()) {
+        const auto episode = value.toObject();
+        const QString showId = episode.value(QStringLiteral("showId")).toString(episode.value(QStringLiteral("feedUrl")).toString());
+        if (!showId.isEmpty())
+            have.insert(showId.toLower());
+    }
+    struct Due {
+        QString url;
+        int rank = 1;
+    };
+    QVector<Due> due;
+    const QString open = openFeed.trimmed().toLower();
+    for (const auto &value : pods.value(QStringLiteral("shows")).toArray()) {
+        const auto show = value.toObject();
+        const QString feed = show.value(QStringLiteral("feedUrl")).toString();
+        if (feed.isEmpty())
+            continue;
+        const QString key = feed.toLower();
+        const qint64 last = qint64(show.value(QStringLiteral("lastCheckedAt")).toDouble());
+        if (have.contains(key) && last > 0 && now - last < staleMs)
+            continue;
+        due.append(Due{feed, !open.isEmpty() && key == open ? 0 : 1});
+    }
+    std::stable_sort(due.begin(), due.end(), [](const Due &a, const Due &b) { return a.rank < b.rank; });
+    QStringList urls;
+    for (const auto &item : due)
+        urls.append(item.url);
+    return urls;
+}
+
+qint64 speechDurationMs(const QString &text) {
+    int words = 0;
+    static const QRegularExpression splitter(QStringLiteral("\\s+"));
+    static const QRegularExpression letter(QStringLiteral("[0-9A-Za-z]"));
+    for (const auto &word : text.split(splitter, Qt::SkipEmptyParts))
+        if (word.contains(letter))
+            ++words;
+    if (words <= 0)
+        return 0;
+    return words * 60000LL / 160;
+}
+
+qint64 articlePositionMs(const QJsonObject &doc, const QString &articleId) {
+    if (articleId.isEmpty())
+        return 0;
+    for (const auto &value : doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("progress")).toArray()) {
+        const auto row = value.toObject();
+        if (row.value(QStringLiteral("articleId")).toString() == articleId)
+            return qMax<qint64>(0, qint64(row.value(QStringLiteral("positionMs")).toDouble()));
+    }
+    return 0;
+}
+
+double articleReadingFraction(const QJsonObject &doc, const QString &articleId) {
+    QString text;
+    for (const auto &value : doc.value(QStringLiteral("reads")).toObject().value(QStringLiteral("articles")).toArray()) {
+        const auto article = value.toObject();
+        if (article.value(QStringLiteral("id")).toString() == articleId)
+            text = article.value(QStringLiteral("text")).toString();
+    }
+    const qint64 duration = speechDurationMs(text);
+    if (duration <= 0)
+        return 0;
+    return std::clamp(double(articlePositionMs(doc, articleId)) / double(duration), 0.0, 1.0);
+}
+
 QString youtubeIdOf(const QString &raw) {
     const QString text = raw.trimmed();
     static const QRegularExpression id(QStringLiteral("^[A-Za-z0-9_-]{11}$"));
@@ -835,6 +911,284 @@ bool playbackFinished(qint64 positionMs, qint64 durationMs) {
         return false;
     const qint64 remaining = durationMs - positionMs;
     return remaining <= 30000 || positionMs >= durationMs * 95 / 100;
+}
+
+namespace {
+
+QString currencySymbol(const QString &code) {
+    const QString key = code.trimmed().toUpper();
+    static const QHash<QString, QString> symbols = {
+        {QStringLiteral("USD"), QStringLiteral("$")},  {QStringLiteral("EUR"), QStringLiteral("€")},
+        {QStringLiteral("GBP"), QStringLiteral("£")},  {QStringLiteral("JPY"), QStringLiteral("¥")},
+        {QStringLiteral("CNY"), QStringLiteral("¥")},  {QStringLiteral("DKK"), QStringLiteral("kr")},
+        {QStringLiteral("SEK"), QStringLiteral("kr")}, {QStringLiteral("NOK"), QStringLiteral("kr")},
+        {QStringLiteral("CHF"), QStringLiteral("CHF")},{QStringLiteral("CAD"), QStringLiteral("$")},
+        {QStringLiteral("AUD"), QStringLiteral("$")},  {QStringLiteral("NZD"), QStringLiteral("$")},
+        {QStringLiteral("INR"), QStringLiteral("₹")},  {QStringLiteral("KRW"), QStringLiteral("₩")},
+        {QStringLiteral("HKD"), QStringLiteral("$")},  {QStringLiteral("SGD"), QStringLiteral("$")},
+        {QStringLiteral("BRL"), QStringLiteral("R$")}, {QStringLiteral("ZAR"), QStringLiteral("R")},
+        {QStringLiteral("PLN"), QStringLiteral("zł")}, {QStringLiteral("TRY"), QStringLiteral("₺")},
+        {QStringLiteral("CZK"), QStringLiteral("Kč")}, {QStringLiteral("HUF"), QStringLiteral("Ft")},
+        {QStringLiteral("ISK"), QStringLiteral("kr")}};
+    return symbols.value(key, key);
+}
+
+int quotePrecision(const QString &currency, double price) {
+    const QString key = currency.trimmed().toUpper();
+    if (key == QLatin1String("JPY") || key == QLatin1String("KRW") || key == QLatin1String("VND") ||
+        key == QLatin1String("HUF") || key == QLatin1String("ISK"))
+        return 0;
+    if (qAbs(price) > 0 && qAbs(price) < 1.0)
+        return 4;
+    return 2;
+}
+
+int quoteTenths(double percent) {
+    return qRound(percent * 10.0);
+}
+
+// The bar's text is untrusted. Dropping the markup characters keeps a title
+// such as "<img src='https://example.invalid/t'>" from being fetched as rich text.
+QString plainBar(const QString &text) {
+    QString out;
+    out.reserve(text.size());
+    for (const QChar &ch : text) {
+        if (ch == QLatin1Char('<') || ch == QLatin1Char('>') || ch == QLatin1Char('&'))
+            continue;
+        if (ch == QLatin1Char('\n') || ch == QLatin1Char('\r') || ch == QLatin1Char('\t'))
+            out.append(QLatin1Char(' '));
+        else if (ch.category() != QChar::Other_Control)
+            out.append(ch);
+    }
+    out = out.simplified();
+    if (out.size() > 180)
+        out = out.left(177) + QStringLiteral("...");
+    return out;
+}
+
+bool barIdOk(const QString &id) {
+    static const QRegularExpression pattern(QStringLiteral("^[A-Za-z0-9_-]{1,80}$"));
+    return pattern.match(id).hasMatch();
+}
+
+} // namespace
+
+QString barTaskText(const QString &text) {
+    QString out;
+    out.reserve(text.size());
+    for (const QChar &ch : text) {
+        if (ch == QLatin1Char('\n') || ch == QLatin1Char('\r') || ch == QLatin1Char('\t'))
+            out.append(QLatin1Char(' '));
+        else if (ch.category() != QChar::Other_Control)
+            out.append(ch);
+    }
+    out = out.simplified();
+    if (out.size() > 400)
+        out.truncate(400);
+    if (!out.isEmpty() && out.back().isHighSurrogate())
+        out.chop(1);
+    return out;
+}
+
+Quote quoteFromChart(const QJsonObject &body) {
+    Quote quote;
+    const auto results = body.value(QStringLiteral("chart")).toObject().value(QStringLiteral("result")).toArray();
+    if (results.isEmpty())
+        return quote;
+    const auto meta = results.first().toObject().value(QStringLiteral("meta")).toObject();
+    if (!meta.contains(QStringLiteral("regularMarketPrice")))
+        return quote;
+    quote.price = meta.value(QStringLiteral("regularMarketPrice")).toDouble();
+    const double previous = meta.contains(QStringLiteral("chartPreviousClose"))
+                                ? meta.value(QStringLiteral("chartPreviousClose")).toDouble()
+                                : meta.value(QStringLiteral("previousClose")).toDouble(quote.price);
+    quote.percent = previous == 0 ? 0 : (quote.price - previous) / previous * 100.0;
+    quote.currency = meta.value(QStringLiteral("currency")).toString();
+    quote.ok = true;
+    return quote;
+}
+
+QString formatQuotePrice(const Quote &quote, const QLocale &locale) {
+    if (!quote.ok)
+        return {};
+    const int precision = quotePrecision(quote.currency, quote.price);
+    const QString symbol = currencySymbol(quote.currency);
+    if (symbol.isEmpty())
+        return locale.toString(quote.price, 'f', precision);
+    return locale.toCurrencyString(quote.price, symbol, precision);
+}
+
+QString formatQuoteChange(const Quote &quote, const QLocale &locale) {
+    const int tenths = quoteTenths(quote.percent);
+    const QString body = locale.toString(qAbs(tenths / 10.0), 'f', 1);
+    if (tenths > 0)
+        return QStringLiteral("+") + body + QLatin1Char('%');
+    if (tenths < 0)
+        return locale.negativeSign() + body + QLatin1Char('%');
+    return body + QLatin1Char('%');
+}
+
+QString quoteTone(double percent) {
+    const int tenths = quoteTenths(percent);
+    if (tenths > 0)
+        return QStringLiteral("up");
+    if (tenths < 0)
+        return QStringLiteral("down");
+    return QStringLiteral("flat");
+}
+
+QString deskDataDir() {
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(dir);
+    return dir;
+}
+
+QString barSocketPath() {
+    return deskDataDir() + QStringLiteral("/bar.sock");
+}
+
+QString barStatusPath() {
+    return deskDataDir() + QStringLiteral("/bar.json");
+}
+
+QJsonObject barStatus(const QJsonObject &doc, const QHash<QString, Quote> &quotes, const BarMedia &media,
+                      const BarMedia &reading, const QString &weatherTemp, const QLocale &locale) {
+    QJsonObject status;
+    QJsonArray todos;
+    int shown = 0;
+    for (const auto &item : openTodos(doc)) {
+        if (shown++ >= 3)
+            break;
+        const QString id = item.value(QStringLiteral("id")).toString();
+        if (!barIdOk(id))
+            continue;
+        QJsonObject row;
+        row.insert(QStringLiteral("id"), id);
+        row.insert(QStringLiteral("title"), plainBar(item.value(QStringLiteral("text")).toString()));
+        todos.append(row);
+    }
+    status.insert(QStringLiteral("todos"), todos);
+
+    const auto mediaRow = [](const BarMedia &item) {
+        QJsonObject row;
+        row.insert(QStringLiteral("title"), plainBar(item.title));
+        row.insert(QStringLiteral("detail"), plainBar(item.detail));
+        row.insert(QStringLiteral("kind"), item.kind == QLatin1String("article") ? QStringLiteral("article") : QStringLiteral("episode"));
+        row.insert(QStringLiteral("playing"), item.playing);
+        row.insert(QStringLiteral("position"), plainBar(item.position));
+        return row;
+    };
+    if (!plainBar(media.title).isEmpty())
+        status.insert(QStringLiteral("media"), mediaRow(media));
+    if (!plainBar(reading.title).isEmpty())
+        status.insert(QStringLiteral("reading"), mediaRow(reading));
+
+    QJsonArray ticker;
+    int quoted = 0;
+    for (const auto &value : doc.value(QStringLiteral("watchlist")).toArray()) {
+        if (quoted++ >= 12)
+            break;
+        const QString symbol = value.toObject().value(QStringLiteral("symbol")).toString().trimmed();
+        if (symbol.isEmpty())
+            continue;
+        QJsonObject row;
+        row.insert(QStringLiteral("symbol"), plainBar(symbol));
+        const Quote quote = quotes.value(symbol.toUpper());
+        if (quote.ok) {
+            row.insert(QStringLiteral("price"), formatQuotePrice(quote, locale));
+            row.insert(QStringLiteral("change"), formatQuoteChange(quote, locale));
+            row.insert(QStringLiteral("tone"), quoteTone(quote.percent));
+        }
+        ticker.append(row);
+    }
+    status.insert(QStringLiteral("quotes"), ticker);
+
+    const QString place = doc.value(QStringLiteral("settings")).toObject().value(QStringLiteral("weatherPlace")).toString();
+    if (!plainBar(place).isEmpty() || !plainBar(weatherTemp).isEmpty()) {
+        QJsonObject weather;
+        weather.insert(QStringLiteral("place"), plainBar(place));
+        weather.insert(QStringLiteral("temp"), plainBar(weatherTemp));
+        status.insert(QStringLiteral("weather"), weather);
+    }
+
+    for (const auto &value : doc.value(QStringLiteral("alarms")).toArray()) {
+        const auto alarm = value.toObject();
+        if (alarm.value(QStringLiteral("enabled")).isBool() && !alarm.value(QStringLiteral("enabled")).toBool())
+            continue;
+        QJsonObject row;
+        row.insert(QStringLiteral("time"),
+                   formatAlarmTime(alarm.value(QStringLiteral("hour")).toInt(), alarm.value(QStringLiteral("minute")).toInt()));
+        row.insert(QStringLiteral("label"), plainBar(alarm.value(QStringLiteral("label")).toString()));
+        status.insert(QStringLiteral("alarm"), row);
+        break;
+    }
+    return status;
+}
+
+bool barDeskListening() {
+    QLocalSocket socket;
+    socket.connectToServer(barSocketPath());
+    if (!socket.waitForConnected(200))
+        return false;
+    socket.disconnectFromServer();
+    return true;
+}
+
+int sendBarCommand(const QStringList &args) {
+    if (args.isEmpty() || args.first() == QLatin1String("status")) {
+        QFile file(barStatusPath());
+        QByteArray body = QByteArrayLiteral("{}\n");
+        if (file.open(QIODevice::ReadOnly)) {
+            body = file.readAll();
+            if (!body.endsWith('\n'))
+                body.append('\n');
+        }
+        QFile out;
+        if (out.open(stdout, QIODevice::WriteOnly))
+            out.write(body);
+        return 0;
+    }
+
+    const QString name = args.first();
+    QJsonObject cmd;
+    if (name == QLatin1String("play-pause") || name == QLatin1String("ping")) {
+        cmd.insert(QStringLiteral("cmd"), name);
+    } else if (name == QLatin1String("back") || name == QLatin1String("forward")) {
+        cmd.insert(QStringLiteral("cmd"), QStringLiteral("seek"));
+        cmd.insert(QStringLiteral("ms"), name == QLatin1String("back") ? -15000 : 30000);
+    } else if (name == QLatin1String("toggle") && args.size() >= 2 && barIdOk(args.at(1))) {
+        cmd.insert(QStringLiteral("cmd"), QStringLiteral("toggle"));
+        cmd.insert(QStringLiteral("id"), args.at(1));
+    } else if (name == QLatin1String("open")) {
+        cmd.insert(QStringLiteral("cmd"), QStringLiteral("open"));
+        if (args.size() >= 2)
+            cmd.insert(QStringLiteral("page"), args.at(1));
+        if (args.size() >= 3 && barIdOk(args.at(2)))
+            cmd.insert(QStringLiteral("id"), args.at(2));
+    } else if (name == QLatin1String("add")) {
+        const QString text = barTaskText(args.mid(1).join(QLatin1Char(' ')));
+        if (text.isEmpty()) {
+            std::fprintf(stderr, "Usage: builder-launcher bar add TEXT\n");
+            return 2;
+        }
+        cmd.insert(QStringLiteral("cmd"), QStringLiteral("add"));
+        cmd.insert(QStringLiteral("text"), text);
+    } else {
+        std::fprintf(stderr, "Usage: builder-launcher bar [status|ping|play-pause|back|forward|toggle ID|open PAGE|add TEXT]\n");
+        return 2;
+    }
+
+    QLocalSocket socket;
+    socket.connectToServer(barSocketPath());
+    if (!socket.waitForConnected(400)) {
+        std::fprintf(stderr, "Builder Launcher is not running.\n");
+        return 1;
+    }
+    const QByteArray line = QJsonDocument(cmd).toJson(QJsonDocument::Compact) + '\n';
+    if (socket.write(line) != line.size() || !socket.waitForBytesWritten(400) || !socket.waitForReadyRead(400))
+        return 1;
+    const auto reply = QJsonDocument::fromJson(socket.readAll()).object();
+    return reply.value(QStringLiteral("ok")).toBool() ? 0 : 1;
 }
 
 qint64 savedResumeMs(const QJsonObject &doc, const QString &episodeId) {
