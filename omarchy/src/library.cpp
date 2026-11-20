@@ -1232,3 +1232,313 @@ QJsonObject saveEpisodeProgress(QJsonObject doc, const QString &episodeId, qint6
     doc.insert(QStringLiteral("podcasts"), pods);
     return doc;
 }
+
+constexpr int kDefaultMinute = 8 * 60;
+constexpr int kDayMinutes = 24 * 60;
+
+namespace {
+
+int minuteOf(const QRegularExpressionMatch &match) {
+    if (!match.captured(1).isEmpty()) {
+        int hour = match.captured(1).toInt();
+        const int minute = match.captured(2).isEmpty() ? 0 : match.captured(2).toInt();
+        if (hour < 1 || hour > 12 || minute > 59)
+            return -1;
+        if (hour == 12)
+            hour = 0;
+        if (match.captured(3).compare(QLatin1String("pm"), Qt::CaseInsensitive) == 0)
+            hour += 12;
+        return hour * 60 + minute;
+    }
+    const int hour = match.captured(4).toInt();
+    const int minute = match.captured(5).toInt();
+    if (hour > 23 || minute > 59)
+        return -1;
+    return hour * 60 + minute;
+}
+
+QVector<int> clocksIn(const QString &text) {
+    static const QRegularExpression clock(
+        QStringLiteral("(?<![A-Za-z0-9])(\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm)\\b|(?<![A-Za-z0-9])([01]?\\d|2[0-3]):([0-5]\\d)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    QVector<int> found;
+    auto it = clock.globalMatch(text);
+    while (it.hasNext()) {
+        const int minute = minuteOf(it.next());
+        if (minute >= 0)
+            found.append(minute);
+    }
+    return found;
+}
+
+QString cleanHabitName(QString raw) {
+    static const QRegularExpression clock(
+        QStringLiteral("(?<![A-Za-z0-9])(\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm)\\b|(?<![A-Za-z0-9])([01]?\\d|2[0-3]):([0-5]\\d)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression filler(QStringLiteral("\\b(?:starting at|starts at|from|at|and|daily)\\b|[,]+"),
+                                            QRegularExpression::CaseInsensitiveOption);
+    return raw.replace(clock, QStringLiteral(" ")).replace(filler, QStringLiteral(" ")).simplified();
+}
+
+qint64 dayStartMs(qint64 epoch) {
+    const QDateTime local = QDateTime::fromMSecsSinceEpoch(epoch);
+    return QDateTime(local.date(), QTime(0, 0), local.timeZone()).toMSecsSinceEpoch();
+}
+
+qint64 plusDaysMs(qint64 start, int days) {
+    return QDateTime::fromMSecsSinceEpoch(start).addDays(days).toMSecsSinceEpoch();
+}
+
+QVector<int> intervalMinutes(const QJsonObject &habit) {
+    const int step = habit.value(QStringLiteral("everyMinutes")).toInt();
+    if (step <= 0)
+        return {};
+    const auto times = habit.value(QStringLiteral("times")).toArray();
+    const int anchor = times.isEmpty() ? kDefaultMinute : times.first().toInt();
+    const int phase = ((anchor % step) + step) % step;
+    QVector<int> minutes;
+    for (int minute = phase; minute < kDayMinutes; minute += step)
+        minutes.append(minute);
+    return minutes;
+}
+
+QVector<qint64> slotsOnDay(const QJsonObject &habit, qint64 start) {
+    if (habit.value(QStringLiteral("enabled")).isBool() && !habit.value(QStringLiteral("enabled")).toBool())
+        return {};
+    const qint64 end = plusDaysMs(start, 1);
+    const qint64 created = static_cast<qint64>(habit.value(QStringLiteral("createdAt")).toDouble());
+    if (created >= end)
+        return {};
+    const QString kind = habit.value(QStringLiteral("kind")).toString();
+    if (kind == QLatin1String("daily"))
+        return {start};
+    QVector<int> minutes;
+    if (kind == QLatin1String("interval"))
+        minutes = intervalMinutes(habit);
+    else {
+        for (const auto &value : habit.value(QStringLiteral("times")).toArray())
+            minutes.append(value.toInt());
+    }
+    // Named daySlots because Qt turns the word slots into a macro.
+    QVector<qint64> daySlots;
+    for (int minute : minutes) {
+        const qint64 slot = start + static_cast<qint64>(minute) * 60'000;
+        if (slot >= created && slot < end)
+            daySlots.append(slot);
+    }
+    return daySlots;
+}
+
+} // namespace
+
+QJsonObject parseHabit(const QString &raw) {
+    const QString text = raw.simplified();
+    if (text.isEmpty())
+        return {};
+    static const QRegularExpression interval(QStringLiteral("\\bevery\\s+(\\d+)\\s*(hours?|hrs?|h|minutes?|mins?|m)\\b"),
+                                              QRegularExpression::CaseInsensitiveOption);
+    const auto hit = interval.match(text);
+    if (hit.hasMatch()) {
+        const int count = hit.captured(1).toInt();
+        const int minutes = hit.captured(2).toLower().startsWith('h') ? count * 60 : count;
+        if (minutes <= 0 || minutes > kDayMinutes || kDayMinutes % minutes != 0)
+            return {};
+        const auto after = clocksIn(text.mid(hit.capturedEnd()));
+        const QString name = cleanHabitName(text.left(hit.capturedStart()) + text.mid(hit.capturedEnd()));
+        if (name.isEmpty())
+            return {};
+        QJsonObject draft;
+        draft.insert(QStringLiteral("name"), name);
+        draft.insert(QStringLiteral("kind"), QStringLiteral("interval"));
+        draft.insert(QStringLiteral("everyMinutes"), minutes);
+        draft.insert(QStringLiteral("times"), QJsonArray{after.isEmpty() ? kDefaultMinute : after.first()});
+        return draft;
+    }
+    const auto times = clocksIn(text);
+    if (times.size() >= 2) {
+        const QString name = cleanHabitName(text);
+        if (name.isEmpty())
+            return {};
+        QJsonArray sorted;
+        QVector<int> unique = times;
+        std::sort(unique.begin(), unique.end());
+        unique.erase(std::unique(unique.begin(), unique.end()), unique.end());
+        for (int minute : unique)
+            sorted.append(minute);
+        QJsonObject draft;
+        draft.insert(QStringLiteral("name"), name);
+        draft.insert(QStringLiteral("kind"), QStringLiteral("times"));
+        draft.insert(QStringLiteral("everyMinutes"), 0);
+        draft.insert(QStringLiteral("times"), sorted);
+        return draft;
+    }
+    if (text.contains(QRegularExpression(QStringLiteral("\\bdaily\\b"), QRegularExpression::CaseInsensitiveOption))) {
+        const QString name = cleanHabitName(text);
+        if (name.isEmpty())
+            return {};
+        QJsonObject draft;
+        draft.insert(QStringLiteral("name"), name);
+        draft.insert(QStringLiteral("kind"), QStringLiteral("daily"));
+        draft.insert(QStringLiteral("everyMinutes"), 0);
+        draft.insert(QStringLiteral("times"), QJsonArray{times.isEmpty() ? kDefaultMinute : times.first()});
+        return draft;
+    }
+    return {};
+}
+
+QString habitSchedule(const QJsonObject &habit) {
+    const QString kind = habit.value(QStringLiteral("kind")).toString();
+    if (kind == QLatin1String("daily")) {
+        const auto times = habit.value(QStringLiteral("times")).toArray();
+        const int minute = times.isEmpty() ? kDefaultMinute : times.first().toInt();
+        return minute == kDefaultMinute ? QStringLiteral("daily") : QStringLiteral("daily at %1").arg(formatAlarmTime(minute / 60, minute % 60).toLower());
+    }
+    if (kind == QLatin1String("interval")) {
+        const int every = habit.value(QStringLiteral("everyMinutes")).toInt();
+        return every % 60 == 0 ? QStringLiteral("every %1 hours").arg(every / 60) : QStringLiteral("every %1 minutes").arg(every);
+    }
+    QStringList labels;
+    for (const auto &value : habit.value(QStringLiteral("times")).toArray()) {
+        const int minute = value.toInt();
+        labels.append(formatAlarmTime(minute / 60, minute % 60).toLower());
+    }
+    return labels.join(QStringLiteral(" and "));
+}
+
+qint64 openHabitSlot(const QJsonObject &habit, qint64 now) {
+    const auto daySlots = slotsOnDay(habit, dayStartMs(now));
+    if (daySlots.isEmpty())
+        return 0;
+    if (habit.value(QStringLiteral("kind")).toString() == QLatin1String("daily"))
+        return daySlots.first();
+    qint64 current = 0;
+    for (qint64 slot : daySlots) {
+        if (slot <= now)
+            current = slot;
+    }
+    return current != 0 ? current : daySlots.first();
+}
+
+bool habitDone(const QJsonObject &doc, const QString &habitId, qint64 slot) {
+    for (const auto &value : doc.value(QStringLiteral("habitMarks")).toArray()) {
+        const auto mark = value.toObject();
+        if (mark.value(QStringLiteral("habitId")).toString() == habitId &&
+            static_cast<qint64>(mark.value(QStringLiteral("slotAt")).toDouble()) == slot &&
+            mark.value(QStringLiteral("done")).toBool())
+            return true;
+    }
+    return false;
+}
+
+QJsonObject addHabit(QJsonObject doc, const QJsonObject &draft, qint64 now) {
+    if (draft.isEmpty())
+        return doc;
+    QJsonObject habit = draft;
+    habit.insert(QStringLiteral("id"), newId(now));
+    habit.insert(QStringLiteral("createdAt"), now);
+    habit.insert(QStringLiteral("updatedAt"), now);
+    habit.insert(QStringLiteral("enabled"), true);
+    QJsonArray habits;
+    habits.append(habit);
+    for (const auto &value : doc.value(QStringLiteral("habits")).toArray())
+        habits.append(value);
+    doc.insert(QStringLiteral("habits"), habits);
+    QJsonArray deleted;
+    for (const auto &value : doc.value(QStringLiteral("deletedHabitIds")).toArray()) {
+        if (value.toString() != habit.value(QStringLiteral("id")).toString())
+            deleted.append(value);
+    }
+    doc.insert(QStringLiteral("deletedHabitIds"), deleted);
+    return touchExported(doc, now);
+}
+
+QJsonObject toggleHabit(QJsonObject doc, const QString &id, qint64 slot, qint64 now) {
+    if (id.isEmpty() || slot == 0)
+        return doc;
+    const QString markId = id + QLatin1Char(':') + QString::number(slot);
+    bool done = false;
+    QJsonArray marks;
+    for (const auto &value : doc.value(QStringLiteral("habitMarks")).toArray()) {
+        const auto mark = value.toObject();
+        if (mark.value(QStringLiteral("id")).toString() == markId) {
+            done = mark.value(QStringLiteral("done")).toBool();
+            continue;
+        }
+        marks.append(mark);
+    }
+    QJsonObject next;
+    next.insert(QStringLiteral("id"), markId);
+    next.insert(QStringLiteral("habitId"), id);
+    next.insert(QStringLiteral("slotAt"), slot);
+    next.insert(QStringLiteral("done"), !done);
+    next.insert(QStringLiteral("updatedAt"), now);
+    marks.append(next);
+    doc.insert(QStringLiteral("habitMarks"), marks);
+    return touchExported(doc, now);
+}
+
+QJsonObject deleteHabit(QJsonObject doc, const QString &id, qint64 now) {
+    QJsonArray habits;
+    for (const auto &value : doc.value(QStringLiteral("habits")).toArray()) {
+        if (value.toObject().value(QStringLiteral("id")).toString() != id)
+            habits.append(value);
+    }
+    QJsonArray marks;
+    for (const auto &value : doc.value(QStringLiteral("habitMarks")).toArray()) {
+        if (value.toObject().value(QStringLiteral("habitId")).toString() != id)
+            marks.append(value);
+    }
+    QJsonArray deleted = doc.value(QStringLiteral("deletedHabitIds")).toArray();
+    deleted.append(id);
+    doc.insert(QStringLiteral("habits"), habits);
+    doc.insert(QStringLiteral("habitMarks"), marks);
+    doc.insert(QStringLiteral("deletedHabitIds"), deleted);
+    return touchExported(doc, now);
+}
+
+QString habitDayLabel(const QJsonObject &doc, qint64 now) {
+    const qint64 start = dayStartMs(now);
+    int due = 0;
+    int completed = 0;
+    for (const auto &value : doc.value(QStringLiteral("habits")).toArray()) {
+        const auto habit = value.toObject();
+        for (qint64 slot : slotsOnDay(habit, start)) {
+            due += 1;
+            if (habitDone(doc, habit.value(QStringLiteral("id")).toString(), slot))
+                completed += 1;
+        }
+    }
+    const int percent = due == 0 ? 0 : (completed * 100) / due;
+    return QStringLiteral("%1 of %2 · %3%").arg(completed).arg(due).arg(percent);
+}
+
+QJsonObject dueHabit(const QJsonObject &doc, qint64 now, const QSet<QString> &reminded) {
+    for (const auto &value : doc.value(QStringLiteral("habits")).toArray()) {
+        const auto habit = value.toObject();
+        const qint64 slot = openHabitSlot(habit, now);
+        if (slot == 0)
+            continue;
+        const QString id = habit.value(QStringLiteral("id")).toString();
+        if (habitDone(doc, id, slot))
+            continue;
+        qint64 at = slot;
+        if (habit.value(QStringLiteral("kind")).toString() == QLatin1String("daily")) {
+            const auto times = habit.value(QStringLiteral("times")).toArray();
+            const int minute = times.isEmpty() ? kDefaultMinute : times.first().toInt();
+            at = dayStartMs(slot) + static_cast<qint64>(minute) * 60'000;
+        }
+        if (now < at)
+            continue;
+        const QString key = id + QLatin1Char(':') + QString::number(slot);
+        if (reminded.contains(key))
+            continue;
+        QJsonObject due;
+        due.insert(QStringLiteral("id"), id);
+        due.insert(QStringLiteral("slot"), slot);
+        due.insert(QStringLiteral("name"), habit.value(QStringLiteral("name")));
+        due.insert(QStringLiteral("key"), key);
+        due.insert(QStringLiteral("body"), habitSchedule(habit));
+        return due;
+    }
+    return {};
+}

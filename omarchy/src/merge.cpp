@@ -1,5 +1,6 @@
 #include "merge.h"
 
+#include <QHash>
 #include <QJsonArray>
 #include <QSet>
 #include <QVector>
@@ -768,6 +769,58 @@ QJsonObject slimDoc(const QJsonObject &doc) {
     return out;
 }
 
+QJsonObject mergeHabit(const QJsonObject &a, const QJsonObject &b) {
+    const double au = std::max(orNum(a, "updatedAt"), orNum(a, "createdAt"));
+    const double bu = std::max(orNum(b, "updatedAt"), orNum(b, "createdAt"));
+    if (au != bu)
+        return au > bu ? a : b;
+    const bool aOff = a.value(QStringLiteral("enabled")).isBool() && !a.value(QStringLiteral("enabled")).toBool();
+    const bool bOff = b.value(QStringLiteral("enabled")).isBool() && !b.value(QStringLiteral("enabled")).toBool();
+    if (aOff && !bOff)
+        return a;
+    if (bOff && !aOff)
+        return b;
+    return b;
+}
+
+QJsonArray mergeHabitList(const QJsonArray &a, const QJsonArray &b) {
+    QHash<QString, QJsonObject> map;
+    QStringList order;
+    for (const auto &value : concat(a, b)) {
+        if (!value.isObject())
+            continue;
+        const auto item = value.toObject();
+        const QString id = idOf(item);
+        if (!map.contains(id))
+            order.append(id);
+        const auto prev = map.value(id);
+        map.insert(id, prev.isEmpty() ? item : mergeHabit(prev, item));
+    }
+    QJsonArray out;
+    for (const auto &id : order)
+        out.append(map.value(id));
+    return out;
+}
+
+QJsonArray mergeMarkList(const QJsonArray &a, const QJsonArray &b) {
+    QHash<QString, QJsonObject> map;
+    QStringList order;
+    for (const auto &value : concat(a, b)) {
+        if (!value.isObject())
+            continue;
+        const auto item = value.toObject();
+        const QString id = idOf(item);
+        if (!map.contains(id))
+            order.append(id);
+        const auto prev = map.value(id);
+        map.insert(id, prev.isEmpty() || orNum(item, "updatedAt") >= orNum(prev, "updatedAt") ? item : prev);
+    }
+    QJsonArray out;
+    for (const auto &id : order)
+        out.append(map.value(id));
+    return out;
+}
+
 QJsonObject mergeDocs(const QJsonObject &a, const QJsonObject &b) {
     if (a.isEmpty())
         return b;
@@ -791,6 +844,11 @@ QJsonObject mergeDocs(const QJsonObject &a, const QJsonObject &b) {
     QSet<QString> dropAlarms;
     for (const auto &value : deletedAlarmIds)
         dropAlarms.insert(value.toVariant().toString());
+    const QJsonArray deletedHabitIds =
+        uniqueValues(concat(arr(a.value(QStringLiteral("deletedHabitIds"))), arr(b.value(QStringLiteral("deletedHabitIds")))));
+    QSet<QString> dropHabits;
+    for (const auto &value : deletedHabitIds)
+        dropHabits.insert(value.toVariant().toString());
     const auto pinMerge = mergePins(arr(a.value(QStringLiteral("pins"))), arr(b.value(QStringLiteral("pins"))),
                                     arr(a.value(QStringLiteral("pinChanges"))), arr(b.value(QStringLiteral("pinChanges"))));
     QJsonArray alarms;
@@ -817,6 +875,19 @@ QJsonObject mergeDocs(const QJsonObject &a, const QJsonObject &b) {
     out.insert(QStringLiteral("videos"), mergeVideos(a.value(QStringLiteral("videos")), b.value(QStringLiteral("videos")), videoIds(newer)));
     out.insert(QStringLiteral("alarms"), alarms);
     out.insert(QStringLiteral("zones"), mergeById(arr(a.value(QStringLiteral("zones"))), arr(b.value(QStringLiteral("zones")))));
+    QJsonArray habits;
+    for (const auto &value : mergeHabitList(arr(a.value(QStringLiteral("habits"))), arr(b.value(QStringLiteral("habits"))))) {
+        if (!dropHabits.contains(idOf(value.toObject())))
+            habits.append(value);
+    }
+    QJsonArray habitMarks;
+    for (const auto &value : mergeMarkList(arr(a.value(QStringLiteral("habitMarks"))), arr(b.value(QStringLiteral("habitMarks"))))) {
+        if (!dropHabits.contains(value.toObject().value(QStringLiteral("habitId")).toVariant().toString()))
+            habitMarks.append(value);
+    }
+    out.insert(QStringLiteral("habits"), habits);
+    out.insert(QStringLiteral("habitMarks"), habitMarks);
+    out.insert(QStringLiteral("deletedHabitIds"), deletedHabitIds);
     out.insert(QStringLiteral("settings"), mergeSettings(older.value(QStringLiteral("settings")), newer.value(QStringLiteral("settings"))));
     out.insert(QStringLiteral("deletedAlarmIds"), deletedAlarmIds);
     return out;

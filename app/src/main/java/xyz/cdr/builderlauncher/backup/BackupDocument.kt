@@ -7,6 +7,8 @@ import xyz.cdr.builderlauncher.data.AppIcons
 import xyz.cdr.builderlauncher.data.BuilderSettings
 import xyz.cdr.builderlauncher.data.ChatThread
 import xyz.cdr.builderlauncher.data.ClockFace
+import xyz.cdr.builderlauncher.data.Habit
+import xyz.cdr.builderlauncher.data.HabitMark
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.LlmProvider
@@ -39,6 +41,9 @@ data class BackupDocument(
     val videos: VideoBackup = VideoBackup(),
     val alarms: List<ClockAlarm> = emptyList(),
     val zones: List<WorldClock> = emptyList(),
+    val habits: List<Habit> = emptyList(),
+    val habitMarks: List<HabitMark> = emptyList(),
+    val deletedHabitIds: List<String> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
     val deletedAlarmIds: List<String> = emptyList(),
 ) {
@@ -86,6 +91,8 @@ data class BackupSettings(
     val uiTone: UiTone = UiTone.DARK,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
+    val habitReminders: Boolean = true,
+    val habitSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
     val pinUsage: Boolean = false,
     val clockFace: ClockFace = ClockFace.ANALOG,
@@ -113,6 +120,8 @@ data class BackupSettings(
             uiTone = settings.uiTone,
             stockInsert = settings.stockInsert,
             clockSound = settings.clockSound,
+            habitReminders = settings.habitReminders,
+            habitSound = settings.habitSound,
             appIcons = settings.appIcons,
             pinUsage = settings.pinUsage,
             clockFace = settings.clockFace,

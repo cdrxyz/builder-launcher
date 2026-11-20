@@ -15,6 +15,7 @@ import {
 	formatYield,
 	homeRows,
 	podcastIndexShowsArticle,
+	sessionPlayStartsArticle,
 	indexAt,
 	parseItunes,
 	parseOpml,
@@ -328,6 +329,7 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.deepEqual(typeMode('-', 'milk'), { prompt: '-', input: 'milk' });
 	assert.equal(pagePrompt('home'), '-');
 	assert.equal(pagePrompt('tasks'), '-');
+	assert.equal(pagePrompt('habits'), '-');
 	assert.equal(pagePrompt('settings'), '-');
 	assert.equal(pagePrompt('help'), '-');
 	assert.equal(pagePrompt('weather'), '-');
@@ -339,7 +341,7 @@ test('prefix typeMode and slash match the phone', () => {
 	assert.equal(slashResolve('set').name, 'settings');
 	assert.deepEqual(
 		slashMatches('').map((row) => row.name),
-		['articles', 'help', 'home', 'notes', 'podcasts', 'pull', 'push', 'settings', 'stocks', 'tasks', 'videos', 'weather'],
+		['articles', 'habits', 'help', 'home', 'notes', 'podcasts', 'pull', 'push', 'settings', 'stocks', 'tasks', 'videos', 'weather'],
 	);
 	assert.equal(builtinPage('notes'), 'notes');
 	assert.equal(builtinPage('weather'), 'weather');
@@ -900,6 +902,9 @@ test('home podcast mark matches the phone', () => {
 	assert.equal(homePodcastMark(false, true, 8000), 'HEADPHONES');
 	assert.equal(podcastIndexShowsArticle(true, true, true), true);
 	assert.equal(podcastIndexShowsArticle(false, true, true), false);
+	assert.equal(sessionPlayStartsArticle({ owner: 'article', pageVisible: true }), false);
+	assert.equal(sessionPlayStartsArticle({ owner: 'article', pageVisible: false }), true);
+	assert.equal(sessionPlayStartsArticle({ owner: 'podcast', pageVisible: false }), false);
 });
 
 test('command bar enter key is go so iOS Return submits a todo', async () => {
@@ -933,7 +938,7 @@ test('command dock keeps extra bottom space on iPhone standalone PWA', async () 
 		css,
 		/@media \(display-mode: standalone\) \{\s*\.command-dock \{\s*padding-bottom:\s*max\(3\.5rem, calc\(2\.25rem \+ env\(safe-area-inset-bottom, 0px\)\)\)/s,
 	);
-	assert.match(sw, /builder-launcher-web-v62/);
+	assert.match(sw, /builder-launcher-web-v65/);
 	assert.match(sw, /\/api\/articles\/live/);
 	assert.match(sw, /content-type': 'audio\/mpeg'/);
 });
@@ -974,6 +979,9 @@ test('PWA chrome uses a gear, auto-sync, now playing, and Android-style tasks', 
 	assert.match(js, /holdSync\('order'\)/);
 	assert.match(js, /function nowPlayingBar\(/);
 	assert.match(js, /podcastIndexShowsArticle\(readSpeak\.playing/);
+	assert.match(js, /sessionPlayStartsArticle\(\{ owner: playbackOwner, pageVisible: document\.visibilityState === 'visible' \}\)/);
+	assert.match(js, /playbackOwner = 'podcast'/);
+	assert.match(js, /playbackOwner = 'video'/);
 	assert.match(js, /'Saved Articles'/);
 	assert.match(js, /label\.textContent = 'now playing'/);
 	assert.match(js, /className = 'body todo-text'/);

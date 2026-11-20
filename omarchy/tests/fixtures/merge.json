@@ -73,6 +73,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -114,6 +117,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -223,6 +229,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -264,6 +273,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -383,6 +395,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -425,6 +440,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -528,6 +546,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -566,6 +587,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -657,6 +681,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -693,6 +720,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -786,6 +816,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -824,6 +857,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -913,6 +949,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {}
     },
     "ba": {
@@ -945,6 +984,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {}
     },
     "slimA": {
@@ -1042,6 +1084,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1082,6 +1127,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1179,6 +1227,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1219,6 +1270,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1314,6 +1368,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1354,6 +1411,9 @@
         "deletedIds": []
       },
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1447,6 +1507,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1484,6 +1547,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1564,6 +1630,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "deletedAlarmIds": []
     },
     "ba": {
@@ -1599,6 +1668,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "deletedAlarmIds": []
     },
     "slimA": {
@@ -1696,6 +1768,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1736,6 +1811,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1844,6 +1922,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1887,6 +1968,9 @@
       },
       "alarms": [],
       "zones": [],
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "settings": {},
       "deletedAlarmIds": []
     },
@@ -1909,6 +1993,370 @@
         "shows": [],
         "episodes": [],
         "progress": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "deleted habit drops the habit and its marks",
+    "a": {
+      "exportedAt": 20,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "stretch",
+          "kind": "daily",
+          "updatedAt": 20,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:1",
+          "habitId": "h1",
+          "slotAt": 1,
+          "done": true,
+          "updatedAt": 2
+        }
+      ],
+      "deletedHabitIds": [
+        "h1"
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "stretch",
+          "kind": "daily",
+          "updatedAt": 10,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:1",
+          "habitId": "h1",
+          "slotAt": 1,
+          "done": false,
+          "updatedAt": 1
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 20,
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [
+        "h1"
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 20,
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [
+        "h1"
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 20,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "stretch",
+          "kind": "daily",
+          "updatedAt": 20,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:1",
+          "habitId": "h1",
+          "slotAt": 1,
+          "done": true,
+          "updatedAt": 2
+        }
+      ],
+      "deletedHabitIds": [
+        "h1"
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "deletedIds": []
+      }
+    }
+  },
+  {
+    "name": "newer habit check wins",
+    "a": {
+      "exportedAt": 20,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "water",
+          "kind": "interval",
+          "everyMinutes": 240,
+          "times": [
+            480
+          ],
+          "updatedAt": 5,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:8",
+          "habitId": "h1",
+          "slotAt": 8,
+          "done": true,
+          "updatedAt": 30
+        }
+      ]
+    },
+    "b": {
+      "exportedAt": 10,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "water",
+          "kind": "interval",
+          "everyMinutes": 240,
+          "times": [
+            480
+          ],
+          "updatedAt": 5,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:8",
+          "habitId": "h1",
+          "slotAt": 8,
+          "done": false,
+          "updatedAt": 10
+        }
+      ]
+    },
+    "ab": {
+      "exportedAt": 20,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "water",
+          "kind": "interval",
+          "everyMinutes": 240,
+          "times": [
+            480
+          ],
+          "updatedAt": 5,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:8",
+          "habitId": "h1",
+          "slotAt": 8,
+          "done": true,
+          "updatedAt": 30
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "deletedHabitIds": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "ba": {
+      "exportedAt": 20,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "water",
+          "kind": "interval",
+          "everyMinutes": 240,
+          "times": [
+            480
+          ],
+          "updatedAt": 5,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:8",
+          "habitId": "h1",
+          "slotAt": 8,
+          "done": true,
+          "updatedAt": 30
+        }
+      ],
+      "version": 1,
+      "items": [],
+      "deletedIds": [],
+      "chats": [],
+      "pins": [],
+      "pinChanges": [],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": [],
+        "cacheBytes": 0
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "videos": {
+        "videos": [],
+        "progress": [],
+        "deletedIds": []
+      },
+      "alarms": [],
+      "zones": [],
+      "deletedHabitIds": [],
+      "settings": {},
+      "deletedAlarmIds": []
+    },
+    "slimA": {
+      "exportedAt": 20,
+      "habits": [
+        {
+          "id": "h1",
+          "name": "water",
+          "kind": "interval",
+          "everyMinutes": 240,
+          "times": [
+            480
+          ],
+          "updatedAt": 5,
+          "createdAt": 1,
+          "enabled": true
+        }
+      ],
+      "habitMarks": [
+        {
+          "id": "h1:8",
+          "habitId": "h1",
+          "slotAt": 8,
+          "done": true,
+          "updatedAt": 30
+        }
+      ],
+      "watchlist": [],
+      "podcasts": {
+        "shows": [],
+        "episodes": [],
+        "progress": []
+      },
+      "reads": {
+        "articles": [],
+        "progress": [],
+        "deletedIds": []
       },
       "videos": {
         "videos": [],
@@ -1980,7 +2428,10 @@
       "videos": {
         "videos": [],
         "deletedIds": []
-      }
+      },
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": []
     },
     "ab": {
       "version": 1,
@@ -2038,6 +2489,9 @@
         "progress": [],
         "deletedIds": []
       },
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "chats": [],
       "pins": [],
       "pinChanges": [],
@@ -2102,6 +2556,9 @@
         "progress": [],
         "deletedIds": []
       },
+      "habits": [],
+      "habitMarks": [],
+      "deletedHabitIds": [],
       "chats": [],
       "pins": [],
       "pinChanges": [],

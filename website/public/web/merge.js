@@ -1,4 +1,5 @@
 import { alignOpenOrder } from './items.js';
+import { mergeHabits, mergeMarks } from './habits.js';
 import { mergeReads } from './reads.js';
 import { mergeVideos } from './videos.js';
 
@@ -335,6 +336,8 @@ export function mergeDocs(a, b) {
 	const items = alignOpenOrder(a.items, b.items, mergedItems);
 	const deletedAlarmIds = unique([...(a.deletedAlarmIds || []), ...(b.deletedAlarmIds || [])]);
 	const dropAlarms = new Set(deletedAlarmIds.map(String));
+	const deletedHabitIds = unique([...(a.deletedHabitIds || []), ...(b.deletedHabitIds || [])]);
+	const dropHabits = new Set(deletedHabitIds.map(String));
 	const pinMerge = mergePins(a.pins, b.pins, a.pinChanges, b.pinChanges);
 	return {
 		...older,
@@ -352,6 +355,9 @@ export function mergeDocs(a, b) {
 		videos: mergeVideos(a.videos, b.videos, (newer.videos?.videos || []).map((item) => item.id)),
 		alarms: mergeAlarms(a.alarms, b.alarms).filter((alarm) => !dropAlarms.has(String(alarm.id))),
 		zones: mergeById(a.zones, b.zones),
+		habits: mergeHabits(a.habits, b.habits).filter((habit) => !dropHabits.has(String(habit.id))),
+		habitMarks: mergeMarks(a.habitMarks, b.habitMarks).filter((mark) => !dropHabits.has(String(mark.habitId))),
+		deletedHabitIds,
 		settings: mergeSettings(older.settings, newer.settings),
 		deletedAlarmIds,
 	};
@@ -367,5 +373,8 @@ export function emptyDoc(now = Date.now()) {
 		podcasts: { shows: [], episodes: [], progress: [] },
 		reads: { articles: [], progress: [], deletedIds: [] },
 		videos: { videos: [], deletedIds: [] },
+		habits: [],
+		habitMarks: [],
+		deletedHabitIds: [],
 	};
 }

@@ -52,6 +52,23 @@ import {
 	upsertThread,
 } from './ai.js';
 import {
+	HINT as HABIT_HINT,
+	dayLabel,
+	dueReminder,
+	graph as habitGraph,
+	habitRemindersOn,
+	habitSoundName,
+	HABIT_SOUNDS,
+	isDone,
+	nextReminderAt,
+	openSlot,
+	pageAfterSwipe,
+	parseHabit,
+	recentDayStarts,
+	scheduleLabel,
+	toggleMark,
+} from './habits.js';
+import {
 	DEFAULT_PROMPT,
 	webPrefixes,
 	builtinPage,
@@ -81,6 +98,7 @@ import {
 	formatExtended,
 	homeRows,
 	podcastIndexShowsArticle,
+	sessionPlayStartsArticle,
 	applyCheckedFeeds,
 	homePodcastMark,
 	HOME_MARK_IDLE_MS,
@@ -185,6 +203,8 @@ const ITUNES = 'https://itunes.apple.com/search';
 
 const audio = new Audio();
 audio.preload = 'metadata';
+let playbackOwner = null;
+let articleAudibleWhenHidden = false;
 let lastSavedAt = 0;
 let lastSavedPos = 0;
 let listTab = null;
@@ -222,6 +242,7 @@ const state = {
 	articleId: null,
 	autoSync: loadAutoSync(),
 	editTodoId: null,
+	homePane: 0,
 	status: '',
 	busy: false,
 	dirty: false,
@@ -271,15 +292,25 @@ audio.addEventListener('timeupdate', () => {
 audio.addEventListener('pause', () => {
 	state.pausedAt = Date.now();
 	checkpoint(true);
+	if (playbackOwner === 'podcast' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	if (state.tab === 'home') render();
 });
 audio.addEventListener('play', () => {
 	state.pausedAt = 0;
+	if (playbackOwner === 'podcast' && navigator.mediaSession) navigator.mediaSession.playbackState = 'playing';
 	if (state.tab === 'home') render();
 });
 audio.addEventListener('ended', () => {
 	checkpoint(true, true);
 	render();
+});
+
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'hidden') {
+		articleAudibleWhenHidden = playbackOwner === 'article' && audibleClip();
+		return;
+	}
+	if (!articleAudibleWhenHidden && playbackOwner === 'article' && audibleClip()) readStop(true);
 });
 
 boot();
@@ -628,6 +659,7 @@ function mutate(next, kind = 'write') {
 	if (next.podcasts && next.podcasts.episodes !== prevEpisodes) rememberCatalog(state.doc);
 	render();
 	maybeSyncSave();
+	armHabitReminders();
 }
 
 function setItems(next) {
@@ -921,6 +953,7 @@ function main() {
 	else if (state.tab === 'videos') el.append(videosScreen());
 	else if (state.tab === 'video') el.append(videoScreen());
 	else if (state.tab === 'tasks') el.append(tasksScreen());
+	else if (state.tab === 'habits') el.append(habitsScreen());
 	else if (state.tab === 'help') el.append(helpScreen());
 	else if (state.tab === 'weather') el.append(weatherScreen());
 	else if (state.tab === 'chat') el.append(chatScreen());
@@ -972,13 +1005,38 @@ function homeScreen() {
 	hero.append(left, cluster, right);
 	wrap.append(hero);
 	if (!state.menu) {
+		const swipe = document.createElement('div');
+		swipe.className = 'home-swipe';
+		let startX = 0;
+		swipe.addEventListener('pointerdown', (event) => {
+			startX = event.clientX;
+		});
+		swipe.addEventListener('pointerup', (event) => {
+			const next = pageAfterSwipe(state.homePane || 0, event.clientX - startX, 48);
+			if (next === state.homePane) return;
+			state.homePane = next;
+			render();
+		});
 		const todos = document.createElement('div');
 		todos.className = 'home-todos';
-		for (const item of displayOpenTodos(items(), pendingComplete).slice(0, 3)) {
-			todos.append(todoRow(item, item.completedAt != null, false));
+		if (state.homePane === 1) {
+			const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			const now = Date.now();
+			const rows = (state.doc?.habits || [])
+				.map((habit) => ({ habit, slot: openSlot(habit, now, zone) }))
+				.filter((row) => row.slot != null)
+				.sort((a, b) => Number(isDone(state.doc.habitMarks, a.habit.id, a.slot)) - Number(isDone(state.doc.habitMarks, b.habit.id, b.slot)))
+				.slice(0, 3);
+			if (!rows.length) todos.append(empty('No habits yet.'));
+			for (const row of rows) todos.append(habitRow(row.habit, row.slot, false));
+		} else {
+			for (const item of displayOpenTodos(items(), pendingComplete).slice(0, 3)) {
+				todos.append(todoRow(item, item.completedAt != null, false));
+			}
 		}
-		wrap.append(todos);
-		const more = button('… more tasks >', () => go('tasks'), 'more-link');
+		swipe.append(todos);
+		wrap.append(swipe);
+		const more = button(state.homePane === 1 ? '… more habits >' : '… more tasks >', () => go(state.homePane === 1 ? 'habits' : 'tasks'), 'more-link');
 		wrap.append(more);
 	}
 	return wrap;
@@ -1217,6 +1275,16 @@ function submitCommand() {
 	const prompt = state.prompt;
 	if (prompt === '-') {
 		if (!text) return;
+		if (state.tab === 'habits') {
+			const draft = parseHabit(text);
+			state.draft = '';
+			if (!draft) {
+				setStatus(HABIT_HINT);
+				return;
+			}
+			addHabit(draft);
+			return;
+		}
 		const editing = state.editTodoId;
 		state.draft = '';
 		state.editTodoId = null;
@@ -1344,12 +1412,158 @@ function runSlash(name) {
 		go('tasks');
 		return;
 	}
+	if (key === 'habits') {
+		go('habits');
+		return;
+	}
 	if (key === 'weather') {
 		go('weather');
 		return;
 	}
 	setStatus('Unknown slash command.');
 }
+
+function habitsScreen() {
+	const wrap = document.createElement('div');
+	const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const now = Date.now();
+	const habits = state.doc?.habits || [];
+	const marks = state.doc?.habitMarks || [];
+	const stats = habitGraph(habits, marks, recentDayStarts(now, 14, zone), zone);
+	const today = stats[stats.length - 1];
+	const chart = document.createElement('div');
+	chart.className = 'habit-chart';
+	chart.setAttribute('aria-label', today ? `habits chart ${dayLabel(today)}` : 'habits chart');
+	const max = Math.max(1, ...stats.map((stat) => stat.completed));
+	for (const stat of stats) {
+		const bar = document.createElement('span');
+		bar.style.height = `${(stat.completed / max) * 100}%`;
+		chart.append(bar);
+	}
+	wrap.append(chart);
+	if (today) wrap.append(section(dayLabel(today)));
+	wrap.append(habitReminderControls());
+	if (!habits.length) {
+		wrap.append(empty('No habits yet.'));
+		wrap.append(empty(HABIT_HINT));
+		return wrap;
+	}
+	for (const habit of habits) wrap.append(habitRow(habit, openSlot(habit, now, zone), true));
+	return wrap;
+}
+
+function habitRow(habit, slot, details) {
+	const done = slot != null && isDone(state.doc?.habitMarks, habit.id, slot);
+	const row = document.createElement('div');
+	row.className = `row${done ? ' done' : ''}`;
+	const body = document.createElement('button');
+	body.type = 'button';
+	body.className = 'body todo-text';
+	body.textContent = habit.name;
+	const sub = document.createElement('span');
+	sub.className = 'sub';
+	sub.textContent = scheduleLabel(habit);
+	body.append(document.createElement('br'), sub);
+	const check = () => {
+		if (slot == null) return;
+		mutate({ habitMarks: toggleMark(state.doc.habitMarks, habit.id, slot, Date.now()) });
+	};
+	row.append(taskCheckButton(done, check));
+	body.addEventListener('click', check);
+	row.append(body);
+	if (details) row.append(button('×', () => removeHabit(habit.id), 'ghost'));
+	return row;
+}
+
+function habitReminderControls() {
+	const settings = state.doc?.settings || {};
+	const on = habitRemindersOn(settings);
+	const sound = habitSoundName(settings);
+	const wrap = document.createElement('div');
+	const reminders = document.createElement('div');
+	reminders.className = 'actions';
+	reminders.append(section('alarms'));
+	reminders.append(button('on', () => setHabitSettings({ habitReminders: true }), on ? 'primary' : 'ghost'));
+	reminders.append(button('off', () => setHabitSettings({ habitReminders: false }), on ? 'ghost' : 'primary'));
+	const tones = document.createElement('div');
+	tones.className = 'actions';
+	tones.append(section('tone'));
+	for (const name of HABIT_SOUNDS) {
+		tones.append(
+			button(name.toLowerCase(), () => {
+				setHabitSettings({ habitSound: name });
+				previewHabitSound(name);
+			}, sound === name ? 'primary' : 'ghost'),
+		);
+	}
+	const hint = document.createElement('p');
+	hint.className = 'hint';
+	hint.textContent = on
+		? `A reminder plays ${sound.toLowerCase()} when a slot is due.`
+		: 'Habits stay on the list. No reminder.';
+	wrap.append(reminders, tones, hint);
+	return wrap;
+}
+
+function setHabitSettings(next) {
+	ensureDoc();
+	mutate({ settings: { ...(state.doc.settings || {}), ...next } });
+}
+
+function previewHabitSound(name) {
+	const freq = { PULSE: 440, CHIME: 880, BELL: 660, ORTHODOX: 330, HUM: 220 }[name];
+	if (!freq || typeof AudioContext === 'undefined') return;
+	const audio = new AudioContext();
+	const osc = audio.createOscillator();
+	const gain = audio.createGain();
+	osc.frequency.value = freq;
+	osc.type = name === 'HUM' ? 'sine' : name === 'BELL' ? 'triangle' : 'square';
+	gain.gain.setValueAtTime(0.04, audio.currentTime);
+	osc.connect(gain).connect(audio.destination);
+	osc.start();
+	osc.stop(audio.currentTime + 0.22);
+	osc.onended = () => audio.close();
+}
+
+function addHabit(draft) {
+	const now = Date.now();
+	const habit = { id: newId(now), ...draft, createdAt: now, updatedAt: now, enabled: true };
+	mutate({
+		habits: [habit, ...(state.doc.habits || [])],
+		deletedHabitIds: (state.doc.deletedHabitIds || []).filter((id) => id !== habit.id),
+	});
+	if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+		Notification.requestPermission().catch(() => {});
+	}
+}
+
+function removeHabit(id) {
+	mutate({
+		habits: (state.doc.habits || []).filter((habit) => habit.id !== id),
+		habitMarks: (state.doc.habitMarks || []).filter((mark) => mark.habitId !== id),
+		deletedHabitIds: [...new Set([...(state.doc.deletedHabitIds || []), id])],
+	});
+}
+
+const remindedHabits = new Set();
+let habitTimer = 0;
+function armHabitReminders() {
+	clearTimeout(habitTimer);
+	if (!state.doc || !habitRemindersOn(state.doc.settings)) return;
+	const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const now = Date.now();
+	const due = dueReminder(state.doc.habits, state.doc.habitMarks, now, remindedHabits, zone);
+	if (due && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+		remindedHabits.add(`${due.habitId}:${due.slotAt}`);
+		const habit = (state.doc.habits || []).find((item) => item.id === due.habitId);
+		new Notification(due.name, { body: habit ? scheduleLabel(habit) : 'due' });
+		previewHabitSound(habitSoundName(state.doc.settings));
+	}
+	const next = nextReminderAt(state.doc.habits, state.doc.habitMarks, now, zone);
+	if (next == null) return;
+	habitTimer = setTimeout(armHabitReminders, Math.max(1000, Math.min(next - now, 60_000)));
+}
+
 function tasksScreen() {
 	const wrap = document.createElement('div');
 	const open = displayOpenTodos(items(), pendingComplete);
@@ -1713,7 +1927,7 @@ function dismissEpisode(episode, restore = false) {
 	if (!restore && state.episodeId === episode.id) {
 		audio.pause();
 		state.episodeId = null;
-		if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+		if (playbackOwner === 'podcast' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	}
 	mutate({ podcasts: { ...bag, progress: upsertProgress(bag.progress, next) } });
 }
@@ -3224,8 +3438,10 @@ function playingId() {
 }
 
 function togglePlay(episode) {
-	if (readSpeak.playing) readStop(true);
-	if (videoSpeak.playing) videoAudio.pause();
+	playbackOwner = 'podcast';
+	readStop(true);
+	videoAudio.pause();
+	publishPodcastSession(episode);
 	if (audio.src !== episode.enclosureUrl) {
 		audio.src = episode.enclosureUrl;
 	}
@@ -3780,8 +3996,16 @@ function fileInput() {
 const videoAudio = new Audio();
 videoAudio.preload = 'none';
 const videoSpeak = { id: null, playing: false, title: '' };
-videoAudio.addEventListener('play', () => { videoSpeak.playing = true; render(); });
-videoAudio.addEventListener('pause', () => { videoSpeak.playing = false; render(); });
+videoAudio.addEventListener('play', () => {
+	videoSpeak.playing = true;
+	if (playbackOwner === 'video' && navigator.mediaSession) navigator.mediaSession.playbackState = 'playing';
+	render();
+});
+videoAudio.addEventListener('pause', () => {
+	videoSpeak.playing = false;
+	if (playbackOwner === 'video' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+	render();
+});
 
 async function resolveVideo(raw) {
 	const res = await fetch(`/api/videos/resolve?url=${encodeURIComponent(raw)}`);
@@ -3824,9 +4048,17 @@ async function submitVideo(text) {
 
 async function playSavedVideo(video, audioOnly) {
 	if (!video) return;
-	if (readSpeak.playing) readStop(true);
+	playbackOwner = 'video';
+	readStop(true);
 	audio.pause();
-	const picked = await resolveVideo(video.url);
+	let picked;
+	try {
+		picked = await resolveVideo(video.url);
+	} catch (err) {
+		if (playbackOwner !== 'video') return;
+		throw err;
+	}
+	if (playbackOwner !== 'video') return;
 	videoSpeak.id = video.id;
 	videoSpeak.title = video.title;
 	videoSpeak.audioOnly = audioOnly;
@@ -3834,6 +4066,11 @@ async function playSavedVideo(video, audioOnly) {
 	videoSpeak.muxed = picked.muxed;
 	videoAudio.src = picked.audioUrl;
 	await videoAudio.play();
+	if (playbackOwner !== 'video') {
+		videoAudio.pause();
+		return;
+	}
+	publishVideoSession(video);
 	render();
 }
 
@@ -3852,7 +4089,7 @@ const readSpeak = {
 
 function readStop(save) {
 	readSpeak.playing = false;
-	if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
+	if (playbackOwner === 'article' && navigator.mediaSession) navigator.mediaSession.playbackState = 'paused';
 	readSpeak.token += 1;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = null;
@@ -4494,9 +4731,12 @@ function advanceRead(row) {
 }
 
 async function readPlay(article, startMs) {
+	playbackOwner = 'article';
 	audio.pause();
+	videoAudio.pause();
 	const held = readSpeak.audio;
 	readSpeak.token += 1;
+	const token = readSpeak.token;
 	if (readSpeak.timer) clearInterval(readSpeak.timer);
 	readSpeak.timer = null;
 	if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
@@ -4524,12 +4764,14 @@ async function readPlay(article, startMs) {
 			}
 			plan = { engine: 'backend' };
 		} catch (err) {
+			if (readSpeak.token !== token || playbackOwner !== 'article') return;
 			readSpeak.playing = false;
 			if (held) held.pause();
 			setStatus(err.message || 'Could not speak that article.');
 			return;
 		}
 	}
+	if (readSpeak.token !== token || playbackOwner !== 'article') return;
 	if (!stored && held) {
 		held.pause();
 		readSpeak.audio = null;
@@ -4572,8 +4814,58 @@ function publishArticleSession(article) {
 		album: 'Saved Articles',
 	});
 	session.playbackState = 'playing';
-	session.setActionHandler('play', () => readToggle(article));
-	session.setActionHandler('pause', () => readStop(true));
+	session.setActionHandler('play', () => {
+		if (!sessionPlayStartsArticle({ owner: playbackOwner, pageVisible: document.visibilityState === 'visible' })) return;
+		if (!readSpeak.article) return;
+		readPlay(readSpeak.article, readSpeak.positionMs || 0);
+	});
+	session.setActionHandler('pause', () => {
+		if (playbackOwner !== 'article') return;
+		readStop(true);
+	});
+}
+
+function publishPodcastSession(episode) {
+	const session = navigator.mediaSession;
+	if (!session || typeof MediaMetadata === 'undefined') return;
+	const show = podcastsOf(state.doc).shows.find((item) => item.feedUrl === episode.showId);
+	session.metadata = new MediaMetadata({
+		title: episode.title || 'Episode',
+		artist: show?.title || '',
+		album: show?.title || '',
+	});
+	session.playbackState = audio.paused ? 'paused' : 'playing';
+	session.setActionHandler('play', () => {
+		if (playbackOwner !== 'podcast' || !audio.paused) return;
+		audio.play().catch(() => {});
+		session.playbackState = 'playing';
+	});
+	session.setActionHandler('pause', () => {
+		if (playbackOwner !== 'podcast') return;
+		audio.pause();
+		session.playbackState = 'paused';
+	});
+}
+
+function publishVideoSession(video) {
+	const session = navigator.mediaSession;
+	if (!session || typeof MediaMetadata === 'undefined') return;
+	session.metadata = new MediaMetadata({
+		title: video.title || 'Video',
+		artist: 'Saved Videos',
+		album: 'Saved Videos',
+	});
+	session.playbackState = videoAudio.paused ? 'paused' : 'playing';
+	session.setActionHandler('play', () => {
+		if (playbackOwner !== 'video' || !videoAudio.paused) return;
+		videoAudio.play().catch(() => {});
+		session.playbackState = 'playing';
+	});
+	session.setActionHandler('pause', () => {
+		if (playbackOwner !== 'video') return;
+		videoAudio.pause();
+		session.playbackState = 'paused';
+	});
 }
 
 function readToggle(article) {

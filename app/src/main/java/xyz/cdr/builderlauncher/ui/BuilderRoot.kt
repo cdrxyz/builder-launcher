@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.pager.HorizontalPager
@@ -163,6 +164,9 @@ import xyz.cdr.builderlauncher.data.AccentColor
 import xyz.cdr.builderlauncher.data.ChatMessage
 import xyz.cdr.builderlauncher.data.ChatStore
 import xyz.cdr.builderlauncher.data.Chats
+import xyz.cdr.builderlauncher.data.HabitScheduler
+import xyz.cdr.builderlauncher.data.HabitStore
+import xyz.cdr.builderlauncher.data.Habits
 import xyz.cdr.builderlauncher.data.HomeTodos
 import xyz.cdr.builderlauncher.data.KeyboardMode
 import xyz.cdr.builderlauncher.data.StockInsert
@@ -263,6 +267,7 @@ fun BuilderRoot(
     articlePlayer: ArticlePlayer,
     calendar: CalendarRepository,
     clock: ClockStore,
+    habits: HabitStore,
     backup: BackupService,
     homePresses: StateFlow<Int> = MutableStateFlow(0),
     nowPlayingRequests: StateFlow<Int> = MutableStateFlow(0),
@@ -275,6 +280,7 @@ fun BuilderRoot(
     val forecast by weather.current.collectAsState()
     val weatherForecast by weather.forecast.collectAsState()
     val clockState by clock.state.collectAsState()
+    val habitState by habits.state.collectAsState()
     val watch by stocks.watch.collectAsState()
     val quotes by stocks.quotes.collectAsState()
     val podcastShows by podcasts.shows.collectAsState()
@@ -1262,6 +1268,22 @@ fun BuilderRoot(
     }
 
     fun runCommand(line: String = mode().line) {
+        if (page == Page.Habits) {
+            val trimmed = line.trim().removePrefix("-").trim()
+            if (trimmed.isEmpty()) {
+                taskMode()
+                return
+            }
+            val draft = Habits.parse(trimmed)
+            if (draft == null) {
+                Toast.makeText(ctx, Habits.HINT, Toast.LENGTH_SHORT).show()
+                return
+            }
+            habits.add(draft)
+            HabitScheduler.reconcile(ctx, habits)
+            taskMode()
+            return
+        }
         if (PromptRouting.screenOwns('-', prompt) && page == Page.Todos) {
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed == HomeTodos.TASK_PREFIX) {
@@ -1398,6 +1420,10 @@ fun BuilderRoot(
             ExecResult.NavigateClock -> openClock()
             ExecResult.NavigateWeather -> openWeather()
             ExecResult.NavigateUsage -> openUsage()
+            ExecResult.NavigateHabits -> {
+                taskMode()
+                page = Page.Habits
+            }
             ExecResult.NavigateChat -> openAsk("")
             is ExecResult.AddStock -> {
                 openStocksList()
@@ -1500,426 +1526,99 @@ fun BuilderRoot(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Ink)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize().clipToBounds(),
-                userScrollEnabled = onStrip,
-                beyondViewportPageCount = 1,
-            ) { index ->
-                Column(Modifier.fillMaxSize().clipToBounds().background(Ink)) {
+    @Composable
+    fun ColumnScope.HomePagerPage(index: Int) {
                     when (HomeStrip.pageAt(index)) {
                         Page.Home -> {
-                val previewTodos = HomeTodos.preview(HomeTodos.of(local), settings.homeTodoCount, pendingComplete)
-                val ticker = HomeTicker.line(watch, quotes, tickerIndex)
-                ClockHeader(
-                    weather = forecast?.line(settings.weatherUnits),
-                    weatherKind = forecast?.kind(),
-                    isDay = forecast?.isDay ?: true,
-                    ticker = ticker,
-                    event = upcoming,
-                    timer = clockState.timer,
-                    timers = clockState.timers,
-                    alarms = clockState.alarms,
-                    analog = settings.clockFace == ClockFace.ANALOG &&
-                        index == pagerState.currentPage &&
-                        !HomeStrip.coversPager(page),
-                    todosToday = HomeTodos.completedToday(HomeTodos.of(local)),
-                    productiveShare = if (usageToday.granted) usageToday.productiveShare else null,
-                    onOpenClock = {
-                        val snap = clock.snapshot()
-                        val tab = if (!Clock.anyTimerRunning(snap.timers.ifEmpty { listOf(snap.timer) }) && Clock.activeSnooze(snap.alarms, System.currentTimeMillis()) != null) {
-                            ClockTab.Alarm
-                        } else {
-                            null
-                        }
-                        openClock(tab)
-                    },
-                    onOpenWeather = { openWeather() },
-                    onOpenHub = { openHub() },
-                    onOpenTicker = { openStocksList() },
-                    onOpenTodos = {
-                        taskMode()
-                        page = Page.Todos
-                    },
-                    onOpenUsage = { openUsage() },
-                    playing = if (Reads.homeControlsArticle(grokPlayback.playing, grokPlayback.articleId != null, playback.playing)) grokPlayback.playing else playback.playing,
-                    episodeLoaded = if (Reads.homeControlsArticle(grokPlayback.playing, grokPlayback.articleId != null, playback.playing)) {
-                        grokPlayback.articleId != null
-                    } else {
-                        Podcasts.nowPlayingBarVisible(
-                            playback.episodeId,
-                            Podcasts.finished(playback.episodeId?.let { podcastProgress[it] }) ||
-                                Podcasts.playbackEnded(playback.playing, playback.positionMs, playback.durationMs),
-                        )
-                    },
-                    onOpenPodcasts = { openPodcastsList() },
-                    onTogglePlayback = {
-                        if (Reads.homeControlsArticle(grokPlayback.playing, grokPlayback.articleId != null, playback.playing)) {
-                            val article = readArticles.find { it.id == grokPlayback.articleId } ?: return@ClockHeader
-                            articleControls.toggle(article, grokPlayback.positionMs, readSpeed)
-                        } else {
-                            togglePlayback()
-                        }
-                    },
-                    onOpenEvent = {
-                        val item = upcoming ?: return@ClockHeader
-                        try {
-                            ctx.startActivity(calendar.viewIntent(item))
-                        } catch (_: ActivityNotFoundException) {
-                            Toast.makeText(ctx, "No calendar app", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                )
-                val overlayMenus = actionMenuOpen || prompt == SlashCommands.PROMPT
-                val filtering = people.isEmpty() && appQuery
-                if (!overlayMenus) {
-                if (!filtering) {
-                Spacer(Modifier.height(8.dp))
-                TodoPreview(
-                    open = previewTodos,
-                    onToggle = { toggleTodoAnimated(it) },
-                    leavingIds = leavingComplete.keys,
-                    onMore = {
-                        taskMode()
-                        page = Page.Todos
-                    },
-                )
-                Spacer(Modifier.height(8.dp))
-                }
-                smsDraft?.let { draft ->
-                    Text(
-                        "Send to ${draft.contact.name} (${draft.contact.number})",
-                        color = Accent,
-                        style = MaterialTheme.typography.bodyMedium,
+                fun homeArgs() = HomePageArgs(
+                        local = local,
+                        settings = settings,
+                        pendingComplete = pendingComplete,
+                        watch = watch,
+                        quotes = quotes,
+                        tickerIndex = tickerIndex,
+                        forecast = forecast,
+                        upcoming = upcoming,
+                        clockState = clockState,
+                        usageToday = usageToday,
+                        clock = clock,
+                        calendar = calendar,
+                        page = page,
+                        setPage = { page = it },
+                        pagerState = pagerState,
+                        index = index,
+                        grokPlayback = grokPlayback,
+                        playback = playback,
+                        podcastProgress = podcastProgress,
+                        readArticles = readArticles,
+                        readSpeed = readSpeed,
+                        articleControls = articleControls,
+                        actionMenuOpen = actionMenuOpen,
+                        setActionMenuOpen = { actionMenuOpen = it },
+                        prompt = prompt,
+                        setPrompt = { prompt = it },
+                        input = input,
+                        setInput = { input = it },
+                        people = people,
+                        setPeople = { people = it },
+                        appQuery = appQuery,
+                        setAppQuery = { appQuery = it },
+                        leavingComplete = leavingComplete,
+                        habitState = habitState,
+                        habits = habits,
+                        ctx = ctx,
+                        smsDraft = smsDraft,
+                        setSmsDraft = { smsDraft = it },
+                        help = help,
+                        pinPkgs = pinPkgs,
+                        appsEpoch = appsEpoch,
+                        apps = apps,
+                        choices = choices,
+                        setChoices = { choices = it },
+                        pick = pick,
+                        executor = executor,
+                        pins = pins,
+                        contactAction = contactAction,
+                        setContactAction = { contactAction = it },
+                        contactBody = contactBody,
+                        hardware = hardware,
+                        onStrip = onStrip,
+                        mode = { mode() },
+                        applyMode = { applyMode(it) },
+                        runCommand = { runCommand() },
+                        pickSlash = { pickSlash(it) },
+                        taskMode = { taskMode() },
+                        openClock = { openClock(it) },
+                        openWeather = { openWeather() },
+                        openHub = { openHub() },
+                        openStocksList = { openStocksList() },
+                        openUsage = { openUsage() },
+                        openPodcastsList = { openPodcastsList() },
+                        openNotesList = { openNotesList() },
+                        openAppsList = { openAppsList(it) },
+                        togglePlayback = { togglePlayback() },
+                        toggleTodoAnimated = { toggleTodoAnimated(it) },
+                        clearBar = { clearBar() },
                     )
-                    Text(draft.body, color = Paper, style = MaterialTheme.typography.bodyMedium)
-                    Text("Enter to send. Type anything else to cancel.", color = Dim, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(12.dp))
-                }
-                if (help) {
-                    HelpBlock()
-                    Spacer(Modifier.height(12.dp))
-                }
-                }
-                val pinned = remember(pinPkgs, appsEpoch) {
-                    val all = apps.all()
-                    pinPkgs.mapNotNull { pkg -> all.find { it.packageName == pkg } }
-                }
-                val shown = if (filtering) {
-                    AppList.preview(choices)
-                } else {
-                    choices
-                }
-                fun pickApp(app: LaunchableApp) {
-                    if (choices.isNotEmpty() || filtering) {
-                        executor.applyPick(app, pick)
-                        clearBar()
-                        choices = emptyList()
-                        appQuery = false
-                    } else {
-                        apps.launch(app)
-                    }
-                }
-                if (!overlayMenus) {
-                if (filtering) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (pick == AppPick.Launch && Notes.matchesQuery(input)) {
-                            CaretLink(
-                                Notes.MORE,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { openNotesList() }
-                                    .padding(vertical = 6.dp),
-                                color = Dim,
-                                caretColor = Dim,
-                            )
+                HomePageContent(homeArgs())
                         }
-                        if (pick == AppPick.Launch && Stocks.matchesQuery(input)) {
-                            CaretLink(
-                                Stocks.MORE,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { openStocksList() }
-                                    .padding(vertical = 6.dp),
-                                color = Dim,
-                                caretColor = Dim,
-                            )
-                        }
-                        if (pick == AppPick.Launch && Podcasts.matchesQuery(input)) {
-                            CaretLink(
-                                Podcasts.MORE,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { openPodcastsList() }
-                                    .padding(vertical = 6.dp),
-                                color = Dim,
-                                caretColor = Dim,
-                            )
-                        }
-                        shown.forEach { app ->
-                            HomeAppRow(
-                                app = app,
-                                icons = settings.appIcons == AppIcons.ICONS,
-                                drawable = apps.icon(app),
-                                onClick = { pickApp(app) },
-                                onLongClick = {
-                                    if (pins.isPinned(app.packageName)) {
-                                        pins.unpin(app.packageName)
-                                    } else {
-                                        pins.pin(app.packageName)
-                                    }
-                                },
-                            )
-                        }
-                        CaretLink(
-                            AppList.MORE,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { openAppsList(keepQuery = true) }
-                                .padding(vertical = 6.dp),
-                            color = Dim,
-                            caretColor = Dim,
+                        Page.Hub -> HubPane(
+                            hub = hub,
+                            replyKey = replyKey,
+                            replyText = replyText,
+                            onBack = { page = Page.Home },
+                            onStartReply = {
+                                replyKey = it
+                                replyText = ""
+                            },
+                            onReplyText = { replyText = it },
+                            onDismiss = {
+                                replyKey = null
+                                replyText = ""
+                                HubStore.dismiss(it)
+                            },
+                            onSend = { sendHubReply(it) },
                         )
-                    }
-                } else {
-                    Column(modifier = Modifier.weight(1f)) {
-                    val showPins = people.isEmpty() && pinned.isNotEmpty() && shown.isEmpty()
-                    if (showPins) {
-                        if (settings.appIcons == AppIcons.ICONS) {
-                            PinnedAppsRow(
-                                apps = pinned,
-                                icon = { apps.icon(it) },
-                                usage = { if (settings.pinUsage) usageToday.mark(it.packageName) else null },
-                                onLaunch = { apps.launch(it) },
-                                onMove = { from, to -> pins.moveVisible(pinned.map { it.packageName }, from, to) },
-                            )
-                        } else {
-                            PinnedAppsTextList(
-                                apps = pinned,
-                                usage = { if (settings.pinUsage) usageToday.mark(it.packageName) else null },
-                                onLaunch = { apps.launch(it) },
-                                onMove = { from, to -> pins.moveVisible(pinned.map { it.packageName }, from, to) },
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (people.isNotEmpty()) {
-                            items(people, key = { it.name + it.number }) { person ->
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            val pending = contactAction
-                                            if (pending != null) {
-                                                when (val result = executor.applyContact(person, contactBody, pending)) {
-                                                    is ExecResult.SmsDraft -> {
-                                                        smsDraft = result
-                                                        clearBar()
-                                                    }
-                                                    else -> {
-                                                        clearBar()
-                                                    }
-                                                }
-                                                people = emptyList()
-                                                contactAction = null
-                                            } else {
-                                                val glyph = if (prompt == '#') '#' else '@'
-                                                val rest = if (PrefixCommands.find(prompt) != null) input else input.drop(1)
-                                                val body = if (glyph == '@') {
-                                                    rest.trim().split(Regex("\\s+"), limit = 2)
-                                                        .getOrElse(1) { "" }
-                                                } else {
-                                                    ""
-                                                }
-                                                prompt = glyph
-                                                input = if (body.isBlank()) {
-                                                    "${person.name} "
-                                                } else {
-                                                    "${person.name} $body"
-                                                }
-                                                people = emptyList()
-                                            }
-                                        }
-                                        .padding(vertical = 6.dp),
-                                ) {
-                                    Text(person.name, color = Paper)
-                                    Text(person.number, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                        } else {
-                            items(shown, key = { it.packageName + it.activityName }) { app ->
-                                HomeAppRow(
-                                    app = app,
-                                    icons = settings.appIcons == AppIcons.ICONS,
-                                    drawable = apps.icon(app),
-                                    onClick = { pickApp(app) },
-                                    onLongClick = {
-                                        if (pins.isPinned(app.packageName)) {
-                                            pins.unpin(app.packageName)
-                                        } else {
-                                            pins.pin(app.packageName)
-                                        }
-                                    },
-                                )
-                            }
-                            if (shown.isEmpty() && pinned.isEmpty() && input.isBlank()) {
-                                item {
-                                    Text("Type to work. help for commands. Then put it down.", color = Dim)
-                                }
-                            }
-                        }
-                    }
-                    }
-                }
-                }
-                Spacer(Modifier.height(8.dp))
-                CommandBar(
-                prompt = prompt,
-                value = input,
-                hardware = hardware,
-                grabFocus = onStrip && index == pagerState.currentPage,
-                onValue = { applyMode(PrefixCommands.type(mode(), it)) },
-                onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
-                onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
-                onSubmit = { runCommand() },
-                onSlash = { pickSlash(it) },
-                onHub = { openHub() },
-                onLeft = { openPodcastsList() },
-                modifier = if (overlayMenus) Modifier.weight(1f) else Modifier,
-                actionMenuOpen = actionMenuOpen,
-                onActionMenuChange = { actionMenuOpen = it },
-                )
-                        }
-                        Page.Hub -> {
-                ScreenHeader(
-                    title = HubMessages.TITLE,
-                    leading = {
-                        ScreenBack(HubMessages.BACK, onBack = { page = Page.Home })
-                    },
-                    trailing = {
-                        DeleteIcon(
-                            Modifier
-                                .semantics { contentDescription = HubMessages.CLEAR_ALL }
-                                .clickable { HubStore.clearAll() }
-                                .padding(vertical = 6.dp),
-                        )
-                    },
-                )
-                Spacer(Modifier.height(12.dp))
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(hub, key = { it.key }) { item ->
-                        Column(Modifier.fillMaxWidth()) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(
-                                    Modifier
-                                        .weight(1f)
-                                        .semantics { contentDescription = "open message" }
-                                        .clickable { HubStore.open(item.key) }
-                                        .padding(vertical = 6.dp),
-                                ) {
-                                    Text(item.source, color = Dim, style = MaterialTheme.typography.labelSmall)
-                                    Text(item.title, color = Paper)
-                                    if (item.body.isNotBlank()) {
-                                        Text(
-                                            item.body,
-                                            color = Dim,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            maxLines = 3,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                }
-                                ReplyIcon(
-                                    Modifier
-                                        .semantics { contentDescription = "reply" }
-                                        .clickable {
-                                            if (item.canInlineReply) {
-                                                replyKey = item.key
-                                                replyText = ""
-                                            } else {
-                                                HubStore.open(item.key)
-                                            }
-                                        }
-                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                )
-                                DeleteIcon(
-                                    Modifier
-                                        .semantics { contentDescription = "dismiss" }
-                                        .clickable {
-                                            replyKey = null
-                                            replyText = ""
-                                            HubStore.dismiss(item.key)
-                                        }
-                                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                )
-                            }
-                            if (replyKey == item.key && item.canInlineReply) {
-                                Spacer(Modifier.height(4.dp))
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(Modifier.weight(1f)) {
-                                        if (replyText.isEmpty()) {
-                                            Text(
-                                                "reply",
-                                                color = Dim,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                        }
-                                        BasicTextField(
-                                            value = replyText,
-                                            onValueChange = { replyText = it },
-                                            singleLine = true,
-                                            cursorBrush = SolidColor(Accent),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Paper),
-                                            keyboardOptions = KeyboardOptions(
-                                                capitalization = KeyboardCapitalization.Sentences,
-                                                imeAction = ImeAction.Send,
-                                            ),
-                                            keyboardActions = KeyboardActions(onSend = { sendHubReply(item.key) }),
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                    }
-                                    SendIcon(
-                                        Modifier
-                                            .semantics { contentDescription = "send" }
-                                            .clickable { sendHubReply(item.key) }
-                                            .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                                    )
-                                }
-                                HorizontalDivider(color = Line, modifier = Modifier.padding(top = 8.dp))
-                            }
-                        }
-                    }
-                    if (hub.isEmpty()) {
-                        item {
-                            Text(
-                                "Grant notification access in settings to fill the hub with messages you can reply to.",
-                                color = Dim,
-                            )
-                        }
-                    }
-                }
-                        }
                         Page.Podcasts -> {
                 val searching = PromptRouting.screenOwns(PrefixCommands.DEFAULT_PROMPT, prompt) && input.trim().isNotEmpty()
                 val videoCount = SavedVideoCount()
@@ -2174,19 +1873,10 @@ fun BuilderRoot(
                         }
                         else -> Unit
                     }
-                }
-            }
-            if (HomeStrip.coversPager(page)) {
-            Column(
-                Modifier
-                    .zIndex(1f)
-                    .fillMaxSize()
-                    .background(Ink)
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                    ) {},
-            ) {
+    }
+
+    @Composable
+    fun ColumnScope.CoveredPages() {
             when (page) {
             Page.Todos -> {
                 val todos = HomeTodos.of(local)
@@ -2774,6 +2464,38 @@ fun BuilderRoot(
                     onHub = { openHub() },
                 )
             }
+            Page.Habits -> HabitsHost(
+                habits = habitState.habits,
+                marks = habitState.marks,
+                reminders = settings.habitReminders,
+                sound = settings.habitSound,
+                onReminders = { on ->
+                    settingsRepo.update { it.copy(habitReminders = on) }
+                    HabitScheduler.reconcile(ctx, habits)
+                },
+                onSound = { tone ->
+                    settingsRepo.update { it.copy(habitSound = tone) }
+                    ClockSoundPlayer.preview(ctx, tone)
+                },
+                prompt = prompt,
+                input = input,
+                hardware = hardware,
+                onBack = { page = Page.Home },
+                onToggle = { id, slot ->
+                    habits.toggle(id, slot)
+                    HabitScheduler.reconcile(ctx, habits)
+                },
+                onDelete = { id ->
+                    habits.remove(id)
+                    HabitScheduler.reconcile(ctx, habits)
+                },
+                onValue = { applyMode(PrefixCommands.type(mode(), it)) },
+                onPick = { applyMode(PrefixCommands.pick(mode(), it)) },
+                onClearMode = { applyMode(PrefixCommands.clearMode(mode())) },
+                onSubmit = { runCommand() },
+                onSlash = { pickSlash(it) },
+                onHub = { openHub() },
+            )
             Page.Settings -> {
                 SettingsPage(
                     settings = settings,
@@ -3547,6 +3269,41 @@ fun BuilderRoot(
             )
                 else -> Unit
             }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize().clipToBounds(),
+                userScrollEnabled = onStrip,
+                beyondViewportPageCount = 1,
+            ) { index ->
+                Column(Modifier.fillMaxSize().clipToBounds().background(Ink)) {
+                    HomePagerPage(index)
+                }
+            }
+            if (HomeStrip.coversPager(page)) {
+            Column(
+                Modifier
+                    .zIndex(1f)
+                    .fillMaxSize()
+                    .background(Ink)
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                    ) {},
+            ) {
+            CoveredPages()
             }
             }
         }

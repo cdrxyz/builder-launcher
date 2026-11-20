@@ -11,6 +11,7 @@ object SlashCommands {
         SlashCommand("articles", "saved articles", Command.OpenRead),
         SlashCommand("clock", "timer alarm zones", Command.OpenClock),
         SlashCommand("help", "commands", Command.Help),
+        SlashCommand("habits", "habit tracker", Command.OpenHabits),
         SlashCommand("hub", "hub", Command.OpenHub),
         SlashCommand("notes", "all notes", Command.OpenNotes),
         SlashCommand("podcasts", "all podcasts", Command.OpenPodcasts),
