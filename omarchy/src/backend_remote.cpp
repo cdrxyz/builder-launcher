@@ -48,23 +48,6 @@ QString providerBase(const QString &provider) {
     return {};
 }
 
-QString quoteLabel(const QJsonObject &body) {
-    const auto results = body.value(QStringLiteral("chart")).toObject().value(QStringLiteral("result")).toArray();
-    if (results.isEmpty())
-        return {};
-    const auto meta = results.first().toObject().value(QStringLiteral("meta")).toObject();
-    if (!meta.contains(QStringLiteral("regularMarketPrice")))
-        return {};
-    const double price = meta.value(QStringLiteral("regularMarketPrice")).toDouble();
-    const double previous = meta.contains(QStringLiteral("chartPreviousClose"))
-                                ? meta.value(QStringLiteral("chartPreviousClose")).toDouble()
-                                : meta.value(QStringLiteral("previousClose")).toDouble(price);
-    const double percent = previous == 0 ? 0 : (price - previous) / previous * 100.0;
-    const QString sign = percent > 0 ? QStringLiteral("+") : QString();
-    const int digits = qAbs(price) >= 1000 ? 0 : qAbs(price) >= 1 ? 2 : 4;
-    return QString::number(price, 'f', digits) + QStringLiteral("  ") + sign + QString::number(percent, 'f', 1) + QLatin1Char('%');
-}
-
 } // namespace
 
 void Backend::searchStock(const QString &query) {
@@ -100,38 +83,43 @@ void Backend::searchStock(const QString &query) {
 }
 
 void Backend::searchPodcast(const QString &query) {
+    const int generation = ++m_searchGen;
+    const QString from = m_page;
     setStatus(tr("Searching podcasts…"));
     api(QStringLiteral("GET"), QStringLiteral("/api/podcasts/search?q=") + QString::fromUtf8(QUrl::toPercentEncoding(query)), {}, true,
-        [this](QJsonObject body, QString error) {
-            m_rows.clear();
+        [this, generation, from](QJsonObject body, QString error) {
+            if (generation != m_searchGen || m_page != from)
+                return;
+            m_podcastHits.clear();
+            m_showPodcastHits = false;
             if (!error.isEmpty()) {
                 setStatus(error);
-                return;
-            }
-            const auto results = body.value(QStringLiteral("results")).toArray();
-            if (results.isEmpty()) {
-                setStatus(tr("No podcast matches."));
                 rebuild();
                 return;
             }
-            for (const auto &value : results) {
+            for (const auto &value : body.value(QStringLiteral("results")).toArray()) {
                 const auto hit = value.toObject();
                 const QString feed = hit.value(QStringLiteral("feedUrl")).toString();
                 const QString title = hit.value(QStringLiteral("collectionName")).toString(hit.value(QStringLiteral("trackName")).toString());
                 if (feed.isEmpty() || title.isEmpty())
                     continue;
-                m_rows.append(QVariantMap{{QStringLiteral("id"), feed},
-                                          {QStringLiteral("title"), title},
-                                          {QStringLiteral("subtitle"), hit.value(QStringLiteral("artistName")).toString()},
-                                          {QStringLiteral("trailing"), QString()},
-                                          {QStringLiteral("kind"), QStringLiteral("hit")}});
+                m_podcastHits.append(QVariantMap{{QStringLiteral("id"), feed},
+                                                 {QStringLiteral("title"), title},
+                                                 {QStringLiteral("subtitle"), hit.value(QStringLiteral("artistName")).toString()},
+                                                 {QStringLiteral("trailing"), QString()},
+                                                 {QStringLiteral("kind"), QStringLiteral("hit")}});
             }
-            m_selected = 0;
-            if (m_rows.isEmpty())
+            if (m_podcastHits.isEmpty()) {
                 setStatus(tr("No podcast matches."));
-            else
-                setStatus(tr("Enter subscribes the selected show."));
-            emit changed();
+                rebuild();
+                return;
+            }
+            m_showPodcastHits = true;
+            m_page = QStringLiteral("podcasts");
+            m_prompt = QStringLiteral(">");
+            m_selected = 0;
+            setStatus(tr("Enter subscribes the selected show."));
+            rebuild();
         });
 }
 
@@ -371,6 +359,7 @@ void Backend::subscribeShow(const QString &feedUrl, const QString &title, const 
                        show.insert(QStringLiteral("author"), author);
                        show.insert(QStringLiteral("episodeOrder"), QStringLiteral("NEWEST"));
                        show.insert(QStringLiteral("subscribedAt"), double(QDateTime::currentMSecsSinceEpoch()));
+                       show.insert(QStringLiteral("lastCheckedAt"), double(QDateTime::currentMSecsSinceEpoch()));
                        kept.prepend(show);
                        QJsonArray episodes;
                        for (const auto &value : pods.value(QStringLiteral("episodes")).toArray()) {
@@ -387,6 +376,9 @@ void Backend::subscribeShow(const QString &feedUrl, const QString &title, const 
                        auto next = m_doc;
                        next.insert(QStringLiteral("podcasts"), pods);
                        mutate(touchExported(next, QDateTime::currentMSecsSinceEpoch()));
+                       ++m_searchGen;
+                       m_showPodcastHits = false;
+                       m_podcastHits.clear();
                        m_detailId = feedUrl;
                        m_page = QStringLiteral("show");
                        m_prompt = QStringLiteral(">");
@@ -447,6 +439,69 @@ void Backend::refreshWeather() {
         });
 }
 
+void Backend::refreshPodcastFeeds() {
+    if (m_token.isEmpty() || m_token == QLatin1String("demo"))
+        return;
+    const QString open = m_page == QLatin1String("show") ? m_detailId : QString();
+    m_feedQueue = feedsToRefresh(m_doc, QDateTime::currentMSecsSinceEpoch(), open);
+    pumpFeeds();
+}
+
+void Backend::pumpFeeds() {
+    if (m_feedBusy)
+        return;
+    if (m_token.isEmpty() || m_token == QLatin1String("demo") || m_feedQueue.isEmpty()) {
+        m_feedQueue.clear();
+        return;
+    }
+    m_feedBusy = true;
+    const QString feedUrl = m_feedQueue.takeFirst();
+    m_http.request(QStringLiteral("GET"),
+                   QUrl(m_api + QStringLiteral("/api/feed?url=") + QString::fromUtf8(QUrl::toPercentEncoding(feedUrl))), {}, m_token,
+                   [this, feedUrl](int status, const QByteArray &body, const QString &) {
+                       m_feedBusy = false;
+                       if (status >= 200 && status < 300)
+                           storeFeed(feedUrl, body);
+                       pumpFeeds();
+                   });
+}
+
+void Backend::storeFeed(const QString &feedUrl, const QByteArray &xml) {
+    const auto parsed = parseFeedEpisodes(xml, feedUrl);
+    if (parsed.isEmpty())
+        return;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    auto pods = m_doc.value(QStringLiteral("podcasts")).toObject();
+    bool found = false;
+    QJsonArray shows;
+    for (const auto &value : pods.value(QStringLiteral("shows")).toArray()) {
+        auto show = value.toObject();
+        if (show.value(QStringLiteral("feedUrl")).toString().compare(feedUrl, Qt::CaseInsensitive) == 0) {
+            show.insert(QStringLiteral("lastCheckedAt"), double(now));
+            found = true;
+        }
+        shows.append(show);
+    }
+    if (!found)
+        return;
+    QJsonArray episodes;
+    for (const auto &value : pods.value(QStringLiteral("episodes")).toArray()) {
+        const auto episode = value.toObject();
+        const QString showId = episode.value(QStringLiteral("showId")).toString(episode.value(QStringLiteral("feedUrl")).toString());
+        if (showId.compare(feedUrl, Qt::CaseInsensitive) != 0)
+            episodes.append(episode);
+    }
+    for (const auto &value : parsed)
+        episodes.append(value);
+    pods.insert(QStringLiteral("shows"), shows);
+    pods.insert(QStringLiteral("episodes"), episodes);
+    m_doc.insert(QStringLiteral("podcasts"), pods);
+    saveVault();
+    const bool openShow = m_page == QLatin1String("show") && m_detailId.compare(feedUrl, Qt::CaseInsensitive) == 0;
+    if (!m_showPodcastHits && (m_page == QLatin1String("podcasts") || openShow))
+        rebuild();
+}
+
 void Backend::refreshQuotes() {
     if (m_token == QLatin1String("demo"))
         return;
@@ -460,10 +515,11 @@ void Backend::refreshQuotes() {
             true, [this, symbol](QJsonObject body, QString error) {
                 if (!error.isEmpty())
                     return;
-                const QString label = quoteLabel(body);
-                if (label.isEmpty())
+                const Quote quote = quoteFromChart(body);
+                if (!quote.ok)
                     return;
-                m_quotes.insert(symbol, label);
+                m_quotes.insert(symbol, quote);
+                scheduleBar();
                 if (m_page == QLatin1String("stocks") || m_page == QLatin1String("home"))
                     rebuild();
             });

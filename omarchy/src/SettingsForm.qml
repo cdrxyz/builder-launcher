@@ -24,9 +24,14 @@ Flickable {
         TextField { id: code; placeholderText: qsTr("Invite code"); Material.accent: theme.accent; Layout.fillWidth: true }
         RowLayout {
             Button {
-                text: backend.signedIn ? qsTr("Sign out") : qsTr("Sign in")
+                text: qsTr("Sign in")
                 Material.accent: theme.accent
-                onClicked: backend.signedIn ? backend.signOut() : backend.signIn(email.text, password.text)
+                onClicked: backend.signIn(email.text, password.text)
+            }
+            Button {
+                text: qsTr("Sign out")
+                visible: backend.signedIn
+                onClicked: backend.signOut()
             }
             Button {
                 text: backend.signupOpens(code.text) ? qsTr("Create account") : qsTr("Join waitlist")

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Talk to the running desk. The checkout build understands `bar` before the
+# package on PATH does. A packaged copy of this script has no sibling build,
+# so it falls through to whatever `builder-launcher` the session starts.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
+built=$here/../build/builder-launcher
+if [ -x "$built" ]; then
+    exec "$built" "$@"
+fi
+exec builder-launcher "$@"

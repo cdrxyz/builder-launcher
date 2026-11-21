@@ -4,7 +4,7 @@ pkgrel=1
 pkgdesc='A keyboard desk for the builder.cdr.xyz account'
 arch=('x86_64' 'aarch64')
 license=('MIT')
-depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'qt6-multimedia' 'xdg-desktop-portal')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'qt6-multimedia' 'qt6-multimedia-ffmpeg' 'xdg-desktop-portal')
 makedepends=('gcc' 'make' 'qt6-svg')
 source=()
 sha256sums=()
@@ -20,4 +20,8 @@ package() {
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 "$startdir/builder-launcher.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/builder-launcher.svg"
   install -Dm644 "$startdir/builder-launcher.desktop" "$pkgdir/usr/share/applications/builder-launcher.desktop"
+  install -Dm755 "$startdir/../bar/desk" "$pkgdir/usr/share/builder-launcher/bar/desk"
+  install -Dm644 "$startdir/../bar/DeskBar.qml" "$pkgdir/usr/share/builder-launcher/bar/DeskBar.qml"
+  install -Dm644 "$startdir/../bar/i18n/en.json" "$pkgdir/usr/share/builder-launcher/bar/i18n/en.json"
+  install -Dm644 "$startdir/../bar/i18n/da.json" "$pkgdir/usr/share/builder-launcher/bar/i18n/da.json"
 }

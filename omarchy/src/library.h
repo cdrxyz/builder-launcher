@@ -1,9 +1,12 @@
 #pragma once
 
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLocale>
 #include <QSet>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 // Local edits to the vault document. Stamps match the phone and the page so a
@@ -55,6 +58,15 @@ QString slashCommand(const QString &query);
 QStringList slashNames();
 QJsonArray parseFeedEpisodes(const QByteArray &xml, const QString &feedUrl);
 
+// Shows with no episodes always need a fetch. A show that already has episodes
+// is fetched again once lastCheckedAt is missing or older than staleMs. The
+// open show is first so that page fills before the rest of the library.
+QStringList feedsToRefresh(const QJsonObject &doc, qint64 now, const QString &openFeed, qint64 staleMs = 30LL * 60 * 1000);
+
+qint64 speechDurationMs(const QString &text);
+qint64 articlePositionMs(const QJsonObject &doc, const QString &articleId);
+double articleReadingFraction(const QJsonObject &doc, const QString &articleId);
+
 // The page writes a playhead about every 10 seconds, or at once on pause.
 bool playbackDue(qint64 lastSavedAt, qint64 now, qint64 lastPos, qint64 pos, bool force);
 bool playbackFinished(qint64 positionMs, qint64 durationMs);
@@ -68,6 +80,45 @@ bool slimDiffers(const QJsonObject &left, const QJsonObject &right);
 
 QVector<int> alarmDays(const QJsonObject &alarm);
 QJsonObject findById(const QJsonArray &list, const QString &id, const char *key = "id");
+
+// A Yahoo chart quote. Percent is the daily move against the previous close.
+struct Quote {
+    bool ok = false;
+    double price = 0;
+    double percent = 0;
+    QString currency;
+};
+
+Quote quoteFromChart(const QJsonObject &body);
+QString formatQuotePrice(const Quote &quote, const QLocale &locale);
+QString formatQuoteChange(const Quote &quote, const QLocale &locale);
+// "up", "down", or "flat", using the same tenth-of-a-percent the label shows.
+QString quoteTone(double percent);
+
+// What the top bar is allowed to show. Titles are plain text: a task body is
+// untrusted, and the bar paints it in a process that treats rich text as markup.
+struct BarMedia {
+    QString title;
+    QString detail;
+    QString kind;
+    bool playing = false;
+    QString position;
+};
+
+QString deskDataDir();
+QString barSocketPath();
+QString barStatusPath();
+QJsonObject barStatus(const QJsonObject &doc, const QHash<QString, Quote> &quotes, const BarMedia &media,
+                      const BarMedia &reading, const QString &weatherTemp, const QLocale &locale);
+// Text from the bar's add line. Empty after trim is rejected. Controls become
+// spaces so a paste cannot store a newline. Angle brackets stay in the vault;
+// the bar display strips those when it paints.
+QString barTaskText(const QString &text);
+// Talks to the running desk. status prints the snapshot. Anything else needs the desk.
+int sendBarCommand(const QStringList &args);
+// True when a desk is already listening. A second launch uses this to raise
+// that desk instead of taking its socket.
+bool barDeskListening();
 
 QJsonObject parseHabit(const QString &raw);
 QString habitSchedule(const QJsonObject &habit);

@@ -1,0 +1,11 @@
+{
+  "bar.play": "Play",
+  "bar.pause": "Pause",
+  "bar.back": "Back 15 seconds",
+  "bar.forward": "Forward 30 seconds",
+  "bar.done": "Mark done",
+  "bar.open": "Open Builder Launcher",
+  "bar.reading": "Reading",
+  "bar.idle": "Builder",
+  "bar.add": "Add a task"
+}

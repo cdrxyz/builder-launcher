@@ -9,7 +9,9 @@ ApplicationWindow {
     height: 680
     minimumWidth: 720
     minimumHeight: 480
-    visible: true
+    // Shown from onCompleted unless this process was started for the bar alone.
+    // A binding would pin a resident window hidden after the bar asks it to open.
+    visible: false
     title: "Builder Launcher"
     color: "#0e0e10"
 
@@ -20,10 +22,56 @@ ApplicationWindow {
     property bool helpVisible: false
     property int pad: Math.min(8, theme.radius)
 
-    Shortcut { sequence: "Ctrl+Q"; context: Qt.ApplicationShortcut; onActivated: backend.dirty ? quitDialog.open() : Qt.quit() }
+    property bool quitForReal: false
+
+    // Closing the window takes it off the workspace. The desk keeps running so
+    // the bar can mark tasks and drive playback with no window open.
+    function leave() {
+        win.quitForReal = true
+        Qt.quit()
+    }
+
+    Component.onCompleted: {
+        if (!startHidden)
+            win.show()
+    }
+
+    onClosing: function (close) {
+        if (!stayResident || win.quitForReal) {
+            close.accepted = true
+            return
+        }
+        close.accepted = false
+        win.hide()
+    }
+
+    Connections {
+        target: backend
+        function onRaiseRequested() {
+            win.show()
+            win.raise()
+            win.requestActivate()
+        }
+    }
+    Shortcut { sequence: "Ctrl+Q"; context: Qt.ApplicationShortcut; onActivated: backend.dirty ? quitDialog.open() : win.leave() }
     Shortcut { sequences: [StandardKey.Undo]; context: Qt.ApplicationShortcut; onActivated: backend.undo() }
     Shortcut { sequences: [StandardKey.Redo]; context: Qt.ApplicationShortcut; onActivated: backend.redo() }
     Shortcut { sequence: "Ctrl+/"; context: Qt.ApplicationShortcut; onActivated: win.helpVisible = !win.helpVisible }
+    // Omarchy delivers Cmd+[ and Cmd+] as Alt+Left and Alt+Right. That is
+    // StandardKey.Back and Forward here, along with the Back and Forward keys.
+    // Meta+[ is the same chord when the compositor does not translate it.
+    Shortcut {
+        sequences: [StandardKey.Back, "Meta+["]
+        context: Qt.ApplicationShortcut
+        enabled: backend.canBack
+        onActivated: backend.back()
+    }
+    Shortcut {
+        sequences: [StandardKey.Forward, "Meta+]"]
+        context: Qt.ApplicationShortcut
+        enabled: backend.canForward
+        onActivated: backend.forward()
+    }
     Shortcut {
         sequence: "Esc"
         context: Qt.ApplicationShortcut
@@ -56,7 +104,56 @@ ApplicationWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-                Label { text: backend.title; font.pixelSize: 22; font.bold: true }
+                spacing: 2
+                AbstractButton {
+                    id: backButton
+                    enabled: backend.canBack
+                    hoverEnabled: true
+                    onClicked: backend.back()
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    Layout.alignment: Qt.AlignVCenter
+                    Accessible.name: qsTr("Back")
+                    contentItem: Text {
+                        text: Qt.application.layoutDirection === Qt.RightToLeft ? "→" : "←"
+                        color: backButton.enabled ? "#f4f4f5" : "#3a3a40"
+                        font.pixelSize: 20
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: backButton.down ? "#2a2a30" : (backButton.hovered ? "#1c1c22" : "transparent")
+                        radius: Math.min(4, theme.radius)
+                    }
+                    ToolTip.visible: backButton.hovered && backButton.enabled
+                    ToolTip.text: qsTr("Back")
+                    ToolTip.delay: 500
+                }
+                AbstractButton {
+                    id: forwardButton
+                    enabled: backend.canForward
+                    hoverEnabled: true
+                    onClicked: backend.forward()
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    Layout.alignment: Qt.AlignVCenter
+                    Accessible.name: qsTr("Forward")
+                    contentItem: Text {
+                        text: Qt.application.layoutDirection === Qt.RightToLeft ? "←" : "→"
+                        color: forwardButton.enabled ? "#f4f4f5" : "#3a3a40"
+                        font.pixelSize: 20
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: forwardButton.down ? "#2a2a30" : (forwardButton.hovered ? "#1c1c22" : "transparent")
+                        radius: Math.min(4, theme.radius)
+                    }
+                    ToolTip.visible: forwardButton.hovered && forwardButton.enabled
+                    ToolTip.text: qsTr("Forward")
+                    ToolTip.delay: 500
+                }
+                Label { text: backend.title; font.pixelSize: 22; font.bold: true; Layout.leftMargin: 6 }
                 Item { Layout.fillWidth: true }
                 Label { text: backend.syncLabel; color: "#9a9aa3"; font.pixelSize: 12 }
             }
@@ -78,7 +175,30 @@ ApplicationWindow {
                     id: list
                     clip: true
                     spacing: 4
+                    reuseItems: true
                     model: backend.menuOpen ? backend.menu : backend.rows
+                    // Qt's wheel handler on Wayland moves about one row per notch, and a
+                    // trackpad pixelDelta is left raw. Four desktop steps matches the
+                    // other Omarchy apps. Keyboard movement still follows the selection;
+                    // playback and status updates do not pull the list back.
+                    property int followedSelection: -1
+                    function clampedContentY(y) {
+                        const top = originY
+                        const bottom = originY + Math.max(0, contentHeight - height)
+                        return Math.max(top, Math.min(bottom, y))
+                    }
+                    function wheelDistance(wheel) {
+                        const notch = Math.max(1, Application.styleHints.wheelScrollLines) * 24 * 4
+                        const device = wheel.device
+                        const trackpad = device && (device.type === PointerDevice.TouchPad
+                                                     || device.pointerType === PointerDevice.Finger)
+                        if (trackpad)
+                            return wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y * 4 : wheel.angleDelta.y / 120 * notch
+                        if (wheel.angleDelta.y !== 0)
+                            return wheel.angleDelta.y / 120 * notch
+                        return wheel.pixelDelta.y * 4
+                    }
+                    Component.onCompleted: followedSelection = backend.selected
                     delegate: Item {
                         width: list.width
                         required property var modelData
@@ -120,7 +240,16 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                     }
                                 }
-                                Label { text: modelData.trailing; color: "#9a9aa3" }
+                                Label {
+                                    text: modelData.trailing || ""
+                                    color: "#9a9aa3"
+                                    visible: text.length > 0
+                                }
+                                Label {
+                                    text: modelData.change || ""
+                                    visible: text.length > 0
+                                    color: modelData.tone === "up" ? "#3DDC97" : modelData.tone === "down" ? "#FF5F57" : "#9a9aa3"
+                                }
                             }
                             MouseArea {
                                 anchors.fill: parent
@@ -131,13 +260,21 @@ ApplicationWindow {
                     Connections {
                         target: backend
                         function onChanged() {
+                            if (list.followedSelection === backend.selected)
+                                return
+                            const index = backend.selected
+                            list.followedSelection = index
                             Qt.callLater(function() {
-                                if (backend.selected >= 0 && backend.selected < list.count)
-                                    list.positionViewAtIndex(backend.selected, ListView.Contain)
+                                if (index >= 0 && index < list.count)
+                                    list.positionViewAtIndex(index, ListView.Contain)
                             })
                         }
                     }
                     Keys.onPressed: event => {
+                        if (event.isAutoRepeat && (event.key === Qt.Key_Space || event.key === Qt.Key_X)) {
+                            event.accepted = true
+                            return
+                        }
                         if (event.key === Qt.Key_J || event.key === Qt.Key_Down) { backend.moveSelection(1); event.accepted = true }
                         if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { backend.moveSelection(-1); event.accepted = true }
                         if (event.key === Qt.Key_Space) { backend.toggleSelection(); event.accepted = true }
@@ -145,6 +282,18 @@ ApplicationWindow {
                         if (event.key === Qt.Key_Left && backend.page === "home") { backend.nudgeHomePane(80); event.accepted = true }
                         if (event.key === Qt.Key_Right && backend.page === "home") { backend.nudgeHomePane(-80); event.accepted = true }
                         if (event.key === Qt.Key_Question) { win.helpVisible = !win.helpVisible; event.accepted = true }
+                    }
+                    // The list would otherwise consume the wheel before a child sees it.
+                    WheelHandler {
+                        blocking: true
+                        onWheel: wheel => {
+                            const dy = list.wheelDistance(wheel)
+                            if (dy !== 0) {
+                                list.cancelFlick()
+                                list.contentY = list.clampedContentY(list.contentY - dy)
+                            }
+                            wheel.accepted = true
+                        }
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -234,6 +383,10 @@ ApplicationWindow {
                             event.accepted = true
                         }
                         Keys.onPressed: event => {
+                            if (event.isAutoRepeat && (event.key === Qt.Key_Space || event.key === Qt.Key_Delete)) {
+                                event.accepted = true
+                                return
+                            }
                             if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
                                 backend.moveSelection(event.key === Qt.Key_Down ? 1 : -1)
                                 event.accepted = true
@@ -260,10 +413,13 @@ ApplicationWindow {
                 }
             }
 
-            Label {
-                text: qsTr("Sign-in merges this desk with the account. It does not replace either side. Built by <a href=\"https://cdr.xyz\">Cedar Labs</a>.")
+            Text {
+                // Material's Label paints links in the accent color. A plain Text
+                // with an explicit font color keeps Cedar Labs light grey and underlined.
+                text: qsTr("Sign-in merges this desk with the account. It does not replace either side. Built by <a href=\"https://cdr.xyz\"><font color=\"#d7d7de\"><u>Cedar Labs</u></font></a>.")
                 textFormat: Text.RichText
                 color: "#6e6e78"
+                linkColor: "#d7d7de"
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -303,6 +459,19 @@ ApplicationWindow {
                 }
             }
         }
+
+        // Side buttons only. Left clicks and the wheel still reach the page.
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.BackButton | Qt.ForwardButton
+            onPressed: mouse => {
+                if (mouse.button === Qt.BackButton)
+                    backend.back()
+                else if (mouse.button === Qt.ForwardButton)
+                    backend.forward()
+                mouse.accepted = true
+            }
+        }
     }
 
     Dialog {
@@ -319,7 +488,7 @@ ApplicationWindow {
             color: "#f4f4f5"
         }
         footer: DialogButtonBox {
-            Button { text: qsTr("Quit"); DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole; onClicked: Qt.quit() }
+            Button { text: qsTr("Quit"); DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole; onClicked: win.leave() }
             Button { text: qsTr("Stay"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
         }
     }

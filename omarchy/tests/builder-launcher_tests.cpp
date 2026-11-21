@@ -1,9 +1,11 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "backend.h"
 #include "library.h"
 #include "merge.h"
 #include "theme.h"
@@ -24,8 +26,14 @@ private slots:
     void playbackWaitsTenSeconds();
     void playbackMarksNearlyFinished();
     void playbackProgressRoundTrips();
+    void feedsRefreshEmptyShowsFirst();
+    void readingFractionUsesSavedPlace();
     void themeFallsBack();
     void translatorFallsBackToEnglish();
+    void historyWalksPagesAndNotes();
+    void quotesUseCurrencyAndDailyColor();
+    void barStatusKeepsPlainGlanceables();
+    void barAddKeepsTheTypedTask();
 
 private:
     static void write(const QString &path, const QByteArray &contents) {
@@ -153,6 +161,54 @@ void BuilderLauncherTests::playbackProgressRoundTrips() {
     QCOMPARE(savedResumeMs(again, QStringLiteral("ep")), 0);
 }
 
+void BuilderLauncherTests::feedsRefreshEmptyShowsFirst() {
+    QJsonObject showA;
+    showA.insert(QStringLiteral("feedUrl"), QStringLiteral("https://example.com/a"));
+    showA.insert(QStringLiteral("lastCheckedAt"), 1000000);
+    QJsonObject showB;
+    showB.insert(QStringLiteral("feedUrl"), QStringLiteral("https://example.com/b"));
+    QJsonObject episode;
+    episode.insert(QStringLiteral("id"), QStringLiteral("1"));
+    episode.insert(QStringLiteral("showId"), QStringLiteral("https://example.com/a"));
+    QJsonArray shows;
+    shows.append(showA);
+    shows.append(showB);
+    QJsonArray episodes;
+    episodes.append(episode);
+    QJsonObject pods;
+    pods.insert(QStringLiteral("shows"), shows);
+    pods.insert(QStringLiteral("episodes"), episodes);
+    QJsonObject doc;
+    doc.insert(QStringLiteral("podcasts"), pods);
+    const auto due = feedsToRefresh(doc, 1001000, QStringLiteral("https://example.com/b"));
+    QCOMPARE(due, QStringList({QStringLiteral("https://example.com/b")}));
+    const auto later = feedsToRefresh(doc, 1000000 + 31LL * 60 * 1000, {});
+    QCOMPARE(later, QStringList({QStringLiteral("https://example.com/a"), QStringLiteral("https://example.com/b")}));
+    const auto openFirst = feedsToRefresh(doc, 1000000 + 31LL * 60 * 1000, QStringLiteral("https://example.com/b"));
+    QCOMPARE(openFirst, QStringList({QStringLiteral("https://example.com/b"), QStringLiteral("https://example.com/a")}));
+}
+
+void BuilderLauncherTests::readingFractionUsesSavedPlace() {
+    QJsonObject article;
+    article.insert(QStringLiteral("id"), QStringLiteral("r1"));
+    article.insert(QStringLiteral("text"), QStringLiteral("one two three four"));
+    QJsonObject progress;
+    progress.insert(QStringLiteral("articleId"), QStringLiteral("r1"));
+    progress.insert(QStringLiteral("positionMs"), 750);
+    QJsonArray articles;
+    articles.append(article);
+    QJsonArray rows;
+    rows.append(progress);
+    QJsonObject reads;
+    reads.insert(QStringLiteral("articles"), articles);
+    reads.insert(QStringLiteral("progress"), rows);
+    QJsonObject doc;
+    doc.insert(QStringLiteral("reads"), reads);
+    QCOMPARE(speechDurationMs(QStringLiteral("one two three four")), 1500);
+    QCOMPARE(articleReadingFraction(doc, QStringLiteral("r1")), 0.5);
+    QVERIFY(articleReadingFraction(doc, QStringLiteral("missing")) == 0.0);
+}
+
 void BuilderLauncherTests::themeFallsBack() {
     QTemporaryDir dir;
     Theme theme(dir.path());
@@ -165,6 +221,186 @@ void BuilderLauncherTests::translatorFallsBackToEnglish() {
     Translator translator(dir.path() + QStringLiteral("/language"), dir.path());
     QCOMPARE(translator.language(), QStringLiteral("en"));
     QVERIFY(translator.translate("Main", "Save").isNull());
+}
+
+void BuilderLauncherTests::historyWalksPagesAndNotes() {
+    QStandardPaths::setTestModeEnabled(true);
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QVERIFY(!dir.contains(QStringLiteral("/cdr/builder-launcher")));
+    Backend backend;
+    QCOMPARE(backend.page(), QStringLiteral("home"));
+    QVERIFY(!backend.canBack());
+    QVERIFY(!backend.canForward());
+    backend.back();
+    QCOMPARE(backend.page(), QStringLiteral("home"));
+
+    backend.loadDemo();
+    backend.go(QStringLiteral("tasks"));
+    backend.go(QStringLiteral("tasks"));
+    backend.setPrompt(QStringLiteral("/"));
+    QVERIFY(backend.canBack());
+    QVERIFY(!backend.canForward());
+    backend.back();
+    QCOMPARE(backend.page(), QStringLiteral("home"));
+    QVERIFY(backend.canForward());
+
+    backend.forward();
+    QCOMPARE(backend.page(), QStringLiteral("tasks"));
+    backend.go(QStringLiteral("notes"));
+    backend.back();
+    backend.go(QStringLiteral("stocks"));
+    QVERIFY(!backend.canForward());
+    QCOMPARE(backend.page(), QStringLiteral("stocks"));
+    backend.back();
+    QCOMPARE(backend.page(), QStringLiteral("tasks"));
+
+    backend.go(QStringLiteral("notes"));
+    backend.activateSelection();
+    QCOMPARE(backend.page(), QStringLiteral("note"));
+    QCOMPARE(backend.detail(), QStringLiteral("# Shop notes"));
+    backend.back();
+    QCOMPARE(backend.page(), QStringLiteral("notes"));
+    backend.forward();
+    QCOMPARE(backend.page(), QStringLiteral("note"));
+    QCOMPARE(backend.detail(), QStringLiteral("# Shop notes"));
+    // Note ids are the clock, so a second note in the same millisecond would
+    // share the first note's id and look like the same page.
+    QTest::qWait(2);
+    backend.setDraft(QStringLiteral("Second note"));
+    backend.submit();
+    QCOMPARE(backend.page(), QStringLiteral("note"));
+    QCOMPARE(backend.detail(), QStringLiteral("# Second note"));
+    backend.back();
+    QCOMPARE(backend.page(), QStringLiteral("note"));
+    QCOMPARE(backend.detail(), QStringLiteral("# Shop notes"));
+    QVERIFY(backend.canForward());
+}
+
+void BuilderLauncherTests::quotesUseCurrencyAndDailyColor() {
+    const QLocale en(QLocale::English, QLocale::UnitedStates);
+    Quote gained;
+    gained.ok = true;
+    gained.price = 1234.5;
+    gained.percent = 1.24;
+    gained.currency = QStringLiteral("USD");
+    QCOMPARE(formatQuotePrice(gained, en), QStringLiteral("$1,234.50"));
+    QCOMPARE(formatQuoteChange(gained, en), QStringLiteral("+1.2%"));
+    QCOMPARE(quoteTone(gained.percent), QStringLiteral("up"));
+
+    Quote lost;
+    lost.ok = true;
+    lost.price = 88;
+    lost.percent = -1.26;
+    lost.currency = QStringLiteral("USD");
+    QCOMPARE(formatQuotePrice(lost, en), QStringLiteral("$88.00"));
+    QCOMPARE(formatQuoteChange(lost, en), QStringLiteral("-1.3%"));
+    QCOMPARE(quoteTone(lost.percent), QStringLiteral("down"));
+
+    Quote flat;
+    flat.ok = true;
+    flat.price = 10;
+    flat.percent = 0.04;
+    flat.currency = QStringLiteral("USD");
+    QCOMPARE(formatQuoteChange(flat, en), QStringLiteral("0.0%"));
+    QCOMPARE(quoteTone(flat.percent), QStringLiteral("flat"));
+
+    Quote kroner;
+    kroner.ok = true;
+    kroner.price = 1234.5;
+    kroner.percent = 0.2;
+    kroner.currency = QStringLiteral("DKK");
+    const QString dkk = formatQuotePrice(kroner, QLocale(QLocale::Danish, QLocale::Denmark));
+    QVERIFY(dkk.contains(QStringLiteral("kr")));
+    QVERIFY(dkk.contains(QLatin1Char(',')));
+
+    const auto missing = quoteFromChart(QJsonObject());
+    QVERIFY(!missing.ok);
+    const auto parsed = quoteFromChart(QJsonDocument::fromJson(
+        R"({"chart":{"result":[{"meta":{"regularMarketPrice":190.5,"chartPreviousClose":180,"currency":"USD"}}]}})")
+                                            .object());
+    QVERIFY(parsed.ok);
+    QCOMPARE(parsed.currency, QStringLiteral("USD"));
+    QCOMPARE(quoteTone(parsed.percent), QStringLiteral("up"));
+    QCOMPARE(formatQuoteChange(parsed, en), QStringLiteral("+5.8%"));
+}
+
+void BuilderLauncherTests::barStatusKeepsPlainGlanceables() {
+    QJsonObject doc = emptyDoc(1000);
+    doc = addTask(doc, QStringLiteral("one"), 1000);
+    doc = addTask(doc, QStringLiteral("two"), 2000);
+    doc = addTask(doc, QStringLiteral("three"), 3000);
+    doc = addTask(doc, QStringLiteral("four"), 4000);
+    doc = addTask(doc, QStringLiteral("<img src='https://example.invalid/t'>"), 5000);
+    auto settings = doc.value(QStringLiteral("settings")).toObject();
+    settings.insert(QStringLiteral("apiKey"), QStringLiteral("secret-token"));
+    settings.insert(QStringLiteral("weatherPlace"), QStringLiteral("Harbor"));
+    doc.insert(QStringLiteral("settings"), settings);
+    QJsonObject listed;
+    listed.insert(QStringLiteral("symbol"), QStringLiteral("ACME"));
+    QJsonArray watch;
+    watch.append(listed);
+    doc.insert(QStringLiteral("watchlist"), watch);
+    QJsonObject alarm;
+    alarm.insert(QStringLiteral("hour"), 7);
+    alarm.insert(QStringLiteral("minute"), 30);
+    alarm.insert(QStringLiteral("label"), QStringLiteral("Breakfast"));
+    alarm.insert(QStringLiteral("enabled"), true);
+    QJsonArray alarms;
+    alarms.append(alarm);
+    doc.insert(QStringLiteral("alarms"), alarms);
+
+    Quote gained;
+    gained.ok = true;
+    gained.price = 10;
+    gained.percent = 1;
+    gained.currency = QStringLiteral("USD");
+    QHash<QString, Quote> quotes;
+    quotes.insert(QStringLiteral("ACME"), gained);
+    BarMedia media;
+    media.title = QStringLiteral("Episode <b>");
+    media.detail = QStringLiteral("Show");
+    media.kind = QStringLiteral("episode");
+    media.playing = true;
+    media.position = QStringLiteral("1:02");
+    const QLocale en(QLocale::English, QLocale::UnitedStates);
+    const auto status = barStatus(doc, quotes, media, BarMedia(), QStringLiteral("12°"), en);
+    const auto body = QJsonDocument(status).toJson(QJsonDocument::Compact);
+    QVERIFY(!body.contains("secret-token"));
+    QVERIFY(!body.contains("<img"));
+    QVERIFY(!body.contains("<b>"));
+    QCOMPARE(status.value(QStringLiteral("todos")).toArray().size(), 3);
+    QCOMPARE(status.value(QStringLiteral("todos")).toArray().first().toObject().value(QStringLiteral("title")).toString(),
+             QStringLiteral("img src='https://example.invalid/t'"));
+    QCOMPARE(status.value(QStringLiteral("media")).toObject().value(QStringLiteral("title")).toString(), QStringLiteral("Episode b"));
+    QCOMPARE(status.value(QStringLiteral("media")).toObject().value(QStringLiteral("playing")).toBool(), true);
+    const auto quote = status.value(QStringLiteral("quotes")).toArray().first().toObject();
+    QCOMPARE(quote.value(QStringLiteral("price")).toString(), QStringLiteral("$10.00"));
+    QCOMPARE(quote.value(QStringLiteral("change")).toString(), QStringLiteral("+1.0%"));
+    QCOMPARE(quote.value(QStringLiteral("tone")).toString(), QStringLiteral("up"));
+    QCOMPARE(status.value(QStringLiteral("weather")).toObject().value(QStringLiteral("temp")).toString(), QStringLiteral("12°"));
+    QCOMPARE(status.value(QStringLiteral("alarm")).toObject().value(QStringLiteral("time")).toString(), QStringLiteral("07:30"));
+}
+
+void BuilderLauncherTests::barAddKeepsTheTypedTask() {
+    QCOMPARE(barTaskText(QString()), QString());
+    QCOMPARE(barTaskText(QStringLiteral("   \n\t  ")), QString());
+    QCOMPARE(barTaskText(QStringLiteral("  buy <cedar> & oil  ")), QStringLiteral("buy <cedar> & oil"));
+    QString noisy = QStringLiteral("line\rone\ttwo");
+    noisy.append(QChar(7));
+    QCOMPARE(barTaskText(noisy), QStringLiteral("line one two"));
+    QCOMPARE(barTaskText(QString(500, QLatin1Char('n'))).size(), 400);
+
+    const auto doc = addTask(emptyDoc(1), barTaskText(QStringLiteral("  buy <cedar> & oil  ")), 2);
+    const auto item = doc.value(QStringLiteral("items")).toArray().first().toObject();
+    QCOMPARE(item.value(QStringLiteral("text")).toString(), QStringLiteral("buy <cedar> & oil"));
+    QCOMPARE(item.value(QStringLiteral("kind")).toString(), QStringLiteral("todo"));
+    QVERIFY(item.value(QStringLiteral("completedAt")).isNull());
+    QCOMPARE(openTodos(doc).size(), 1);
+
+    const QLocale en(QLocale::English, QLocale::UnitedStates);
+    const auto status = barStatus(doc, {}, BarMedia(), BarMedia(), {}, en);
+    QCOMPARE(status.value(QStringLiteral("todos")).toArray().first().toObject().value(QStringLiteral("title")).toString(),
+             QStringLiteral("buy cedar oil"));
 }
 
 QTEST_MAIN(BuilderLauncherTests)
