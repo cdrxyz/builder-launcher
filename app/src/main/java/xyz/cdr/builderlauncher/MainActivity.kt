@@ -13,9 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.withContext
 import xyz.cdr.builderlauncher.ai.LlmClient
 import xyz.cdr.builderlauncher.ai.oauth.OAuthService
 import xyz.cdr.builderlauncher.apps.InstalledApps
@@ -26,32 +24,22 @@ import xyz.cdr.builderlauncher.clock.ClockAlertService
 import xyz.cdr.builderlauncher.contacts.PhoneContacts
 import xyz.cdr.builderlauncher.sms.SmsSender
 import xyz.cdr.builderlauncher.data.HabitScheduler
-import xyz.cdr.builderlauncher.data.HabitStore
-import xyz.cdr.builderlauncher.data.LocalLists
-import xyz.cdr.builderlauncher.data.ChatStore
-import xyz.cdr.builderlauncher.data.PinnedApps
-import xyz.cdr.builderlauncher.data.SettingsRepository
 import xyz.cdr.builderlauncher.home.HomeGesture
 import xyz.cdr.builderlauncher.home.HomeRole
 import xyz.cdr.builderlauncher.ui.BuilderRoot
 import xyz.cdr.builderlauncher.ui.theme.BuilderTheme
 import xyz.cdr.builderlauncher.ui.theme.accentColor
 import xyz.cdr.builderlauncher.backup.AccountSync
-import xyz.cdr.builderlauncher.backup.BackupService
 import xyz.cdr.builderlauncher.calendar.CalendarRepository
 import xyz.cdr.builderlauncher.weather.WeatherRepository
-import xyz.cdr.builderlauncher.stocks.StocksRepository
 import xyz.cdr.builderlauncher.podcasts.PodcastPlayer
 import xyz.cdr.builderlauncher.podcasts.Podcasts
-import xyz.cdr.builderlauncher.podcasts.PodcastsRepository
 import xyz.cdr.builderlauncher.read.ArticleMedia
 import xyz.cdr.builderlauncher.videos.VideoMedia
 import xyz.cdr.builderlauncher.read.ArticlePlayer
 import xyz.cdr.builderlauncher.read.ReadSpeaker
 import xyz.cdr.builderlauncher.read.Reads
-import xyz.cdr.builderlauncher.read.ReadsRepository
 import xyz.cdr.builderlauncher.videos.VideoPlayer
-import xyz.cdr.builderlauncher.videos.VideosRepository
 
 class MainActivity : ComponentActivity() {
     private val homeRoleLauncher = registerForActivityResult(
@@ -75,21 +63,22 @@ class MainActivity : ComponentActivity() {
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
         }
-        val settings = SettingsRepository(this)
+        val stores = AccountSync.stores(this)
+        val settings = stores.settings
         val apps = InstalledApps(this)
-        val lists = LocalLists(this)
-        val chats = ChatStore(this)
-        val pins = PinnedApps(this)
+        val lists = stores.lists
+        val chats = stores.chats
+        val pins = stores.pins
         val people = PhoneContacts(this)
         val sms = SmsSender(this)
         val oauth = OAuthService(settings)
         val llm = LlmClient(settings, oauth)
         val executor = CommandExecutor(this, apps, lists, pins, people, sms)
         val weather = WeatherRepository(this, settings)
-        val stocks = StocksRepository(this)
-        val podcasts = PodcastsRepository(this)
-        val reads = ReadsRepository(this)
-        val videos = VideosRepository(this)
+        val stocks = stores.stocks
+        val podcasts = stores.podcasts
+        val reads = stores.reads
+        val videos = stores.videos
         val reader = ReadSpeaker(this)
         val grok = ArticlePlayer(this)
         val picture = VideoPlayer(this)
@@ -98,18 +87,12 @@ class MainActivity : ComponentActivity() {
         VideoMedia.videos = videos
         speaker = reader
         articlePlayer = grok
+        stores.articlePlayer = grok
         val calendar = CalendarRepository(this)
         val clock = ClockStore.get(this)
-        val habits = HabitStore(this)
-        val backup = BackupService(this, settings, lists, chats, pins, stocks, podcasts, reads, videos, clock, habits)
-        AccountSync.upload = {
-            withContext(Dispatchers.Main) {
-                PodcastPlayer.persist()
-                articlePlayer?.persist()
-            }
-            backup.markLocalChange()
-            backup.tickAuto()
-        }
+        val habits = stores.habits
+        val backup = stores.backup
+        AccountSync.install(this)
         ClockScheduler.reconcile(this, clock)
         HabitScheduler.reconcile(this, habits)
         applyAlertWindow()

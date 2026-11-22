@@ -37,6 +37,7 @@ class ArticlePlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        AccountSync.install(this)
         val created = MediaSession(this, "saved-articles")
         created.setSessionActivity(PodcastPlaybackService.nowPlayingIntent(this))
         created.setCallback(

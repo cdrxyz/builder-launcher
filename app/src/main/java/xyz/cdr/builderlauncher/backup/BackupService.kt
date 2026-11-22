@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import xyz.cdr.builderlauncher.clock.Clock
@@ -314,19 +313,28 @@ class BackupService(
 
     private fun pullAccount(nowMs: Long): Boolean {
         val s = settings.settings.value
-        val remoteDoc = withAccount { account.getVault(it) }.document ?: return false
+        val remote = withAccount { account.getVault(it) }.document ?: return false
         val local = document(nowMs)
         val localKey = stampOf(local)
-        val merged = BackupMerge.join(local, remoteDoc)
+        val remoteKey = stampOf(remote)
+        val merged = BackupMerge.join(local, remote)
         val mergedKey = stampOf(merged)
-        if (mergedKey == localKey) {
-            if (remoteDoc.exportedAt > s.lastBackupAtEpochMs) settings.markBackup(remoteDoc.exportedAt)
+        val outcome = BackupAuto.pullOutcome(localKey, remoteKey, mergedKey)
+        if (outcome == BackupAuto.Outcome.MATCHED) {
+            if (remote.exportedAt > s.lastBackupAtEpochMs) settings.markBackup(remote.exportedAt)
             rememberSynced()
             return false
         }
-        val stamped = merged.copy(exportedAt = maxOf(nowMs, remoteDoc.exportedAt, local.exportedAt))
+        val stamped = merged.copy(exportedAt = maxOf(nowMs, remote.exportedAt, local.exportedAt))
+        if (outcome == BackupAuto.Outcome.PUSH_LOCAL) {
+            // Local changes that never rode a push (dirty flag lost, process restart).
+            withAccount { account.putVault(it, stamped) }
+            settings.markBackup(stamped.exportedAt)
+            rememberSynced()
+            return false
+        }
         apply(stamped)
-        if (mergedKey != stampOf(remoteDoc)) {
+        if (mergedKey != remoteKey) {
             withAccount { account.putVault(it, stamped) }
         }
         settings.markBackup(stamped.exportedAt)
@@ -419,17 +427,3 @@ class BackupService(
     }
 }
 
-/** Playback can outlive the screen. The activity installs the upload; the player asks for it. */
-object AccountSync {
-    private val scope = kotlinx.coroutines.CoroutineScope(
-        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
-    )
-
-    @Volatile
-    var upload: (suspend () -> Unit)? = null
-
-    fun pulse() {
-        val run = upload ?: return
-        scope.launch { run() }
-    }
-}

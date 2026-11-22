@@ -174,6 +174,31 @@ class BackupAutoTest {
             ),
         )
     }
+
+    @Test
+    fun pullPushesLocalChangesTheCloudIsMissing() {
+        // A listen or a new show that never rode a push still uploads on the next pull.
+        assertEquals(
+            BackupAuto.Outcome.PUSH_LOCAL,
+            BackupAuto.pullOutcome(localKey = "a", remoteKey = "b", mergedKey = "a"),
+        )
+    }
+
+    @Test
+    fun pullAppliesWhenTheRemoteContributed() {
+        assertEquals(
+            BackupAuto.Outcome.APPLY,
+            BackupAuto.pullOutcome(localKey = "a", remoteKey = "b", mergedKey = "ab"),
+        )
+    }
+
+    @Test
+    fun pullIsQuietWhenBothSidesMatch() {
+        assertEquals(
+            BackupAuto.Outcome.MATCHED,
+            BackupAuto.pullOutcome(localKey = "a", remoteKey = "a", mergedKey = "a"),
+        )
+    }
 }
 
 class BackupDocumentTest {
