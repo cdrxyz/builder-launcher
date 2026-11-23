@@ -147,7 +147,18 @@ class BackupService(
             return block(settings.settings.value.accountToken)
         } catch (err: IllegalStateException) {
             if (!AccountRefresh.shouldRetry(err.message, settings.settings.value.accountRefresh)) throw err
-            val next = account.refresh(settings.settings.value.accountRefresh)
+            val next = try {
+                account.refresh(settings.settings.value.accountRefresh)
+            } catch (refreshErr: IllegalStateException) {
+                if (AccountRefresh.isExpired(refreshErr.message)) {
+                    // The refresh token is dead: no auto sync can ever succeed again.
+                    // Drop the tokens (keep the email for the sign-in form) so the
+                    // settings screen stops claiming a live session.
+                    settings.update { it.copy(accountToken = "", accountRefresh = "") }
+                    throw IllegalStateException("Session expired. Sign in again to resume sync.", refreshErr)
+                }
+                throw refreshErr
+            }
             saveSession(next)
             return block(next.token)
         }
@@ -277,7 +288,8 @@ class BackupService(
                 }
                 BackupAuto.Action.NONE -> false
             }
-        } catch (_: Exception) {
+        } catch (err: Exception) {
+            settings.markSyncError(err.message ?: "Sync failed", nowMs)
             false
         } finally {
             busy.set(false)
@@ -403,6 +415,11 @@ class BackupService(
             if (epochMs <= 0L) return "never"
             val fmt = SimpleDateFormat("d MMM HH:mm", Locale.getDefault())
             return fmt.format(Date(epochMs))
+        }
+
+        fun lastSyncErrorLabel(error: String, atEpochMs: Long): String {
+            if (error.isBlank()) return ""
+            return "Sync failed: $error (${lastBackupLabel(atEpochMs)})"
         }
 
         private fun requireReady(s: BuilderSettings) {

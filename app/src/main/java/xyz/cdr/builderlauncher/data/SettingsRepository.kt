@@ -59,6 +59,8 @@ data class BuilderSettings(
     val accountRefresh: String = "",
     val backupFrequency: BackupFrequency = BackupFrequency.AUTO,
     val lastBackupAtEpochMs: Long = 0L,
+    val lastSyncError: String = "",
+    val lastSyncErrorAtEpochMs: Long = 0L,
     val backupIncludeAiCredentials: Boolean = false,
     val calendarRestrict: Boolean = false,
     val calendarIds: Set<Long> = emptySet(),
@@ -138,7 +140,11 @@ class SettingsRepository(context: Context) {
         ProviderAccounts.connected(accounts, _settings.value, nowMs)
 
     fun markBackup(atEpochMs: Long) {
-        update { it.copy(lastBackupAtEpochMs = atEpochMs) }
+        update { it.copy(lastBackupAtEpochMs = atEpochMs, lastSyncError = "", lastSyncErrorAtEpochMs = 0L) }
+    }
+
+    fun markSyncError(message: String, atEpochMs: Long) {
+        update { it.copy(lastSyncError = message.take(200), lastSyncErrorAtEpochMs = atEpochMs) }
     }
 
     fun applyBackup(restored: BackupSettings) {
@@ -252,6 +258,8 @@ class SettingsRepository(context: Context) {
             accountRefresh = prefs.getString(KEY_ACCOUNT_REFRESH, "") ?: "",
             backupFrequency = BackupFrequency.parse(prefs.getString(KEY_BACKUP_FREQ, BackupFrequency.AUTO.name)),
             lastBackupAtEpochMs = prefs.getString(KEY_BACKUP_LAST, "0")?.toLongOrNull() ?: 0L,
+            lastSyncError = prefs.getString(KEY_SYNC_ERROR, "") ?: "",
+            lastSyncErrorAtEpochMs = prefs.getString(KEY_SYNC_ERROR_AT, "0")?.toLongOrNull() ?: 0L,
             backupIncludeAiCredentials = prefs.getString(KEY_BACKUP_AI, "") == "true",
             calendarRestrict = calendar.restrict,
             calendarIds = calendar.ids,
@@ -310,6 +318,8 @@ class SettingsRepository(context: Context) {
             .putString(KEY_ACCOUNT_REFRESH, next.accountRefresh)
             .putString(KEY_BACKUP_FREQ, next.backupFrequency.name)
             .putString(KEY_BACKUP_LAST, next.lastBackupAtEpochMs.toString())
+            .putString(KEY_SYNC_ERROR, next.lastSyncError)
+            .putString(KEY_SYNC_ERROR_AT, next.lastSyncErrorAtEpochMs.toString())
             .putString(KEY_BACKUP_AI, if (next.backupIncludeAiCredentials) "true" else "false")
             .putString(
                 KEY_CALENDAR_RESTRICT,
@@ -369,6 +379,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_ACCOUNT_REFRESH = "account_refresh"
         private const val KEY_BACKUP_FREQ = "backup_frequency"
         private const val KEY_BACKUP_LAST = "backup_last"
+        private const val KEY_SYNC_ERROR = "sync_error"
+        private const val KEY_SYNC_ERROR_AT = "sync_error_at"
         private const val KEY_BACKUP_AI = "backup_include_ai"
         private const val KEY_CALENDAR_RESTRICT = "calendar_restrict"
         private const val KEY_CALENDAR_IDS = "calendar_ids"
