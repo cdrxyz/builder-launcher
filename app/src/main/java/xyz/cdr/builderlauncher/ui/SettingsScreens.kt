@@ -569,6 +569,13 @@ internal fun SettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        if (settings.lastSyncError.isNotBlank()) {
+            Text(
+                BackupService.lastSyncErrorLabel(settings.lastSyncError, settings.lastSyncErrorAtEpochMs),
+                color = Paper,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Spacer(Modifier.height(16.dp))
         CaretLink(
             "… hub apps >",
@@ -886,7 +893,7 @@ internal fun BackupSettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
-        if (settings.accountEmail.isNotBlank()) {
+        if (settings.accountToken.isNotBlank()) {
             Text(
                 "Signed in as ${settings.accountEmail}",
                 color = Accent,
@@ -1142,6 +1149,13 @@ internal fun BackupSettingsPage(
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
+        if (settings.lastSyncError.isNotBlank()) {
+            Text(
+                BackupService.lastSyncErrorLabel(settings.lastSyncError, settings.lastSyncErrorAtEpochMs),
+                color = Paper,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         backupMsg?.let {
             Text(it, color = Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
         }
