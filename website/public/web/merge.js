@@ -215,11 +215,54 @@ function slimWatch(list) {
 	}));
 }
 
+/**
+ * Epoch-millisecond stamps are integers. A client that writes a fractional
+ * stamp (updatedAt: 1794951762423.9924) cannot be decoded by clients with
+ * integer fields and bricks their sync until the vault is rewritten. Round
+ * any fractional number under a stamp key on the way through the boundary.
+ * Values are left untouched otherwise, so integral stamps and legit
+ * fractional fields (prices, coordinates, speed) keep their exact bytes.
+ */
+export function roundStamps(value) {
+	if (!value || typeof value !== 'object') return value;
+	if (Array.isArray(value)) {
+		let changed = false;
+		const out = value.map((row) => {
+			const next = roundStamps(row);
+			if (next !== row) changed = true;
+			return next;
+		});
+		return changed ? out : value;
+	}
+	let changed = false;
+	const out = {};
+	for (const key of Object.keys(value)) {
+		const val = value[key];
+		let next = val;
+		if (isStampKey(key) && isFractional(val)) {
+			next = Math.round(val);
+		} else if (val && typeof val === 'object') {
+			next = roundStamps(val);
+		}
+		if (next !== val) changed = true;
+		out[key] = next;
+	}
+	return changed ? out : value;
+}
+
+function isStampKey(key) {
+	return key === 'at' || key.endsWith('At') || key.endsWith('Ms');
+}
+
+function isFractional(val) {
+	return typeof val === 'number' && Number.isFinite(val) && !Number.isInteger(val);
+}
+
 export function slimDoc(doc) {
 	if (!doc || typeof doc !== 'object') return doc;
 	const pods = doc.podcasts || {};
 	const reads = doc.reads || {};
-	return {
+	return roundStamps({
 		...doc,
 		watchlist: slimWatch(doc.watchlist),
 		podcasts: {
@@ -233,7 +276,7 @@ export function slimDoc(doc) {
 			deletedIds: reads.deletedIds || [],
 		},
 		videos: doc.videos || { videos: [], deletedIds: [] },
-	};
+	});
 }
 
 export function isQuotaError(err) {

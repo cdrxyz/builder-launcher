@@ -1,6 +1,6 @@
 import { currentUser, writeAudit, clientIp } from './auth';
 import { jsonError } from './safe';
-import { mergeDocs, slimDoc } from '../../website/public/web/merge.js';
+import { mergeDocs, roundStamps, slimDoc } from '../../website/public/web/merge.js';
 
 export type VaultEnv = { DB: D1Database; VAULT?: R2Bucket };
 
@@ -29,7 +29,7 @@ async function getVault(env: VaultEnv, userId: string): Promise<Response> {
 	return json({
 		ok: true,
 		revision: row?.revision || 0,
-		document,
+		document: document == null ? null : roundStamps(document),
 		updatedAt: row?.updated_at || null,
 	});
 }

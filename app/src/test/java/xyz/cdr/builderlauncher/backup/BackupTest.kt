@@ -1,5 +1,11 @@
 package xyz.cdr.builderlauncher.backup
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -545,6 +551,62 @@ class S3ClientTest {
         val result = S3Client(http).probe("https://abc.r2.cloudflarestorage.com", "b", "a", "s", "")
         assertTrue(result.ok)
         assertEquals("S3 access good — backup present. Set encryption key to verify.", result.line)
+    }
+}
+
+class BackupStampsTest {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    @Test
+    fun aFractionalStampDecodesRounded() {
+        val poisoned = """
+            {
+              "exportedAt": 1794951762423,
+              "items": [{
+                "id": "t19", "kind": "todo", "text": "Amazon USB wifi",
+                "createdAt": 1794951760000, "updatedAt": 1794951762423.9924,
+                "order": 179500, "orderedAt": 1795000000000
+              }],
+              "deletedIds": []
+            }
+        """.trimIndent()
+        val doc = BackupStamps.decodeDocument(poisoned, json)
+        assertEquals(1794951762424L, doc.items.single().updatedAt)
+        assertEquals(1794951760000L, doc.items.single().createdAt)
+    }
+
+    @Test
+    fun integralDocumentsComeBackUnchanged() {
+        val element = json.parseToJsonElement(
+            """{"exportedAt":5,"items":[{"id":"a","updatedAt":10,"weatherLat":43.46}],"chats":[]}""",
+        )
+        assertTrue(BackupStamps.roundStamps(element) === element)
+    }
+
+    @Test
+    fun legitimateFractionalNumbersSurvive() {
+        val element = json.parseToJsonElement(
+            """{"items":[{"id":"a","price":190.125,"speed":1.4,"weatherLat":43.4610,"updatedAt":1794951762423.9924}]}""",
+        )
+        val item = BackupStamps.roundStamps(element).let { it as JsonObject }["items"]!!
+            .let { it as JsonArray }.single().let { it as JsonObject }
+        assertEquals(190.125, item["price"]!!.let { it as JsonPrimitive }.doubleOrNull!!, 0.0)
+        assertEquals(1.4, item["speed"]!!.let { it as JsonPrimitive }.doubleOrNull!!, 0.0)
+        assertEquals(43.4610, item["weatherLat"]!!.let { it as JsonPrimitive }.doubleOrNull!!, 0.0)
+        assertEquals(1794951762424L, item["updatedAt"]!!.let { it as JsonPrimitive }.longOrNull)
+    }
+
+    @Test
+    fun positionMsAndPinChangeAtAreStamps() {
+        val element = json.parseToJsonElement(
+            """{"pinChanges":[{"packageName":"x","pinned":false,"at":1000.5}],"podcasts":{"progress":[{"episodeId":"e","positionMs":1234.6,"lastPlayedAt":9}]}}""",
+        )
+        val text = BackupStamps.roundStamps(element).toString()
+        assertTrue(text.contains("\"at\":1001"))
+        assertTrue(text.contains("\"positionMs\":1235"))
     }
 }
 
