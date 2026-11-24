@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeDocs } from '../public/merge.js';
+import { mergeDocs, roundStamps, slimDoc } from '../../website/public/web/merge.js';
 
 const T0 = 1_760_000_000_000; // task created
 const T1 = T0 + 86_400_000; // checked off, then synced everywhere
@@ -142,4 +142,32 @@ test('an article and its playback position survive either merge order', () => {
 		assert.equal(merged.reads.articles[0].text, body);
 		assert.equal(merged.reads.progress[0].positionMs, 90000);
 	}
+});
+
+// A fractional epoch-millisecond stamp (e.g. 1794951762423.9924) cannot be
+// decoded by clients with integer fields and bricks their sync until the
+// vault is rewritten. Stamps are integers; every write through the Worker
+// (slimDoc) and every read (vault getVault) rounds them.
+test('a fractional item stamp is rounded, not kept', () => {
+	const poisoned = doc([task({ text: 'Amazon USB wifi', updatedAt: 1794951762423.9924 })], 1794951762423);
+	const slim = slimDoc(poisoned);
+	assert.equal(slim.items[0].updatedAt, 1794951762424);
+	assert.equal(roundStamps(poisoned).items[0].updatedAt, 1794951762424);
+});
+
+test('an integral document survives slimDoc byte-identical', () => {
+	const clean = doc([task({})], T0);
+	assert.equal(slimDoc(clean).items[0].updatedAt, 0);
+	assert.deepEqual(Object.keys(roundStamps(clean)), Object.keys(clean));
+	assert.equal(roundStamps(clean).exportedAt, T0);
+});
+
+test('legit fractional numbers are not rounded', () => {
+	const out = roundStamps({
+		items: [{ id: 'a', price: 190.125, weatherLat: 43.461 }],
+		podcasts: { progress: [{ positionMs: 1234.5 }] },
+	});
+	assert.equal(out.items[0].price, 190.125);
+	assert.equal(out.items[0].weatherLat, 43.461);
+	assert.equal(out.podcasts.progress[0].positionMs, 1235);
 });

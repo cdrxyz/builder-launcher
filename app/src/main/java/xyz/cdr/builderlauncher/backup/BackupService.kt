@@ -83,7 +83,7 @@ class BackupService(
 
     fun encode(document: BackupDocument): String = json.encodeToString(document)
 
-    fun decode(text: String): BackupDocument = json.decodeFromString(text)
+    fun decode(text: String): BackupDocument = BackupStamps.decodeDocument(text, json)
 
     fun upload(nowMs: Long = System.currentTimeMillis()): String {
         val s = settings.settings.value
