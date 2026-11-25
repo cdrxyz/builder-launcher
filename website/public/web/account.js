@@ -10,6 +10,9 @@ export const OVERWRITE_WARNING =
 /** Vault and auth calls. Longer than RSS/Yahoo so a large snapshot can finish. */
 export const API_TIMEOUT_MS = 20_000;
 
+/** A multi-megabyte vault snapshot over cellular needs more than the API budget. */
+export const VAULT_TIMEOUT_MS = 60_000;
+
 export function confirmOverwriteLocal(ask = typeof window !== 'undefined' ? window.confirm.bind(window) : () => false) {
 	return Boolean(ask(OVERWRITE_WARNING));
 }
@@ -17,6 +20,17 @@ export function confirmOverwriteLocal(ask = typeof window !== 'undefined' ? wind
 export function isAbortError(err) {
 	const name = err?.name || '';
 	return name === 'AbortError' || name === 'TimeoutError';
+}
+
+/**
+ * The status line never shows a raw browser exception. An abort is Safari's
+ * way of saying a backgrounded fetch or IndexedDB transaction gave up; the
+ * quiet sync retries it, so the line should say that instead of the
+ * DOMException text.
+ */
+export function syncStatusFromError(err) {
+	if (isAbortError(err)) return 'Interrupted. It will retry on its own.';
+	return err?.message || String(err);
 }
 
 /** Login fields must look like a real account form so iCloud/Bitwarden/Google offer a fill. */

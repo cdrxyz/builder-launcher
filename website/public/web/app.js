@@ -10,6 +10,8 @@ import {
 	setAccountRefresher,
 	storeAccountCredential,
 	signupCodeOpens,
+	syncStatusFromError,
+	VAULT_TIMEOUT_MS,
 } from './account.js';
 import { emptyDoc, joinDocs, keepFreshArticles, mergeDocs, slimDoc, isQuotaError, writeSnapshot } from './merge.js';
 import { PLAY_SAVE_MS, WRITE_QUIET_MS, autoSyncDelay, settlePushedDoc, syncReadyAt } from './sync-quiet.js';
@@ -634,7 +636,7 @@ async function writeCatalog(episodes) {
 
 function statusFromError(err) {
 	if (isQuotaError(err)) return 'This browser is out of storage for the snapshot. Hard-refresh, then sync again.';
-	return err?.message || String(err);
+	return syncStatusFromError(err);
 }
 
 function readyCreds(creds) {
@@ -710,7 +712,7 @@ async function pullAccount(opts = {}) {
 	state.busy = true;
 	if (!opts.quiet) setStatus('Syncing…');
 	try {
-		const remote = await apiJson('/api/vault', { token: state.account.token });
+		const remote = await apiJson('/api/vault', { token: state.account.token, timeout: VAULT_TIMEOUT_MS });
 		state.revision = remote.revision || 0;
 		if (!remote.document && remote.revision > 0) {
 			throw new Error('Could not read the account snapshot. Nothing was uploaded.');
@@ -778,6 +780,7 @@ async function pushAccount(opts = {}) {
 			method: 'PUT',
 			token: state.account.token,
 			body: { document: slimDoc(next) },
+			timeout: VAULT_TIMEOUT_MS,
 		});
 		applyPushed(next, remote.document || next, startedAt, gen);
 		state.revision = remote.revision || state.revision;
