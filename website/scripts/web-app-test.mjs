@@ -1089,6 +1089,21 @@ test('account API calls abort after 20s', async () => {
 	assert.match(js, /Request timed out\. Try again\./);
 });
 
+test('vault calls ride the longer budget and an abort reads as interrupted', async () => {
+	const { VAULT_TIMEOUT_MS, syncStatusFromError } = await import('../public/web/account.js');
+	assert.equal(VAULT_TIMEOUT_MS, 60_000);
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const vaultCalls = js.match(/apiJson\('\/api\/vault'[\s\S]*?\}\)/g) || [];
+	assert.equal(vaultCalls.length, 2);
+	for (const call of vaultCalls) assert.match(call, /VAULT_TIMEOUT_MS/);
+	const safariAbort = { name: 'AbortError', message: 'The operation was aborted.' };
+	const timedOut = { name: 'TimeoutError', message: 'signal timed out' };
+	for (const err of [safariAbort, timedOut]) {
+		assert.equal(syncStatusFromError(err), 'Interrupted. It will retry on its own.');
+	}
+	assert.equal(syncStatusFromError(new Error('HTTP 503')), 'HTTP 503');
+});
+
 test('mergeDocs keeps different tasks from both sides', async () => {
 	const { mergeDocs } = await import('../public/web/merge.js');
 	const merged = mergeDocs(
