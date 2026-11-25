@@ -1119,6 +1119,18 @@ test('a dead session reads as expired and the page drops it once', async () => {
 	assert.doesNotMatch(refresh, /catch \(err\) \{\s*\n\s*return ''/);
 });
 
+test('the account sign-in form stays reachable while a session looks live', async () => {
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const form = js.slice(
+		js.indexOf("form.id = 'builder-account-form'"),
+		js.indexOf('function promptAccountPassword'),
+	);
+	assert.doesNotMatch(form, /if \(!signedIn\(\)\)/);
+	assert.match(form, /field\('Password', 'password'/);
+	assert.match(form, /button\('sync now', \(\) => pull\(\), 'primary'\)/);
+	assert.match(form, /textContent = 'sign in';/);
+});
+
 test('mergeDocs keeps different tasks from both sides', async () => {
 	const { mergeDocs } = await import('../public/web/merge.js');
 	const merged = mergeDocs(
