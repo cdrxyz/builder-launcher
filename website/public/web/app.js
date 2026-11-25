@@ -439,7 +439,16 @@ async function refreshAccount() {
 		});
 		saveAccount(state.account);
 		return state.account.token;
-	} catch {
+	} catch (err) {
+		// A 401 from the refresh endpoint is definitive: the stored session is
+		// gone server-side and no auto sync can ever succeed again. Drop the
+		// dead tokens (keep the email for the sign-in form) instead of letting
+		// every sync paint "Not signed in" forever. Timeouts and rate limits
+		// are not definitive and keep the session.
+		if (err?.message === 'Not signed in') {
+			state.account = accountRecord({ email: state.account.email });
+			saveAccount(state.account);
+		}
 		return '';
 	}
 }

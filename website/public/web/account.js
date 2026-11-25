@@ -30,6 +30,7 @@ export function isAbortError(err) {
  */
 export function syncStatusFromError(err) {
 	if (isAbortError(err)) return 'Interrupted. It will retry on its own.';
+	if (err?.message === 'Not signed in') return 'Session expired. Sign in again.';
 	return err?.message || String(err);
 }
 

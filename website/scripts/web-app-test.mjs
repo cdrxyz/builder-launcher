@@ -1104,6 +1104,21 @@ test('vault calls ride the longer budget and an abort reads as interrupted', asy
 	assert.equal(syncStatusFromError(new Error('HTTP 503')), 'HTTP 503');
 });
 
+test('a dead session reads as expired and the page drops it once', async () => {
+	const { syncStatusFromError } = await import('../public/web/account.js');
+	assert.equal(syncStatusFromError({ message: 'Not signed in' }), 'Session expired. Sign in again.');
+	const js = await readFile(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const refresh = js.slice(
+		js.indexOf('async function refreshAccount'),
+		js.indexOf('function loadIncludeAi'),
+	);
+	// Only the refresh endpoint's definitive 401 clears the stored tokens;
+	// timeouts and rate limits keep the session.
+	assert.match(refresh, /err\?\.message === 'Not signed in'/);
+	assert.match(refresh, /accountRecord\(\{ email: state\.account\.email \}\)/);
+	assert.doesNotMatch(refresh, /catch \(err\) \{\s*\n\s*return ''/);
+});
+
 test('mergeDocs keeps different tasks from both sides', async () => {
 	const { mergeDocs } = await import('../public/web/merge.js');
 	const merged = mergeDocs(
