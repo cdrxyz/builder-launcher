@@ -178,6 +178,39 @@ export function playedWordMs(audioMs, audioDurationMs, textDurationMs) {
 	return Math.min(textDur, Math.round((textDur * Math.max(0, audio)) / audioDur));
 }
 
+export function audioMsFromWord(wordMs, audioDurationMs, textDurationMs) {
+	const word = Number(wordMs) || 0;
+	const audioDur = Number(audioDurationMs);
+	const textDur = Number(textDurationMs) || 0;
+	if (!Number.isFinite(audioDur) || audioDur <= 0 || textDur <= 0) return Math.max(0, word);
+	const clamped = Math.min(textDur, Math.max(0, word));
+	return Math.min(audioDur, Math.round((audioDur * clamped) / textDur));
+}
+
+export function articleResumeMs(requestedMs, rowStartMs, rowEndMs) {
+	const start = Math.max(0, Number(rowStartMs) || 0);
+	const end = Number(rowEndMs);
+	const requested = Math.max(0, Number(requestedMs) || 0);
+	if (!Number.isFinite(end) || end <= start) return Math.max(start, requested);
+	return Math.min(end, Math.max(start, requested));
+}
+
+export function articleAudioSeekSec(wordMs, rowStartMs, rowEndMs, audioDurationSec) {
+	const start = Number(rowStartMs) || 0;
+	const end = Number(rowEndMs) || start;
+	const span = Math.max(0, end - start);
+	const into = Math.max(0, (Number(wordMs) || 0) - start);
+	const audioMs = Number(audioDurationSec) * 1000;
+	return audioMsFromWord(into, audioMs, span) / 1000;
+}
+
+export function shouldCheckpointArticle(positionMs, pendingWordMs) {
+	const pending = Number(pendingWordMs) || 0;
+	const pos = Number(positionMs) || 0;
+	if (pending > 0 && pos + 1000 < pending) return false;
+	return true;
+}
+
 export function storedRows(text) {
 	let cursor = 0;
 	return storedPieces(text).map((piece, index) => {

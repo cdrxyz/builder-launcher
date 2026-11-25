@@ -29,7 +29,7 @@ import {
 	moveOpenItems,
 } from './items.js';
 import { renderMarkdown } from './markdown.js';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, speechHash, staleMediaError, storedPieces, storedRows } from './article-audio.js';
+import { articleAudioSeekSec, articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, articleResumeMs, attachTruncatedSpeech, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, shouldCheckpointArticle, speechHash, staleMediaError, storedPieces, storedRows } from './article-audio.js';
 import {
 	AI_TIMEOUT_MS,
 	accessLabel,
@@ -4138,6 +4138,7 @@ function paintReadPos() {
 	document.querySelectorAll('.read-sentence').forEach((node) => {
 		node.classList.toggle('read-current', Number(node.dataset.i) === readSpeak.index && readSpeak.playing);
 	});
+	publishArticlePosition();
 }
 
 let readingPlacedFor = null;
@@ -4576,7 +4577,6 @@ function speakBrowserChunk(row) {
 function speakStoredChunk(row) {
 	const token = readSpeak.token;
 	const article = readSpeak.article;
-	readSpeak.positionMs = row.startMs;
 	paintReadPos();
 	const ready = storedReady(article, row.index);
 	const kind = playbackKind({ ready, canLive: canLiveStream() });
@@ -4650,8 +4650,12 @@ function playAccountUrl(url, row, token) {
 		if (readSpeak.token !== token || staleMediaError(playGen, gen)) return;
 		const clipMs = Math.max(0, (row.endMs || 0) - (row.startMs || 0));
 		const audioDur = Number.isFinite(clip.duration) ? clip.duration * 1000 : 0;
-		readSpeak.positionMs = (row.startMs || 0) + playedWordMs(clip.currentTime * 1000, audioDur, clipMs);
+		const played = (row.startMs || 0) + playedWordMs(clip.currentTime * 1000, audioDur, clipMs);
+		if (!shouldCheckpointArticle(played, readSpeak.pendingWordMs)) return;
+		readSpeak.pendingWordMs = 0;
+		readSpeak.positionMs = played;
 		paintReadPos();
+		readCheckpoint(false);
 	};
 	clip.onended = () => {
 		if (!readSpeak.playing || readSpeak.token !== token || staleMediaError(playGen, gen)) return;
@@ -4669,11 +4673,24 @@ function playAccountUrl(url, row, token) {
 		paintReadPos();
 	};
 	if (!sameMediaSrc(clip, url)) clip.src = url;
-	const offset = Math.max(0, (readSpeak.positionMs - (row.startMs || 0)) / 1000);
+	const word = readSpeak.pendingWordMs > (row.startMs || 0) ? readSpeak.pendingWordMs : readSpeak.positionMs;
+	const into = Math.max(0, word - (row.startMs || 0));
 	const applyOffset = () => {
-		if (offset > 0.25 && Number.isFinite(clip.duration) && offset < clip.duration) clip.currentTime = offset;
+		if (readSpeak.token !== token || staleMediaError(playGen, gen)) return;
+		if (!(readSpeak.pendingWordMs > (row.startMs || 0))) return;
+		if (!Number.isFinite(clip.duration) || clip.duration <= 0) return;
+		const seconds = articleAudioSeekSec(readSpeak.pendingWordMs, row.startMs, row.endMs, clip.duration);
+		if (seconds > 0.25 && Math.abs(clip.currentTime - seconds) > 0.25) clip.currentTime = seconds;
 	};
-	if (offset > 0.25) clip.addEventListener('loadedmetadata', applyOffset, { once: true });
+	readSpeak.seekAbort?.abort();
+	if (into > 250) {
+		readSpeak.pendingWordMs = word;
+		const seekAbort = new AbortController();
+		readSpeak.seekAbort = seekAbort;
+		applyOffset();
+		clip.addEventListener('loadedmetadata', applyOffset, { signal: seekAbort.signal });
+		clip.addEventListener('durationchange', applyOffset, { signal: seekAbort.signal });
+	}
 	const pending = clip.play();
 	if (pending && pending.catch) {
 		pending.catch(() => {
@@ -4683,7 +4700,7 @@ function playAccountUrl(url, row, token) {
 			paintReadPos();
 		});
 	}
-	readCheckpoint(false);
+	if (shouldCheckpointArticle(readSpeak.positionMs, readSpeak.pendingWordMs)) readCheckpoint(false);
 }
 
 function holdPlayback() {
@@ -4757,6 +4774,8 @@ async function readPlay(article, startMs) {
 	readSpeak.audio = held;
 	readSpeak.playing = true;
 	readSpeak.id = article.id;
+	readSpeak.pendingWordMs = Math.max(0, startMs || 0);
+	readSpeak.positionMs = readSpeak.pendingWordMs;
 	const opened = readSpeak.audio || new Audio();
 	readSpeak.audio = opened;
 	if (signedIn() && article?.text) {
@@ -4803,7 +4822,9 @@ async function readPlay(article, startMs) {
 	readSpeak.text = article.text;
 	readSpeak.durationMs = stored && rows.length ? rows[rows.length - 1].endMs : readDurationMs(article.text);
 	readSpeak.index = chunkIndexAt(rows, startMs || 0);
-	readSpeak.positionMs = rows[readSpeak.index]?.startMs || 0;
+	const row = rows[readSpeak.index];
+	readSpeak.positionMs = articleResumeMs(startMs || 0, row?.startMs || 0, row?.endMs);
+	readSpeak.pendingWordMs = readSpeak.positionMs > (row?.startMs || 0) ? readSpeak.positionMs : 0;
 	readSpeak.playing = true;
 	readSpeak.engine = plan.engine;
 	readSpeak.plan = plan;
@@ -4819,6 +4840,31 @@ async function readPlay(article, startMs) {
 	render();
 }
 
+function publishArticlePosition() {
+	const session = navigator.mediaSession;
+	if (!session?.setPositionState) return;
+	const dur = readSpeak.durationMs || 0;
+	if (!(dur > 0)) return;
+	const pos = Math.min(dur, Math.max(0, readSpeak.positionMs || 0));
+	try {
+		session.setPositionState({
+			duration: dur / 1000,
+			playbackRate: ttsSpeed(state.speed) || 1,
+			position: pos / 1000,
+		});
+	} catch {
+		/* a browser rejects a position it has not finished seeking */
+	}
+}
+
+function setSessionAction(session, action, handler) {
+	try {
+		session.setActionHandler(action, handler);
+	} catch {
+		/* this browser does not offer that action */
+	}
+}
+
 function publishArticleSession(article) {
 	const session = navigator.mediaSession;
 	if (!session || typeof MediaMetadata === 'undefined') return;
@@ -4828,15 +4874,30 @@ function publishArticleSession(article) {
 		album: 'Saved Articles',
 	});
 	session.playbackState = 'playing';
-	session.setActionHandler('play', () => {
+	setSessionAction(session, 'play', () => {
 		if (!sessionPlayStartsArticle({ owner: playbackOwner, pageVisible: document.visibilityState === 'visible' })) return;
 		if (!readSpeak.article) return;
 		readPlay(readSpeak.article, readSpeak.positionMs || 0);
 	});
-	session.setActionHandler('pause', () => {
+	setSessionAction(session, 'pause', () => {
 		if (playbackOwner !== 'article') return;
 		readStop(true);
 	});
+	setSessionAction(session, 'seekbackward', (details) => {
+		if (playbackOwner !== 'article' || !readSpeak.article) return;
+		const delta = ((details && details.seekOffset) || 15) * 1000;
+		readSeek(readSpeak.article, (readSpeak.positionMs || 0) - delta);
+	});
+	setSessionAction(session, 'seekforward', (details) => {
+		if (playbackOwner !== 'article' || !readSpeak.article) return;
+		const delta = ((details && details.seekOffset) || 15) * 1000;
+		readSeek(readSpeak.article, (readSpeak.positionMs || 0) + delta);
+	});
+	setSessionAction(session, 'seekto', (details) => {
+		if (playbackOwner !== 'article' || !readSpeak.article || details?.seekTime == null) return;
+		readSeek(readSpeak.article, details.seekTime * 1000);
+	});
+	publishArticlePosition();
 }
 
 function publishPodcastSession(episode) {
@@ -4894,15 +4955,46 @@ function readToggle(article) {
 	readPlay(article, start);
 }
 
+function articlePlayMs(article) {
+	if (readSpeak.id === article.id) return readSpeak.positionMs || 0;
+	return progressFor(readsOf(state.doc).progress, article.id)?.positionMs || 0;
+}
+
+function seekLoadedClip(article, wordMs) {
+	const clip = readSpeak.audio;
+	if (!clip || !readSpeak.stored || readSpeak.id !== article.id) return false;
+	const row = readSpeak.chunks[readSpeak.index];
+	if (!row || chunkIndexAt(readSpeak.chunks, wordMs) !== readSpeak.index) return false;
+	if (!Number.isFinite(clip.duration) || clip.duration <= 0) return false;
+	if (!clip.src || sameMediaSrc(clip, CLIP_HOLD)) return false;
+	readSpeak.seekAbort?.abort();
+	clip.currentTime = articleAudioSeekSec(wordMs, row.startMs, row.endMs, clip.duration);
+	readSpeak.positionMs = wordMs;
+	readSpeak.pendingWordMs = wordMs > 0 ? wordMs : 0;
+	return true;
+}
+
 function readSeek(article, ms) {
-	const playing = readSpeak.playing && readSpeak.id === article.id;
-	readSpeak.positionMs = Math.max(0, ms);
-	readSpeak.durationMs = readDurationMs(article.text);
+	const dur = readDurationMs(article.text) || readSpeak.durationMs || 0;
+	const word = Math.max(0, dur ? Math.min(dur, ms) : ms);
+	readSpeak.id = article.id;
+	readSpeak.article = article;
+	readSpeak.positionMs = word;
+	if (dur) readSpeak.durationMs = dur;
+	const playing = readSpeak.playing && audibleClip();
+	if (playing && seekLoadedClip(article, word)) {
+		readCheckpoint(true);
+		paintReadPos();
+		return;
+	}
+	readSpeak.pendingWordMs = word > 0 ? word : 0;
 	readCheckpoint(true);
 	if (playing) {
 		holdPlayback();
-		readPlay(article, readSpeak.positionMs);
-	} else paintReadPos();
+		readPlay(article, word);
+		return;
+	}
+	paintReadPos();
 }
 
 async function submitRead(text) {
@@ -5206,9 +5298,9 @@ function articleScreen() {
 	const controls = document.createElement('div');
 	controls.className = 'player-controls';
 	controls.append(
-		button('−15', () => readSeek(article, Math.max(0, (live ? readSpeak.positionMs : pos) - 15_000)), 'ghost'),
+		button('−15', () => readSeek(article, Math.max(0, articlePlayMs(article) - 15_000)), 'ghost'),
 		playPauseButton(!(live && readSpeak.playing), () => readToggle(article)),
-		button('+15', () => readSeek(article, Math.min(dur, (live ? readSpeak.positionMs : pos) + 15_000)), 'ghost'),
+		button('+15', () => readSeek(article, Math.min(dur, articlePlayMs(article) + 15_000)), 'ghost'),
 	);
 	const actions = document.createElement('div');
 	actions.className = 'actions';
