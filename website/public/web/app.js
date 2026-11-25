@@ -439,7 +439,16 @@ async function refreshAccount() {
 		});
 		saveAccount(state.account);
 		return state.account.token;
-	} catch {
+	} catch (err) {
+		// A 401 from the refresh endpoint is definitive: the stored session is
+		// gone server-side and no auto sync can ever succeed again. Drop the
+		// dead tokens (keep the email for the sign-in form) instead of letting
+		// every sync paint "Not signed in" forever. Timeouts and rate limits
+		// are not definitive and keep the session.
+		if (err?.message === 'Not signed in') {
+			state.account = accountRecord({ email: state.account.email });
+			saveAccount(state.account);
+		}
 		return '';
 	}
 }
@@ -2101,14 +2110,15 @@ function accountCard() {
 	heading.className = 'hint';
 	heading.textContent = signedIn() ? `Signed in as ${state.account.email}` : 'Builder account (recommended)';
 	form.append(heading);
-	if (!signedIn()) {
-		form.append(
-			field('Email', 'email', state.account.email, 'you@example.com', 'email'),
-			field('Password', 'password', '', '8+ characters', 'password'),
-			field('Code', 'code', '', 'invite code', 'text'),
-		);
-		promptAccountPassword(form);
-	}
+	// The sign-in form stays reachable even while a session looks live: a
+	// saved email is not proof the token works, and hiding these fields is
+	// how a dead session blocked its own replacement.
+	form.append(
+		field('Email', 'email', state.account.email, 'you@example.com', 'email'),
+		field('Password', 'password', '', '8+ characters', 'password'),
+		field('Code', 'code', '', 'invite code', 'text'),
+	);
+	promptAccountPassword(form);
 	const actions = document.createElement('div');
 	actions.className = 'actions';
 	if (signedIn()) {
@@ -2116,7 +2126,8 @@ function accountCard() {
 			button('sync now', () => pull(), 'primary'),
 			button('sign out', () => signOut(), 'ghost'),
 		);
-	} else {
+	}
+	{
 		const gate = document.createElement('button');
 		gate.className = 'ghost';
 		gate.type = 'button';
