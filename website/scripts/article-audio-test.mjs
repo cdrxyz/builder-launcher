@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, showArticleDownload, speechBearer, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces, stripSpeechNoise, acceptSpeechScript } from '../public/web/article-audio.js';
+import { articleAudioSeekSec, articleDownloadLabel, articleDownloadVisible, articleFileName, articleGenerationLabel, articleResumeMs, attachTruncatedSpeech, audioByteRange, audioContentRange, audioIsFullRead, audioMsFromWord, audioProgressLabel, expectedSpeechBytes, liveAudioPath, mediaErrorStopsPlayback, nextSpeechIndex, playbackKind, playedWordMs, shouldCheckpointArticle, showArticleDownload, speechBearer, speechHash, speechObjectKey, speechStartReady, speechUsesMediaSource, staleMediaError, storedPieces, stripSpeechNoise, acceptSpeechScript } from '../public/web/article-audio.js';
 
 test('saved article audio is keyed per account, article, and voice', () => {
 	const text = 'Paced bottle feeding lets the baby set the pace. '.repeat(40);
@@ -109,4 +109,35 @@ test('a saved article streams from the account url, and a truncated mp3 is not a
 	assert.equal(staleMediaError(2, 2), false);
 	assert.equal(playedWordMs(15000, 30000, 60000), 30000);
 	assert.equal(playedWordMs(1000, Infinity, 60000), 1000);
+});
+
+test('a saved article resumes and seeks inside the file, and does not save 0 before that seek lands', () => {
+	assert.equal(audioMsFromWord(30_000, 30_000, 60_000), 15_000);
+	assert.equal(audioMsFromWord(1_000, Infinity, 60_000), 1_000);
+	assert.equal(articleResumeMs(120_000, 0, 600_000), 120_000);
+	assert.equal(articleResumeMs(0, 0, 600_000), 0);
+	assert.equal(articleResumeMs(700_000, 0, 600_000), 600_000);
+	assert.equal(articleAudioSeekSec(120_000, 0, 240_000, 120), 60);
+	assert.equal(articleAudioSeekSec(90_000, 60_000, 180_000, 60), 15);
+	assert.equal(articleAudioSeekSec(60_000, 60_000, 180_000, 60), 0);
+	assert.equal(shouldCheckpointArticle(0, 120_000), false);
+	assert.equal(shouldCheckpointArticle(119_000, 120_000), true);
+	assert.equal(shouldCheckpointArticle(0, 0), true);
+});
+
+test('the page seeks stored article audio instead of restarting at the chunk start', async () => {
+	const fs = await import('node:fs');
+	const app = fs.readFileSync(new URL('../public/web/app.js', import.meta.url), 'utf8');
+	const body = (name) => {
+		const start = app.indexOf(`function ${name}(`);
+		const next = app.indexOf('\nfunction ', start + 1);
+		return app.slice(start, next);
+	};
+	assert.match(body('readPlay'), /articleResumeMs\(/);
+	assert.match(body('playAccountUrl'), /articleAudioSeekSec\(/);
+	assert.match(body('playAccountUrl'), /shouldCheckpointArticle\(/);
+	assert.doesNotMatch(body('speakStoredChunk'), /positionMs = row\.startMs/);
+	assert.doesNotMatch(app, /readSpeak\.positionMs = rows\[readSpeak\.index\]\?\.startMs/);
+	assert.match(body('publishArticleSession'), /seekbackward/);
+	assert.match(body('publishArticleSession'), /seekto/);
 });
