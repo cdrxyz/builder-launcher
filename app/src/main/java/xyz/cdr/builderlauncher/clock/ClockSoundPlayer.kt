@@ -13,6 +13,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import xyz.cdr.builderlauncher.R
+import xyz.cdr.builderlauncher.data.SettingsRepository
 
 object ClockSoundPlayer {
     private const val PREVIEW_MS = 5_000L
@@ -26,38 +27,43 @@ object ClockSoundPlayer {
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var fadeStartedAt = 0L
+    private var peakGain = Clock.PEAK_GAIN
     private val previewStop = Runnable { stopPreview() }
     private val fadeTick = object : Runnable {
         override fun run() {
             val current = synchronized(lock) { player }
             if (!playing || current == null) return
-            val gain = Clock.fadeGain(System.currentTimeMillis() - fadeStartedAt)
+            val gain = Clock.fadeGain(System.currentTimeMillis() - fadeStartedAt, peak = peakGain)
             runCatching { current.setVolume(gain, gain) }
-            if (gain < 1f) main.postDelayed(this, 80)
+            if (gain + 0.001f < peakGain) main.postDelayed(this, 80)
         }
     }
 
     val alerting: Boolean get() = playing && mode == Mode.ALERT
 
     fun preview(context: Context, sound: ClockSound) {
+        val app = context.applicationContext
         start(
-            context = context.applicationContext,
+            context = app,
             sound = sound,
             loop = false,
             fade = false,
             vibrate = false,
             preview = true,
+            peak = configuredGain(app),
         )
     }
 
     fun startAlert(context: Context, sound: ClockSound) {
+        val app = context.applicationContext
         start(
-            context = context.applicationContext,
+            context = app,
             sound = sound,
             loop = true,
             fade = true,
             vibrate = true,
             preview = false,
+            peak = configuredGain(app),
         )
     }
 
@@ -78,13 +84,15 @@ object ClockSoundPlayer {
         fade: Boolean,
         vibrate: Boolean,
         preview: Boolean,
+        peak: Float,
     ) {
         synchronized(lock) {
             if (!preview && mode == Mode.ALERT && playing) return
             haltLocked()
             val resId = rawId(sound) ?: return
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            if (!preview) runCatching { ensureAlarmAudible(am) }
+            val level = peak.coerceIn(0f, 1f)
+            if (!preview && level > 0f) runCatching { ensureAlarmAudible(am) }
             val next = runCatching { buildPlayer(context, resId, loop, preview) }.getOrNull() ?: return
             requestFocus(am, preview)
             if (!preview) runCatching { holdWake(context) }
@@ -93,7 +101,8 @@ object ClockSoundPlayer {
             mode = if (preview) Mode.PREVIEW else Mode.ALERT
             player = next
             audio = am
-            val startGain = if (fade) Clock.FLOOR_GAIN else 1f
+            peakGain = level
+            val startGain = if (fade) Clock.FLOOR_GAIN else level
             runCatching { next.setVolume(startGain, startGain) }
             runCatching { next.start() }
             if (fade) {
@@ -134,7 +143,6 @@ object ClockSoundPlayer {
         } else {
             builder.setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
         }
         return builder.build()
     }
@@ -145,6 +153,12 @@ object ClockSoundPlayer {
         if (am.getStreamVolume(stream) <= 0) {
             am.setStreamVolume(stream, (max / 2).coerceAtLeast(1), 0)
         }
+    }
+
+    private fun configuredGain(context: Context): Float {
+        val percent = runCatching { SettingsRepository(context).settings.value.clockVolume }
+            .getOrDefault(Clock.DEFAULT_VOLUME)
+        return Clock.volumeGain(percent)
     }
 
     private fun rawId(sound: ClockSound): Int? = when (sound) {

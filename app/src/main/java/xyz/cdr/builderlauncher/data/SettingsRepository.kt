@@ -15,6 +15,7 @@ import xyz.cdr.builderlauncher.ai.oauth.OAuthTokens
 import xyz.cdr.builderlauncher.backup.BackupFrequency
 import xyz.cdr.builderlauncher.backup.BackupSettings
 import xyz.cdr.builderlauncher.calendar.CalendarSelection
+import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockSound
 import xyz.cdr.builderlauncher.hub.HubAppSelection
 
@@ -43,6 +44,7 @@ data class BuilderSettings(
     val uiTone: UiTone = UiTone.DARK,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
+    val clockVolume: Int = Clock.DEFAULT_VOLUME,
     val habitReminders: Boolean = true,
     val habitSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
@@ -170,6 +172,7 @@ class SettingsRepository(context: Context) {
                 uiTone = restored.uiTone,
                 stockInsert = restored.stockInsert,
                 clockSound = restored.clockSound,
+                clockVolume = Clock.volumePercent(restored.clockVolume),
                 habitReminders = restored.habitReminders,
                 habitSound = restored.habitSound,
                 appIcons = restored.appIcons,
@@ -239,6 +242,7 @@ class SettingsRepository(context: Context) {
             uiTone = UiTone.parse(prefs.getString(KEY_UI_TONE, UiTone.DARK.name)),
             stockInsert = insert,
             clockSound = ClockSound.parse(prefs.getString(KEY_CLOCK_SOUND, ClockSound.PULSE.name)),
+            clockVolume = Clock.volumePercent(prefs.getString(KEY_CLOCK_VOLUME, null)?.toIntOrNull()),
             habitReminders = prefs.getBoolean(KEY_HABIT_REMINDERS, true),
             habitSound = ClockSound.parse(prefs.getString(KEY_HABIT_SOUND, ClockSound.PULSE.name)),
             appIcons = appIcons,
@@ -302,6 +306,7 @@ class SettingsRepository(context: Context) {
             .putString(KEY_UI_TONE, next.uiTone.name)
             .putString(KEY_STOCK_INSERT, next.stockInsert.name)
             .putString(KEY_CLOCK_SOUND, next.clockSound.name)
+            .putString(KEY_CLOCK_VOLUME, Clock.volumePercent(next.clockVolume).toString())
             .putBoolean(KEY_HABIT_REMINDERS, next.habitReminders)
             .putString(KEY_HABIT_SOUND, next.habitSound.name)
             .putString(KEY_APP_ICONS, next.appIcons.name)
@@ -363,6 +368,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_UI_TONE = "ui_tone"
         private const val KEY_STOCK_INSERT = "stock_insert"
         private const val KEY_CLOCK_SOUND = "clock_sound"
+        private const val KEY_CLOCK_VOLUME = "clock_volume"
         private const val KEY_HABIT_REMINDERS = "habit_reminders"
         private const val KEY_HABIT_SOUND = "habit_sound"
         private const val KEY_APP_ICONS = "app_icons"

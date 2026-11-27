@@ -1726,7 +1726,22 @@ fun SettingsChrome(
             }
         }
         Text(
-            "Tap a sound to hear it. Each tone loops 10 to 30 seconds. Alarms fade in over 4 seconds.",
+            "Tap a sound to hear it. Each tone loops 10 to 30 seconds.",
+            color = Dim,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Alarm volume", color = Dim, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            Clock.VOLUME_STEPS.forEach { step ->
+                Text(
+                    "$step",
+                    color = if (Clock.volumePercent(settings.clockVolume) == step) Accent else Dim,
+                )
+            }
+        }
+        Text(
+            "Alarms and timers fade in from silence over 10 seconds, up to this percent.",
             color = Dim,
             style = MaterialTheme.typography.bodyMedium,
         )
