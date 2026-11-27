@@ -17,9 +17,11 @@ object Clock {
     const val DEFAULT_TIMER_MS = 5 * 60_000L
     const val SNOOZE_MS = 8 * 60_000L
     const val CATCH_UP_MS = 2 * 60 * 60_000L
-    const val RAMP_MS = 4_000L
+    const val RAMP_MS = 10_000L
     const val PEAK_GAIN = 1.0f
-    const val FLOOR_GAIN = 0.45f
+    const val FLOOR_GAIN = 0f
+    const val DEFAULT_VOLUME = 50
+    val VOLUME_STEPS = listOf(25, 50, 75, 100)
     const val TIMER_TICK_MS = 200L
     const val ANALOG_TICK_MS = 1_000L
     const val DIGITAL_TICK_MS = 15_000L
@@ -295,6 +297,13 @@ object Clock {
         return java.time.Duration.between(here.toLocalDateTime(), there.toLocalDateTime()).toHours()
     }
 
+    fun volumePercent(raw: Int?): Int {
+        val n = raw ?: DEFAULT_VOLUME
+        return VOLUME_STEPS.minBy { kotlin.math.abs(it - n) }
+    }
+
+    fun volumeGain(percent: Int): Float = volumePercent(percent) / 100f
+
     fun fadeGain(
         elapsedMs: Long,
         rampMs: Long = RAMP_MS,
@@ -330,7 +339,7 @@ object Clock {
 
     fun fireAlarm(alarm: ClockAlarm, now: Long): AlarmFire {
         return AlarmFire(
-            alarm = alarm.copy(snoozeUntil = null, lastFiredAt = now),
+            alarm = alarm.copy(snoozeUntil = null, lastFiredAt = now, updatedAt = now),
             alert = ClockAlert(
                 kind = ClockAlertKind.ALARM,
                 alarmId = alarm.id,
@@ -350,6 +359,7 @@ object Clock {
         return alarm.copy(
             snoozeUntil = null,
             lastFiredAt = if (last == null || now > last) now else last,
+            updatedAt = now,
         )
     }
 

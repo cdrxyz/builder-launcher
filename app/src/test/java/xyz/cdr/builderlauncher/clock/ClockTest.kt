@@ -263,12 +263,24 @@ class ClockTest {
     }
 
     @Test
-    fun fadeGainRisesFromFloorToPeak() {
-        assertEquals(0.45f, Clock.fadeGain(0), 0.0001f)
-        assertEquals(0.45f, Clock.fadeGain(-1), 0.0001f)
-        assertEquals(0.725f, Clock.fadeGain(2_000), 0.0001f)
-        assertEquals(1.0f, Clock.fadeGain(4_000), 0.0001f)
-        assertEquals(1.0f, Clock.fadeGain(30_000), 0.0001f)
+    fun fadeGainRisesFromSilenceToTheChosenLevel() {
+        assertEquals(10_000L, Clock.RAMP_MS)
+        assertEquals(0f, Clock.FLOOR_GAIN, 0.0001f)
+        assertEquals(0f, Clock.fadeGain(0), 0.0001f)
+        assertEquals(0f, Clock.fadeGain(-1), 0.0001f)
+        assertEquals(0.5f, Clock.fadeGain(5_000), 0.0001f)
+        assertEquals(1f, Clock.fadeGain(10_000), 0.0001f)
+        assertEquals(1f, Clock.fadeGain(30_000), 0.0001f)
+        assertEquals(0.125f, Clock.fadeGain(5_000, peak = 0.25f), 0.0001f)
+        assertEquals(0.25f, Clock.fadeGain(10_000, peak = 0.25f), 0.0001f)
+        assertEquals(listOf(25, 50, 75, 100), Clock.VOLUME_STEPS)
+        assertEquals(50, Clock.DEFAULT_VOLUME)
+        assertEquals(50, Clock.volumePercent(null))
+        assertEquals(50, Clock.volumePercent(40))
+        assertEquals(25, Clock.volumePercent(10))
+        assertEquals(100, Clock.volumePercent(90))
+        assertEquals(0.5f, Clock.volumeGain(50), 0.0001f)
+        assertEquals(0.25f, Clock.volumeGain(25), 0.0001f)
     }
 
     @Test
@@ -302,6 +314,7 @@ class ClockTest {
         assertEquals("a1", fired.alert.alarmId)
         assertNull(fired.alarm.snoozeUntil)
         assertEquals(now, fired.alarm.lastFiredAt)
+        assertEquals(now, fired.alarm.updatedAt)
         val snoozed = Clock.snooze(fired.alarm, now)
         assertEquals(now + Clock.SNOOZE_MS, snoozed.snoozeUntil)
         assertTrue(snoozed.enabled)
@@ -321,6 +334,7 @@ class ClockTest {
         assertTrue(Clock.catchUpDue(alarm, late, zone))
         val dismissed = Clock.acknowledge(alarm, late)
         assertEquals(late, dismissed.lastFiredAt)
+        assertEquals(late, dismissed.updatedAt)
         assertNull(dismissed.snoozeUntil)
         assertFalse(Clock.catchUpDue(dismissed, late, zone))
         assertTrue(Clock.occurrenceHandled(dismissed, late, zone))

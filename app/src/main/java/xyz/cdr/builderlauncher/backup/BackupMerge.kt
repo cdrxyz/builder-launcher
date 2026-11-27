@@ -207,9 +207,10 @@ object BackupMerge {
         } else {
             maxOf(a.snoozeUntil ?: 0L, b.snoozeUntil ?: 0L).takeIf { it > 0L }
         }
+        val fired = maxOf(last ?: 0L, a.updatedAt, b.updatedAt)
         return base.copy(
             lastFiredAt = last,
-            snoozeUntil = snooze?.takeIf { last == null || it > last },
+            snoozeUntil = snooze?.takeIf { it > fired },
         )
     }
 

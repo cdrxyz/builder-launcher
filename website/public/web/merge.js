@@ -86,10 +86,11 @@ function mergeAlarm(x, y) {
 		: sx !== sy
 			? (base.snoozeUntil || 0)
 			: Math.max(x.snoozeUntil || 0, y.snoozeUntil || 0);
+	const fired = Math.max(last, sx, sy);
 	return {
 		...base,
 		lastFiredAt: last || null,
-		snoozeUntil: snooze > last ? snooze : null,
+		snoozeUntil: snooze > fired ? snooze : null,
 	};
 }
 

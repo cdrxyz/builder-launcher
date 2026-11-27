@@ -1,6 +1,7 @@
 package xyz.cdr.builderlauncher.backup
 
 import kotlinx.serialization.Serializable
+import xyz.cdr.builderlauncher.clock.Clock
 import xyz.cdr.builderlauncher.clock.ClockAlarm
 import xyz.cdr.builderlauncher.clock.WorldClock
 import xyz.cdr.builderlauncher.data.AppIcons
@@ -91,6 +92,7 @@ data class BackupSettings(
     val uiTone: UiTone = UiTone.DARK,
     val stockInsert: StockInsert = StockInsert.TOP,
     val clockSound: ClockSound = ClockSound.PULSE,
+    val clockVolume: Int = Clock.DEFAULT_VOLUME,
     val habitReminders: Boolean = true,
     val habitSound: ClockSound = ClockSound.PULSE,
     val appIcons: AppIcons = AppIcons.PLAINTEXT,
@@ -120,6 +122,7 @@ data class BackupSettings(
             uiTone = settings.uiTone,
             stockInsert = settings.stockInsert,
             clockSound = settings.clockSound,
+            clockVolume = Clock.volumePercent(settings.clockVolume),
             habitReminders = settings.habitReminders,
             habitSound = settings.habitSound,
             appIcons = settings.appIcons,
