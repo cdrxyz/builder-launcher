@@ -63,9 +63,11 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import xyz.cdr.builderlauncher.ai.AiPlatforms
 import xyz.cdr.builderlauncher.ai.HermesUrls
 import xyz.cdr.builderlauncher.apps.AppList
@@ -2116,17 +2118,37 @@ fun ClockChrome(
                 else -> {
                     val rows = timers.ifEmpty { listOf(timer to "") }
                     rows.forEach { (display, label) ->
-                        Column(Modifier.padding(vertical = 8.dp)) {
-                            Text(display, color = Paper, style = MaterialTheme.typography.headlineLarge)
-                            if (label.isNotBlank()) {
-                                Text(label, color = Dim)
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    display,
+                                    color = Paper,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.headlineLarge.copy(
+                                        fontSize = if (rows.size == 1) 56.sp else 36.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = if (rows.size == 1) 60.sp else 40.sp,
+                                    ),
+                                )
+                                if (label.isNotBlank()) {
+                                    Text(label, color = Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.defaultMinSize(minWidth = 72.dp, minHeight = 56.dp).padding(horizontal = 8.dp),
                             ) {
-                                Text("start", color = Accent)
-                                Text("reset", color = Dim)
+                                Text("start", color = Accent, style = MaterialTheme.typography.titleLarge)
+                            }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.defaultMinSize(minWidth = 72.dp, minHeight = 56.dp).padding(horizontal = 8.dp),
+                            ) {
+                                Text("reset", color = Dim, style = MaterialTheme.typography.titleLarge)
                             }
                         }
                     }
