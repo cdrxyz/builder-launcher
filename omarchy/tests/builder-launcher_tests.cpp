@@ -34,6 +34,7 @@ private slots:
     void quotesUseCurrencyAndDailyColor();
     void barStatusKeepsPlainGlanceables();
     void barAddKeepsTheTypedTask();
+    void habitParsesNoonAndEditsInPlace();
 
 private:
     static void write(const QString &path, const QByteArray &contents) {
@@ -401,6 +402,32 @@ void BuilderLauncherTests::barAddKeepsTheTypedTask() {
     const auto status = barStatus(doc, {}, BarMedia(), BarMedia(), {}, en);
     QCOMPARE(status.value(QStringLiteral("todos")).toArray().first().toObject().value(QStringLiteral("title")).toString(),
              QStringLiteral("buy cedar oil"));
+}
+
+void BuilderLauncherTests::habitParsesNoonAndEditsInPlace() {
+    const auto draft = parseHabit(QStringLiteral("daily at noon Vitamin D"));
+    QCOMPARE(draft.value(QStringLiteral("name")).toString(), QStringLiteral("Vitamin D"));
+    QCOMPARE(draft.value(QStringLiteral("kind")).toString(), QStringLiteral("daily"));
+    QCOMPARE(draft.value(QStringLiteral("times")).toArray().first().toInt(), 12 * 60);
+    QCOMPARE(parseHabit(QStringLiteral("Vitamin D at noon")).value(QStringLiteral("times")).toArray().first().toInt(), 12 * 60);
+    QCOMPARE(parseHabit(QStringLiteral("afternoon walk daily")).value(QStringLiteral("name")).toString(), QStringLiteral("afternoon walk"));
+    const auto again = parseHabit(habitPhrase(draft));
+    QCOMPARE(again.value(QStringLiteral("name")).toString(), QStringLiteral("Vitamin D"));
+    QCOMPARE(again.value(QStringLiteral("times")).toArray().first().toInt(), 12 * 60);
+
+    QJsonObject habit = draft;
+    habit.insert(QStringLiteral("id"), QStringLiteral("d"));
+    habit.insert(QStringLiteral("createdAt"), 1);
+    habit.insert(QStringLiteral("updatedAt"), 1);
+    habit.insert(QStringLiteral("enabled"), true);
+    QJsonObject doc;
+    doc.insert(QStringLiteral("habits"), QJsonArray{habit});
+    const auto edited = updateHabit(doc, QStringLiteral("d"), parseHabit(QStringLiteral("Vitamin D daily at 9pm")), 9);
+    const auto saved = edited.value(QStringLiteral("habits")).toArray().first().toObject();
+    QCOMPARE(saved.value(QStringLiteral("id")).toString(), QStringLiteral("d"));
+    QCOMPARE(saved.value(QStringLiteral("createdAt")).toInt(), 1);
+    QCOMPARE(saved.value(QStringLiteral("times")).toArray().first().toInt(), 21 * 60);
+    QCOMPARE(saved.value(QStringLiteral("updatedAt")).toInt(), 9);
 }
 
 QTEST_MAIN(BuilderLauncherTests)

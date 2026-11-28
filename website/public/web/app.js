@@ -66,6 +66,8 @@ import {
 	openSlot,
 	pageAfterSwipe,
 	parseHabit,
+	phrase as habitPhrase,
+	applyEdit as applyHabitEdit,
 	recentDayStarts,
 	scheduleLabel,
 	toggleMark,
@@ -244,6 +246,7 @@ const state = {
 	articleId: null,
 	autoSync: loadAutoSync(),
 	editTodoId: null,
+	editHabitId: null,
 	homePane: 0,
 	status: '',
 	busy: false,
@@ -982,6 +985,7 @@ function go(tab, prompt) {
 	state.menu = null;
 	state.draft = '';
 	state.editTodoId = null;
+	state.editHabitId = null;
 	state.prompt = prompt || pagePrompt(tab);
 	if (tab !== 'note') state.noteId = null;
 	if (tab !== 'show' && tab !== 'episode') state.showId = tab === 'pods' ? null : state.showId;
@@ -1289,12 +1293,15 @@ function submitCommand() {
 		if (!text) return;
 		if (state.tab === 'habits') {
 			const draft = parseHabit(text);
-			state.draft = '';
 			if (!draft) {
 				setStatus(HABIT_HINT);
 				return;
 			}
-			addHabit(draft);
+			const editing = state.editHabitId;
+			state.draft = '';
+			state.editHabitId = null;
+			if (editing) updateHabit(editing, draft);
+			else addHabit(draft);
 			return;
 		}
 		const editing = state.editTodoId;
@@ -1481,7 +1488,11 @@ function habitRow(habit, slot, details) {
 		mutate({ habitMarks: toggleMark(state.doc.habitMarks, habit.id, slot, Date.now()) });
 	};
 	row.append(taskCheckButton(done, check));
-	body.addEventListener('click', check);
+	if (details) {
+		body.addEventListener('click', () => beginHabitEdit(habit));
+	} else {
+		body.addEventListener('click', check);
+	}
 	row.append(body);
 	if (details) row.append(button('×', () => removeHabit(habit.id), 'ghost'));
 	return row;
@@ -1537,6 +1548,23 @@ function previewHabitSound(name) {
 	osc.onended = () => audio.close();
 }
 
+function beginHabitEdit(habit) {
+	state.editHabitId = habit.id;
+	state.tab = 'habits';
+	state.prompt = '-';
+	state.draft = habitPhrase(habit);
+	state.menu = null;
+	render();
+	app.querySelector('.command-input')?.focus({ preventScroll: true });
+}
+
+function updateHabit(id, draft) {
+	const now = Date.now();
+	mutate({
+		habits: (state.doc.habits || []).map((habit) => (habit.id === id ? applyHabitEdit(habit, draft, now) : habit)),
+	});
+}
+
 function addHabit(draft) {
 	const now = Date.now();
 	const habit = { id: newId(now), ...draft, createdAt: now, updatedAt: now, enabled: true };
@@ -1550,6 +1578,7 @@ function addHabit(draft) {
 }
 
 function removeHabit(id) {
+	if (state.editHabitId === id) state.editHabitId = null;
 	mutate({
 		habits: (state.doc.habits || []).filter((habit) => habit.id !== id),
 		habitMarks: (state.doc.habitMarks || []).filter((mark) => mark.habitId !== id),

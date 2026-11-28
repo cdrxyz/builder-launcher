@@ -246,6 +246,20 @@ ApplicationWindow {
                                     visible: text.length > 0
                                 }
                                 Label {
+                                    text: modelData.kind === "habit" && backend.page === "habits" ? qsTr("edit") : ""
+                                    color: theme.accent
+                                    visible: text.length > 0
+                                    z: 2
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        anchors.margins: -8
+                                        onClicked: {
+                                            backend.moveSelection(index - backend.selected)
+                                            backend.editSelection()
+                                        }
+                                    }
+                                }
+                                Label {
                                     text: modelData.change || ""
                                     visible: text.length > 0
                                     color: modelData.tone === "up" ? "#3DDC97" : modelData.tone === "down" ? "#FF5F57" : "#9a9aa3"
@@ -279,6 +293,7 @@ ApplicationWindow {
                         if (event.key === Qt.Key_K || event.key === Qt.Key_Up) { backend.moveSelection(-1); event.accepted = true }
                         if (event.key === Qt.Key_Space) { backend.toggleSelection(); event.accepted = true }
                         if (event.key === Qt.Key_X) { backend.deleteSelection(); event.accepted = true }
+                        if (event.key === Qt.Key_E && backend.page === "habits") { backend.editSelection(); event.accepted = true }
                         if (event.key === Qt.Key_Left && backend.page === "home") { backend.nudgeHomePane(80); event.accepted = true }
                         if (event.key === Qt.Key_Right && backend.page === "home") { backend.nudgeHomePane(-80); event.accepted = true }
                         if (event.key === Qt.Key_Question) { win.helpVisible = !win.helpVisible; event.accepted = true }

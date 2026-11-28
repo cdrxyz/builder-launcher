@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { dayLabel, dayStart, graph, openSlot, pageAfterSwipe, parseHabit, slotsOnDay, toggleMark, dueReminder, habitRemindersOn, habitSoundName } from '../public/web/habits.js';
+import { dayLabel, dayStart, graph, openSlot, pageAfterSwipe, parseHabit, phrase, applyEdit, slotsOnDay, toggleMark, dueReminder, habitRemindersOn, habitSoundName } from '../public/web/habits.js';
 
 const zone = 'America/Toronto';
 const morning = Date.parse('2026-11-15T06:00:00-05:00');
@@ -13,6 +13,24 @@ test('parses daily, every 4 hours, and 7am and 7pm', () => {
 	assert.deepEqual(parseHabit('meds 7am and 7pm daily').times, [7 * 60, 19 * 60]);
 	assert.equal(parseHabit('every 5 hours starting at 8am'), null);
 	assert.equal(parseHabit('daily'), null);
+	const noon = parseHabit('daily at noon Vitamin D');
+	assert.equal(noon.name, 'Vitamin D');
+	assert.equal(noon.kind, 'daily');
+	assert.equal(noon.times[0], 12 * 60);
+	assert.equal(parseHabit('Vitamin D at noon').times[0], 12 * 60);
+	assert.equal(parseHabit('every day at midnight stretch').times[0], 0);
+	assert.equal(parseHabit('vitamins daily at 9a').times[0], 9 * 60);
+	assert.equal(parseHabit('water every 4 hours starting at noon').times[0], 12 * 60);
+	assert.deepEqual(parseHabit('meds noon and midnight').times, [0, 12 * 60]);
+	assert.equal(parseHabit('afternoon walk daily').name, 'afternoon walk');
+	const again = parseHabit(phrase(noon));
+	assert.equal(again.name, noon.name);
+	assert.equal(again.times[0], noon.times[0]);
+	const edited = applyEdit({ id: 'd', createdAt: 1, enabled: true, ...noon }, parseHabit('Vitamin D daily at 9pm'), 9);
+	assert.equal(edited.id, 'd');
+	assert.equal(edited.createdAt, 1);
+	assert.equal(edited.times[0], 21 * 60);
+	assert.equal(edited.updatedAt, 9);
 });
 
 test('graph is completed over due', () => {

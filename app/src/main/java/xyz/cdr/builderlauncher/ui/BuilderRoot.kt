@@ -356,6 +356,7 @@ fun BuilderRoot(
     var usageSnapshot by remember { mutableStateOf(Usage.build(emptyList(), emptyMap(), UsagePeriod.W1, false)) }
     var usageToday by remember { mutableStateOf(UsageToday(granted = false)) }
     var editingTodoId by remember { mutableStateOf<String?>(null) }
+    var editingHabitId by remember { mutableStateOf<String?>(null) }
     var wipeBarOnHome by remember { mutableStateOf(false) }
     val pendingComplete = remember { mutableStateMapOf<String, Int>() }
     val leavingComplete = remember { mutableStateMapOf<String, Boolean>() }
@@ -434,6 +435,7 @@ fun BuilderRoot(
             input = ""
         }
         if (page != Page.Todos) editingTodoId = null
+        if (page != Page.Habits) editingHabitId = null
     }
     LaunchedEffect(page, usagePeriod, appsEpoch) {
         if (page == Page.Usage) {
@@ -1271,6 +1273,7 @@ fun BuilderRoot(
         if (page == Page.Habits) {
             val trimmed = line.trim().removePrefix("-").trim()
             if (trimmed.isEmpty()) {
+                editingHabitId = null
                 taskMode()
                 return
             }
@@ -1279,7 +1282,9 @@ fun BuilderRoot(
                 Toast.makeText(ctx, Habits.HINT, Toast.LENGTH_SHORT).show()
                 return
             }
-            habits.add(draft)
+            val editId = editingHabitId
+            if (editId != null) habits.update(editId, draft) else habits.add(draft)
+            editingHabitId = null
             HabitScheduler.reconcile(ctx, habits)
             taskMode()
             return
@@ -2487,7 +2492,12 @@ fun BuilderRoot(
                 },
                 onDelete = { id ->
                     habits.remove(id)
+                    if (editingHabitId == id) editingHabitId = null
                     HabitScheduler.reconcile(ctx, habits)
+                },
+                onEdit = { habit ->
+                    editingHabitId = habit.id
+                    applyMode(PrefixCommands.Mode(prompt = '-', input = Habits.phrase(habit)))
                 },
                 onValue = { applyMode(PrefixCommands.type(mode(), it)) },
                 onPick = { applyMode(PrefixCommands.pick(mode(), it)) },

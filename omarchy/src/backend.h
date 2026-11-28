@@ -96,6 +96,7 @@ public:
     Q_INVOKABLE void activateSelection();
     Q_INVOKABLE void deleteSelection();
     Q_INVOKABLE void toggleSelection();
+    Q_INVOKABLE void editSelection();
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void pull();
@@ -222,6 +223,7 @@ private:
     QTimer m_syncTimer;
     QTimer m_clockTimer;
     QSet<QString> m_habitReminded;
+    QString m_editingHabitId;
     QMediaPlayer m_player;
     QAudioOutput m_audio;
     QJsonObject m_forecast;

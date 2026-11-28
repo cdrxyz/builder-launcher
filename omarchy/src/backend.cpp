@@ -643,6 +643,7 @@ void Backend::go(const QString &page) {
     m_podcastHits.clear();
     m_page = page;
     m_selected = 0;
+    m_editingHabitId.clear();
     m_detailId.clear();
     m_detail.clear();
     applyPrompt(page);
