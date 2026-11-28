@@ -121,10 +121,12 @@ int sendBarCommand(const QStringList &args);
 bool barDeskListening();
 
 QJsonObject parseHabit(const QString &raw);
+QString habitPhrase(const QJsonObject &habit);
 QString habitSchedule(const QJsonObject &habit);
 qint64 openHabitSlot(const QJsonObject &habit, qint64 now);
 bool habitDone(const QJsonObject &doc, const QString &habitId, qint64 slot);
 QJsonObject addHabit(QJsonObject doc, const QJsonObject &draft, qint64 now);
+QJsonObject updateHabit(QJsonObject doc, const QString &id, const QJsonObject &draft, qint64 now);
 QJsonObject toggleHabit(QJsonObject doc, const QString &id, qint64 slot, qint64 now);
 QJsonObject deleteHabit(QJsonObject doc, const QString &id, qint64 now);
 QString habitDayLabel(const QJsonObject &doc, qint64 now);

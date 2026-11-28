@@ -44,6 +44,56 @@ class HabitsTest {
     }
 
     @Test
+    fun parsesNamedClocksInEitherOrder() {
+        val noon = Habits.parse("daily at noon Vitamin D", morning)!!
+        assertEquals("Vitamin D", noon.name)
+        assertEquals(HabitKind.DAILY, noon.kind)
+        assertEquals(12 * 60, noon.times.single())
+
+        val reversed = Habits.parse("Vitamin D at noon", morning)!!
+        assertEquals("Vitamin D", reversed.name)
+        assertEquals(12 * 60, reversed.times.single())
+
+        val midnight = Habits.parse("every day at midnight stretch", morning)!!
+        assertEquals("stretch", midnight.name)
+        assertEquals(0, midnight.times.single())
+
+        val shorthand = Habits.parse("vitamins daily at 9a", morning)!!
+        assertEquals(9 * 60, shorthand.times.single())
+
+        val compact = Habits.parse("meds daily at 0730", morning)!!
+        assertEquals(7 * 60 + 30, compact.times.single())
+
+        val started = Habits.parse("water every 4 hours starting at noon", morning)!!
+        assertEquals(12 * 60, started.times.single())
+
+        val both = Habits.parse("meds noon and midnight", morning)!!
+        assertEquals(HabitKind.TIMES, both.kind)
+        assertEquals(listOf(0, 12 * 60), both.times)
+        assertEquals("meds", both.name)
+
+        assertNull(Habits.parse("at noon", morning))
+        assertEquals("afternoon walk", Habits.parse("afternoon walk daily", morning)!!.name)
+    }
+
+    @Test
+    fun phraseRoundTripsAndEditKeepsTheId() {
+        val draft = Habits.parse("daily at noon Vitamin D", morning)!!
+        val again = Habits.parse(Habits.phrase(draft), morning)!!
+        assertEquals(draft.name, again.name)
+        assertEquals(draft.kind, again.kind)
+        assertEquals(draft.times, again.times)
+
+        val saved = habit(draft, id = "d", createdAt = morning)
+        val edited = Habits.applyEdit(saved, Habits.parse("Vitamin D daily at 9pm", morning)!!, morning + 5)
+        assertEquals("d", edited.id)
+        assertEquals(morning, edited.createdAt)
+        assertEquals(21 * 60, edited.times.single())
+        assertEquals(morning + 5, edited.updatedAt)
+        assertTrue(edited.enabled)
+    }
+
+    @Test
     fun openSlotIsTheCurrentWindowAndACheckClearsIt() {
         val meds = habit(Habits.parse("meds 7am and 7pm", morning)!!, createdAt = morning - 86_400_000L)
         val beforeSeven = Habits.dayStart(morning, zone) + 6 * 3_600_000L

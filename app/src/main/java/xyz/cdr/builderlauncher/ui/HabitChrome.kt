@@ -92,6 +92,7 @@ internal fun HabitsHost(
     onBack: () -> Unit,
     onToggle: (String, Long) -> Unit,
     onDelete: (String) -> Unit,
+    onEdit: (Habit) -> Unit,
     onValue: (String) -> Unit,
     onPick: (Char) -> Unit,
     onClearMode: () -> Unit,
@@ -112,6 +113,7 @@ internal fun HabitsHost(
             onBack = onBack,
             onToggle = onToggle,
             onDelete = onDelete,
+            onEdit = onEdit,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.height(8.dp))
@@ -203,6 +205,7 @@ internal fun HabitScreen(
     onBack: () -> Unit,
     onToggle: (String, Long) -> Unit,
     onDelete: (String) -> Unit,
+    onEdit: (Habit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val starts = Habits.recentDayStarts(now, zone = zone)
@@ -238,6 +241,7 @@ internal fun HabitScreen(
                             checked = slot != null && Habits.done(marks, habit.id, slot),
                             onToggle = { if (slot != null) onToggle(habit.id, slot) },
                             onDelete = { onDelete(habit.id) },
+                            onEdit = { onEdit(habit) },
                             last = index == habits.lastIndex,
                         )
                     }
@@ -296,6 +300,7 @@ internal fun HabitLine(
     checked: Boolean,
     onToggle: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
     last: Boolean = false,
 ) {
     Row(
@@ -309,7 +314,13 @@ internal fun HabitLine(
                 .clickable { onToggle() }
                 .padding(end = 12.dp, top = 6.dp, bottom = 6.dp),
         )
-        Column(Modifier.weight(1f).clickable { onToggle() }.padding(vertical = 6.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .clickable { if (onEdit != null) onEdit() else onToggle() }
+                .semantics { if (onEdit != null) contentDescription = "edit habit" }
+                .padding(vertical = 6.dp),
+        ) {
             Text(
                 habit.name,
                 color = if (checked) Dim else Paper,

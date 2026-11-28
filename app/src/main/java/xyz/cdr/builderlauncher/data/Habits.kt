@@ -62,13 +62,15 @@ object Habits {
     const val TITLE = "habits"
     const val MORE = "… more habits >"
     const val EMPTY = "No habits yet."
-    const val HINT = "stretch daily · water every 4 hours · meds 7am and 7pm"
+    const val HINT = "stretch daily · daily at noon Vitamin D · water every 4 hours"
 
     private val INTERVAL = Regex("""(?i)\bevery\s+(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m)\b""")
-    private val CLOCK = Regex(
-        """(?i)(?<![A-Za-z0-9])(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b|(?<![A-Za-z0-9])([01]?\d|2[0-3]):([0-5]\d)\b""",
-    )
-    private val FILLER = Regex("""(?i)\b(?:starting at|starts at|from|at|and|daily)\b|[,]+""")
+    private val NAMED = Regex("""(?i)(?<![A-Za-z0-9])(noon|midday|midnight)\b""")
+    private val AMPM = Regex("""(?i)(?<![A-Za-z0-9])(\d{1,2})(?::([0-5]\d))?\s*(am|pm|a|p)\b""")
+    private val COLON = Regex("""(?<![A-Za-z0-9])([01]?\d|2[0-3]):([0-5]\d)\b""")
+    private val COMPACT = Regex("""(?<![A-Za-z0-9])(\d{3,4})\b""")
+    private val DAILY_WORD = Regex("""(?i)\b(?:daily|every\s+day|everyday)\b""")
+    private val FILLER = Regex("""(?i)\b(?:starting at|starts at|from|at|and|daily|every\s+day|everyday)\b|[,]+""")
 
     fun parse(raw: String, now: Long = System.currentTimeMillis()): HabitDraft? {
         val text = raw.trim().replace(Regex("""\s+"""), " ")
@@ -79,24 +81,51 @@ object Habits {
             val unit = interval.groupValues[2].lowercase()
             val minutes = if (unit.startsWith("h")) count * 60 else count
             if (minutes <= 0 || minutes > DAY_MINUTES || DAY_MINUTES % minutes != 0) return null
-            val start = clockAfter(text, interval.range.last) ?: DEFAULT_MINUTE
+            val start = clockHits(text).firstOrNull { it.range.first > interval.range.last }?.minute ?: DEFAULT_MINUTE
             val name = cleanName(text.removeRange(interval.range))
             if (name.isEmpty()) return null
             return HabitDraft(name, HabitKind.INTERVAL, minutes, listOf(start))
         }
-        val times = clocks(text)
+        val times = clockHits(text).map { it.minute }
         if (times.size >= 2) {
             val name = cleanName(text)
             if (name.isEmpty()) return null
             return HabitDraft(name, HabitKind.TIMES, 0, times.distinct().sorted())
         }
-        if (Regex("""(?i)\bdaily\b""").containsMatchIn(text)) {
+        if (DAILY_WORD.containsMatchIn(text) || times.size == 1) {
             val name = cleanName(text)
             if (name.isEmpty()) return null
             return HabitDraft(name, HabitKind.DAILY, 0, listOf(times.singleOrNull() ?: DEFAULT_MINUTE))
         }
         return null
     }
+
+    fun phrase(draft: HabitDraft): String = when (draft.kind) {
+        HabitKind.DAILY -> {
+            val minute = draft.times.firstOrNull() ?: DEFAULT_MINUTE
+            if (minute == DEFAULT_MINUTE) "${draft.name} daily" else "${draft.name} daily at ${formatMinute(minute)}"
+        }
+        HabitKind.INTERVAL -> {
+            val every = if (draft.everyMinutes % 60 == 0) {
+                "every ${draft.everyMinutes / 60} hours"
+            } else {
+                "every ${draft.everyMinutes} minutes"
+            }
+            val start = draft.times.firstOrNull() ?: DEFAULT_MINUTE
+            if (start == DEFAULT_MINUTE) "${draft.name} $every" else "${draft.name} $every starting at ${formatMinute(start)}"
+        }
+        HabitKind.TIMES -> "${draft.name} ${draft.times.joinToString(" and ") { formatMinute(it) }}"
+    }
+
+    fun phrase(habit: Habit): String = phrase(HabitDraft(habit.name, habit.kind, habit.everyMinutes, habit.times))
+
+    fun applyEdit(habit: Habit, draft: HabitDraft, now: Long): Habit = habit.copy(
+        name = draft.name,
+        kind = draft.kind,
+        everyMinutes = draft.everyMinutes,
+        times = draft.times,
+        updatedAt = now,
+    )
 
     fun dayStart(epoch: Long, zone: ZoneId): Long =
         Instant.ofEpochMilli(epoch).atZone(zone).toLocalDate().atStartOfDay(zone).toInstant().toEpochMilli()
@@ -260,27 +289,54 @@ object Habits {
     private fun minutesOn(minutes: List<Int>, dayStart: Long): List<Long> =
         minutes.map { dayStart + it * 60_000L }
 
-    private fun clocks(text: String): List<Int> =
-        CLOCK.findAll(text).mapNotNull { minuteOf(it) }.toList()
+    private data class ClockHit(val minute: Int, val range: IntRange)
 
-    private fun clockAfter(text: String, index: Int): Int? =
-        CLOCK.find(text, index + 1)?.let { minuteOf(it) }
-
-    private fun minuteOf(match: MatchResult): Int? {
-        if (match.groupValues[1].isNotEmpty()) {
-            var hour = match.groupValues[1].toInt()
-            val minute = match.groupValues[2].toIntOrNull() ?: 0
-            if (hour !in 1..12 || minute !in 0..59) return null
-            if (hour == 12) hour = 0
-            if (match.groupValues[3].equals("pm", ignoreCase = true)) hour += 12
-            return hour * 60 + minute
+    private fun clockHits(text: String): List<ClockHit> {
+        val found = mutableListOf<ClockHit>()
+        NAMED.findAll(text).forEach { match ->
+            val minute = if (match.groupValues[1].equals("midnight", ignoreCase = true)) 0 else 12 * 60
+            found += ClockHit(minute, match.range)
         }
-        val hour = match.groupValues[4].toIntOrNull() ?: return null
-        val minute = match.groupValues[5].toIntOrNull() ?: return null
+        AMPM.findAll(text).forEach { match ->
+            ampmMinute(match)?.let { found += ClockHit(it, match.range) }
+        }
+        COLON.findAll(text).forEach { match ->
+            val hour = match.groupValues[1].toInt()
+            val minute = match.groupValues[2].toInt()
+            if (hour in 0..23 && minute in 0..59) found += ClockHit(hour * 60 + minute, match.range)
+        }
+        COMPACT.findAll(text).forEach { match ->
+            compactMinute(match.value)?.let { found += ClockHit(it, match.range) }
+        }
+        return found
+            .sortedWith(compareBy<ClockHit> { it.range.first }.thenByDescending { it.range.last })
+            .fold(mutableListOf()) { kept, hit ->
+                if (kept.none { it.range.first <= hit.range.last && hit.range.first <= it.range.last }) kept += hit
+                kept
+            }
+    }
+
+    private fun ampmMinute(match: MatchResult): Int? {
+        var hour = match.groupValues[1].toIntOrNull() ?: return null
+        val minute = match.groupValues[2].toIntOrNull() ?: 0
+        if (hour !in 1..12 || minute !in 0..59) return null
+        if (hour == 12) hour = 0
+        if (match.groupValues[3].startsWith("p", ignoreCase = true)) hour += 12
+        return hour * 60 + minute
+    }
+
+    private fun compactMinute(raw: String): Int? {
+        val hour = if (raw.length == 3) raw.take(1).toInt() else raw.take(2).toInt()
+        val minute = raw.takeLast(2).toInt()
         if (hour !in 0..23 || minute !in 0..59) return null
         return hour * 60 + minute
     }
 
-    private fun cleanName(raw: String): String =
-        raw.replace(CLOCK, " ").replace(FILLER, " ").replace(Regex("""\s+"""), " ").trim()
+    private fun cleanName(raw: String): String {
+        var text = raw
+        clockHits(text).sortedByDescending { it.range.first }.forEach { hit ->
+            text = text.removeRange(hit.range)
+        }
+        return text.replace(FILLER, " ").replace(Regex("""\s+"""), " ").trim()
+    }
 }

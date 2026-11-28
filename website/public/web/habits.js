@@ -2,7 +2,7 @@ export const DEFAULT_MINUTE = 8 * 60;
 export const DAY_MINUTES = 24 * 60;
 export const PREVIEW = 3;
 export const GRAPH_DAYS = 14;
-export const HINT = 'stretch daily · water every 4 hours · meds 7am and 7pm';
+export const HINT = 'stretch daily · daily at noon Vitamin D · water every 4 hours';
 export const HABIT_SOUNDS = ['PULSE', 'CHIME', 'BELL', 'ORTHODOX', 'HUM', 'OFF'];
 
 export function habitRemindersOn(settings) {
@@ -15,8 +15,12 @@ export function habitSoundName(settings) {
 }
 
 const INTERVAL = /\bevery\s+(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m)\b/i;
-const CLOCK = /(?<![A-Za-z0-9])(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b|(?<![A-Za-z0-9])([01]?\d|2[0-3]):([0-5]\d)\b/gi;
-const FILLER = /\b(?:starting at|starts at|from|at|and|daily)\b|[,]+/gi;
+const NAMED = /(?<![A-Za-z0-9])(noon|midday|midnight)\b/gi;
+const AMPM = /(?<![A-Za-z0-9])(\d{1,2})(?::([0-5]\d))?\s*(am|pm|a|p)\b/gi;
+const COLON = /(?<![A-Za-z0-9])([01]?\d|2[0-3]):([0-5]\d)\b/g;
+const COMPACT = /(?<![A-Za-z0-9])(\d{3,4})\b/g;
+const DAILY_WORD = /\b(?:daily|every\s+day|everyday)\b/i;
+const FILLER = /\b(?:starting at|starts at|from|at|and|daily|every\s+day|everyday)\b|[,]+/gi;
 
 export function parseHabit(raw) {
 	const text = String(raw || '').trim().replace(/\s+/g, ' ');
@@ -27,23 +31,48 @@ export function parseHabit(raw) {
 		const minutes = interval[2].toLowerCase().startsWith('h') ? count * 60 : count;
 		if (!minutes || minutes > DAY_MINUTES || DAY_MINUTES % minutes !== 0) return null;
 		const after = text.slice(interval.index + interval[0].length);
-		const start = clocks(after)[0] ?? DEFAULT_MINUTE;
+		const start = clockHits(after)[0]?.minute ?? DEFAULT_MINUTE;
 		const name = cleanName(text.slice(0, interval.index) + text.slice(interval.index + interval[0].length));
 		if (!name) return null;
 		return { name, kind: 'interval', everyMinutes: minutes, times: [start] };
 	}
-	const times = clocks(text);
+	const times = clockHits(text).map((hit) => hit.minute);
 	if (times.length >= 2) {
 		const name = cleanName(text);
 		if (!name) return null;
 		return { name, kind: 'times', everyMinutes: 0, times: [...new Set(times)].sort((a, b) => a - b) };
 	}
-	if (/\bdaily\b/i.test(text)) {
+	if (DAILY_WORD.test(text) || times.length === 1) {
 		const name = cleanName(text);
 		if (!name) return null;
 		return { name, kind: 'daily', everyMinutes: 0, times: [times[0] ?? DEFAULT_MINUTE] };
 	}
 	return null;
+}
+
+export function phrase(draft) {
+	if (!draft) return '';
+	if (draft.kind === 'daily') {
+		const minute = (draft.times && draft.times[0]) || DEFAULT_MINUTE;
+		return minute === DEFAULT_MINUTE ? `${draft.name} daily` : `${draft.name} daily at ${formatMinute(minute)}`;
+	}
+	if (draft.kind === 'interval') {
+		const every = draft.everyMinutes % 60 === 0 ? `every ${draft.everyMinutes / 60} hours` : `every ${draft.everyMinutes} minutes`;
+		const start = (draft.times && draft.times[0]) || DEFAULT_MINUTE;
+		return start === DEFAULT_MINUTE ? `${draft.name} ${every}` : `${draft.name} ${every} starting at ${formatMinute(start)}`;
+	}
+	return `${draft.name} ${(draft.times || []).map(formatMinute).join(' and ')}`;
+}
+
+export function applyEdit(habit, draft, now) {
+	return {
+		...habit,
+		name: draft.name,
+		kind: draft.kind,
+		everyMinutes: draft.everyMinutes,
+		times: draft.times,
+		updatedAt: now,
+	};
 }
 
 export function zoneOf(zone) {
@@ -217,32 +246,53 @@ function intervalMinutes(habit) {
 	return minutes;
 }
 
-function clocks(text) {
+function clockHits(text) {
 	const found = [];
-	for (const match of String(text).matchAll(CLOCK)) {
-		const minute = minuteOf(match);
-		if (minute != null) found.push(minute);
+	const source = String(text);
+	for (const match of source.matchAll(NAMED)) {
+		found.push({ minute: match[1].toLowerCase() === 'midnight' ? 0 : 12 * 60, start: match.index, end: match.index + match[0].length });
 	}
-	return found;
+	for (const match of source.matchAll(AMPM)) {
+		const minute = ampmMinute(match);
+		if (minute != null) found.push({ minute, start: match.index, end: match.index + match[0].length });
+	}
+	for (const match of source.matchAll(COLON)) {
+		const hour = Number(match[1]);
+		const minute = Number(match[2]);
+		if (hour <= 23 && minute <= 59) found.push({ minute: hour * 60 + minute, start: match.index, end: match.index + match[0].length });
+	}
+	for (const match of source.matchAll(COMPACT)) {
+		const minute = compactMinute(match[1]);
+		if (minute != null) found.push({ minute, start: match.index, end: match.index + match[0].length });
+	}
+	found.sort((a, b) => a.start - b.start || b.end - a.end);
+	const kept = [];
+	for (const hit of found) {
+		if (!kept.some((prev) => prev.start <= hit.end - 1 && hit.start <= prev.end - 1)) kept.push(hit);
+	}
+	return kept;
 }
 
-function minuteOf(match) {
-	if (match[1]) {
-		let hour = Number(match[1]);
-		const minute = match[2] ? Number(match[2]) : 0;
-		if (hour < 1 || hour > 12 || minute > 59) return null;
-		if (hour === 12) hour = 0;
-		if (String(match[3]).toLowerCase() === 'pm') hour += 12;
-		return hour * 60 + minute;
-	}
-	const hour = Number(match[4]);
-	const minute = Number(match[5]);
+function ampmMinute(match) {
+	let hour = Number(match[1]);
+	const minute = match[2] ? Number(match[2]) : 0;
+	if (hour < 1 || hour > 12 || minute > 59) return null;
+	if (hour === 12) hour = 0;
+	if (String(match[3]).toLowerCase().startsWith('p')) hour += 12;
+	return hour * 60 + minute;
+}
+
+function compactMinute(raw) {
+	const hour = raw.length === 3 ? Number(raw.slice(0, 1)) : Number(raw.slice(0, 2));
+	const minute = Number(raw.slice(-2));
 	if (hour > 23 || minute > 59) return null;
 	return hour * 60 + minute;
 }
 
 function cleanName(raw) {
-	return String(raw).replace(CLOCK, ' ').replace(FILLER, ' ').replace(/\s+/g, ' ').trim();
+	let text = String(raw);
+	for (const hit of [...clockHits(text)].reverse()) text = text.slice(0, hit.start) + text.slice(hit.end);
+	return text.replace(FILLER, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function partsOf(epoch, zone) {

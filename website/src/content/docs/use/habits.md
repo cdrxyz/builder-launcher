@@ -6,12 +6,15 @@ description: Track repeating habits, get a reminder, and check one off from home
 `/habits` opens the tracker. On that screen the command bar takes a name and a schedule:
 
 - `stretch daily`
+- `daily at noon Vitamin D`
 - `vitamins daily at 9am`
 - `water every 4 hours`
 - `water every 4 hours starting at 8am`
 - `meds 7am and 7pm`
 
-A daily habit is one check for the day. An interval or a list of times is one check for each slot. The gap has to divide the day, same as an alarm interval.
+A daily habit is one check for the day. An interval or a list of times is one check for each slot. The gap has to divide the day, same as an alarm interval. `noon`, `midday`, and `midnight` are clocks, and `9a` or `0730` are read the same way as an alarm.
+
+On the habits page, tap a name to edit it. The command bar fills with the schedule. Submit saves that habit. The check still marks the current slot. Delete is unchanged. On the desk, `edit` or `e` does the same.
 
 The phone reminds you when a slot is due, with a check action on the notification. On the habits page, reminders can be turned off, and the tone is the same list as the clock: pulse, chime, bell, orthodox, hum, or off. Tap a tone to hear it. The website and the desk use the same on/off and tone, and the choice syncs with the phone.
 

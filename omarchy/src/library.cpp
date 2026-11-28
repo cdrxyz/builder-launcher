@@ -1238,46 +1238,95 @@ constexpr int kDayMinutes = 24 * 60;
 
 namespace {
 
-int minuteOf(const QRegularExpressionMatch &match) {
-    if (!match.captured(1).isEmpty()) {
-        int hour = match.captured(1).toInt();
-        const int minute = match.captured(2).isEmpty() ? 0 : match.captured(2).toInt();
-        if (hour < 1 || hour > 12 || minute > 59)
-            return -1;
-        if (hour == 12)
-            hour = 0;
-        if (match.captured(3).compare(QLatin1String("pm"), Qt::CaseInsensitive) == 0)
-            hour += 12;
-        return hour * 60 + minute;
-    }
-    const int hour = match.captured(4).toInt();
-    const int minute = match.captured(5).toInt();
+struct ClockHit {
+    int minute = 0;
+    int start = 0;
+    int end = 0;
+};
+
+int ampmMinute(const QRegularExpressionMatch &match) {
+    int hour = match.captured(1).toInt();
+    const int minute = match.captured(2).isEmpty() ? 0 : match.captured(2).toInt();
+    if (hour < 1 || hour > 12 || minute > 59)
+        return -1;
+    if (hour == 12)
+        hour = 0;
+    if (match.captured(3).startsWith(QLatin1Char('p'), Qt::CaseInsensitive))
+        hour += 12;
+    return hour * 60 + minute;
+}
+
+int compactMinute(const QString &raw) {
+    const int hour = raw.size() == 3 ? raw.left(1).toInt() : raw.left(2).toInt();
+    const int minute = raw.right(2).toInt();
     if (hour > 23 || minute > 59)
         return -1;
     return hour * 60 + minute;
 }
 
-QVector<int> clocksIn(const QString &text) {
-    static const QRegularExpression clock(
-        QStringLiteral("(?<![A-Za-z0-9])(\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm)\\b|(?<![A-Za-z0-9])([01]?\\d|2[0-3]):([0-5]\\d)\\b"),
-        QRegularExpression::CaseInsensitiveOption);
-    QVector<int> found;
-    auto it = clock.globalMatch(text);
+void collect(QVector<ClockHit> &found, const QRegularExpression &re, const QString &text,
+             const std::function<int(const QRegularExpressionMatch &)> &minuteOf) {
+    auto it = re.globalMatch(text);
     while (it.hasNext()) {
-        const int minute = minuteOf(it.next());
+        const auto match = it.next();
+        const int minute = minuteOf(match);
         if (minute >= 0)
-            found.append(minute);
+            found.append({minute, static_cast<int>(match.capturedStart()), static_cast<int>(match.capturedEnd())});
     }
+}
+
+QVector<ClockHit> clockHits(const QString &text) {
+    QVector<ClockHit> found;
+    static const QRegularExpression named(QStringLiteral("(?<![A-Za-z0-9])(noon|midday|midnight)\\b"),
+                                           QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression ampm(QStringLiteral("(?<![A-Za-z0-9])(\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm|a|p)\\b"),
+                                          QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression colon(QStringLiteral("(?<![A-Za-z0-9])([01]?\\d|2[0-3]):([0-5]\\d)\\b"));
+    static const QRegularExpression compact(QStringLiteral("(?<![A-Za-z0-9])(\\d{3,4})\\b"));
+    collect(found, named, text, [](const QRegularExpressionMatch &match) {
+        return match.captured(1).compare(QStringLiteral("midnight"), Qt::CaseInsensitive) == 0 ? 0 : 12 * 60;
+    });
+    collect(found, ampm, text, [](const QRegularExpressionMatch &match) { return ampmMinute(match); });
+    collect(found, colon, text, [](const QRegularExpressionMatch &match) {
+        const int hour = match.captured(1).toInt();
+        const int minute = match.captured(2).toInt();
+        if (hour > 23 || minute > 59)
+            return -1;
+        return hour * 60 + minute;
+    });
+    collect(found, compact, text, [](const QRegularExpressionMatch &match) { return compactMinute(match.captured(1)); });
+    std::sort(found.begin(), found.end(), [](const ClockHit &a, const ClockHit &b) {
+        if (a.start != b.start)
+            return a.start < b.start;
+        return a.end > b.end;
+    });
+    QVector<ClockHit> kept;
+    for (const auto &hit : found) {
+        bool overlap = false;
+        for (const auto &prev : kept) {
+            if (prev.start <= hit.end - 1 && hit.start <= prev.end - 1)
+                overlap = true;
+        }
+        if (!overlap)
+            kept.append(hit);
+    }
+    return kept;
+}
+
+QVector<int> clocksIn(const QString &text) {
+    QVector<int> found;
+    for (const auto &hit : clockHits(text))
+        found.append(hit.minute);
     return found;
 }
 
 QString cleanHabitName(QString raw) {
-    static const QRegularExpression clock(
-        QStringLiteral("(?<![A-Za-z0-9])(\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm)\\b|(?<![A-Za-z0-9])([01]?\\d|2[0-3]):([0-5]\\d)\\b"),
-        QRegularExpression::CaseInsensitiveOption);
-    static const QRegularExpression filler(QStringLiteral("\\b(?:starting at|starts at|from|at|and|daily)\\b|[,]+"),
+    const auto hits = clockHits(raw);
+    for (int i = hits.size() - 1; i >= 0; --i)
+        raw.remove(hits.at(i).start, hits.at(i).end - hits.at(i).start);
+    static const QRegularExpression filler(QStringLiteral("\\b(?:starting at|starts at|from|at|and|daily|every\\s+day|everyday)\\b|[,]+"),
                                             QRegularExpression::CaseInsensitiveOption);
-    return raw.replace(clock, QStringLiteral(" ")).replace(filler, QStringLiteral(" ")).simplified();
+    return raw.replace(filler, QStringLiteral(" ")).simplified();
 }
 
 qint64 dayStartMs(qint64 epoch) {
@@ -1372,7 +1421,8 @@ QJsonObject parseHabit(const QString &raw) {
         draft.insert(QStringLiteral("times"), sorted);
         return draft;
     }
-    if (text.contains(QRegularExpression(QStringLiteral("\\bdaily\\b"), QRegularExpression::CaseInsensitiveOption))) {
+    if (text.contains(QRegularExpression(QStringLiteral("\\b(?:daily|every\\s+day|everyday)\\b"), QRegularExpression::CaseInsensitiveOption)) ||
+        times.size() == 1) {
         const QString name = cleanHabitName(text);
         if (name.isEmpty())
             return {};
@@ -1428,6 +1478,59 @@ bool habitDone(const QJsonObject &doc, const QString &habitId, qint64 slot) {
             return true;
     }
     return false;
+}
+
+QString habitMinuteLabel(int minute) {
+    const int h24 = minute / 60;
+    const int m = minute % 60;
+    const QString ap = h24 < 12 ? QStringLiteral("am") : QStringLiteral("pm");
+    const int h = h24 % 12 == 0 ? 12 : h24 % 12;
+    return m == 0 ? QStringLiteral("%1%2").arg(h).arg(ap)
+                  : QStringLiteral("%1:%2%3").arg(h).arg(m, 2, 10, QLatin1Char('0')).arg(ap);
+}
+
+QString habitPhrase(const QJsonObject &habit) {
+    const QString name = habit.value(QStringLiteral("name")).toString();
+    const QString kind = habit.value(QStringLiteral("kind")).toString();
+    const auto times = habit.value(QStringLiteral("times")).toArray();
+    const int minute = times.isEmpty() ? 8 * 60 : times.first().toInt();
+    if (kind == QLatin1String("daily"))
+        return minute == 8 * 60 ? QStringLiteral("%1 daily").arg(name)
+                                : QStringLiteral("%1 daily at %2").arg(name, habitMinuteLabel(minute));
+    if (kind == QLatin1String("interval")) {
+        const int every = habit.value(QStringLiteral("everyMinutes")).toInt();
+        const QString gap = every % 60 == 0 ? QStringLiteral("every %1 hours").arg(every / 60)
+                                             : QStringLiteral("every %1 minutes").arg(every);
+        return minute == 8 * 60 ? QStringLiteral("%1 %2").arg(name, gap)
+                                : QStringLiteral("%1 %2 starting at %3").arg(name, gap, habitMinuteLabel(minute));
+    }
+    QStringList labels;
+    for (const auto &value : times)
+        labels.append(habitMinuteLabel(value.toInt()));
+    return QStringLiteral("%1 %2").arg(name, labels.join(QStringLiteral(" and ")));
+}
+
+QJsonObject updateHabit(QJsonObject doc, const QString &id, const QJsonObject &draft, qint64 now) {
+    if (id.isEmpty() || draft.isEmpty())
+        return doc;
+    QJsonArray habits;
+    bool found = false;
+    for (const auto &value : doc.value(QStringLiteral("habits")).toArray()) {
+        auto habit = value.toObject();
+        if (habit.value(QStringLiteral("id")).toString() == id) {
+            found = true;
+            habit.insert(QStringLiteral("name"), draft.value(QStringLiteral("name")));
+            habit.insert(QStringLiteral("kind"), draft.value(QStringLiteral("kind")));
+            habit.insert(QStringLiteral("everyMinutes"), draft.value(QStringLiteral("everyMinutes")));
+            habit.insert(QStringLiteral("times"), draft.value(QStringLiteral("times")));
+            habit.insert(QStringLiteral("updatedAt"), now);
+        }
+        habits.append(habit);
+    }
+    if (!found)
+        return doc;
+    doc.insert(QStringLiteral("habits"), habits);
+    return touchExported(doc, now);
 }
 
 QJsonObject addHabit(QJsonObject doc, const QJsonObject &draft, qint64 now) {

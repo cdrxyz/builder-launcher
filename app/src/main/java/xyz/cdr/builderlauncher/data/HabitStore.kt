@@ -46,6 +46,15 @@ class HabitStore internal constructor(
         return habit
     }
 
+    fun update(id: String, draft: HabitDraft, now: Long = System.currentTimeMillis()) {
+        val snap = _state.value
+        val next = snap.habits.map { habit ->
+            if (habit.id == id) Habits.applyEdit(habit, draft, now) else habit
+        }
+        if (next == snap.habits) return
+        persist(snap.copy(habits = next))
+    }
+
     fun remove(id: String) {
         val snap = _state.value
         persist(

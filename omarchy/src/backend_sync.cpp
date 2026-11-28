@@ -292,10 +292,15 @@ void Backend::submit() {
     if (m_prompt == QLatin1String("-") && m_page == QLatin1String("habits")) {
         const auto draft = parseHabit(text);
         if (draft.isEmpty()) {
-            setStatus(tr("stretch daily · water every 4 hours · meds 7am and 7pm"));
+            setStatus(tr("stretch daily · daily at noon Vitamin D · water every 4 hours"));
             return;
         }
-        mutate(addHabit(m_doc, draft, QDateTime::currentMSecsSinceEpoch()));
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (m_editingHabitId.isEmpty())
+            mutate(addHabit(m_doc, draft, now));
+        else
+            mutate(updateHabit(m_doc, m_editingHabitId, draft, now));
+        m_editingHabitId.clear();
         m_draft.clear();
         return;
     }
@@ -418,6 +423,19 @@ void Backend::redo() {
     saveVault();
     rebuild();
     scheduleSync({});
+}
+
+void Backend::editSelection() {
+    const QString id = selectedId();
+    if (id.isEmpty() || m_page != QLatin1String("habits"))
+        return;
+    const auto habit = findById(m_doc.value(QStringLiteral("habits")).toArray(), id);
+    if (habit.isEmpty())
+        return;
+    m_editingHabitId = id;
+    m_prompt = QStringLiteral("-");
+    m_draft = habitPhrase(habit);
+    emit changed();
 }
 
 void Backend::toggleSelection() {
