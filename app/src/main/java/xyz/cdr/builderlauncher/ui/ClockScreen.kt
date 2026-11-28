@@ -174,10 +174,12 @@ private fun TimerPane(
                 Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
+                Column(Modifier.weight(1f)) {
                     Text(
                         display,
                         color = Paper,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontSize = if (rows.size == 1) 56.sp else 36.sp,
                             fontWeight = FontWeight.Medium,
@@ -185,24 +187,25 @@ private fun TimerPane(
                         ),
                     )
                     if (timer.label.isNotBlank()) {
-                        Text(timer.label, color = Dim, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TimerAction(
-                            label = if (timer.running) "pause" else "start",
-                            color = Accent,
-                            onClick = { onStartPause(timer.id) },
-                        )
-                        TimerAction(
-                            label = "reset",
+                        Text(
+                            timer.label,
                             color = Dim,
-                            onClick = { onReset(timer.id) },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
+                TimerAction(
+                    label = if (timer.running) "pause" else "start",
+                    color = Accent,
+                    onClick = { onStartPause(timer.id) },
+                )
+                TimerAction(
+                    label = "reset",
+                    color = Dim,
+                    onClick = { onReset(timer.id) },
+                )
                 if (rows.size > 1 || timer.label.isNotBlank()) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -242,12 +245,13 @@ private fun TimerAction(
     onClick: () -> Unit,
 ) {
     Box(
-        contentAlignment = Alignment.CenterStart,
+        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .defaultMinSize(minWidth = CommandTouch, minHeight = CommandTouch)
-            .clickable(onClick = onClick),
+            .defaultMinSize(minWidth = 72.dp, minHeight = 56.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
     ) {
-        Text(label, color = color)
+        Text(label, color = color, style = MaterialTheme.typography.titleLarge)
     }
 }
 
